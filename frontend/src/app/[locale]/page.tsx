@@ -5,8 +5,18 @@
 
 import Link from 'next/link';
 import { getCategories, getTrendingItems } from '@/lib/api';
-import { LayoutGrid, ShoppingBag, Sparkles } from 'lucide-react';
+import { 
+    LayoutGrid, 
+    ShoppingBag, 
+    Sparkles, 
+    ShieldCheck, 
+    Plane, 
+    Car, 
+    GraduationCap, 
+    Music 
+} from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
+import DynamicSlogan from '@/components/DynamicSlogan';
 import { getDictionary } from '@/lib/get-dictionary';
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
@@ -14,6 +24,16 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     const dict = await getDictionary(locale);
     const categories = await getCategories();
     const trendingItems = await getTrendingItems();
+
+    const categoryIcons: Record<string, React.ReactNode> = {
+        finance_insurance: <ShieldCheck size={32} />,
+        consumerism: <ShoppingBag size={32} />,
+        tourism_vacation: <Plane size={32} />,
+        auto_real_estate: <Car size={32} />,
+        learning_enrichment: <GraduationCap size={32} />,
+        leisure_culture: <Music size={32} />,
+        default: <LayoutGrid size={32} />
+    };
 
     const t = {
         he: { recommended: "מומלץ עבורך", newsletter_t: "אל תפספס שום הטבה", newsletter_s: "הצטרף ל-15,000 חברים בקהילה וקבל את כל העדכונים ישירות לנייד.", phone_p: "הכנס טלפון או מייל", join_btn: "אני רוצה להצטרף" },
@@ -32,13 +52,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 </div>
 
                 <div className="max-w-5xl mx-auto text-center relative z-10">
-                    <div className="inline-flex items-center gap-2 bg-blue-400/20 text-blue-200 px-4 py-2 rounded-full text-sm font-bold mb-8 backdrop-blur-sm border border-white/10">
+                    <div className="inline-flex items-center gap-2 bg-blue-400/20 text-blue-200 px-4 py-2 rounded-full text-sm font-bold mb-8 backdrop-blur-sm border border-white/10 animate-float">
                         <Sparkles size={16} />
                         <span>{dict.hero.badge}</span>
                     </div>
                     <h1 className="text-5xl md:text-7xl font-black text-white mb-8 leading-[1.1]">
                         {dict.hero.title_main} <br />
-                        <span className="text-[#f59e0b]">{dict.hero.title_sub}</span>
+                        <DynamicSlogan locale={locale} initialSlogan={dict.hero.title_sub} />
                     </h1>
                     <p className="text-xl md:text-2xl text-blue-100 font-light max-w-3xl mx-auto leading-relaxed mb-12">
                         {dict.hero.description}
@@ -57,10 +77,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                         <Link
                             key={cat.id}
                             href={`/${locale}/categories/${cat.slug}`}
-                            className="takhles-card p-8 text-center group flex flex-col items-center gap-4 border-b-4 border-transparent hover:border-[#1e3a8a]"
+                            className="takhles-card p-8 text-center group flex flex-col items-center gap-4 border-b-4 border-transparent hover:border-[#1e3a8a] animate-fade-in-up"
                         >
                             <div className="w-16 h-16 bg-slate-50 text-[#1e3a8a] rounded-2xl flex items-center justify-center group-hover:bg-[#1e3a8a] group-hover:text-white transition-all duration-500 shadow-inner">
-                                <LayoutGrid size={32} />
+                                {categoryIcons[cat.slug] || categoryIcons.default}
                             </div>
                             <span className="font-bold text-slate-800 text-lg">
                                 {cat[`name_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || cat.name_he}
@@ -77,8 +97,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-10">
-                    {trendingItems.map((item: any) => (
-                        <ItemCard key={item.id} item={item} locale={locale} />
+                    {trendingItems.map((item: any, index: number) => (
+                        <div key={item.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 100}ms`, opacity: 0 }}>
+                            <ItemCard item={item} locale={locale} />
+                        </div>
                     ))}
                 </div>
             </section>

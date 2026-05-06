@@ -57,15 +57,16 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
     return (
         <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group text-start">
             {/* Image Section - Optimized with Next/Image */}
-            <div className="h-48 w-full bg-slate-100 relative overflow-hidden">
+            <div className="h-48 w-full bg-slate-100 relative overflow-hidden group">
                 <Image
                     src={imagePath}
                     alt={title}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="object-cover group-hover:scale-110 transition-transform duration-700"
                     priority={item.id < 4} // Priority load for first row
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 {item.category && (
                     <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-slate-700 uppercase">
                         {item.category}
@@ -94,7 +95,7 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
                     </div>
                     <Link
                         href={`/${locale}/items/${item.id}`}
-                        className="bg-slate-900 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-[#1e3a8a] active:scale-95 transition-all shadow-md"
+                        className="btn-primary !text-sm !py-2.5 !px-5"
                     >
                         {translations.details}
                     </Link>
