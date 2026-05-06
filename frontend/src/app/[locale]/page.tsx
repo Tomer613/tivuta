@@ -7,13 +7,19 @@ import Link from 'next/link';
 import { getCategories, getTrendingItems } from '@/lib/api';
 import { 
     LayoutGrid, 
-    ShoppingBag, 
     Sparkles, 
-    ShieldCheck, 
-    Plane, 
-    Car, 
-    GraduationCap, 
-    Music 
+    ScrollText,
+    Utensils,
+    Shirt,
+    ShoppingBasket,
+    Palmtree,
+    Smartphone,
+    HeartPulse,
+    PartyPopper,
+    Home,
+    Users,
+    Landmark,
+    Hammer
 } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
 import DynamicSlogan from '@/components/DynamicSlogan';
@@ -26,14 +32,21 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     const trendingItems = await getTrendingItems();
 
     const categoryIcons: Record<string, React.ReactNode> = {
-        finance_insurance: <ShieldCheck size={32} />,
-        consumerism: <ShoppingBag size={32} />,
-        tourism_vacation: <Plane size={32} />,
-        auto_real_estate: <Car size={32} />,
-        learning_enrichment: <GraduationCap size={32} />,
-        leisure_culture: <Music size={32} />,
+        judaism: <ScrollText size={32} />,
+        dining: <Utensils size={32} />,
+        fashion: <Shirt size={32} />,
+        groceries: <ShoppingBasket size={32} />,
+        travel_attractions: <Palmtree size={32} />,
+        electronics: <Smartphone size={32} />,
+        health_beauty: <HeartPulse size={32} />,
+        events: <PartyPopper size={32} />,
+        real_estate_auto: <Home size={32} />,
+        family: <Users size={32} />,
+        finance: <Landmark size={32} />,
+        home_renovation: <Hammer size={32} />,
         default: <LayoutGrid size={32} />
     };
+
 
     const t = {
         he: { recommended: "מומלץ עבורך", newsletter_t: "אל תפספס שום הטבה", newsletter_s: "הצטרף ל-15,000 חברים בקהילה וקבל את כל העדכונים ישירות לנייד.", phone_p: "הכנס טלפון או מייל", join_btn: "אני רוצה להצטרף" },

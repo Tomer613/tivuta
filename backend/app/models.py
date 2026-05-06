@@ -5,27 +5,35 @@ from .database import Base
 
 class Category(Base):
     """
-    Represents high-level content groups (e.g., Leisure, Finance, Real Estate).
+    Represents high-level content groups (e.g., Judaism, Dining, Finance).
     """
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, index=True)
-    name_he = Column(String(100), nullable=False) # Hebrew display name
-    slug = Column(String(100), unique=True, index=True) # URL-friendly name
+    name_he = Column(String(100), nullable=False)
+    name_en = Column(String(100), nullable=True)
+    name_fr = Column(String(100), nullable=True)
+    name_yi = Column(String(100), nullable=True)
+    slug = Column(String(100), unique=True, index=True)
+    icon_name = Column(String(50), nullable=True) # Lucide icon name
     is_active = Column(Boolean, default=True)
 
     # Relationships
-    sub_categories = relationship("SubCategory", back_populates="category")
+    sub_categories = relationship("SubCategory", back_populates="category", cascade="all, delete-orphan")
 
 class SubCategory(Base):
     """
-    Specific niches within a category (e.g., 'Shows' under 'Leisure').
+    Specific niches within a category (e.g., 'Judaica' under 'Judaism').
     """
     __tablename__ = "sub_categories"
 
     id = Column(Integer, primary_key=True, index=True)
     category_id = Column(Integer, ForeignKey("categories.id"))
     name_he = Column(String(100), nullable=False)
+    name_en = Column(String(100), nullable=True)
+    name_fr = Column(String(100), nullable=True)
+    name_yi = Column(String(100), nullable=True)
+    slug = Column(String(100), index=True)
     
     # Relationships
     category = relationship("Category", back_populates="sub_categories")
@@ -39,10 +47,22 @@ class Item(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     sub_category_id = Column(Integer, ForeignKey("sub_categories.id"))
-    title = Column(String(255), nullable=False)
-    description = Column(Text)
+    
+    # Multilingual Titles
+    title_he = Column(String(255), nullable=False)
+    title_en = Column(String(255), nullable=True)
+    title_fr = Column(String(255), nullable=True)
+    title_yi = Column(String(255), nullable=True)
+
+    # Multilingual Descriptions
+    description_he = Column(Text, nullable=False)
+    description_en = Column(Text, nullable=True)
+    description_fr = Column(Text, nullable=True)
+    description_yi = Column(Text, nullable=True)
+
+    # Assets & Pricing
+    image_url = Column(String(255), nullable=True) 
     price = Column(Float, nullable=True)
-    image_url = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
