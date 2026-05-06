@@ -1,0 +1,26 @@
+{
+    "common": {
+        "home": "Accueil",
+        "benefits": "Avantages",
+        "about": "À propos",
+        "contact": "Contact",
+        "personal_area": "Espace Client",
+        "join_now": "Rejoindre",
+        "why_tivuta": "Pourquoi TIVUTA?",
+        "search_placeholder": "Rechercher...",
+        "copyright": "Tous droits réservés à TIVUTA"
+    },
+    "hero": {
+        "badge": "La Nouvelle Maison de la Communauté Harédi",
+        "title_main": "TIVUTA.",
+        "title_sub": "Le Soutien qu'il vous faut.",
+        "description": "Consommation intelligente, solutions financières avancées et loisirs de qualité – tout accessible pour vous, sans compromis."
+    },
+    "footer": {
+        "quick_links": "Liens Rapides",
+        "contact_us": "Contactez-nous",
+        "service_center": "Centre de Service Membres",
+        "service_desc": "Disponible pour toute question concernant l'utilisation des avantages.",
+        "open_ticket": "Ouvrir un ticket"
+    }
+}

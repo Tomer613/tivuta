@@ -1,20 +1,14 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-# Base schema for Sub-Category
-class SubCategoryBase(BaseModel):
-    id: int
-    name_he: str
-
-    class Config:
-        from_attributes = True
-
-# Schema for Category including its sub-categories
+# Schema for Categories
 class CategorySchema(BaseModel):
     id: int
     name_he: str
+    name_en: str
+    name_fr: str
+    name_yi: str
     slug: str
-    sub_categories: List[SubCategoryBase] = []
 
     class Config:
         from_attributes = True
@@ -22,10 +16,16 @@ class CategorySchema(BaseModel):
 # Schema for Items (Benefits/Services)
 class ItemSchema(BaseModel):
     id: int
-    title: str
-    description: Optional[str] = None
+    title_he: str
+    title_en: str
+    title_fr: str
+    title_yi: str
+    description_he: Optional[str] = None
+    description_en: Optional[str] = None
+    description_fr: Optional[str] = None
+    description_yi: Optional[str] = None
     price: Optional[float] = None
-    cat_id_new: Optional[int] = None # Renamed to force cache bypass
+    cat_id_new: Optional[int] = None
     is_active: bool
 
     class Config:

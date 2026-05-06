@@ -1,0 +1,26 @@
+{
+    "common": {
+        "home": "Home",
+        "benefits": "Benefits",
+        "about": "About",
+        "contact": "Contact",
+        "personal_area": "Account",
+        "join_now": "Join Now",
+        "why_tivuta": "Why TIVUTA?",
+        "search_placeholder": "Search benefits...",
+        "copyright": "All rights reserved to TIVUTA"
+    },
+    "hero": {
+        "badge": "The New Home for the Haredi Community",
+        "title_main": "TIVUTA.",
+        "title_sub": "The Support You Need.",
+        "description": "Smart consumerism, advanced financial solutions, and quality leisure – all accessible exactly for you, without compromise."
+    },
+    "footer": {
+        "quick_links": "Quick Links",
+        "contact_us": "Contact Us",
+        "service_center": "Member Service Center",
+        "service_desc": "Available for any questions regarding benefit redemption.",
+        "open_ticket": "Open Support Ticket"
+    }
+}

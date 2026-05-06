@@ -19,7 +19,6 @@ body {
     color: var(--slate-800);
     background-color: var(--slate-50);
     font-family: 'Inter', 'Heebo', system-ui, -apple-system, sans-serif;
-    direction: rtl;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
