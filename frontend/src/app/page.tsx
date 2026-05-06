@@ -34,8 +34,8 @@ export default async function HomePage() {
                         צרכנות נבונה, פתרונות פיננסיים מתקדמים ותרבות פנאי איכותית – הכל מונגש בדיוק עבורך, בלי פשרות.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button className="btn-primary !bg-[#f59e0b] !text-slate-900 !px-10 !py-4 text-xl">הצטרף עכשיו</button>
-                        <button className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-white/10 !px-10 !py-4 text-xl">למה טיבותא?</button>
+                        <Link href="/join" className="btn-primary !bg-[#f59e0b] !text-slate-900 !px-10 !py-4 text-xl">הצטרף עכשיו</Link>
+                        <Link href="/why-tivuta" className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-white/10 !px-10 !py-4 text-xl">למה טיבותא?</Link>
                     </div>
                 </div>
             </section>

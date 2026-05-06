@@ -25,6 +25,7 @@ class ItemSchema(BaseModel):
     title: str
     description: Optional[str] = None
     price: Optional[float] = None
+    cat_id_new: Optional[int] = None # Renamed to force cache bypass
     is_active: bool
 
     class Config:

@@ -13,9 +13,9 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
     const allItems = await getTrendingItems();
 
     const category = categories.find((c: any) => c.slug === slug);
-    
-    // For demo purposes, we filter items that might belong to this category
-    const items = allItems.filter((item: any) => item.category_slug === slug || true);
+
+    // Strict filtering logic based on the forced-sync ID
+    const items = allItems.filter((item: any) => item.cat_id_new === category?.id);
 
     if (!category) return <div className="p-20 text-center font-black text-2xl">קטגוריה לא נמצאה</div>;
 
