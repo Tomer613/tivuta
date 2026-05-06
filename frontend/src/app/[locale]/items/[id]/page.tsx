@@ -46,10 +46,18 @@ export default async function ItemPage({
                     <div className="bg-slate-50 p-16 flex flex-col justify-center items-center border-e border-slate-100 relative overflow-hidden">
                         <div className="absolute top-0 end-0 w-80 h-80 bg-blue-100/50 rounded-full blur-3xl -me-40 -mt-40"></div>
                         
-                        <div className="relative z-10 w-full max-w-sm aspect-square bg-white rounded-[3.5rem] shadow-xl flex items-center justify-center border border-slate-100 group">
-                            <div className="text-slate-200 group-hover:scale-110 transition-transform duration-1000">
-                                <ShieldCheck size={180} strokeWidth={0.3} />
-                            </div>
+                        <div className="relative z-10 w-full max-w-sm aspect-square bg-white rounded-[3.5rem] shadow-xl flex items-center justify-center border border-slate-100 group overflow-hidden">
+                            {item.image_url ? (
+                                <img 
+                                    src={`/images/items/${item.image_url}`} 
+                                    alt={title} 
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                                />
+                            ) : (
+                                <div className="text-slate-200 group-hover:scale-110 transition-transform duration-1000">
+                                    <ShieldCheck size={180} strokeWidth={0.3} />
+                                </div>
+                            )}
                             <div className="absolute bottom-10 bg-[#1e3a8a] text-white px-8 py-3 rounded-full text-xs font-black tracking-widest uppercase shadow-2xl">
                                 Verified Service
                             </div>

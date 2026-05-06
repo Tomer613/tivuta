@@ -42,6 +42,7 @@ class Item(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text)
     price = Column(Float, nullable=True)
+    image_url = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

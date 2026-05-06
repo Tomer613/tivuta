@@ -26,6 +26,7 @@ class ItemSchema(BaseModel):
     description_yi: Optional[str] = None
     price: Optional[float] = None
     cat_id_new: Optional[int] = None
+    image_url: Optional[str] = None
     is_active: bool
 
     class Config:
