@@ -55,20 +55,23 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
     }[locale];
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group text-start">
+        <Link 
+            href={`/${locale}/items/${item.id}`}
+            className="flex flex-col h-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group text-start relative"
+        >
             {/* Image Section - Optimized with Next/Image */}
-            <div className="h-48 w-full bg-slate-100 relative overflow-hidden group">
+            <div className="h-48 w-full bg-slate-100 relative overflow-hidden">
                 <Image
                     src={imagePath}
                     alt={title}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover group-hover:scale-110 transition-transform duration-700"
-                    priority={item.id < 4} // Priority load for first row
+                    className="object-cover group-hover:scale-110 transition-transform duration-1000"
+                    priority={item.id < 4}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 {item.category && (
-                    <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-slate-700 uppercase">
+                    <span className="absolute top-3 start-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-slate-700 uppercase z-10">
                         {item.category}
                     </span>
                 )}
@@ -79,7 +82,7 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
                 <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#1e3a8a] transition-colors line-clamp-1 w-full">
                     {title}
                 </h3>
-                <p className="text-slate-500 text-sm line-clamp-2 mb-6 leading-relaxed w-full">
+                <p className="text-slate-500 text-sm line-clamp-2 mb-6 leading-relaxed w-full font-light">
                     {description}
                 </p>
 
@@ -93,14 +96,11 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
                             {item.price ? `₪${item.price}` : translations.free}
                         </span>
                     </div>
-                    <Link
-                        href={`/${locale}/items/${item.id}`}
-                        className="btn-primary !text-sm !py-2.5 !px-5"
-                    >
+                    <div className="btn-primary !text-sm !py-2.5 !px-5 group-hover:bg-[#2563eb]">
                         {translations.details}
-                    </Link>
+                    </div>
                 </div>
             </div>
-        </div>
+        </Link>
     );
 }

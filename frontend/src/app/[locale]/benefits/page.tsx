@@ -7,6 +7,7 @@ import { getTrendingItems, getCategories } from '@/lib/api';
 import Link from 'next/link';
 import { ShoppingBag, LayoutGrid } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
+import BackButton from '@/components/BackButton';
 
 export default async function BenefitsPage({ 
     params,
@@ -46,11 +47,16 @@ export default async function BenefitsPage({
         <main className="min-h-screen bg-slate-50 text-start">
             {/* Page Header */}
             <header className="bg-white border-b border-slate-200 py-20 px-8">
-                <div className="max-w-7xl mx-auto flex flex-col items-start">
-                    <h1 className="text-6xl font-black text-slate-900 mb-6 text-start w-full">{t.title}</h1>
-                    <p className="text-2xl text-slate-500 max-w-2xl font-light leading-relaxed text-start w-full">
-                        {t.subtitle}
-                    </p>
+                <div className="max-w-7xl mx-auto relative">
+                    <div className="lg:absolute lg:-start-24 lg:top-0 mb-10 lg:mb-0">
+                        <BackButton locale={locale} />
+                    </div>
+                    <div className="flex flex-col items-start">
+                        <h1 className="text-6xl font-black text-slate-900 mb-6 text-start w-full">{t.title}</h1>
+                        <p className="text-2xl text-slate-500 max-w-2xl font-light leading-relaxed text-start w-full">
+                            {t.subtitle}
+                        </p>
+                    </div>
                 </div>
             </header>
 

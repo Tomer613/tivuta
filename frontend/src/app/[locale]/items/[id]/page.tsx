@@ -6,6 +6,7 @@
 import { getTrendingItems } from '@/lib/api';
 import Link from 'next/link';
 import { ChevronLeft, ShieldCheck, Tag, Info, CheckCircle2, Clock } from 'lucide-react';
+import BackButton from '@/components/BackButton';
 
 export default async function ItemPage({ 
     params 
@@ -39,7 +40,12 @@ export default async function ItemPage({
                 </div>
             </nav>
 
-            <div className="max-w-7xl mx-auto py-16 px-8">
+            <div className="max-w-7xl mx-auto py-16 px-8 relative">
+                {/* Floating Back Button - Positioned to the side on large screens, above on mobile */}
+                <div className="lg:absolute lg:-start-24 lg:top-24 mb-10 lg:mb-0">
+                    <BackButton locale={locale} />
+                </div>
+                
                 <div className="bg-white rounded-[4rem] shadow-2xl overflow-hidden border border-slate-100 grid md:grid-cols-2 gap-0">
                     
                     {/* Visual Section */}

@@ -7,6 +7,7 @@ import { getCategories, getTrendingItems } from '@/lib/api';
 import Link from 'next/link';
 import { ChevronLeft, Filter } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
+import BackButton from '@/components/BackButton';
 
 export default async function CategoryPage({ 
     params 
@@ -35,12 +36,16 @@ export default async function CategoryPage({
         <main className="min-h-screen bg-slate-50">
             {/* Page Header */}
             <header className="bg-white border-b border-slate-200 py-20 px-8">
-                <div className="max-w-7xl mx-auto">
-                    <nav className="flex items-center gap-2 text-sm font-bold text-slate-400 mb-8">
-                        <Link href={`/${locale}`} className="hover:text-[#1e3a8a]">{t.home}</Link>
-                        <ChevronLeft size={16} />
-                        <span className="text-slate-900">{categoryName}</span>
-                    </nav>
+                <div className="max-w-7xl mx-auto relative">
+                    <div className="lg:absolute lg:-start-24 lg:top-0 mb-10 lg:mb-0">
+                        <BackButton locale={locale} />
+                    </div>
+                    <div className="flex-grow">
+                        <nav className="flex items-center gap-2 text-sm font-bold text-slate-400 mb-8">
+                            <Link href={`/${locale}`} className="hover:text-[#1e3a8a]">{t.home}</Link>
+                            <ChevronLeft size={16} />
+                            <span className="text-slate-900">{categoryName}</span>
+                        </nav>
 
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                         <div>
@@ -58,7 +63,8 @@ export default async function CategoryPage({
                         </button>
                     </div>
                 </div>
-            </header>
+            </div>
+        </header>
 
             {/* Results Grid */}
             <section className="max-w-7xl mx-auto py-16 px-8 mb-24">

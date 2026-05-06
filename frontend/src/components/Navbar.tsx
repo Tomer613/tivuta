@@ -37,7 +37,7 @@ export default function Navbar() {
         const segments = pathname.split('/');
         segments[1] = newLocale;
         const newPathname = segments.join('/');
-        router.push(newPathname);
+        router.replace(newPathname);
         setShowLangMenu(false);
     };
 
