@@ -31,10 +31,10 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
                 <div className="flex flex-col gap-4 items-start">
                     <h2 className="text-2xl font-black text-white italic tracking-tighter">TIVUTA</h2>
                     <p className="text-sm leading-relaxed opacity-70 text-start">
-                        {locale === 'he' ? 'המעטפת המקצועית המובילה לקהילה החרדית העובדת.' : 
-                         locale === 'yi' ? 'די פראפעסיאנעלע הילף פארן חרדישן ציבור.' :
-                         locale === 'fr' ? 'L’écosystème professionnel leader pour la communauté Harédi.' :
-                         'The leading professional ecosystem for the working Haredi community.'}
+                        {locale === 'he' ? 'המעטפת המקצועית המובילה לקהילה החרדית העובדת.' :
+                            locale === 'yi' ? 'די פראפעסיאנעלע הילף פארן חרדישן ציבור.' :
+                                locale === 'fr' ? 'L’écosystème professionnel leader pour la communauté Harédi.' :
+                                    'The leading professional ecosystem for the working Haredi community.'}
                     </p>
                     <div className="flex items-center gap-2 text-[#d97706] font-bold text-xs uppercase tracking-widest">
                         <ShieldCheck size={16} />
@@ -82,8 +82,22 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-800 text-center text-xs opacity-40">
-                © {new Date().getFullYear()} TIVUTA Ecosystem. All rights reserved.
+            <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-800 flex flex-col items-center gap-6 text-xs">
+                <p className="opacity-40">© {new Date().getFullYear()} TIVUTA Ecosystem. All rights reserved.</p>
+
+                <a
+                    href="https://smart-studio.dev/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="branding-link"
+                >
+                    <span className="opacity-50 tracking-wide uppercase text-[10px]">{d.built_by || "Built by"}</span>
+                    <img
+                        src="/branding/smart-logo.svg"
+                        alt="Smart Studio"
+                        className="branding-logo h-6 w-auto translate-x-[3px]"
+                    />
+                </a>
             </div>
         </footer>
     );

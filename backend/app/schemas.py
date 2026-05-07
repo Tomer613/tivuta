@@ -30,7 +30,7 @@ class CategorySchema(BaseModel):
 # Schema for Items (Benefits/Services)
 class ItemSchema(BaseModel):
     id: int
-    sub_category_id: int
+    sub_category_id: Optional[int] = None
     title_he: str
     title_en: Optional[str] = None
     title_fr: Optional[str] = None

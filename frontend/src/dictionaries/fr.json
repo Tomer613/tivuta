@@ -21,6 +21,7 @@
         "contact_us": "Contactez-nous",
         "service_center": "Centre de Service Membres",
         "service_desc": "Disponible pour toute question concernant l'utilisation des avantages.",
-        "open_ticket": "Ouvrir un ticket"
+        "open_ticket": "Ouvrir un ticket",
+        "built_by": "Conçu et développé par"
     }
 }

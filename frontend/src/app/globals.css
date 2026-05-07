@@ -54,6 +54,10 @@ body {
     @apply bg-clip-text text-transparent bg-gradient-to-br from-[#1e3a8a] to-[#2563eb];
 }
 
+.branding-link {
+    @apply flex items-center gap-1.5 transition-opacity hover:opacity-80;
+}
+
 /* Animations */
 @keyframes shine {
     0% { left: -100%; }
@@ -112,4 +116,21 @@ body {
 
 ::-webkit-scrollbar-thumb {
     @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+}
+
+/* Branding Footer Styles */
+.branding-link {
+    @apply flex flex-col items-center gap-2 transition-transform duration-300 hover:scale-105 cursor-pointer;
+    text-decoration: none !important;
+}
+
+.branding-logo {
+    filter: grayscale(100%) brightness(250%);
+    opacity: 0.6;
+    transition: all 0.5s ease-in-out;
+}
+
+.branding-link:hover .branding-logo {
+    filter: grayscale(0%) brightness(100%);
+    opacity: 1;
 }
