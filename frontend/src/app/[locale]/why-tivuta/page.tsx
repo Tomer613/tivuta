@@ -1,10 +1,14 @@
-/**
- * Why Tivuta Page.
- * Localized for multi-language support with logical alignment.
- */
-
 import { Sparkles, BarChart3, ShieldCheck, Zap } from 'lucide-react';
 import Link from 'next/link';
+
+export function generateStaticParams() {
+  return [
+    { locale: 'he' },
+    { locale: 'en' },
+    { locale: 'fr' },
+    { locale: 'yi' },
+  ];
+}
 
 export default async function WhyTivutaPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;

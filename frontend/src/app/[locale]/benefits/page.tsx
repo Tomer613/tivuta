@@ -1,13 +1,17 @@
-/**
- * All Benefits Page.
- * Localized with explicit alignment fixes.
- */
-
 import { getTrendingItems, getCategories } from '@/lib/api';
 import Link from 'next/link';
 import { ShoppingBag, LayoutGrid } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
 import BackButton from '@/components/BackButton';
+
+export function generateStaticParams() {
+  return [
+    { locale: 'he' },
+    { locale: 'en' },
+    { locale: 'fr' },
+    { locale: 'yi' },
+  ];
+}
 
 export default async function BenefitsPage({ 
     params,

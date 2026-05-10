@@ -7,7 +7,7 @@ const nextConfig = {
   basePath: '/tivuta',
   
   // This ensures CSS/JS/Images are loaded from the correct path
-  assetPrefix: '/tivuta',
+  assetPrefix: '/tivuta/',
 
   // Better for GitHub Pages: creates folders with index.html instead of .html files
   trailingSlash: true,
