@@ -29,7 +29,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
 
                 {/* Column 1: Branding */}
                 <div className="flex flex-col gap-4 items-start">
-                    <h2 className="text-2xl font-black text-white italic tracking-tighter">TIVUTA</h2>
+                    <img src="/images/logo.svg" alt="TIVUTA" className="h-10 w-auto brightness-0 invert" />
                     <p className="text-sm leading-relaxed opacity-70 text-start">
                         {locale === 'he' ? 'המעטפת המקצועית המובילה לקהילה החרדית העובדת.' :
                             locale === 'yi' ? 'די פראפעסיאנעלע הילף פארן חרדישן ציבור.' :

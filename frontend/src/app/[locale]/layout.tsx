@@ -2,6 +2,7 @@ import "../globals.css";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { getDictionary } from "@/lib/get-dictionary";
+import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata = {
     title: "TIVUTA | The Haredi Community Ecosystem",
@@ -26,11 +27,13 @@ export default async function RootLayout({
                 <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
             </head>
             <body className="antialiased bg-slate-50 min-h-screen flex flex-col" suppressHydrationWarning>
-                <Navbar />
-                <div className="flex-grow">
-                    {children}
-                </div>
-                <Footer locale={locale} dict={dict} />
+                <AuthProvider>
+                    <Navbar />
+                    <div className="flex-grow">
+                        {children}
+                    </div>
+                    <Footer locale={locale} dict={dict} />
+                </AuthProvider>
             </body>
         </html>
     );

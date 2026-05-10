@@ -68,3 +68,36 @@ class Item(Base):
 
     # Relationships
     sub_category = relationship("SubCategory", back_populates="items")
+
+class User(Base):
+    """
+    User account model.
+    """
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    email = Column(String(150), unique=True, index=True, nullable=False)
+    phone = Column(String(20), nullable=True)
+    hashed_password = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    orders = relationship("Order", back_populates="user", cascade="all, delete-orphan")
+
+class Order(Base):
+    """
+    User orders/transactions for dashboard tracking.
+    """
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    title_he = Column(String(255), nullable=False)
+    amount = Column(Float, nullable=False)
+    status = Column(String(50), default="completed") # completed, pending, cancelled
+    date = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User", back_populates="orders")

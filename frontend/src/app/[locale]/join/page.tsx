@@ -1,12 +1,27 @@
 /**
  * Join Now Page.
- * Localized for multi-language support with logical alignment.
+ * Client component for handling registration.
  */
+'use client';
 
-import { CheckCircle2, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useParams } from 'next/navigation';
+import { motion } from 'framer-motion';
 
-export default async function JoinPage({ params }: { params: Promise<{ locale: string }> }) {
-    const { locale } = await params;
+export default function JoinPage() {
+    const { locale } = useParams();
+    const { signup } = useAuth();
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [formData, setFormData] = useState({
+        first_name: '',
+        last_name: '',
+        phone: '',
+        email: '',
+        password: ''
+    });
 
     const t = {
         he: {
@@ -20,8 +35,10 @@ export default async function JoinPage({ params }: { params: Promise<{ locale: s
             lname: "שם משפחה",
             phone: "מספר טלפון",
             email: "כתובת אימייל",
+            password: "סיסמה",
             submit: "שגר בקשה להצטרפות",
-            secure: "מאובטח בסטנדרט הגבוה ביותר"
+            secure: "מאובטח בסטנדרט הגבוה ביותר",
+            error_email: "האימייל כבר קיים במערכת"
         },
         en: {
             title: "It's Time to Start Earning.",
@@ -34,45 +51,41 @@ export default async function JoinPage({ params }: { params: Promise<{ locale: s
             lname: "Last Name",
             phone: "Phone Number",
             email: "Email Address",
+            password: "Password",
             submit: "Submit Registration",
-            secure: "Secured with the highest standards"
-        },
-        fr: {
-            title: "Il est temps de commencer à gagner.",
-            subtitle: "Rejoignez la communauté qui se soucie vraiment de vous. Avantages bancaires et réductions.",
-            feature1: "Adhésion gratuite, sans engagement",
-            feature2: "Accès immédiat à tous les avantages",
-            feature3: "Service client WhatsApp personnel",
-            form_title: "Inscription Rapide",
-            fname: "Prénom",
-            lname: "Nom",
-            phone: "Téléphone",
-            email: "E-mail",
-            submit: "Envoyer l'inscription",
-            secure: "Sécurisé selon les normes les plus strictes"
-        },
-        yi: {
-            title: "ס'איז צייט אנצוהויבן פארדינען.",
-            subtitle: "שליסן זיך אן אין אונזער קהילה.",
-            feature1: "אומזיסטע רעגיסטראציע",
-            feature2: "צוטריט צו אלע בענעפיטן",
-            feature3: "פערזענליכע קאסטומער סערוויס",
-            form_title: "שנעלע רעגיסטראציע",
-            fname: "ערשטע נאמען",
-            lname: "לעצטע נאמען",
-            phone: "טעלעפאן",
-            email: "ע-פאסט",
-            submit: "שיקן די רעגיסטראציע",
-            secure: "געזיכערט אויפן העכסטן פארמאט"
+            secure: "Secured with the highest standards",
+            error_email: "Email already exists"
         }
-    }[locale as keyof typeof t] || t.he;
+    }[locale as 'he' | 'en'] || t.he;
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setError(null);
+        try {
+            await signup(formData);
+        } catch (err: any) {
+            setError(err.message || 'Signup failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
     return (
-        <main className="min-h-screen bg-slate-50 py-24 px-8">
+        <main className="min-h-screen bg-slate-50 py-24 px-8 overflow-hidden">
             <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center text-start">
                 
                 {/* Left Side: Marketing Info */}
-                <div className="flex flex-col items-start">
+                <motion.div 
+                    initial={{ opacity: 0, x: -50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.8 }}
+                    className="flex flex-col items-start"
+                >
                     <h1 className="text-6xl font-black text-slate-900 mb-8 leading-tight text-start">
                         {t.title.split(' ').slice(0, -1).join(' ')} <br />
                         <span className="text-[#1e3a8a]">{t.title.split(' ').slice(-1)}</span>
@@ -83,41 +96,101 @@ export default async function JoinPage({ params }: { params: Promise<{ locale: s
                     
                     <div className="space-y-6">
                         {[t.feature1, t.feature2, t.feature3].map((f, i) => (
-                            <div key={i} className="flex items-center gap-4">
+                            <motion.div 
+                                key={i} 
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 * i }}
+                                className="flex items-center gap-4"
+                            >
                                 <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
                                     <CheckCircle2 size={24} />
                                 </div>
                                 <span className="text-xl font-bold text-slate-700">{f}</span>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Right Side: Registration Form */}
-                <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-start w-full">
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.8 }}
+                    className="bg-white p-12 rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-slate-100 flex flex-col items-start w-full relative overflow-hidden"
+                >
                     <h2 className="text-3xl font-black text-slate-900 mb-8 text-start">{t.form_title}</h2>
-                    <form className="space-y-6 w-full">
+                    
+                    {error && (
+                        <div className="w-full p-4 mb-6 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100">
+                            {error}
+                        </div>
+                    )}
+
+                    <form className="space-y-6 w-full" onSubmit={handleSubmit}>
                         <div className="grid grid-cols-2 gap-6">
                             <div className="flex flex-col gap-2 items-start">
                                 <label className="text-sm font-bold text-slate-600 px-2">{t.fname}</label>
-                                <input type="text" className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start" />
+                                <input 
+                                    type="text" 
+                                    name="first_name"
+                                    required
+                                    value={formData.first_name}
+                                    onChange={handleChange}
+                                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                                />
                             </div>
                             <div className="flex flex-col gap-2 items-start">
                                 <label className="text-sm font-bold text-slate-600 px-2">{t.lname}</label>
-                                <input type="text" className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start" />
+                                <input 
+                                    type="text" 
+                                    name="last_name"
+                                    required
+                                    value={formData.last_name}
+                                    onChange={handleChange}
+                                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                                />
                             </div>
                         </div>
                         <div className="flex flex-col gap-2 items-start">
                             <label className="text-sm font-bold text-slate-600 px-2">{t.phone}</label>
-                            <input type="tel" className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start" />
+                            <input 
+                                type="tel" 
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                            />
                         </div>
                         <div className="flex flex-col gap-2 items-start">
                             <label className="text-sm font-bold text-slate-600 px-2">{t.email}</label>
-                            <input type="email" className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start" />
+                            <input 
+                                type="email" 
+                                name="email"
+                                required
+                                value={formData.email}
+                                onChange={handleChange}
+                                className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                            />
+                        </div>
+                        <div className="flex flex-col gap-2 items-start">
+                            <label className="text-sm font-bold text-slate-600 px-2">{t.password}</label>
+                            <input 
+                                type="password" 
+                                name="password"
+                                required
+                                value={formData.password}
+                                onChange={handleChange}
+                                className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                            />
                         </div>
                         
-                        <button type="button" className="w-full btn-primary !py-5 !text-xl shadow-xl mt-4">
-                            {t.submit}
+                        <button 
+                            type="submit" 
+                            disabled={isLoading}
+                            className="w-full bg-[#1e3a8a] text-white py-5 rounded-2xl text-xl font-bold shadow-xl shadow-[#1e3a8a]/20 hover:bg-[#1e3a8a]/90 transition-all flex items-center justify-center gap-3 disabled:opacity-70"
+                        >
+                            {isLoading ? <Loader2 className="animate-spin" /> : t.submit}
                         </button>
                     </form>
                     
@@ -125,7 +198,7 @@ export default async function JoinPage({ params }: { params: Promise<{ locale: s
                         <ShieldCheck size={16} />
                         <span>{t.secure}</span>
                     </div>
-                </div>
+                </motion.div>
             </div>
         </main>
     );

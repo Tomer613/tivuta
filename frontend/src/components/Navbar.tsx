@@ -6,9 +6,10 @@
 "use client";
 
 import Link from 'next/link';
-import { User, Search, ShoppingBag, Globe } from 'lucide-react';
+import { User, Search, ShoppingBag, Globe, LogOut, LayoutDashboard } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 const languages = [
     { code: 'he', label: 'עברית' },
@@ -20,6 +21,7 @@ const languages = [
 export default function Navbar() {
     const [searchQuery, setSearchQuery] = useState('');
     const [showLangMenu, setShowLangMenu] = useState(false);
+    const { user, logout } = useAuth();
     const router = useRouter();
     const params = useParams();
     const pathname = usePathname();
@@ -42,21 +44,16 @@ export default function Navbar() {
     };
 
     const ui = {
-        he: { home: 'דף הבית', benefits: 'כל ההטבות', about: 'אודות', search: 'חפש הטבה...', account: 'אזור אישי' },
-        en: { home: 'Home', benefits: 'Benefits', about: 'About', search: 'Search...', account: 'Account' },
-        fr: { home: 'Accueil', benefits: 'Avantages', about: 'À propos', search: 'Chercher...', account: 'Compte' },
-        yi: { home: 'היים', benefits: 'בענעפיטן', about: 'איבער אונז', search: 'זוכן...', account: 'מיין קאנטע' }
-    }[locale as keyof typeof ui] || ui.he;
+        he: { home: 'דף הבית', benefits: 'כל ההטבות', about: 'אודות', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה' },
+        en: { home: 'Home', benefits: 'Benefits', about: 'About', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout' }
+    }[locale as 'he' | 'en'] || ui.he;
 
     return (
         <nav className="glass-nav px-6 py-4 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto flex justify-between items-center">
                 {/* Logo & Brand - Logical start */}
                 <Link href={`/${locale}`} className="flex items-center gap-3 group">
-                    <div className="bg-[#1e3a8a] text-white p-2 rounded-xl group-hover:rotate-6 transition-transform">
-                        <ShoppingBag size={24} />
-                    </div>
-                    <span className="text-2xl font-black text-[#1e3a8a] tracking-tighter italic">TIVUTA</span>
+                    <img src="/images/logo.svg" alt="TIVUTA Logo" className="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
                 </Link>
 
                 {/* Desktop Menu - Centered or logical layout */}
@@ -104,10 +101,27 @@ export default function Navbar() {
                     
                     <div className="h-8 w-px bg-slate-200 mx-2 md:block hidden"></div>
                     
-                    <Link href={`/${locale}/join`} className="btn-primary flex items-center gap-2 !py-2 !px-4 text-sm whitespace-nowrap">
-                        <User size={18} />
-                        <span>{ui.account}</span>
-                    </Link>
+                    {user ? (
+                        <div className="flex items-center gap-3">
+                            <Link href={`/${locale}/dashboard`} className="btn-primary flex items-center gap-2 !py-2 !px-4 text-sm whitespace-nowrap bg-slate-900 shadow-none hover:bg-slate-800">
+                                <LayoutDashboard size={18} />
+                                <span>{ui.dashboard}</span>
+                            </Link>
+                            <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title={ui.logout}>
+                                <LogOut size={20} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <Link href={`/${locale}/login`} className="text-slate-600 font-bold text-sm px-4 hover:text-[#1e3a8a]">
+                                {locale === 'he' ? 'התחבר' : 'Login'}
+                            </Link>
+                            <Link href={`/${locale}/join`} className="btn-primary flex items-center gap-2 !py-2 !px-4 text-sm whitespace-nowrap">
+                                <User size={18} />
+                                <span>{ui.account}</span>
+                            </Link>
+                        </div>
+                    )}
                 </div>
             </div>
         </nav>

@@ -1,5 +1,6 @@
 # backend/app/seed.py
 from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 from .database import SessionLocal, engine
 from . import models
 
@@ -174,13 +175,67 @@ def seed_db():
             ))
         
         db.commit()
-        print("Database successfully seeded with a massive list of rich items.")
+        
+        # Seed Users
+        print("Seeding mock users...")
+        from .main import get_password_hash
+        
+        # Check if users already exist to avoid duplicates if re-running
+        if db.query(models.User).count() == 0:
+            mock_users = [
+                {
+                    "first_name": "ישראל",
+                    "last_name": "ישראלי",
+                    "email": "test@example.com",
+                    "password": "password123",
+                    "phone": "050-1234567"
+                },
+                {
+                    "first_name": "שרה",
+                    "last_name": "כהן",
+                    "email": "sara@tivuta.com",
+                    "password": "password123",
+                    "phone": "052-7654321"
+                }
+            ]
+            
+            for u in mock_users:
+                hashed_pw = get_password_hash(u["password"])
+                user = models.User(
+                    first_name=u["first_name"],
+                    last_name=u["last_name"],
+                    email=u["email"],
+                    phone=u["phone"],
+                    hashed_password=hashed_pw
+                )
+                db.add(user)
+                db.flush()
+                
+                # Add mock orders for these users
+                orders = [
+                    {"title_he": "מנוי למכון כושר 'הכוח'", "amount": 1800.0, "status": "completed", "date": datetime.now() - timedelta(days=5)},
+                    {"title_he": "קנייה ברשת 'יש חסד'", "amount": 850.0, "status": "completed", "date": datetime.now() - timedelta(days=2)},
+                    {"title_he": "ספרים ממכון ירושלים", "amount": 420.0, "status": "completed", "date": datetime.now() - timedelta(days=1)},
+                ]
+                for o in orders:
+                    db.add(models.Order(user_id=user.id, **o))
+            
+            db.commit()
+            print("Users and orders seeded successfully.")
+
+        print("Database successfully seeded with a massive list of rich items and mock users.")
 
     except Exception as e:
         print(f"Error seeding database: {e}")
+        import traceback
+        traceback.print_exc()
         db.rollback()
     finally:
         db.close()
 
+def create_tables():
+    models.Base.metadata.create_all(bind=engine)
+
 if __name__ == "__main__":
+    create_tables()
     seed_db()

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 
 # Schema for SubCategories
 class SubCategorySchema(BaseModel):
@@ -45,3 +46,44 @@ class ItemSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+# User Schemas
+class UserBase(BaseModel):
+    email: str
+    first_name: str
+    last_name: str
+    phone: Optional[str] = None
+
+class UserCreate(UserBase):
+    password: str
+
+class UserRead(UserBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+# Auth Schemas
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
+# Dashboard Schemas
+class OrderRead(BaseModel):
+    id: int
+    title_he: str
+    amount: float
+    status: str
+    date: datetime
+
+    class Config:
+        from_attributes = True
+
+class DashboardData(BaseModel):
+    distribution: List[dict] # [{"label": "Fashion", "value": 20}, ...]
+    total_savings: float
+    monthly_expenses: float
+    recent_orders: List[OrderRead]
