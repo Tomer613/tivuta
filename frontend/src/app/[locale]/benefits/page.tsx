@@ -1,8 +1,7 @@
 import { getTrendingItems, getCategories } from '@/lib/api';
-import Link from 'next/link';
-import { ShoppingBag, LayoutGrid } from 'lucide-react';
-import ItemCard from '@/components/ItemCard';
 import BackButton from '@/components/BackButton';
+import BenefitsContent from '@/components/BenefitsContent';
+import { Suspense } from 'react';
 
 export function generateStaticParams() {
   return [
@@ -32,34 +31,17 @@ const translations: Record<string, BenefitsTranslation> = {
 type SupportedLocale = 'he' | 'en' | 'fr' | 'yi';
 
 export default async function BenefitsPage({ 
-    params,
-    searchParams 
+    params
 }: { 
-    params: Promise<{ locale: string }>,
-    searchParams: Promise<{ category?: string, search?: string }> 
+    params: Promise<{ locale: string }>
 }) {
     const { locale: rawLocale } = await params;
     const locale = rawLocale as SupportedLocale;
-    const { category, search } = await searchParams;
+    
     const allItems = await getTrendingItems();
     const categories = await getCategories();
 
     const t = translations[locale] || translations.he;
-
-    const currentCategoryObj = categories.find((c: any) => c.slug === category);
-    const categoryId = currentCategoryObj?.id;
-
-    const filteredItems = allItems.filter((item: any) => {
-        const matchesCategory = !category || item.cat_id_new === categoryId;
-        const title = item[`title_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || item.title_he;
-        const desc = item[`description_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || item.description_he;
-        
-        const matchesSearch = !search || 
-            title.toLowerCase().includes(search.toLowerCase()) || 
-            desc.toLowerCase().includes(search.toLowerCase());
-
-        return matchesCategory && matchesSearch;
-    });
 
     return (
         <main className="min-h-screen bg-slate-50 text-start">
@@ -78,47 +60,15 @@ export default async function BenefitsPage({
                 </div>
             </header>
 
-            {/* Filter Bar */}
-            <section className="max-w-7xl mx-auto py-10 px-8">
-                <div className="flex items-center gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                    <Link 
-                        href={`/${locale}/benefits`} 
-                        className={`px-8 py-3 rounded-2xl text-base font-bold whitespace-nowrap transition-all ${!category ? 'bg-[#1e3a8a] text-white shadow-xl shadow-blue-900/20' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}
-                    >
-                        {t.all}
-                    </Link>
-                    {categories.map((cat: any) => (
-                        <Link 
-                            key={cat.id} 
-                            href={`/${locale}/benefits?category=${cat.slug}${search ? `&search=${search}` : ''}`}
-                            className={`px-8 py-3 rounded-2xl text-base font-bold whitespace-nowrap transition-all ${category === cat.slug ? 'bg-[#1e3a8a] text-white shadow-xl shadow-blue-900/20' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}
-                        >
-                            {cat[`name_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || cat.name_he}
-                        </Link>
-                    ))}
-                </div>
-            </section>
-
-            {/* Catalog Grid */}
-            <section className="max-w-7xl mx-auto py-8 px-8 mb-24">
-                {filteredItems.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-10">
-                        {filteredItems.map((item: any) => (
-                            <ItemCard key={item.id} item={item} locale={locale} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-32 bg-white rounded-[4rem] border-2 border-dashed border-slate-200">
-                        <div className="text-slate-100 flex justify-center mb-8">
-                            <LayoutGrid size={100} strokeWidth={1} />
-                        </div>
-                        <h3 className="text-3xl font-black text-slate-900 mb-4">{t.empty}</h3>
-                        <Link href={`/${locale}/benefits`} className="text-[#1e3a8a] font-black text-lg underline underline-offset-8">
-                            {t.back}
-                        </Link>
-                    </div>
-                )}
-            </section>
+            {/* Client-side content for filtering and search */}
+            <Suspense fallback={<div className="p-24 text-center text-slate-400 font-bold">Loading Benefits...</div>}>
+                <BenefitsContent 
+                    allItems={allItems} 
+                    categories={categories} 
+                    locale={locale} 
+                    t={t} 
+                />
+            </Suspense>
         </main>
     );
 }

@@ -1,18 +1,19 @@
 /**
- * Category Page
- * Displays sub-categories and items for a specific category.
+ * Category Page (Server Side)
+ * Fetches data and delegates rendering to CategoryContent (Client Side).
  */
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCategoryBySlug, getCategoryItems, getCategories } from '@/lib/api';
-import ItemCard from '@/components/ItemCard';
 import BackButton from '@/components/BackButton';
+import CategoryContent from '@/components/CategoryContent';
 import { 
     ScrollText, Utensils, Shirt, ShoppingBasket, Palmtree, 
     Smartphone, HeartPulse, PartyPopper, Home, Users, Landmark, Hammer,
     LayoutGrid, ChevronRight
 } from 'lucide-react';
+import { Suspense } from 'react';
 
 type SupportedLocale = 'he' | 'en' | 'fr' | 'yi';
 
@@ -44,15 +45,12 @@ const translations: Record<string, CategoryTranslation> = {
 };
 
 export default async function CategoryPage({ 
-    params, 
-    searchParams 
+    params
 }: { 
-    params: Promise<{ locale: string, slug: string }>,
-    searchParams: Promise<{ sub?: string }>
+    params: Promise<{ locale: string, slug: string }>
 }) {
     const { locale: rawLocale, slug } = await params;
     const locale = rawLocale as SupportedLocale;
-    const { sub: activeSubSlug } = await searchParams;
 
     const category = await getCategoryBySlug(slug);
     const allItems = await getCategoryItems(slug);
@@ -60,14 +58,6 @@ export default async function CategoryPage({
     if (!category) {
         notFound();
     }
-
-    // Filter items based on active sub-category slug
-    const filteredItems = activeSubSlug 
-        ? allItems.filter((item: any) => {
-            const subCat = category.sub_categories.find((s: any) => s.id === item.sub_category_id);
-            return subCat?.slug === activeSubSlug;
-          })
-        : allItems;
 
     const categoryIcons: Record<string, React.ReactNode> = {
         judaism: <ScrollText size={48} />,
@@ -115,62 +105,15 @@ export default async function CategoryPage({
                 </div>
             </section>
 
-            {/* Sub-Categories Filter Section */}
-            {category.sub_categories && category.sub_categories.length > 0 && (
-                <section className="max-w-7xl mx-auto py-12 px-6">
-                    <h2 className="text-lg font-black text-slate-400 uppercase tracking-widest mb-8 text-start">
-                        {t.sub_categories}
-                    </h2>
-                    <div className="flex flex-wrap gap-3">
-                        <Link
-                            href={`/${locale}/categories/${category.slug}`}
-                            className={`px-6 py-3 rounded-full font-bold transition-all active:scale-95 border ${
-                                !activeSubSlug 
-                                ? "bg-[#1e3a8a] text-white border-[#1e3a8a] shadow-lg shadow-blue-900/20" 
-                                : "bg-white text-slate-700 border-slate-200 hover:border-[#1e3a8a]"
-                            }`}
-                        >
-                            {t.all}
-                        </Link>
-
-                        {category.sub_categories.map((sub: any) => (
-                            <Link
-                                key={sub.id}
-                                href={`/${locale}/categories/${category.slug}?sub=${sub.slug}`}
-                                className={`px-6 py-3 rounded-full font-bold transition-all active:scale-95 border ${
-                                    activeSubSlug === sub.slug
-                                    ? "bg-[#1e3a8a] text-white border-[#1e3a8a] shadow-lg shadow-blue-900/20" 
-                                    : "bg-white text-slate-700 border-slate-200 hover:border-[#1e3a8a]"
-                                }`}
-                            >
-                                {sub[`name_${locale}`] || sub.name_he}
-                            </Link>
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            {/* Items Grid */}
-            <section className="max-w-7xl mx-auto py-12 px-6">
-                <h2 className="text-3xl font-black text-slate-900 mb-12 text-start">
-                    {activeSubSlug 
-                        ? category.sub_categories.find((s: any) => s.slug === activeSubSlug)?.[`name_${locale}`] || t.all_items
-                        : t.all_items
-                    }
-                </h2>
-
-                {filteredItems.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-10">
-                        {filteredItems.map((item: any) => (
-                            <ItemCard key={item.id} item={item} locale={locale} />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="bg-white border border-dashed border-slate-300 rounded-[3rem] p-24 text-center">
-                        <p className="text-slate-400 text-xl italic">{t.no_items}</p>
-                    </div>
-                )}
-            </section>
+            {/* Client-side content for filtering */}
+            <Suspense fallback={<div className="p-24 text-center">Loading...</div>}>
+                <CategoryContent 
+                    category={category} 
+                    allItems={allItems} 
+                    locale={locale} 
+                    t={t} 
+                />
+            </Suspense>
         </main>
     );
 }
