@@ -44,8 +44,8 @@ export default function Navbar() {
     };
 
     const ui = {
-        he: { home: 'דף הבית', benefits: 'כל ההטבות', about: 'אודות', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה' },
-        en: { home: 'Home', benefits: 'Benefits', about: 'About', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout' }
+        he: { home: 'דף הבית', benefits: 'כל ההטבות', about: 'אודות', card: 'כרטיס האשראי', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה' },
+        en: { home: 'Home', benefits: 'Benefits', about: 'About', card: 'Credit Card', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout' }
     }[locale as 'he' | 'en'] || ui.he;
 
     return (
@@ -60,6 +60,7 @@ export default function Navbar() {
                 <div className="hidden md:flex items-center gap-8">
                     <Link href={`/${locale}`} className="font-bold text-slate-600 hover:text-[#1e3a8a] transition-colors">{ui.home}</Link>
                     <Link href={`/${locale}/benefits`} className="font-bold text-slate-600 hover:text-[#1e3a8a] transition-colors">{ui.benefits}</Link>
+                    <Link href={`/${locale}/card`} className="font-bold text-amber-600 hover:text-amber-700 transition-colors">{ui.card}</Link>
                     <Link href={`/${locale}/about`} className="font-bold text-slate-600 hover:text-[#1e3a8a] transition-colors">{ui.about}</Link>
                 </div>
 
