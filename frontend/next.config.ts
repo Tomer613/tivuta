@@ -9,6 +9,9 @@ const nextConfig = {
   // This ensures CSS/JS/Images are loaded from the correct path
   assetPrefix: '/tivuta',
 
+  // Better for GitHub Pages: creates folders with index.html instead of .html files
+  trailingSlash: true,
+
   // Disabling strict mode temporarily can help isolate hydration loops
   reactStrictMode: false,
   images: {
