@@ -10,55 +10,68 @@ export function generateStaticParams() {
   ];
 }
 
+interface WhyTivutaTranslation {
+    hero_t: string;
+    hero_s: string;
+    p1_t: string;
+    p1_d: string;
+    p2_t: string;
+    p2_d: string;
+    cta_t: string;
+    cta_join: string;
+    cta_list: string;
+}
+
+const translations: Record<string, WhyTivutaTranslation> = {
+    he: {
+        hero_t: "למה כדאי לך להיות חלק מטיבותא?",
+        hero_s: "כי אנחנו לא רק פורטל הטבות – אנחנו הכוח של הקהילה שלך בשוק הישראלי.",
+        p1_t: "כוח קנייה אדיר",
+        p1_d: "כקהילה של עשרות אלפי עובדים, אנחנו מגיעים לספקים מעמדת כוח. זה מאפשר לנו להשיג הנחות ותנאים שפשוט אי אפשר לקבל בצורה פרטית.",
+        p2_t: "סינון והתאמה לקהילה",
+        p2_d: "אנחנו מבינים את הניואנסים. כל הטבה עוברת סינון של ערכים, כשרות והתאמה לאורח החיים התורני, כדי שתוכל ליהנות בראש שקט.",
+        cta_t: "מוכן להתחיל לחסוך?",
+        cta_join: "הצטרפות עכשיו",
+        cta_list: "לרשימת ההטבות"
+    },
+    en: {
+        hero_t: "Why should you be part of TIVUTA?",
+        hero_s: "Because we're not just a benefits portal – we're the power of your community in the Israeli market.",
+        p1_t: "Enormous Purchasing Power",
+        p1_d: "As a community of tens of thousands of workers, we approach suppliers from a position of power. This allows us to get discounts you can't get privately.",
+        p2_t: "Filtering & Adaptation",
+        p2_d: "We understand the nuances. Every benefit undergoes values, kosher, and lifestyle filtering so you can enjoy with peace of mind.",
+        cta_t: "Ready to start saving?",
+        cta_join: "Join Now",
+        cta_list: "Browse Benefits"
+    },
+    fr: {
+        hero_t: "Pourquoi rejoindre TIVUTA?",
+        hero_s: "Parce que nous ne sommes pas seulement un portail d'avantages – nous sommes la force de votre communauté.",
+        p1_t: "Puissance d'achat massive",
+        p1_d: "En tant que communauté de dizaines de milliers de travailleurs, nous négocions avec les fournisseurs en position de force.",
+        p2_t: "Sélection et adaptation",
+        p2_d: "Chaque avantage est filtré pour correspondre aux valeurs et au mode de vie de la communauté.",
+        cta_t: "Prêt à économiser?",
+        cta_join: "S'inscrire",
+        cta_list: "Voir les offres"
+    },
+    yi: {
+        hero_t: "פאר וואס זאלט איר זיין א טייל פון טיבותא?",
+        hero_s: "ווייל מיר זענען די כוח פון דער קהילה אין דעם מארק.",
+        p1_t: "שטארקע קויפן כוח",
+        p1_d: "מיט צענדליגע טויזנטער ארבעטער, קענען מיר באקומען די בעסטע פרייזן פאר אייך.",
+        p2_t: "פילטער און צופאזונג",
+        p2_d: "יעדער בענעפיט גייט אדורך א שטרענגע פילטער צופאסן פארן היימישן ציבור.",
+        cta_t: "גרייט אנצוהויבן שפארן?",
+        cta_join: "שליסן זיך אן",
+        cta_list: "זען די בענעפיטן"
+    }
+};
+
 export default async function WhyTivutaPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
-
-    const t = {
-        he: {
-            hero_t: "למה כדאי לך להיות חלק מטיבותא?",
-            hero_s: "כי אנחנו לא רק פורטל הטבות – אנחנו הכוח של הקהילה שלך בשוק הישראלי.",
-            p1_t: "כוח קנייה אדיר",
-            p1_d: "כקהילה של עשרות אלפי עובדים, אנחנו מגיעים לספקים מעמדת כוח. זה מאפשר לנו להשיג הנחות ותנאים שפשוט אי אפשר לקבל בצורה פרטית.",
-            p2_t: "סינון והתאמה לקהילה",
-            p2_d: "אנחנו מבינים את הניואנסים. כל הטבה עוברת סינון של ערכים, כשרות והתאמה לאורח החיים התורני, כדי שתוכל ליהנות בראש שקט.",
-            cta_t: "מוכן להתחיל לחסוך?",
-            cta_join: "הצטרפות עכשיו",
-            cta_list: "לרשימת ההטבות"
-        },
-        en: {
-            hero_t: "Why should you be part of TIVUTA?",
-            hero_s: "Because we're not just a benefits portal – we're the power of your community in the Israeli market.",
-            p1_t: "Enormous Purchasing Power",
-            p1_d: "As a community of tens of thousands of workers, we approach suppliers from a position of power. This allows us to get discounts you can't get privately.",
-            p2_t: "Filtering & Adaptation",
-            p2_d: "We understand the nuances. Every benefit undergoes values, kosher, and lifestyle filtering so you can enjoy with peace of mind.",
-            cta_t: "Ready to start saving?",
-            cta_join: "Join Now",
-            cta_list: "Browse Benefits"
-        },
-        fr: {
-            hero_t: "Pourquoi rejoindre TIVUTA?",
-            hero_s: "Parce que nous ne sommes pas seulement un portail d'avantages – nous sommes la force de votre communauté.",
-            p1_t: "Puissance d'achat massive",
-            p1_d: "En tant que communauté de dizaines de milliers de travailleurs, nous négocions avec les fournisseurs en position de force.",
-            p2_t: "Sélection et adaptation",
-            p2_d: "Chaque avantage est filtré pour correspondre aux valeurs et au mode de vie de la communauté.",
-            cta_t: "Prêt à économiser?",
-            cta_join: "S'inscrire",
-            cta_list: "Voir les offres"
-        },
-        yi: {
-            hero_t: "פאר וואס זאלט איר זיין א טייל פון טיבותא?",
-            hero_s: "ווייל מיר זענען די כוח פון דער קהילה אין דעם מארק.",
-            p1_t: "שטארקע קויפן כוח",
-            p1_d: "מיט צענדליגע טויזנטער ארבעטער, קענען מיר באקומען די בעסטע פרייזן פאר אייך.",
-            p2_t: "פילטער און צופאזונג",
-            p2_d: "יעדער בענעפיט גייט אדורך א שטרענגע פילטער צופאסן פארן היימישן ציבור.",
-            cta_t: "גרייט אנצוהויבן שפארן?",
-            cta_join: "שליסן זיך אן",
-            cta_list: "זען די בענעפיטן"
-        }
-    }[locale as keyof typeof t] || t.he;
+    const t = translations[locale] || translations.he;
 
     return (
         <main className="min-h-screen bg-white">

@@ -13,6 +13,22 @@ export function generateStaticParams() {
   ];
 }
 
+interface BenefitsTranslation {
+    title: string;
+    subtitle: string;
+    all: string;
+    results: string;
+    empty: string;
+    back: string;
+}
+
+const translations: Record<string, BenefitsTranslation> = {
+    he: { title: "כל ההטבות", subtitle: "גלה את כל השירותים וההטבות הבלעדיות שמחכות לך בקהילת טיבותא.", all: "הכל", results: "תוצאות נמצאו", empty: "לא נמצאו הטבות", back: "חזור לכל ההטבות" },
+    en: { title: "All Benefits", subtitle: "Explore all exclusive services and benefits waiting for you in the TIVUTA community.", all: "All", results: "results found", empty: "No benefits found", back: "Back to all benefits" },
+    fr: { title: "Tous les avantages", subtitle: "Découvrez tous les services et avantages exclusifs de la communauté TIVUTA.", all: "Tout", results: "résultats trouvés", empty: "Aucun avantage trouvé", back: "Retour aux avantages" },
+    yi: { title: "אלע בענעפיטן", subtitle: "געפינט אלע עקסקלוסיוו בענעפיטן פארן היימישן ציבור.", all: "אלע", results: "תוצאות געפונען", empty: "נישט געפונען קיין בענעפיטן", back: "צוריק צו אלע בענעפיטן" }
+};
+
 export default async function BenefitsPage({ 
     params,
     searchParams 
@@ -24,6 +40,8 @@ export default async function BenefitsPage({
     const { category, search } = await searchParams;
     const allItems = await getTrendingItems();
     const categories = await getCategories();
+
+    const t = translations[locale] || translations.he;
 
     const currentCategoryObj = categories.find((c: any) => c.slug === category);
     const categoryId = currentCategoryObj?.id;
@@ -39,13 +57,6 @@ export default async function BenefitsPage({
 
         return matchesCategory && matchesSearch;
     });
-
-    const t = {
-        he: { title: "כל ההטבות", subtitle: "גלה את כל השירותים וההטבות הבלעדיות שמחכות לך בקהילת טיבותא.", all: "הכל", results: "תוצאות נמצאו", empty: "לא נמצאו הטבות", back: "חזור לכל ההטבות" },
-        en: { title: "All Benefits", subtitle: "Explore all exclusive services and benefits waiting for you in the TIVUTA community.", all: "All", results: "results found", empty: "No benefits found", back: "Back to all benefits" },
-        fr: { title: "Tous les avantages", subtitle: "Découvrez tous les services et avantages exclusifs de la communauté TIVUTA.", all: "Tout", results: "résultats trouvés", empty: "Aucun avantage trouvé", back: "Retour aux avantages" },
-        yi: { title: "אלע בענעפיטן", subtitle: "געפינט אלע עקסקלוסיוו בענעפיטן פארן היימישן ציבור.", all: "אלע", results: "תוצאות געפונען", empty: "נישט געפונען קיין בענעפיטן", back: "צוריק צו אלע בענעפיטן" }
-    }[locale as keyof typeof t] || t.he;
 
     return (
         <main className="min-h-screen bg-slate-50 text-start">

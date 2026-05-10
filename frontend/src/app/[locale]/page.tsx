@@ -1,13 +1,7 @@
-/**
- * Main Landing Page for Tivuta.
- * Full multi-language content synchronization with logical alignment fixes.
- */
-
 import Link from 'next/link';
 import { getCategories, getTrendingItems } from '@/lib/api';
 import { 
     LayoutGrid, 
-    Sparkles, 
     ScrollText,
     Utensils,
     Shirt,
@@ -19,7 +13,8 @@ import {
     Home,
     Users,
     Landmark,
-    Hammer
+    Hammer,
+    Sparkles
 } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
 import DynamicSlogan from '@/components/DynamicSlogan';
@@ -34,11 +29,28 @@ export function generateStaticParams() {
   ];
 }
 
+interface HomeTranslation {
+    recommended: string;
+    newsletter_t: string;
+    newsletter_s: string;
+    phone_p: string;
+    join_btn: string;
+}
+
+const translations: Record<string, HomeTranslation> = {
+    he: { recommended: "מומלץ עבורך", newsletter_t: "אל תפספס שום הטבה", newsletter_s: "הצטרף ל-15,000 חברים בקהילה וקבל את כל העדכונים ישירות לנייד.", phone_p: "הכנס טלפון או מייל", join_btn: "אני רוצה להצטרף" },
+    en: { recommended: "Recommended for You", newsletter_t: "Don't Miss Any Benefit", newsletter_s: "Join 15,000 community members and get all updates directly to your mobile.", phone_p: "Enter phone or email", join_btn: "Join Now" },
+    fr: { recommended: "Recommandé pour vous", newsletter_t: "Ne manquez aucun avantage", newsletter_s: "Rejoignez 15 000 membres et recevez toutes les mises à jour.", phone_p: "Email ou téléphone", join_btn: "Rejoindre" },
+    yi: { recommended: "רעקאמענדירט פאר אייך", newsletter_t: "פארפאסט נישט קיין בענעפיט", newsletter_s: "שליסן זיך אן אין אונזער קהילה.", phone_p: "טעלעפאן אדער ע-פאסט", join_btn: "שליסן זיך אן" }
+};
+
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const dict = await getDictionary(locale);
     const categories = await getCategories();
     const trendingItems = await getTrendingItems();
+
+    const t = translations[locale] || translations.he;
 
     const categoryIcons: Record<string, React.ReactNode> = {
         judaism: <ScrollText size={32} />,
@@ -55,14 +67,6 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         home_renovation: <Hammer size={32} />,
         default: <LayoutGrid size={32} />
     };
-
-
-    const t = {
-        he: { recommended: "מומלץ עבורך", newsletter_t: "אל תפספס שום הטבה", newsletter_s: "הצטרף ל-15,000 חברים בקהילה וקבל את כל העדכונים ישירות לנייד.", phone_p: "הכנס טלפון או מייל", join_btn: "אני רוצה להצטרף" },
-        en: { recommended: "Recommended for You", newsletter_t: "Don't Miss Any Benefit", newsletter_s: "Join 15,000 community members and get all updates directly to your mobile.", phone_p: "Enter phone or email", join_btn: "Join Now" },
-        fr: { recommended: "Recommandé pour vous", newsletter_t: "Ne manquez aucun avantage", newsletter_s: "Rejoignez 15 000 membres et recevez toutes les mises à jour.", phone_p: "Email ou téléphone", join_btn: "Rejoindre" },
-        yi: { recommended: "רעקאמענדירט פאר אייך", newsletter_t: "פארפאסט נישט קיין בענעפיט", newsletter_s: "שליסן זיך אן אין אונזער קהילה.", phone_p: "טעלעפאן אדער ע-פאסט", join_btn: "שליסן זיך אן" }
-    }[locale as keyof typeof t] || t.he;
 
     return (
         <main className="min-h-screen bg-slate-50 text-start">
