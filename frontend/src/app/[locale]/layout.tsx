@@ -9,6 +9,15 @@ export const metadata = {
     description: "Consumer benefits, financial solutions, and lifestyle for the working Haredi community.",
 };
 
+export function generateStaticParams() {
+  return [
+    { locale: 'he' },
+    { locale: 'en' },
+    { locale: 'fr' },
+    { locale: 'yi' },
+  ];
+}
+
 export default async function RootLayout({
     children,
     params,

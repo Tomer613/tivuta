@@ -34,8 +34,8 @@ interface ItemCardProps {
 export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
     // Ensuring the image path is local to satisfy NetFree/Rimon filters
     const imagePath = item.image_url
-        ? `/images/items/${item.image_url}`
-        : '/images/items/placeholder.jpg';
+        ? `/tivuta/images/items/${item.image_url}`
+        : '/tivuta/images/items/placeholder.jpg';
 
     // Helper to select content based on current locale
     const getLocalized = (field: 'title' | 'description') => {

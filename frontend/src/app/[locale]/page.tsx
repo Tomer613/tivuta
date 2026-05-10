@@ -25,6 +25,15 @@ import ItemCard from '@/components/ItemCard';
 import DynamicSlogan from '@/components/DynamicSlogan';
 import { getDictionary } from '@/lib/get-dictionary';
 
+export function generateStaticParams() {
+  return [
+    { locale: 'he' },
+    { locale: 'en' },
+    { locale: 'fr' },
+    { locale: 'yi' },
+  ];
+}
+
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
     const dict = await getDictionary(locale);

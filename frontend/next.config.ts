@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Essential for GitHub Pages static export
+  output: 'export',
+  
+  // This tells Next.js that the app is hosted under /tivuta
+  basePath: '/tivuta',
+  
+  // This ensures CSS/JS/Images are loaded from the correct path
+  assetPrefix: '/tivuta',
+
   // Disabling strict mode temporarily can help isolate hydration loops
   reactStrictMode: false,
   images: {

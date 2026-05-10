@@ -5,6 +5,15 @@
 
 import { ShieldCheck, Target, Heart, Users } from 'lucide-react';
 
+export function generateStaticParams() {
+  return [
+    { locale: 'he' },
+    { locale: 'en' },
+    { locale: 'fr' },
+    { locale: 'yi' },
+  ];
+}
+
 export default async function AboutPage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = await params;
 

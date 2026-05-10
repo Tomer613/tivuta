@@ -29,7 +29,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
 
                 {/* Column 1: Branding */}
                 <div className="flex flex-col gap-4 items-start">
-                    <img src="/images/logo.svg" alt="TIVUTA" className="h-10 w-auto brightness-0 invert" />
+                    <img src="/tivuta/branding/logo.svg" alt="TIVUTA" className="h-10 w-auto brightness-0 invert" />
                     <p className="text-sm leading-relaxed opacity-70 text-start">
                         {locale === 'he' ? 'המעטפת המקצועית המובילה לקהילה החרדית העובדת.' :
                             locale === 'yi' ? 'די פראפעסיאנעלע הילף פארן חרדישן ציבור.' :
@@ -93,7 +93,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
                 >
                     <span className="opacity-50 tracking-wide uppercase text-[10px]">{d.built_by || "Built by"}</span>
                     <img
-                        src="/branding/smart-logo.svg"
+                        src="/tivuta/branding/smart-logo.svg"
                         alt="Smart Studio"
                         className="branding-logo h-6 w-auto translate-x-[3px]"
                     />
