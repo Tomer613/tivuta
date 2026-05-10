@@ -14,16 +14,22 @@ interface BackButtonProps {
     className?: string;
 }
 
+interface BackTranslation {
+    back: string;
+}
+
+const translations: Record<string, BackTranslation> = {
+    he: { back: 'חזרה' },
+    en: { back: 'Back' },
+    fr: { back: 'Retour' },
+    yi: { back: 'צוריק' }
+};
+
 export default function BackButton({ locale, className = "" }: BackButtonProps) {
     const router = useRouter();
     const isRTL = locale === 'he' || locale === 'yi';
 
-    const t = {
-        he: { back: 'חזרה' },
-        en: { back: 'Back' },
-        fr: { back: 'Retour' },
-        yi: { back: 'צוריק' }
-    }[locale as keyof typeof t] || t.he;
+    const t = translations[locale] || translations.he;
 
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
@@ -44,7 +50,7 @@ export default function BackButton({ locale, className = "" }: BackButtonProps) 
             onClick={handleBack}
             className={`group flex items-center justify-center w-14 h-14 bg-white/90 backdrop-blur-md border border-slate-200 rounded-full text-[#1e3a8a] shadow-xl hover:bg-white hover:scale-110 transition-all active:scale-90 z-30 ${className}`}
             id="global-back-button"
-            aria-label={isRTL ? 'חזרה' : 'Back'}
+            aria-label={t.back}
         >
             {isRTL ? (
                 <ArrowRight size={28} className="group-hover:translate-x-1 transition-transform" />

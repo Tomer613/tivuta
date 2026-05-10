@@ -6,6 +6,20 @@
 import { Phone, Mail, MapPin, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
+interface FooterLinks {
+    benefits: string;
+    account: string;
+    about: string;
+    why: string;
+}
+
+const footerLinks: Record<string, FooterLinks> = {
+    he: { benefits: "כל הקטגוריות", account: "אזור אישי", about: "אודות טיבותא", why: "למה אנחנו?" },
+    en: { benefits: "All Categories", account: "Personal Area", about: "About TIVUTA", why: "Why Us?" },
+    fr: { benefits: "Catégories", account: "Espace Client", about: "À propos", why: "Pourquoi nous?" },
+    yi: { benefits: "אלע קאטעגאריעס", account: "מיין קאנטע", about: "איבער טיבותא", why: "פאר וואס מיר?" }
+};
+
 export default function Footer({ locale = 'he', dict }: { locale?: string, dict?: any }) {
     const d = dict?.footer || {
         quick_links: "ניווט מהיר",
@@ -15,13 +29,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
         open_ticket: "פתיחת קריאת שירות"
     };
 
-    // Locale-based link labels (fallback)
-    const links = {
-        he: { benefits: "כל הקטגוריות", account: "אזור אישי", about: "אודות טיבותא", why: "למה אנחנו?" },
-        en: { benefits: "All Categories", account: "Personal Area", about: "About TIVUTA", why: "Why Us?" },
-        fr: { benefits: "Catégories", account: "Espace Client", about: "À propos", why: "Pourquoi nous?" },
-        yi: { benefits: "אלע קאטעגאריעס", account: "מיין קאנטע", about: "איבער טיבותא", why: "פאר וואס מיר?" }
-    }[locale as keyof typeof links] || links.he;
+    const links = footerLinks[locale] || footerLinks.he;
 
     return (
         <footer className="bg-slate-900 text-slate-300 py-16 px-8 border-t border-slate-800">

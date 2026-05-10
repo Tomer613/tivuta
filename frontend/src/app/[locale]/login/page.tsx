@@ -6,38 +6,75 @@ import { useAuth } from '@/context/AuthContext';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 
+interface LoginTranslation {
+    title: string;
+    subtitle: string;
+    email: string;
+    password: string;
+    submit: string;
+    forgot: string;
+    no_account: string;
+    secure: string;
+    error_invalid: string;
+}
+
+const translations: Record<string, LoginTranslation> = {
+    he: {
+        title: "ברוך שובך ל-TIVUTA",
+        subtitle: "התחבר כדי לצפות בהטבות שלך ובמצב החיסכון",
+        email: "כתובת אימייל",
+        password: "סיסמה",
+        submit: "התחבר למערכת",
+        forgot: "שכחתי סיסמה",
+        no_account: "עדיין אין לך חשבון? הצטרף עכשיו",
+        secure: "התחברות מאובטחת",
+        error_invalid: "אימייל או סיסמה שגויים"
+    },
+    en: {
+        title: "Welcome back to TIVUTA",
+        subtitle: "Login to view your benefits and savings status",
+        email: "Email Address",
+        password: "Password",
+        submit: "Login",
+        forgot: "Forgot Password?",
+        no_account: "Don't have an account? Join now",
+        secure: "Secure Login",
+        error_invalid: "Invalid email or password"
+    },
+    fr: {
+        title: "Bienvenue sur TIVUTA",
+        subtitle: "Connectez-vous pour voir vos avantages",
+        email: "E-mail",
+        password: "Mot de passe",
+        submit: "Connexion",
+        forgot: "Mot de passe oublié ?",
+        no_account: "Pas de compte ? S'inscrire",
+        secure: "Connexion sécurisée",
+        error_invalid: "Identifiants invalides"
+    },
+    yi: {
+        title: "שלום עליכם צו טיבותא",
+        subtitle: "לאגט זיך אריין צו זען אייערע בענעפיטן",
+        email: "ע-פאסט",
+        password: "סיסמה",
+        submit: "אריינלאגן",
+        forgot: "פארגעסן סיסמה?",
+        no_account: "נישטא קיין קאנטע? שליסן זיך אן יעצט",
+        secure: "זיכערהייט",
+        error_invalid: "טעות אין אימייל אדער סיסמה"
+    }
+};
+
 export default function LoginPage() {
-    const { locale } = useParams();
+    const params = useParams();
+    const locale = params.locale as string || 'he';
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    const t = {
-        he: {
-            title: "ברוך שובך ל-TIVUTA",
-            subtitle: "התחבר כדי לצפות בהטבות שלך ובמצב החיסכון",
-            email: "כתובת אימייל",
-            password: "סיסמה",
-            submit: "התחבר למערכת",
-            forgot: "שכחתי סיסמה",
-            no_account: "עדיין אין לך חשבון? הצטרף עכשיו",
-            secure: "התחברות מאובטחת",
-            error_invalid: "אימייל או סיסמה שגויים"
-        },
-        en: {
-            title: "Welcome back to TIVUTA",
-            subtitle: "Login to view your benefits and savings status",
-            email: "Email Address",
-            password: "Password",
-            submit: "Login",
-            forgot: "Forgot Password?",
-            no_account: "Don't have an account? Join now",
-            secure: "Secure Login",
-            error_invalid: "Invalid email or password"
-        }
-    }[locale as 'he' | 'en'] || t.he;
+    const t = translations[locale] || translations.he;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

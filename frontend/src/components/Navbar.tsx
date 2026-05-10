@@ -6,7 +6,7 @@
 "use client";
 
 import Link from 'next/link';
-import { User, Search, ShoppingBag, Globe, LogOut, LayoutDashboard } from 'lucide-react';
+import { User, Search, Globe, LogOut, LayoutDashboard } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -17,6 +17,24 @@ const languages = [
     { code: 'fr', label: 'Français' },
     { code: 'yi', label: 'יידיש' }
 ];
+
+interface NavbarUI {
+    home: string;
+    benefits: string;
+    about: string;
+    card: string;
+    search: string;
+    account: string;
+    dashboard: string;
+    logout: string;
+}
+
+const navbarUI: Record<string, NavbarUI> = {
+    he: { home: 'דף הבית', benefits: 'כל ההטבות', about: 'אודות', card: 'כרטיס האשראי', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה' },
+    en: { home: 'Home', benefits: 'Benefits', about: 'About', card: 'Credit Card', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout' },
+    fr: { home: 'Accueil', benefits: 'Avantages', about: 'À propos', card: 'Carte', search: 'Recherche...', account: 'Rejoindre', dashboard: 'Espace', logout: 'Quitter' },
+    yi: { home: 'היים', benefits: 'בענעפיטן', about: 'איבער', card: 'קארטל', search: 'זוכן...', account: 'שליסן', dashboard: 'קאנטע', logout: 'יציאה' }
+};
 
 export default function Navbar() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -43,10 +61,7 @@ export default function Navbar() {
         setShowLangMenu(false);
     };
 
-    const ui = {
-        he: { home: 'דף הבית', benefits: 'כל ההטבות', about: 'אודות', card: 'כרטיס האשראי', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה' },
-        en: { home: 'Home', benefits: 'Benefits', about: 'About', card: 'Credit Card', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout' }
-    }[locale as 'he' | 'en'] || ui.he;
+    const ui = navbarUI[locale] || navbarUI.he;
 
     return (
         <nav className="glass-nav px-6 py-4 sticky top-0 z-50">

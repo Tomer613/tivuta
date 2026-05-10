@@ -14,8 +14,73 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+interface DashboardTranslation {
+    welcome: string;
+    subtitle: string;
+    savings_title: string;
+    expenses_title: string;
+    distribution_title: string;
+    orders_title: string;
+    savings_cta: string;
+    invest_cta: string;
+    no_orders: string;
+    currency: string;
+}
+
+const translations: Record<string, DashboardTranslation> = {
+    he: {
+        welcome: "שלום,",
+        subtitle: "ככה נראה הכסף שלך החודש ב-TIVUTA",
+        savings_title: "סה\"כ חסכון החודש",
+        expenses_title: "הוצאות סה\"כ - מאי",
+        distribution_title: "התפלגות הצרכנות שלי",
+        orders_title: "ההזמנות שלי",
+        savings_cta: "העברה לחיסכון לכל ילד",
+        invest_cta: "העברה להשקעה חכמה",
+        no_orders: "עדיין אין הזמנות",
+        currency: "₪"
+    },
+    en: {
+        welcome: "Hello,",
+        subtitle: "Here's how your money looks this month on TIVUTA",
+        savings_title: "Total Savings This Month",
+        expenses_title: "Total Expenses - May",
+        distribution_title: "My Consumption Distribution",
+        orders_title: "My Orders",
+        savings_cta: "Transfer to Children Savings",
+        invest_cta: "Transfer to Smart Investment",
+        no_orders: "No orders yet",
+        currency: "$"
+    },
+    fr: {
+        welcome: "Bonjour,",
+        subtitle: "Voici vos finances ce mois-ci sur TIVUTA",
+        savings_title: "Économies totales",
+        expenses_title: "Dépenses totales",
+        distribution_title: "Ma distribution",
+        orders_title: "Mes commandes",
+        savings_cta: "Transférer vers l'épargne",
+        invest_cta: "Investissement intelligent",
+        no_orders: "Pas encore de commandes",
+        currency: "€"
+    },
+    yi: {
+        welcome: "שלום,",
+        subtitle: "אזוי זעט אויס אייער געלט דעם חודש אין טיבותא",
+        savings_title: "סך הכל געשפארט",
+        expenses_title: "סך הכל אויסגאבן",
+        distribution_title: "מיין אויסגאבן",
+        orders_title: "מיינע באשטעלונגען",
+        savings_cta: "שפארן פאר די קינדער",
+        invest_cta: "קלוזשע אינוועסטמענט",
+        no_orders: "נישטא קיין באשטעלונגען",
+        currency: "₪"
+    }
+};
+
 export default function DashboardPage() {
-    const { locale } = useParams();
+    const params = useParams();
+    const locale = params.locale as string || 'he';
     const { user, token, isLoading: authLoading } = useAuth();
     const router = useRouter();
     const [data, setData] = useState<any>(null);
@@ -31,7 +96,7 @@ export default function DashboardPage() {
         if (token) {
             fetchDashboardData();
         }
-    }, [user, authLoading, token]);
+    }, [user, authLoading, token, locale, router]);
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -85,32 +150,7 @@ export default function DashboardPage() {
 
     if (!data) return null;
 
-    const t = {
-        he: {
-            welcome: "שלום,",
-            subtitle: "ככה נראה הכסף שלך החודש ב-TIVUTA",
-            savings_title: "סה\"כ חסכון החודש",
-            expenses_title: "הוצאות סה\"כ - מאי",
-            distribution_title: "התפלגות הצרכנות שלי",
-            orders_title: "ההזמנות שלי",
-            savings_cta: "העברה לחיסכון לכל ילד",
-            invest_cta: "העברה להשקעה חכמה",
-            no_orders: "עדיין אין הזמנות",
-            currency: "₪"
-        },
-        en: {
-            welcome: "Hello,",
-            subtitle: "Here's how your money looks this month on TIVUTA",
-            savings_title: "Total Savings This Month",
-            expenses_title: "Total Expenses - May",
-            distribution_title: "My Consumption Distribution",
-            orders_title: "My Orders",
-            savings_cta: "Transfer to Children Savings",
-            invest_cta: "Transfer to Smart Investment",
-            no_orders: "No orders yet",
-            currency: "$"
-        }
-    }[locale as 'he' | 'en'] || t.he;
+    const t = translations[locale] || translations.he;
 
     const barData = [
         { name: 'הוצאות', value: data.monthly_expenses, fill: '#1e3a8a' },

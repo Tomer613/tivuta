@@ -44,8 +44,11 @@ const translations: Record<string, HomeTranslation> = {
     yi: { recommended: "רעקאמענדירט פאר אייך", newsletter_t: "פארפאסט נישט קיין בענעפיט", newsletter_s: "שליסן זיך אן אין אונזער קהילה.", phone_p: "טעלעפאן אדער ע-פאסט", join_btn: "שליסן זיך אן" }
 };
 
+type SupportedLocale = 'he' | 'en' | 'fr' | 'yi';
+
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
-    const { locale } = await params;
+    const { locale: rawLocale } = await params;
+    const locale = rawLocale as SupportedLocale;
     const dict = await getDictionary(locale);
     const categories = await getCategories();
     const trendingItems = await getTrendingItems();

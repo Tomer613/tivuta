@@ -29,6 +29,8 @@ const translations: Record<string, BenefitsTranslation> = {
     yi: { title: "אלע בענעפיטן", subtitle: "געפינט אלע עקסקלוסיוו בענעפיטן פארן היימישן ציבור.", all: "אלע", results: "תוצאות געפונען", empty: "נישט געפונען קיין בענעפיטן", back: "צוריק צו אלע בענעפיטן" }
 };
 
+type SupportedLocale = 'he' | 'en' | 'fr' | 'yi';
+
 export default async function BenefitsPage({ 
     params,
     searchParams 
@@ -36,7 +38,8 @@ export default async function BenefitsPage({
     params: Promise<{ locale: string }>,
     searchParams: Promise<{ category?: string, search?: string }> 
 }) {
-    const { locale } = await params;
+    const { locale: rawLocale } = await params;
+    const locale = rawLocale as SupportedLocale;
     const { category, search } = await searchParams;
     const allItems = await getTrendingItems();
     const categories = await getCategories();

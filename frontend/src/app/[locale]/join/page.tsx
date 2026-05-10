@@ -10,8 +10,93 @@ import { useAuth } from '@/context/AuthContext';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 
+interface JoinTranslation {
+    title: string;
+    subtitle: string;
+    feature1: string;
+    feature2: string;
+    feature3: string;
+    form_title: string;
+    fname: string;
+    lname: string;
+    phone: string;
+    email: string;
+    password: string;
+    submit: string;
+    secure: string;
+    error_email: string;
+}
+
+const translations: Record<string, JoinTranslation> = {
+    he: {
+        title: "הגיע הזמן להתחיל להרוויח.",
+        subtitle: "הצטרף לקהילה שדואגת לך באמת. הטבות בבנקים, הנחות ברשתות השיווק ואירועי פנאי מותאמים.",
+        feature1: "הצטרפות חינם וללא התחייבות",
+        feature2: "גישה מיידית לכל ההטבות",
+        feature3: "שירות לקוחות אישי בווטסאפ",
+        form_title: "טופס הצטרפות מהיר",
+        fname: "שם פרטי",
+        lname: "שם משפחה",
+        phone: "מספר טלפון",
+        email: "כתובת אימייל",
+        password: "סיסמה",
+        submit: "שגר בקשה להצטרפות",
+        secure: "מאובטח בסטנדרט הגבוה ביותר",
+        error_email: "האימייל כבר קיים במערכת"
+    },
+    en: {
+        title: "It's Time to Start Earning.",
+        subtitle: "Join the community that truly cares. Bank benefits, retail discounts, and tailored leisure events.",
+        feature1: "Free joining, no commitment",
+        feature2: "Immediate access to all benefits",
+        feature3: "Personal WhatsApp customer service",
+        form_title: "Quick Registration",
+        fname: "First Name",
+        lname: "Last Name",
+        phone: "Phone Number",
+        email: "Email Address",
+        password: "Password",
+        submit: "Submit Registration",
+        secure: "Secured with the highest standards",
+        error_email: "Email already exists"
+    },
+    fr: {
+        title: "Il est temps de gagner.",
+        subtitle: "Rejoignez la communauté qui se soucie vraiment de vous.",
+        feature1: "Inscription gratuite",
+        feature2: "Accès immédiat",
+        feature3: "Service client WhatsApp",
+        form_title: "Inscription rapide",
+        fname: "Prénom",
+        lname: "Nom",
+        phone: "Téléphone",
+        email: "E-mail",
+        password: "Mot de passe",
+        submit: "S'inscrire",
+        secure: "Sécurisé",
+        error_email: "Email existe déjà"
+    },
+    yi: {
+        title: "צייט אנצוהויבן פארדינען.",
+        subtitle: "שליסן זיך אן אין דער קהילה וואס דארף אייך.",
+        feature1: "פרייע רעגיסטראציע",
+        feature2: "זאפארט צוטריט",
+        feature3: "וואטסאפ סערוויס",
+        form_title: "שנעלע רעגיסטראציע",
+        fname: "ערשטער נאמען",
+        lname: "לעצטער נאמען",
+        phone: "טעלעפאן",
+        email: "ע-פאסט",
+        password: "סיסמה",
+        submit: "רעגיסטרירן",
+        secure: "זיכערהייט",
+        error_email: "אימייל עקזיסטירט שוין"
+    }
+};
+
 export default function JoinPage() {
-    const { locale } = useParams();
+    const params = useParams();
+    const locale = params.locale as string || 'he';
     const { signup } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -23,40 +108,7 @@ export default function JoinPage() {
         password: ''
     });
 
-    const t = {
-        he: {
-            title: "הגיע הזמן להתחיל להרוויח.",
-            subtitle: "הצטרף לקהילה שדואגת לך באמת. הטבות בבנקים, הנחות ברשתות השיווק ואירועי פנאי מותאמים.",
-            feature1: "הצטרפות חינם וללא התחייבות",
-            feature2: "גישה מיידית לכל ההטבות",
-            feature3: "שירות לקוחות אישי בווטסאפ",
-            form_title: "טופס הצטרפות מהיר",
-            fname: "שם פרטי",
-            lname: "שם משפחה",
-            phone: "מספר טלפון",
-            email: "כתובת אימייל",
-            password: "סיסמה",
-            submit: "שגר בקשה להצטרפות",
-            secure: "מאובטח בסטנדרט הגבוה ביותר",
-            error_email: "האימייל כבר קיים במערכת"
-        },
-        en: {
-            title: "It's Time to Start Earning.",
-            subtitle: "Join the community that truly cares. Bank benefits, retail discounts, and tailored leisure events.",
-            feature1: "Free joining, no commitment",
-            feature2: "Immediate access to all benefits",
-            feature3: "Personal WhatsApp customer service",
-            form_title: "Quick Registration",
-            fname: "First Name",
-            lname: "Last Name",
-            phone: "Phone Number",
-            email: "Email Address",
-            password: "Password",
-            submit: "Submit Registration",
-            secure: "Secured with the highest standards",
-            error_email: "Email already exists"
-        }
-    }[locale as 'he' | 'en'] || t.he;
+    const t = translations[locale] || translations.he;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

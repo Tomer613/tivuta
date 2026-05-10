@@ -10,6 +10,100 @@ import { useState } from 'react';
 import { Mail, Phone, MapPin, Send, CheckCircle2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 
+interface ContactTranslation {
+    title: string;
+    subtitle: string;
+    phone: string;
+    email: string;
+    office: string;
+    office_loc: string;
+    form_title: string;
+    name: string;
+    email_label: string;
+    phone_label: string;
+    subject: string;
+    message: string;
+    send: string;
+    success_title: string;
+    success_desc: string;
+    back: string;
+}
+
+const translations: Record<string, ContactTranslation> = {
+    he: {
+        title: "מוקד שירות חברים",
+        subtitle: "אנחנו כאן לכל שאלה, תקלה או בירור בנושא מימוש הטבות ושירותי הקהילה.",
+        phone: "מוקד טלפוני",
+        email: "דואר אלקטרוני",
+        office: "משרדי החברה",
+        office_loc: "ירושלים / בית שמש",
+        form_title: "פתיחת קריאת שירות",
+        name: "שם מלא",
+        email_label: "אימייל",
+        phone_label: "טלפון",
+        subject: "נושא הפנייה",
+        message: "תוכן ההודעה",
+        send: "שליחת הפנייה",
+        success_title: "הפנייה התקבלה!",
+        success_desc: "תודה שפנית למוקד השירות של טיבותא. נציג מטעמנו יחזור אליך בהקדם האפשרי.",
+        back: "חזרה לטופס"
+    },
+    en: {
+        title: "Member Service Center",
+        subtitle: "We are here for any question, issue, or inquiry regarding benefits and community services.",
+        phone: "Call Center",
+        email: "Email Address",
+        office: "Company Offices",
+        office_loc: "Israel",
+        form_title: "Open Service Request",
+        name: "Full Name",
+        email_label: "Email",
+        phone_label: "Phone",
+        subject: "Subject",
+        message: "Message Content",
+        send: "Submit Request",
+        success_title: "Request Received!",
+        success_desc: "Thank you for contacting TIVUTA service center. A representative will get back to you shortly.",
+        back: "Back to Form"
+    },
+    fr: {
+        title: "Centre de Service",
+        subtitle: "Nous sommes là pour toute question ou demande concernant les avantages et les services.",
+        phone: "Centre d'appel",
+        email: "Adresse E-mail",
+        office: "Bureaux",
+        office_loc: "Israël",
+        form_title: "Ouvrir une demande",
+        name: "Nom complet",
+        email_label: "E-mail",
+        phone_label: "Téléphone",
+        subject: "Sujet",
+        message: "Contenu du message",
+        send: "Envoyer la demande",
+        success_title: "Demande reçue !",
+        success_desc: "Merci d'avoir contacté le centre de service TIVUTA. Un représentant vous répondra sous peu.",
+        back: "Retour au formulaire"
+    },
+    yi: {
+        title: "סערוויס צענטער",
+        subtitle: "מיר זענען דא פאר סיי וועלכע פראגע אדער הילף וואס איר דארפט.",
+        phone: "טעלעפאן צענטער",
+        email: "ע-פאסט",
+        office: "אונזערע אפיסעס",
+        office_loc: "ארץ ישראל",
+        form_title: "עפענען א פראגע",
+        name: "פולער נאמען",
+        email_label: "ע-פאסט",
+        phone_label: "טעלעפאן",
+        subject: "נושא",
+        message: "הודעה",
+        send: "שיקן די פראגע",
+        success_title: "די פראגע איז צוגעשיקט!",
+        success_desc: "א דאנק פארן זיך פארבינדן מיט טיבותא. מיר וועלן אייך ענטפערן בקרוב.",
+        back: "צוריק צום טאבעלע"
+    }
+};
+
 export default function ContactPage() {
     const [submitted, setSubmitted] = useState(false);
     const params = useParams();
@@ -20,81 +114,7 @@ export default function ContactPage() {
         setSubmitted(true);
     };
 
-    // Translation map for the contact form
-    const t = {
-        he: {
-            title: "מוקד שירות חברים",
-            subtitle: "אנחנו כאן לכל שאלה, תקלה או בירור בנושא מימוש הטבות ושירותי הקהילה.",
-            phone: "מוקד טלפוני",
-            email: "דואר אלקטרוני",
-            office: "משרדי החברה",
-            office_loc: "ירושלים / בית שמש",
-            form_title: "פתיחת קריאת שירות",
-            name: "שם מלא",
-            email_label: "אימייל",
-            phone_label: "טלפון",
-            subject: "נושא הפנייה",
-            message: "תוכן ההודעה",
-            send: "שליחת הפנייה",
-            success_title: "הפנייה התקבלה!",
-            success_desc: "תודה שפנית למוקד השירות של טיבותא. נציג מטעמנו יחזור אליך בהקדם האפשרי.",
-            back: "חזרה לטופס"
-        },
-        en: {
-            title: "Member Service Center",
-            subtitle: "We are here for any question, issue, or inquiry regarding benefits and community services.",
-            phone: "Call Center",
-            email: "Email Address",
-            office: "Company Offices",
-            office_loc: "Israel",
-            form_title: "Open Service Request",
-            name: "Full Name",
-            email_label: "Email",
-            phone_label: "Phone",
-            subject: "Subject",
-            message: "Message Content",
-            send: "Submit Request",
-            success_title: "Request Received!",
-            success_desc: "Thank you for contacting TIVUTA service center. A representative will get back to you shortly.",
-            back: "Back to Form"
-        },
-        fr: {
-            title: "Centre de Service",
-            subtitle: "Nous sommes là pour toute question ou demande concernant les avantages et les services.",
-            phone: "Centre d'appel",
-            email: "Adresse E-mail",
-            office: "Bureaux",
-            office_loc: "Israël",
-            form_title: "Ouvrir une demande",
-            name: "Nom complet",
-            email_label: "E-mail",
-            phone_label: "Téléphone",
-            subject: "Sujet",
-            message: "Contenu du message",
-            send: "Envoyer la demande",
-            success_title: "Demande reçue !",
-            success_desc: "Merci d'avoir contacté le centre de service TIVUTA. Un représentant vous répondra sous peu.",
-            back: "Retour au formulaire"
-        },
-        yi: {
-            title: "סערוויס צענטער",
-            subtitle: "מיר זענען דא פאר סיי וועלכע פראגע אדער הילף וואס איר דארפט.",
-            phone: "טעלעפאן צענטער",
-            email: "ע-פאסט",
-            office: "אונזערע אפיסעס",
-            office_loc: "ארץ ישראל",
-            form_title: "עפענען א פראגע",
-            name: "פולער נאמען",
-            email_label: "ע-פאסט",
-            phone_label: "טעלעפאן",
-            subject: "נושא",
-            message: "הודעה",
-            send: "שיקן די פראגע",
-            success_title: "די פראגע איז צוגעשיקט!",
-            success_desc: "א דאנק פארן זיך פארבינדן מיט טיבותא. מיר וועלן אייך ענטפערן בקרוב.",
-            back: "צוריק צום טאבעלע"
-        }
-    }[locale as keyof typeof t] || t.he;
+    const t = translations[locale] || translations.he;
 
     if (submitted) {
         return (
