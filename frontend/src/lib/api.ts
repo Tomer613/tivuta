@@ -22,17 +22,17 @@ const MOCK_CATEGORIES = [
 ];
 
 const MOCK_ITEMS = [
-    { id: 1, title_he: 'סט תפילין מהודר', description_he: 'סט תפילין באיכות הגבוהה ביותר, כולל בדיקת מוגה ממוחשבת וידנית.', image_url: 'tefillin.webp', price: 2800 },
-    { id: 2, title_he: 'ארוחת טעימות יוקרתית', description_he: 'חוויה קולינרית בלתי נשכחת בכשרות המהודרת ביותר.', image_url: 'chef_restaurant.webp', price: 280 },
-    { id: 3, title_he: 'חליפת צמר איטלקית פרימיום', description_he: 'חליפה יוקרתית בעיצוב קלאסי למראה מכובד.', image_url: 'mens_suit.webp', price: 1400 },
-    { id: 4, title_he: 'מארז יינות פרימיום לחג', description_he: 'מבחר יינות מהיקבים המובילים בכשרות מהדרין.', image_url: 'wine_bottles.webp', price: 320 },
-    { id: 5, title_he: 'נופש משפחתי בכינרת', description_he: 'צימרים מפוארים עם בריכה נפרדת וארוחות כשרות.', image_url: 'kosher_hotel.webp', price: 950 },
-    { id: 6, title_he: 'סמארטפון מסונן TIVUTA Safe', description_he: 'המכשיר המתקדם ביותר עם סינון הרמטי ללא פשרות.', image_url: 'filtered_phone.webp', price: 1200 },
-    { id: 7, title_he: 'מנוי שנתי - מועדון הכוח', description_he: 'שעות נפרדות לנשים וגברים בסביבה תומכת ומקצועית.', image_url: 'finance_hero.webp', price: 1800 },
-    { id: 8, title_he: 'שמלת כלה צנועה ומפוארת', description_he: 'עיצוב אישי וליווי צמוד ליום החשוב בחייך.', image_url: 'wedding_dress.webp', price: 4500 },
-    { id: 9, title_he: 'טויוטה סיאנה 2026 - 8 מקומות', description_he: 'הרכב האידיאלי למשפחה החרדית בתנאי מימון נוחים.', image_url: 'auto_deal.webp', price: 240000 },
-    { id: 10, title_he: 'דירת 4 חדרים בבית שמש', description_he: 'פרויקט מגורים איכותי בלב קהילה תוססת ומתפתחת.', image_url: 'jerusalem_apartment.webp', price: 2100000 },
-    { id: 11, title_he: 'תכנון מטבח מהדרין מודרני', description_he: 'עיצוב מטבח חכם עם הפרדה מלאה וניצול שטח מקסימלי.', image_url: 'kosher_kitchen.webp', price: 2500 }
+    { id: 1, title_he: 'סט תפילין מהודר', description_he: 'סט תפילין באיכות הגבוהה ביותר, כולל בדיקת מוגה ממוחשבת וידנית.', image_url: 'tefillin.webp', price: 2800, cat_id_new: 1 },
+    { id: 2, title_he: 'ארוחת טעימות יוקרתית', description_he: 'חוויה קולינרית בלתי נשכחת בכשרות המהודרת ביותר.', image_url: 'chef_restaurant.webp', price: 280, cat_id_new: 2 },
+    { id: 3, title_he: 'חליפת צמר איטלקית פרימיום', description_he: 'חליפה יוקרתית בעיצוב קלאסי למראה מכובד.', image_url: 'mens_suit.webp', price: 1400, cat_id_new: 3 },
+    { id: 4, title_he: 'מארז יינות פרימיום לחג', description_he: 'מבחר יינות מהיקבים המובילים בכשרות מהדרין.', image_url: 'wine_bottles.webp', price: 320, cat_id_new: 4 },
+    { id: 5, title_he: 'נופש משפחתי בכינרת', description_he: 'צימרים מפוארים עם בריכה נפרדת וארוחות כשרות.', image_url: 'kosher_hotel.webp', price: 950, cat_id_new: 5 },
+    { id: 6, title_he: 'סמארטפון מסונן TIVUTA Safe', description_he: 'המכשיר המתקדם ביותר עם סינון הרמטי ללא פשרות.', image_url: 'filtered_phone.webp', price: 1200, cat_id_new: 6 },
+    { id: 7, title_he: 'מנוי שנתי - מועדון הכוח', description_he: 'שעות נפרדות לנשים וגברים בסביבה תומכת ומקצועית.', image_url: 'finance_hero.webp', price: 1800, cat_id_new: 7 },
+    { id: 8, title_he: 'שמלת כלה צנועה ומפוארת', description_he: 'עיצוב אישי וליווי צמוד ליום החשוב בחייך.', image_url: 'wedding_dress.webp', price: 4500, cat_id_new: 8 },
+    { id: 9, title_he: 'טויוטה סיאנה 2026 - 8 מקומות', description_he: 'הרכב האידיאלי למשפחה החרדית בתנאי מימון נוחים.', image_url: 'auto_deal.webp', price: 240000, cat_id_new: 9 },
+    { id: 10, title_he: 'דירת 4 חדרים בבית שמש', description_he: 'פרויקט מגורים איכותי בלב קהילה תוססת ומתפתחת.', image_url: 'jerusalem_apartment.webp', price: 2100000, cat_id_new: 9 },
+    { id: 11, title_he: 'תכנון מטבח מהדרין מודרני', description_he: 'עיצוב מטבח חכם עם הפרדה מלאה וניצול שטח מקסימלי.', image_url: 'kosher_kitchen.webp', price: 2500, cat_id_new: 12 }
 ];
 
 export async function getTrendingItems() {

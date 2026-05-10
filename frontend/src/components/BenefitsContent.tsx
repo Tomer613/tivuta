@@ -42,7 +42,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
             <section className="max-w-7xl mx-auto py-10 px-8">
                 <div className="flex items-center gap-4 overflow-x-auto pb-4 scrollbar-hide">
                     <Link 
-                        href={`/${locale}/benefits`} 
+                        href={`/${locale}/benefits${search ? `?search=${search}` : ''}`} 
                         className={`px-8 py-3 rounded-2xl text-base font-bold whitespace-nowrap transition-all ${!category ? 'bg-[#1e3a8a] text-white shadow-xl shadow-blue-900/20' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}
                     >
                         {t.all}
