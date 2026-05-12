@@ -29,11 +29,15 @@ body {
 }
 
 .takhles-card {
-    @apply bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500;
+    @apply bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] hover:-translate-y-3 transition-all duration-500 cursor-pointer;
+}
+
+.takhles-card:hover .group-hover\:scale-110 {
+    @apply scale-110;
 }
 
 .btn-primary {
-    @apply bg-[#1e3a8a] text-white px-6 py-3 rounded-2xl font-bold hover:bg-[#2563eb] hover:shadow-[0_20px_40px_rgba(30,58,138,0.3)] hover:scale-[1.02] transition-all active:scale-95 relative overflow-hidden;
+    @apply bg-[#1e3a8a] text-white px-6 py-3 rounded-2xl font-bold hover:bg-[#2563eb] hover:shadow-[0_20px_40px_rgba(30,58,138,0.4)] hover:scale-[1.05] transition-all active:scale-95 relative overflow-hidden;
 }
 
 .btn-primary::after {

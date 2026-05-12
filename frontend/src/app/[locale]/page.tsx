@@ -102,19 +102,20 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             {/* Category Navigation */}
             <section className="max-w-7xl mx-auto -mt-12 px-6 relative z-20">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                    {categories.map((cat: any) => (
-                        <Link
-                            key={cat.id}
-                            href={`/${locale}/categories/${cat.slug}`}
-                            className="takhles-card p-8 text-center group flex flex-col items-center gap-4 border-b-4 border-transparent hover:border-[#1e3a8a] animate-fade-in-up"
-                        >
-                            <div className="w-16 h-16 bg-slate-50 text-[#1e3a8a] rounded-2xl flex items-center justify-center group-hover:bg-[#1e3a8a] group-hover:text-white transition-all duration-500 shadow-inner">
-                                {categoryIcons[cat.slug] || categoryIcons.default}
-                            </div>
-                            <span className="font-bold text-slate-800 text-lg">
-                                {cat[`name_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || cat.name_he}
-                            </span>
-                        </Link>
+                    {categories.map((cat: any, index: number) => (
+                        <div key={cat.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
+                            <Link
+                                href={`/${locale}/categories/${cat.slug}`}
+                                className="takhles-card p-8 text-center group flex flex-col items-center gap-4 border-b-4 border-transparent hover:border-[#1e3a8a]"
+                            >
+                                <div className="w-16 h-16 bg-slate-50 text-[#1e3a8a] rounded-2xl flex items-center justify-center group-hover:bg-[#1e3a8a] group-hover:text-white transition-all duration-500 shadow-inner group-hover:scale-110">
+                                    {categoryIcons[cat.slug] || categoryIcons.default}
+                                </div>
+                                <span className="font-bold text-slate-800 text-lg">
+                                    {cat[`name_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || cat.name_he}
+                                </span>
+                            </Link>
+                        </div>
                     ))}
                 </div>
             </section>

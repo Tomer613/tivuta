@@ -6,7 +6,7 @@
 "use client";
 
 import Link from 'next/link';
-import { User, Search, Globe, LogOut, LayoutDashboard } from 'lucide-react';
+import { User, Search, Globe, LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -39,6 +39,7 @@ const navbarUI: Record<string, NavbarUI> = {
 export default function Navbar() {
     const [searchQuery, setSearchQuery] = useState('');
     const [showLangMenu, setShowLangMenu] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { user, logout } = useAuth();
     const router = useRouter();
     const params = useParams();
@@ -80,9 +81,9 @@ export default function Navbar() {
                 </div>
 
                 {/* Actions - Logical end */}
-                <div className="flex items-center gap-4">
-                    {/* Language Switcher */}
-                    <div className="relative">
+                <div className="flex items-center gap-2 md:gap-4">
+                    {/* Language Switcher - Hidden on very small screens, moved to menu if needed */}
+                    <div className="relative hidden sm:block">
                         <button 
                             onClick={() => setShowLangMenu(!showLangMenu)}
                             className="w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-full transition-all"
@@ -90,7 +91,7 @@ export default function Navbar() {
                             <Globe size={20} />
                         </button>
                         {showLangMenu && (
-                            <div className="absolute top-12 start-0 bg-white border border-slate-200 rounded-2xl shadow-xl py-3 w-32 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                            <div className="absolute top-12 start-0 bg-white border border-slate-200 rounded-2xl shadow-xl py-3 w-32 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
                                 {languages.map((lang) => (
                                     <button
                                         key={lang.code}
@@ -104,7 +105,7 @@ export default function Navbar() {
                         )}
                     </div>
 
-                    <form onSubmit={handleSearch} className="relative hidden md:block group">
+                    <form onSubmit={handleSearch} className="relative hidden lg:block group">
                         <input 
                             type="text" 
                             placeholder={ui.search} 
@@ -118,10 +119,10 @@ export default function Navbar() {
                     <div className="h-8 w-px bg-slate-200 mx-2 md:block hidden"></div>
                     
                     {user ? (
-                        <div className="flex items-center gap-3">
-                            <Link href={`/${locale}/dashboard`} className="btn-primary flex items-center gap-2 !py-2 !px-4 text-sm whitespace-nowrap bg-slate-900 shadow-none hover:bg-slate-800">
+                        <div className="flex items-center gap-2 md:gap-3">
+                            <Link href={`/${locale}/dashboard`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap bg-slate-900 shadow-none hover:bg-slate-800">
                                 <LayoutDashboard size={18} />
-                                <span>{ui.dashboard}</span>
+                                <span className="hidden sm:inline">{ui.dashboard}</span>
                             </Link>
                             <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title={ui.logout}>
                                 <LogOut size={20} />
@@ -129,17 +130,86 @@ export default function Navbar() {
                         </div>
                     ) : (
                         <div className="flex items-center gap-2">
-                            <Link href={`/${locale}/login`} className="text-slate-600 font-bold text-sm px-4 hover:text-[#1e3a8a]">
+                            <Link href={`/${locale}/login`} className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a] hidden sm:block">
                                 {locale === 'he' ? 'התחבר' : 'Login'}
                             </Link>
-                            <Link href={`/${locale}/join`} className="btn-primary flex items-center gap-2 !py-2 !px-4 text-sm whitespace-nowrap">
+                            <Link href={`/${locale}/join`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap">
                                 <User size={18} />
                                 <span>{ui.account}</span>
                             </Link>
                         </div>
                     )}
+
+                    {/* Mobile Menu Toggle */}
+                    <button 
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        className="md:hidden w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                    >
+                        {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
                 </div>
             </div>
+
+            {/* Mobile Menu Overlay */}
+            {isMenuOpen && (
+                <div className="fixed inset-0 top-[73px] bg-white z-40 md:hidden animate-in fade-in slide-in-from-top-5">
+                    <div className="flex flex-col p-8 gap-6 h-full overflow-y-auto">
+                        <Link 
+                            href={`/${locale}`} 
+                            onClick={() => setIsMenuOpen(false)}
+                            className="text-2xl font-black text-slate-900 border-b border-slate-100 pb-4"
+                        >
+                            {ui.home}
+                        </Link>
+                        <Link 
+                            href={`/${locale}/benefits`} 
+                            onClick={() => setIsMenuOpen(false)}
+                            className="text-2xl font-black text-slate-900 border-b border-slate-100 pb-4"
+                        >
+                            {ui.benefits}
+                        </Link>
+                        <Link 
+                            href={`/${locale}/card`} 
+                            onClick={() => setIsMenuOpen(false)}
+                            className="text-2xl font-black text-amber-600 border-b border-slate-100 pb-4"
+                        >
+                            {ui.card}
+                        </Link>
+                        <Link 
+                            href={`/${locale}/about`} 
+                            onClick={() => setIsMenuOpen(false)}
+                            className="text-2xl font-black text-slate-900 border-b border-slate-100 pb-4"
+                        >
+                            {ui.about}
+                        </Link>
+
+                        <div className="mt-8 flex flex-col gap-4">
+                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">שפה / Language</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                {languages.map((lang) => (
+                                    <button
+                                        key={lang.code}
+                                        onClick={() => changeLanguage(lang.code)}
+                                        className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all ${locale === lang.code ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                                    >
+                                        {lang.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {!user && (
+                            <Link 
+                                href={`/${locale}/login`}
+                                onClick={() => setIsMenuOpen(false)}
+                                className="mt-auto bg-slate-100 text-slate-900 py-4 rounded-2xl font-bold text-center"
+                            >
+                                {locale === 'he' ? 'התחבר למערכת' : 'Login to System'}
+                            </Link>
+                        )}
+                    </div>
+                </div>
+            )}
         </nav>
     );
 }
