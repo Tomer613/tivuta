@@ -38,22 +38,34 @@ const MOCK_ITEMS = [
 export async function getTrendingItems() {
     try {
         const res = await fetch(`${BASE_URL}/trending`, { next: { revalidate: 3600 } });
-        if (!res.ok) return MOCK_ITEMS;
+        if (!res.ok) return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
         return await res.json();
     } catch (e) {
         console.warn("Backend unreachable during build, using mock items.");
-        return MOCK_ITEMS;
+        return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
+    }
+}
+
+export async function getMonthlyItems() {
+    try {
+        const res = await fetch(`${BASE_URL}/items`, { next: { revalidate: 0 } });
+        if (!res.ok) return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 })).filter(i => i.is_monthly);
+        const all = await res.json();
+        return all.filter((i: any) => i.is_monthly);
+    } catch (e) {
+        console.warn("Backend unreachable, using mock items.");
+        return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 })).filter(i => i.is_monthly);
     }
 }
 
 export async function getAllItems() {
     try {
-        const res = await fetch(`${BASE_URL}/items`, { next: { revalidate: 3600 } });
-        if (!res.ok) return MOCK_ITEMS;
+        const res = await fetch(`${BASE_URL}/items`, { next: { revalidate: 0 } });
+        if (!res.ok) return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
         return await res.json();
     } catch (e) {
         console.warn("Backend unreachable during build, using mock items.");
-        return MOCK_ITEMS;
+        return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
     }
 }
 

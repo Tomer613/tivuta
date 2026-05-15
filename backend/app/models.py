@@ -64,6 +64,8 @@ class Item(Base):
     image_url = Column(String(255), nullable=True) 
     price = Column(Float, nullable=True)
     is_active = Column(Boolean, default=True)
+    is_monthly = Column(Boolean, default=False)
+    is_featured = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

@@ -14,10 +14,10 @@ interface FooterLinks {
 }
 
 const footerLinks: Record<string, FooterLinks> = {
-    he: { benefits: "כל הקטגוריות", account: "אזור אישי", about: "אודות טיבותא", why: "למה אנחנו?" },
-    en: { benefits: "All Categories", account: "Personal Area", about: "About TIVUTA", why: "Why Us?" },
-    fr: { benefits: "Catégories", account: "Espace Client", about: "À propos", why: "Pourquoi nous?" },
-    yi: { benefits: "אלע קאטעגאריעס", account: "מיין קאנטע", about: "איבער טיבותא", why: "פאר וואס מיר?" }
+    he: { benefits: "כל ההטבות", account: "אזור אישי", about: "אודות טיבותא", why: "למה אנחנו?" },
+    en: { benefits: "All Benefits", account: "Personal Area", about: "About TIVUTA", why: "Why Us?" },
+    fr: { benefits: "Tous les avantages", account: "Espace Client", about: "À propos", why: "Pourquoi nous?" },
+    yi: { benefits: "אלע בענעפיטן", account: "מיין קאנטע", about: "איבער טיבותא", why: "פאר וואס מיר?" }
 };
 
 export default function Footer({ locale = 'he', dict }: { locale?: string, dict?: any }) {
@@ -54,7 +54,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
                 <div className="flex flex-col items-start">
                     <h3 className="text-white font-bold mb-6 border-s-4 border-[#2563eb] ps-3">{d.quick_links}</h3>
                     <ul className="flex flex-col gap-3 text-sm items-start">
-                        <li><Link href={`/${locale}/benefits`} className="hover:text-white transition-colors">{links.benefits}</Link></li>
+                        <li><Link href={`/${locale}/benefits?pool=all`} className="hover:text-white transition-colors">{links.benefits}</Link></li>
                         <li><Link href={`/${locale}/join`} className="hover:text-white transition-colors">{links.account}</Link></li>
                         <li><Link href={`/${locale}/about`} className="hover:text-white transition-colors">{links.about}</Link></li>
                         <li><Link href={`/${locale}/why-tivuta`} className="hover:text-white transition-colors">{links.why}</Link></li>

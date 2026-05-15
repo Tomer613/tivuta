@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
 import DynamicSlogan from '@/components/DynamicSlogan';
+import SectionTitle from '@/components/SectionTitle';
 import { getDictionary } from '@/lib/get-dictionary';
 
 export function generateStaticParams() {
@@ -29,19 +30,11 @@ export function generateStaticParams() {
   ];
 }
 
-interface HomeTranslation {
-    recommended: string;
-    newsletter_t: string;
-    newsletter_s: string;
-    phone_p: string;
-    join_btn: string;
-}
-
-const translations: Record<string, HomeTranslation> = {
-    he: { recommended: "מומלץ עבורך", newsletter_t: "אל תפספס שום הטבה", newsletter_s: "הצטרף ל-15,000 חברים בקהילה וקבל את כל העדכונים ישירות לנייד.", phone_p: "הכנס טלפון או מייל", join_btn: "אני רוצה להצטרף" },
-    en: { recommended: "Recommended for You", newsletter_t: "Don't Miss Any Benefit", newsletter_s: "Join 15,000 community members and get all updates directly to your mobile.", phone_p: "Enter phone or email", join_btn: "Join Now" },
-    fr: { recommended: "Recommandé pour vous", newsletter_t: "Ne manquez aucun avantage", newsletter_s: "Rejoignez 15 000 membres et recevez toutes les mises à jour.", phone_p: "Email ou téléphone", join_btn: "Rejoindre" },
-    yi: { recommended: "רעקאמענדירט פאר אייך", newsletter_t: "פארפאסט נישט קיין בענעפיט", newsletter_s: "שליסן זיך אן אין אונזער קהילה.", phone_p: "טעלעפאן אדער ע-פאסט", join_btn: "שליסן זיך אן" }
+const translations: Record<string, any> = {
+    he: { recommended: "מומלץ עבורך", featured: "הבחירות שלנו", newsletter_t: "אל תפספס שום הטבה", newsletter_s: "הצטרף ל-15,000 חברים בקהילה וקבל את כל העדכונים ישירות לנייד.", phone_p: "הכנס טלפון או מייל", join_btn: "אני רוצה להצטרף" },
+    en: { recommended: "Recommended for You", featured: "Our Top Picks", newsletter_t: "Don't Miss Any Benefit", newsletter_s: "Join 15,000 community members and get all updates directly to your mobile.", phone_p: "Enter phone or email", join_btn: "Join Now" },
+    fr: { recommended: "Recommandé pour vous", featured: "Nos sélections", newsletter_t: "Ne manquez aucun avantage", newsletter_s: "Rejoignez 15 000 membres et recevez toutes les mises à jour.", phone_p: "Email ou téléphone", join_btn: "Rejoindre" },
+    yi: { recommended: "רעקאמענדירט פאר אייך", featured: "אונזערע אויסוואלן", newsletter_t: "פארפאסט נישט קיין בענעפיט", newsletter_s: "שליסן זיך אן אין אונזער קהילה.", phone_p: "טעלעפאן אדער ע-פאסט", join_btn: "שליסן זיך אן" }
 };
 
 type SupportedLocale = 'he' | 'en' | 'fr' | 'yi';
@@ -52,7 +45,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     const dict = await getDictionary(locale);
     const categories = await getCategories();
     const trendingItems = await getTrendingItems();
-
+    
     const t = translations[locale] || translations.he;
 
     const categoryIcons: Record<string, React.ReactNode> = {
@@ -105,7 +98,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                     {categories.map((cat: any, index: number) => (
                         <div key={cat.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                             <Link
-                                href={`/${locale}/categories/${cat.slug}`}
+                                href={`/${locale}/benefits?pool=all&category=${cat.slug}`}
                                 className="takhles-card p-8 text-center group flex flex-col items-center justify-center gap-4 border-b-4 border-transparent hover:border-[#1e3a8a] h-full"
                             >
                                 <div className="w-16 h-16 bg-slate-50 text-[#1e3a8a] rounded-2xl flex items-center justify-center group-hover:bg-[#1e3a8a] group-hover:text-white transition-all duration-500 shadow-inner group-hover:scale-110">
@@ -122,9 +115,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
             {/* Recommended Section */}
             <section className="max-w-7xl mx-auto py-24 px-6">
-                <h2 className="text-4xl font-black text-slate-900 mb-12 flex items-center gap-4 border-s-8 border-[#f59e0b] ps-6 text-start">
-                    {t.recommended}
-                </h2>
+                <SectionTitle recommended={t.recommended} featured={t.featured} />
 
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-10">
                     {trendingItems.map((item: any, index: number) => (
@@ -150,7 +141,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                             className="flex-grow bg-transparent border-none rounded-2xl px-8 py-5 text-white focus:ring-0 outline-none text-lg text-start" 
                         />
                         <button className="btn-primary !bg-[#f59e0b] !text-slate-900 !py-5 !px-12 !text-xl font-black rounded-2xl hover:scale-105 transition-transform whitespace-nowrap">
-                            {t.join_btn}
+                            {dict.common.join_now}
                         </button>
                     </div>
                 </div>

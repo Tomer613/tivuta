@@ -156,13 +156,19 @@ def seed_db():
         ]
 
         # Duplicate items to make the site look fuller
-        for item in items_data:
+        for index, item in enumerate(items_data):
+            # Mark some as monthly and some as featured for demo - being more generous now
+            is_monthly = index % 2 == 0 # 50% of items
+            is_featured = index % 3 == 0 # ~33% of items
+
             db.add(models.Item(
                 sub_category_id=sub_map.get(item["sub"]),
                 title_he=item["title_he"],
                 description_he=item["desc_he"],
                 image_url=item["image"],
-                price=item["price"]
+                price=item["price"],
+                is_monthly=is_monthly,
+                is_featured=is_featured
             ))
             
             # Add a variation
@@ -171,7 +177,9 @@ def seed_db():
                 title_he=item["title_he"] + " - מהדורת פרימיום",
                 description_he=item["desc_he"] + " גרסה משופרת ויוקרתית יותר לחברי המועדון.",
                 image_url=item["image"],
-                price=item.get("price", 0) * 1.2 if item.get("price") else 0
+                price=item.get("price", 0) * 1.2 if item.get("price") else 0,
+                is_monthly=is_monthly,
+                is_featured=is_featured
             ))
         
         db.commit()

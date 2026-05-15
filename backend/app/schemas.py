@@ -43,6 +43,8 @@ class ItemSchema(BaseModel):
     price: Optional[float] = None
     image_url: Optional[str] = None
     is_active: bool
+    is_monthly: bool
+    is_featured: bool
 
     class Config:
         from_attributes = True

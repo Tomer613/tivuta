@@ -174,13 +174,18 @@ def get_categories(db: Session = Depends(get_db)):
 
 @app.get("/trending", response_model=List[schemas.ItemSchema])
 def get_trending_items(db: Session = Depends(get_db)):
-    db_items = db.query(models.Item).filter(models.Item.is_active == True).limit(8).all()
-    return db_items
+    """
+    Returns featured items. Falls back to top 8 active if none are featured.
+    """
+    featured = db.query(models.Item).filter(models.Item.is_featured == True, models.Item.is_active == True).all()
+    if not featured:
+        return db.query(models.Item).filter(models.Item.is_active == True).limit(8).all()
+    return featured
 
 @app.get("/items", response_model=List[schemas.ItemSchema])
 def get_all_items(db: Session = Depends(get_db)):
     """
-    Returns all active items for the 'All Benefits' page.
+    Returns all active items.
     """
     return db.query(models.Item).filter(models.Item.is_active == True).all()
 

@@ -30,10 +30,10 @@ interface NavbarUI {
 }
 
 const navbarUI: Record<string, NavbarUI> = {
-    he: { home: 'דף הבית', benefits: 'כל ההטבות', about: 'אודות', card: 'כרטיס האשראי', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה' },
-    en: { home: 'Home', benefits: 'Benefits', about: 'About', card: 'Credit Card', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout' },
-    fr: { home: 'Accueil', benefits: 'Avantages', about: 'À propos', card: 'Carte', search: 'Recherche...', account: 'Rejoindre', dashboard: 'Espace', logout: 'Quitter' },
-    yi: { home: 'היים', benefits: 'בענעפיטן', about: 'איבער', card: 'קארטל', search: 'זוכן...', account: 'שליסן', dashboard: 'קאנטע', logout: 'יציאה' }
+    he: { home: 'דף הבית', benefits: 'הטבות החודש', about: 'אודות', card: 'כרטיס האשראי', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה' },
+    en: { home: 'Home', benefits: 'Monthly Benefits', about: 'About', card: 'Credit Card', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout' },
+    fr: { home: 'Accueil', benefits: 'Mensuels', about: 'À propos', card: 'Carte', search: 'Recherche...', account: 'Rejoindre', dashboard: 'Espace', logout: 'Quitter' },
+    yi: { home: 'היים', benefits: 'חודש בענעפיטן', about: 'איבער', card: 'קארטל', search: 'זוכן...', account: 'שליסן', dashboard: 'קאנטע', logout: 'יציאה' }
 };
 
 export default function Navbar() {
