@@ -1,4 +1,4 @@
-import { getTrendingItems, getCategories } from '@/lib/api';
+import { getAllItems, getCategories } from '@/lib/api';
 import BackButton from '@/components/BackButton';
 import BenefitsContent from '@/components/BenefitsContent';
 import { Suspense } from 'react';
@@ -38,7 +38,9 @@ export default async function BenefitsPage({
     const { locale: rawLocale } = await params;
     const locale = rawLocale as SupportedLocale;
     
-    const allItems = await getTrendingItems();
+    const allItems = await getAllItems();
+
+
     const categories = await getCategories();
 
     const t = translations[locale] || translations.he;

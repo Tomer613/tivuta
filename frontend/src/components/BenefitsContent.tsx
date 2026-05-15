@@ -4,6 +4,7 @@
  */
 "use client";
 
+import { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutGrid } from 'lucide-react';
@@ -24,8 +25,22 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
     const currentCategoryObj = categories.find((c: any) => c.slug === category);
     const categoryId = currentCategoryObj?.id;
 
+    // Map sub-category IDs to their parent category IDs for correct filtering
+    const subToCategoryMap = useMemo(() => {
+        const map: Record<number, number> = {};
+        categories.forEach(cat => {
+            cat.sub_categories?.forEach((sub: any) => {
+                map[sub.id] = cat.id;
+            });
+        });
+        return map;
+    }, [categories]);
+
     const filteredItems = allItems.filter((item: any) => {
-        const matchesCategory = !category || item.cat_id_new === categoryId;
+        // Use cat_id_new (for mock data) or map sub_category_id to category (for backend data)
+        const itemCategoryId = item.cat_id_new || (item.sub_category_id ? subToCategoryMap[item.sub_category_id] : null);
+        const matchesCategory = !category || itemCategoryId === categoryId;
+        
         const title = item[`title_${locale}`] || item.title_he;
         const desc = item[`description_${locale}`] || item.description_he;
         
@@ -36,14 +51,15 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
         return matchesCategory && matchesSearch;
     });
 
+
     return (
         <>
             {/* Filter Bar */}
             <section className="max-w-7xl mx-auto py-10 px-8">
-                <div className="flex items-center gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex flex-wrap items-center gap-4">
                     <Link 
                         href={`/${locale}/benefits${search ? `?search=${search}` : ''}`} 
-                        className={`px-8 py-3 rounded-2xl text-base font-bold whitespace-nowrap transition-all ${!category ? 'bg-[#1e3a8a] text-white shadow-xl shadow-blue-900/20' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}
+                        className={`px-8 py-3 rounded-2xl text-base font-bold whitespace-nowrap transition-all active:scale-95 ${!category ? 'bg-[#1e3a8a] text-white shadow-xl shadow-blue-900/20' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}
                     >
                         {t.all}
                     </Link>
@@ -51,13 +67,14 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                         <Link 
                             key={cat.id} 
                             href={`/${locale}/benefits?category=${cat.slug}${search ? `&search=${search}` : ''}`}
-                            className={`px-8 py-3 rounded-2xl text-base font-bold whitespace-nowrap transition-all ${category === cat.slug ? 'bg-[#1e3a8a] text-white shadow-xl shadow-blue-900/20' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}
+                            className={`px-8 py-3 rounded-2xl text-base font-bold whitespace-nowrap transition-all active:scale-95 ${category === cat.slug ? 'bg-[#1e3a8a] text-white shadow-xl shadow-blue-900/20' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'}`}
                         >
                             {cat[`name_${locale}`] || cat.name_he}
                         </Link>
                     ))}
                 </div>
             </section>
+
 
             {/* Catalog Grid */}
             <section className="max-w-7xl mx-auto py-8 px-8 mb-24">

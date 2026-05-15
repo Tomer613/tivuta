@@ -177,6 +177,13 @@ def get_trending_items(db: Session = Depends(get_db)):
     db_items = db.query(models.Item).filter(models.Item.is_active == True).limit(8).all()
     return db_items
 
+@app.get("/items", response_model=List[schemas.ItemSchema])
+def get_all_items(db: Session = Depends(get_db)):
+    """
+    Returns all active items for the 'All Benefits' page.
+    """
+    return db.query(models.Item).filter(models.Item.is_active == True).all()
+
 @app.get("/categories/{slug}", response_model=schemas.CategorySchema)
 def get_category_by_slug(slug: str, db: Session = Depends(get_db)):
     category = db.query(models.Category).filter(models.Category.slug == slug).first()

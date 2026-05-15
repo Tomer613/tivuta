@@ -46,6 +46,17 @@ export async function getTrendingItems() {
     }
 }
 
+export async function getAllItems() {
+    try {
+        const res = await fetch(`${BASE_URL}/items`, { next: { revalidate: 3600 } });
+        if (!res.ok) return MOCK_ITEMS;
+        return await res.json();
+    } catch (e) {
+        console.warn("Backend unreachable during build, using mock items.");
+        return MOCK_ITEMS;
+    }
+}
+
 export async function getCategories() {
     try {
         const res = await fetch(`${BASE_URL}/categories`, { next: { revalidate: 3600 } });
