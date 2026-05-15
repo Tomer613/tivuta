@@ -42,7 +42,7 @@ const PartnerLogos = () => {
                             <img
                                 src={`${basePath}/images/partners/${encodeURI(logo)}`}
                                 alt={logo}
-                                className="h-7 md:h-8 w-auto object-contain transition-all duration-500 mix-blend-screen invert grayscale brightness-200 contrast-200 opacity-60 hover:mix-blend-multiply hover:invert-0 hover:grayscale-0 hover:brightness-100 hover:contrast-100 hover:opacity-100"
+                                className="h-7 md:h-8 w-auto object-contain transition-all duration-500 mix-blend-screen [filter:invert(1)_grayscale(1)_brightness(10)_contrast(10)] hover:mix-blend-multiply hover:[filter:none] hover:scale-110"
                                 style={{ maxWidth: 'none' }}
                             />
                         </div>
