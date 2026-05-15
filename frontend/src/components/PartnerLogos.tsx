@@ -26,7 +26,7 @@ const PartnerLogos = () => {
 
     const LogoRow = ({ logos, reverse = false }: { logos: string[], reverse?: boolean }) => {
         if (logos.length === 0) return null;
-        const displayLogos = [...logos, ...logos, ...logos];
+        const displayLogos = [...logos, ...logos];
 
         return (
             <div className="w-full py-2 overflow-hidden relative">
