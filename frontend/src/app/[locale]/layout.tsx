@@ -1,8 +1,22 @@
 import "../globals.css";
+import localFont from 'next/font/local';
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { getDictionary } from "@/lib/get-dictionary";
 import { AuthProvider } from "@/context/AuthContext";
+
+const heebo = localFont({
+    src: [
+        { path: '../../../public/fonts/Heebo-Thin.ttf', weight: '100', style: 'normal' },
+        { path: '../../../public/fonts/Heebo-Light.ttf', weight: '300', style: 'normal' },
+        { path: '../../../public/fonts/Heebo-Regular.ttf', weight: '400', style: 'normal' },
+        { path: '../../../public/fonts/Heebo-Medium.ttf', weight: '500', style: 'normal' },
+        { path: '../../../public/fonts/Heebo-Bold.ttf', weight: '700', style: 'normal' },
+        { path: '../../../public/fonts/Heebo-ExtraBold.ttf', weight: '800', style: 'normal' },
+        { path: '../../../public/fonts/Heebo-Black.ttf', weight: '900', style: 'normal' },
+    ],
+    variable: '--font-heebo',
+});
 
 export const metadata = {
     title: "TIVUTA | The Haredi Community Ecosystem",
@@ -35,7 +49,7 @@ export default async function RootLayout({
                 <meta name="google" content="notranslate" />
                 <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
             </head>
-            <body className="antialiased bg-slate-50 min-h-screen flex flex-col" suppressHydrationWarning>
+            <body className={`${heebo.variable} font-sans antialiased bg-slate-50 min-h-screen flex flex-col`} suppressHydrationWarning>
                 <AuthProvider>
                     <Navbar />
                     <div className="flex-grow">
