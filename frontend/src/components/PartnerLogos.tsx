@@ -1,0 +1,63 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
+const allLogos = [
+    "zara.png", "אור החיים.png", "אושר עד.png", "אפי קפיטל.png", "אפריל.png", 
+    "בגיר.png", "בנק פאגי.png", "גלי.png", "הדר דימול.png", "הלו תימן.png", 
+    "המנגנים.png", "המשביר לצרכן.png", "הצורפים.png", "יידישקייט.png", "ישראייר.png", 
+    "כלל.png", "כתר הרימון.png", "לניאדו.png", "מאפיית נחמה.png", "מגה ספורט.png", 
+    "מכבי.png", "מכללות.png", "מסילה.png", "משפחה מנויים.png", "מתנס חוגים.png", 
+    "נדרים פלוס.png", "נופש 2.png", "סולתם.png", "סופר פארם.png", "ספארי.png", 
+    "עוז קרמיקה.png", "פאות.png", "פיצה האט.png", "קידישיק.png", "קייטרינג.png", 
+    "קפה רימון.png", "רולדין.png", "רייסדור.png", "רמי לוי תקשורת.png", "רמי לוי.png", 
+    "שבת בוקינג.png", "שילב.png", "שלמה סיקסט.png", "שמלות כלה.png", "תיירות.png"
+];
+
+const PartnerLogos = () => {
+    const basePath = '/tivuta';
+    const [rows, setRows] = useState<[string[], string[]]>([[], []]);
+
+    useEffect(() => {
+        const shuffled = [...allLogos].sort(() => Math.random() - 0.5);
+        const half = Math.ceil(shuffled.length / 2);
+        setRows([shuffled.slice(0, half), shuffled.slice(half)]);
+    }, []);
+
+    const LogoRow = ({ logos, reverse = false }: { logos: string[], reverse?: boolean }) => {
+        if (logos.length === 0) return null;
+        const displayLogos = [...logos, ...logos, ...logos];
+
+        return (
+            <div className="w-full py-2 overflow-hidden relative">
+                <div 
+                    className={`flex whitespace-nowrap hover:[animation-play-state:paused] ${reverse ? 'animate-scroll-reverse' : 'animate-scroll'}`}
+                    dir="ltr"
+                >
+                    {displayLogos.map((logo, index) => (
+                        <div 
+                            key={`${logo}-${index}`}
+                            className="inline-flex items-center justify-center px-10 transition-all duration-300 hover:scale-110"
+                        >
+                            <img
+                                src={`${basePath}/images/partners/${encodeURI(logo)}`}
+                                alt={logo}
+                                className="h-7 md:h-8 w-auto object-contain transition-all duration-500 grayscale brightness-0 invert opacity-60 hover:grayscale-0 hover:brightness-100 hover:invert-0 hover:opacity-100"
+                                style={{ maxWidth: 'none' }}
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="w-full flex flex-col gap-0 py-4">
+            <LogoRow logos={rows[0]} />
+            <LogoRow logos={rows[1]} reverse={true} />
+        </div>
+    );
+};
+
+export default PartnerLogos;

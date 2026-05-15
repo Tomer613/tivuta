@@ -19,6 +19,7 @@ import ItemCard from '@/components/ItemCard';
 import DynamicSlogan from '@/components/DynamicSlogan';
 import SectionTitle from '@/components/SectionTitle';
 import Logo from '@/components/Logo';
+import PartnerLogos from '@/components/PartnerLogos';
 import { getDictionary } from '@/lib/get-dictionary';
 
 export function generateStaticParams() {
@@ -88,6 +89,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                         <Link href={`/${locale}/join`} className="btn-primary !bg-[#f59e0b] !text-slate-900 !px-10 !py-4 text-xl">{dict.common.join_now}</Link>
                         <Link href={`/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-white/10 !px-10 !py-4 text-xl">{dict.common.why_tivuta}</Link>
                     </div>
+                </div>
+
+                <div className="mt-12 w-full relative">
+                    <PartnerLogos />
                 </div>
             </section>
 

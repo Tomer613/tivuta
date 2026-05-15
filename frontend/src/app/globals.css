@@ -63,6 +63,24 @@ body {
 }
 
 /* Animations */
+@keyframes scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+.animate-scroll {
+    animation: scroll 60s linear infinite;
+}
+
+@keyframes scroll-reverse {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0); }
+}
+
+.animate-scroll-reverse {
+    animation: scroll-reverse 60s linear infinite;
+}
+
 @keyframes shine {
     0% { left: -100%; }
     20% { left: 100%; }
@@ -76,6 +94,15 @@ body {
 
 .animate-float {
     animation: float 4s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.animate-fade-in {
+    animation: fadeIn 1s ease-out forwards;
 }
 
 @keyframes fadeInUp {
