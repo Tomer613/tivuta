@@ -11,6 +11,8 @@ import { useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Logo from '@/components/Logo';
+import NotificationBell from '@/components/NotificationBell';
+
 
 const languages = [
     { code: 'he', label: 'עברית' },
@@ -121,14 +123,21 @@ export default function Navbar() {
                     
                     {user ? (
                         <div className="flex items-center gap-2 md:gap-3">
-                            <Link href={`/${locale}/dashboard`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap bg-slate-900 shadow-none hover:bg-slate-800">
-                                <LayoutDashboard size={18} />
-                                <span className="hidden sm:inline">{ui.dashboard}</span>
-                            </Link>
+                            <div className="flex items-center relative">
+                                <Link href={`/${locale}/dashboard`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap bg-slate-900 shadow-none hover:bg-slate-800">
+                                    <LayoutDashboard size={18} />
+                                    <span className="hidden sm:inline">{ui.dashboard}</span>
+                                </Link>
+                                <div className="absolute -top-3 -start-2 pointer-events-none z-10">
+                                    <NotificationBell />
+                                </div>
+                            </div>
+
                             <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title={ui.logout}>
                                 <LogOut size={20} />
                             </button>
                         </div>
+
                     ) : (
                         <div className="flex items-center gap-2">
                             <Link href={`/${locale}/login`} className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a] hidden sm:block">
@@ -139,6 +148,8 @@ export default function Navbar() {
                                 <span>{ui.account}</span>
                             </Link>
                         </div>
+
+
                     )}
 
                     {/* Mobile Menu Toggle */}

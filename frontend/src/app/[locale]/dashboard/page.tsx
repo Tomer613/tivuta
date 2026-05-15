@@ -13,6 +13,8 @@ import {
     CreditCard, ArrowRightLeft, Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import NotificationCenter from '@/components/NotificationCenter';
+
 
 interface DashboardTranslation {
     welcome: string;
@@ -38,7 +40,9 @@ const translations: Record<string, DashboardTranslation> = {
         savings_cta: "העברה לחיסכון לכל ילד",
         invest_cta: "העברה להשקעה חכמה",
         no_orders: "עדיין אין הזמנות",
-        currency: "₪"
+        currency: "₪",
+        points_title: "נקודות טיבותא"
+
     },
     en: {
         welcome: "Hello,",
@@ -50,7 +54,8 @@ const translations: Record<string, DashboardTranslation> = {
         savings_cta: "Transfer to Children Savings",
         invest_cta: "Transfer to Smart Investment",
         no_orders: "No orders yet",
-        currency: "$"
+        currency: "$",
+        points_title: "Tivot Points"
     },
     fr: {
         welcome: "Bonjour,",
@@ -62,7 +67,8 @@ const translations: Record<string, DashboardTranslation> = {
         savings_cta: "Transférer vers l'épargne",
         invest_cta: "Investissement intelligent",
         no_orders: "Pas encore de commandes",
-        currency: "€"
+        currency: "€",
+        points_title: "Points Tivot"
     },
     yi: {
         welcome: "שלום,",
@@ -74,8 +80,10 @@ const translations: Record<string, DashboardTranslation> = {
         savings_cta: "שפארן פאר די קינדער",
         invest_cta: "קלוזשע אינוועסטמענט",
         no_orders: "נישטא קיין באשטעלונגען",
-        currency: "₪"
+        currency: "₪",
+        points_title: "טיבות פונקטן"
     }
+
 };
 
 export default function DashboardPage() {
@@ -176,18 +184,43 @@ export default function DashboardPage() {
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="flex gap-4"
+                        className="flex flex-wrap gap-3 md:justify-end"
                     >
-                        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4">
-                            <div className="w-12 h-12 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center">
-                                <TrendingUp size={24} />
+                        {/* Monthly Savings */}
+                        <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
+                                <TrendingUp size={20} />
                             </div>
                             <div>
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{t.savings_title}</p>
-                                <p className="text-2xl font-black text-slate-900">{t.currency}{data.total_savings.toLocaleString()}</p>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t.savings_title}</p>
+                                <p className="text-lg font-black text-slate-900">{t.currency}{data.total_savings.toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        {/* Monthly Expenses */}
+                        <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-blue-50 text-[#1e3a8a] rounded-xl flex items-center justify-center">
+                                <ShoppingBag size={20} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t.expenses_title}</p>
+                                <p className="text-lg font-black text-slate-900">{t.currency}{data.monthly_expenses.toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        {/* Points */}
+                        <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                                <Coins size={20} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t.points_title}</p>
+                                <p className="text-lg font-black text-amber-600">{(data.total_savings * 1.5).toFixed(0)}</p>
                             </div>
                         </div>
                     </motion.div>
+
+
                 </div>
 
                 {/* Main Grid */}
@@ -329,6 +362,8 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                         </motion.div>
+
+                        <NotificationCenter />
 
                         {/* Tip of the day */}
                         <motion.div

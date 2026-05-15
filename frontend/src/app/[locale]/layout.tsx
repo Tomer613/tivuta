@@ -4,6 +4,8 @@ import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { getDictionary } from "@/lib/get-dictionary";
 import { AuthProvider } from "@/context/AuthContext";
+import { NotificationProvider } from "@/context/NotificationContext";
+
 
 const heebo = localFont({
     src: [
@@ -51,12 +53,15 @@ export default async function RootLayout({
             </head>
             <body className={`${heebo.variable} font-sans antialiased bg-slate-50 min-h-screen flex flex-col`} suppressHydrationWarning>
                 <AuthProvider>
-                    <Navbar />
-                    <div className="flex-grow">
-                        {children}
-                    </div>
-                    <Footer locale={locale} dict={dict} />
+                    <NotificationProvider>
+                        <Navbar />
+                        <div className="flex-grow">
+                            {children}
+                        </div>
+                        <Footer locale={locale} dict={dict} />
+                    </NotificationProvider>
                 </AuthProvider>
+
             </body>
         </html>
     );
