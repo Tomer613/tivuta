@@ -27,6 +27,7 @@ interface DashboardTranslation {
     invest_cta: string;
     no_orders: string;
     currency: string;
+    points_title: string;
 }
 
 const translations: Record<string, DashboardTranslation> = {
