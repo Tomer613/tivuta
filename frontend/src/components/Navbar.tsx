@@ -30,19 +30,22 @@ interface NavbarUI {
     account: string;
     dashboard: string;
     logout: string;
+    login: string;
+    joinNow: string;
 }
 
 const navbarUI: Record<string, NavbarUI> = {
-    he: { home: 'דף הבית', benefits: 'הטבות החודש', about: 'אודות', card: 'כרטיס האשראי', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה' },
-    en: { home: 'Home', benefits: 'Monthly Benefits', about: 'About', card: 'Credit Card', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout' },
-    fr: { home: 'Accueil', benefits: 'Mensuels', about: 'À propos', card: 'Carte', search: 'Recherche...', account: 'Rejoindre', dashboard: 'Espace', logout: 'Quitter' },
-    yi: { home: 'היים', benefits: 'חודש בענעפיטן', about: 'איבער', card: 'קארטל', search: 'זוכן...', account: 'שליסן', dashboard: 'קאנטע', logout: 'יציאה' }
+    he: { home: 'דף הבית', benefits: 'הטבות החודש', about: 'אודות', card: 'כרטיס האשראי', search: 'חפש הטבה...', account: 'הצטרפות', dashboard: 'אזור אישי', logout: 'יציאה', login: 'התחבר', joinNow: 'הצטרף עכשיו' },
+    en: { home: 'Home', benefits: 'Monthly Benefits', about: 'About', card: 'Credit Card', search: 'Search...', account: 'Join', dashboard: 'Dashboard', logout: 'Logout', login: 'Login', joinNow: 'Join Now' },
+    fr: { home: 'Accueil', benefits: 'Mensuels', about: 'À propos', card: 'Carte', search: 'Recherche...', account: 'Rejoindre', dashboard: 'Espace', logout: 'Quitter', login: 'Connexion', joinNow: 'Rejoindre maintenant' },
+    yi: { home: 'היים', benefits: 'חודש בענעפיטן', about: 'איבער', card: 'קארטל', search: 'זוכן...', account: 'שליסן', dashboard: 'קאנטע', logout: 'יציאה', login: 'אריינלאגירן', joinNow: 'שליסן יעצט' }
 };
 
 export default function Navbar() {
     const [searchQuery, setSearchQuery] = useState('');
     const [showLangMenu, setShowLangMenu] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
     const { user, logout } = useAuth();
     const router = useRouter();
     const params = useParams();
@@ -140,21 +143,29 @@ export default function Navbar() {
 
                     ) : (
                         <div className="flex items-center gap-1 md:gap-2">
-                            <Link href={`/${locale}/login`} className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a]">
-                                {locale === 'he' ? 'התחבר' : 'Login'}
+                            <Link href={`/${locale}/join`} className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a] hidden sm:block">
+                                {ui.joinNow}
                             </Link>
-                            <Link href={`/${locale}/join`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap">
+                            <Link href={`/${locale}/login`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap">
                                 <User size={18} />
-                                <span>{ui.account}</span>
+                                <span>{ui.login}</span>
                             </Link>
                         </div>
 
 
                     )}
 
+                    {/* Mobile Search Toggle */}
+                    <button 
+                        onClick={() => { setIsMobileSearchOpen(!isMobileSearchOpen); setIsMenuOpen(false); }}
+                        className="lg:hidden w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                    >
+                        {isMobileSearchOpen ? <X size={20} /> : <Search size={20} />}
+                    </button>
+
                     {/* Mobile Menu Toggle */}
                     <button 
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        onClick={() => { setIsMenuOpen(!isMenuOpen); setIsMobileSearchOpen(false); }}
                         className="md:hidden w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-full transition-all"
                     >
                         {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -163,6 +174,28 @@ export default function Navbar() {
             </div>
 
         </nav>
+
+            {/* Mobile Search Overlay */}
+            <div 
+                className={`fixed inset-x-0 top-[73px] bg-white/95 backdrop-blur-md z-30 lg:hidden shadow-2xl border-t border-slate-200/50 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMobileSearchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                style={{ clipPath: isMobileSearchOpen ? 'inset(0 0 0 0)' : 'inset(0 0 100% 0)' }}
+            >
+                <div className="p-8">
+                    <form onSubmit={(e) => { handleSearch(e); setIsMobileSearchOpen(false); }} className="relative w-full max-w-md mx-auto">
+                        <input 
+                            type="text" 
+                            placeholder={ui.search} 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-slate-100 border-none rounded-full ps-14 pe-16 py-4 text-lg focus:ring-2 focus:ring-[#1e3a8a] outline-none shadow-inner transition-all text-slate-900 font-bold"
+                        />
+                        <Search size={24} className="absolute start-5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <button type="submit" className="absolute end-2 top-1/2 -translate-y-1/2 bg-[#1e3a8a] text-white p-3 rounded-full hover:bg-[#2563eb] transition-colors shadow-md">
+                            <Search size={20} />
+                        </button>
+                    </form>
+                </div>
+            </div>
 
             {/* Mobile Menu Overlay */}
             <div 
@@ -221,11 +254,11 @@ export default function Navbar() {
 
                         {!user && (
                             <Link 
-                                href={`/${locale}/login`}
+                                href={`/${locale}/join`}
                                 onClick={() => setIsMenuOpen(false)}
-                                className="mt-auto bg-slate-100 text-slate-900 py-4 rounded-2xl font-bold text-center"
+                                className="mt-auto bg-[#1e3a8a] text-white py-4 rounded-2xl font-black text-center text-lg shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
                             >
-                                {locale === 'he' ? 'התחבר למערכת' : 'Login to System'}
+                                {ui.joinNow}
                             </Link>
                         )}
                     </div>
