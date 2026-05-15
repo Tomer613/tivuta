@@ -13,10 +13,10 @@ const BRAND = {
 const benefits = [
     {
         icon: Coins,
-        title_he: '2% קאשבק על כל קנייה',
-        desc_he: 'כל שקל שאתה מוציא — חלק ממנו חוזר אליך. אוטומטי, ללא תנאים מיוחדים.',
-        title_en: '2% Cashback on Every Purchase',
-        desc_en: 'Every shekel you spend — part of it comes back to you. Automatic, no special conditions.',
+        title_he: 'מעטפת כלכלית למשפחה',
+        desc_he: 'פתיחת חשבון בנק, פתרונות ביטוח, עמלות מוזלות וייעוץ כלכלי חכם — ליווי מלא בדרך לצמיחה.',
+        title_en: 'Family Financial Umbrella',
+        desc_en: 'Bank account opening, insurance solutions, reduced fees, and smart financial consulting — all in one place.',
     },
     {
         icon: Gift,
@@ -34,17 +34,17 @@ const benefits = [
     },
     {
         icon: Zap,
-        title_he: 'אישור מיידי — 24/7',
-        desc_he: 'בקשת כרטיס, תשובה מהירה. ניהול מלא דרך האזור האישי שלך בכל שעה.',
-        title_en: 'Instant Approval — 24/7',
-        desc_en: 'Apply for a card, get a quick response. Full management through your personal area at any time.',
+        title_he: 'אישור מיידי — 24/6',
+        desc_he: 'בקשת כרטיס, תשובה מהירה. ניהול מלא דרך האזור האישי שלך בכל שעות הפעילות.',
+        title_en: 'Instant Approval — 24/6',
+        desc_en: 'Apply for a card, get a quick response. Full management through your personal area during activity hours.',
     },
     {
         icon: Star,
-        title_he: 'צבירת נקודות "טיבות"',
-        desc_he: 'על כל עסקה אתה צובר נקודות. הנקודות ניתנות למימוש בכל בית עסק שותף של טיבותא.',
-        title_en: '"Tivot" Points Accumulation',
-        desc_en: 'Every transaction earns you points, redeemable at any Tivuta partner business.',
+        title_he: 'צבירת נקודות "טיבותא"',
+        desc_he: 'על כל עסקה אתם צוברי נקודות "טיבותא". הנקודות ניתנות למימוש ברשת העסקים השותפים שלנו.',
+        title_en: '"Tivuta" Points Accumulation',
+        desc_en: 'Every transaction earns you Tivuta points, redeemable at any partner business.',
     },
     {
         icon: CheckCircle2,
@@ -68,7 +68,7 @@ export default function CardClient({ locale }: { locale: string }) {
         benefits_title: isHe ? 'מה מחזיקי הכרטיס מקבלים?'       : 'What Do Cardholders Get?',
         benefits_sub:   isHe ? 'הטבות אמיתיות. לא הבטחות.'       : 'Real benefits. Not promises.',
         cta2_title:     isHe ? 'מוכן לקבל את הכרטיס?'            : 'Ready to Get the Card?',
-        cta2_sub:       isHe ? 'תהליך הצטרפות פשוט. אישור מהיר. תחילה מיידית.' : 'Simple onboarding. Fast approval. Immediate start.',
+        cta2_sub:       isHe ? 'תהליך הצטרפות פשוט. אישור מהיר. התחלה מיידית.' : 'Simple onboarding. Fast approval. Immediate start.',
         cta2_btn:       isHe ? 'להגשת בקשה'                      : 'Apply Now',
     };
 
