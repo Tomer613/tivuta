@@ -5,6 +5,7 @@ import { LogIn, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 interface LoginTranslation {
     title: string;
@@ -178,9 +179,9 @@ export default function LoginPage() {
                 </form>
 
                 <div className="mt-12 pt-8 border-t border-slate-100 text-center">
-                    <a href={`/${locale}/join`} className="text-sm font-bold text-slate-400 hover:text-[#1e3a8a] transition-colors">
+                    <Link href={`/${locale}/join`} className="text-sm font-bold text-slate-400 hover:text-[#1e3a8a] transition-colors">
                         {t.no_account}
-                    </a>
+                    </Link>
                 </div>
 
                 <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-slate-300 font-bold uppercase tracking-widest">

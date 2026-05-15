@@ -268,7 +268,7 @@ function CardVisual() {
                 <div className="absolute top-5 right-5"
                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                     <img
-                        src="/tivuta/branding/logo.svg"
+                        src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/branding/logo.svg`}
                         alt="TIVUTA"
                         className="h-7 w-auto brightness-0 invert"
                         style={{ opacity: 0.95, marginRight: '-9px' }}

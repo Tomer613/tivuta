@@ -69,7 +69,7 @@ export default function Navbar() {
             <div className="max-w-7xl mx-auto flex justify-between items-center">
                 {/* Logo & Brand - Logical start */}
                 <Link href={`/${locale}`} className="flex items-center gap-3 group">
-                    <img src="/tivuta/branding/logo.svg" alt="TIVUTA Logo" className="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
+                    <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/branding/logo.svg`} alt="TIVUTA Logo" className="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
                 </Link>
 
                 {/* Desktop Menu - Centered or logical layout */}
