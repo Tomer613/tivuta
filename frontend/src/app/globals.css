@@ -109,6 +109,75 @@ body {
     will-change: transform, letter-spacing;
 }
 
+/* Logo Shine Overlay Effect */
+.logo-shine-container {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+}
+
+.logo-shine-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    -webkit-mask-image: var(--logo-url);
+    mask-image: var(--logo-url);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+}
+
+.logo-shine-overlay::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 150%;
+    height: 100%;
+    background: linear-gradient(
+        105deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0) 40%, 
+        rgba(255, 255, 255, 0.5) 50%, 
+        rgba(255, 255, 255, 0) 60%, 
+        transparent 100%
+    );
+    animation: logo-shine 12s infinite ease-in-out;
+}
+
+.logo-shine-bronze::after {
+    background: linear-gradient(
+        105deg, 
+        transparent 0%, 
+        rgba(241, 211, 138, 0) 40%, 
+        rgba(241, 211, 138, 0.6) 50%, 
+        rgba(241, 211, 138, 0) 60%, 
+        transparent 100%
+    );
+}
+
+.logo-shine-vibrant-gold::after {
+    background: linear-gradient(
+        105deg, 
+        transparent 0%, 
+        rgba(255, 191, 0, 0) 30%, 
+        rgba(255, 191, 0, 0.9) 50%, 
+        rgba(255, 191, 0, 0) 70%, 
+        transparent 100%
+    );
+    filter: blur(2px);
+}
+
+@keyframes logo-shine {
+    0% { left: -150%; }
+    15% { left: 150%; }
+    100% { left: 150%; }
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;

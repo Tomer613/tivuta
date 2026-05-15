@@ -10,6 +10,7 @@ import { User, Search, Globe, LogOut, LayoutDashboard, Menu, X } from 'lucide-re
 import { useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import Logo from '@/components/Logo';
 
 const languages = [
     { code: 'he', label: 'עברית' },
@@ -69,7 +70,7 @@ export default function Navbar() {
             <div className="max-w-7xl mx-auto flex justify-between items-center">
                 {/* Logo & Brand - Logical start */}
                 <Link href={`/${locale}`} className="flex items-center gap-3 group">
-                    <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/branding/logo.svg`} alt="TIVUTA Logo" className="h-10 w-auto group-hover:scale-105 transition-transform duration-300" />
+                    <Logo className="group-hover:scale-105" />
                 </Link>
 
                 {/* Desktop Menu - Centered or logical layout */}

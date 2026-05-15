@@ -13,12 +13,12 @@ import {
     Home,
     Users,
     Landmark,
-    Hammer,
-    Sparkles
+    Hammer
 } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
 import DynamicSlogan from '@/components/DynamicSlogan';
 import SectionTitle from '@/components/SectionTitle';
+import Logo from '@/components/Logo';
 import { getDictionary } from '@/lib/get-dictionary';
 
 export function generateStaticParams() {
@@ -74,12 +74,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 </div>
 
                 <div className="max-w-5xl mx-auto text-center relative z-10">
-                    <div className="inline-flex items-center gap-2 bg-blue-400/20 text-blue-200 px-4 py-2 rounded-full text-sm font-bold mb-8 backdrop-blur-sm border border-white/10 animate-float">
-                        <Sparkles size={16} />
+                    <div className="text-[#f59e0b] text-xl md:text-2xl font-bold mb-8 animate-float">
                         <span>{dict.hero.badge}</span>
                     </div>
-                    <h1 className="text-5xl md:text-7xl font-black text-white mb-8 leading-[1.1]">
-                        {dict.hero.title_main} <br />
+                    <h1 className="text-5xl md:text-7xl font-black text-white mb-8 leading-[1.1] flex flex-col items-center">
+                        <Logo height="h-24 md:h-32" light className="-mb-2" />
                         <DynamicSlogan locale={locale} initialSlogan={dict.hero.title_sub} />
                     </h1>
                     <p className="text-xl md:text-2xl text-blue-100 font-light max-w-3xl mx-auto leading-relaxed mb-12">
