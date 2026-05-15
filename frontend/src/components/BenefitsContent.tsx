@@ -4,10 +4,10 @@
  */
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutGrid, Star, Calendar, Zap, ScrollText, Utensils, Shirt, ShoppingBasket, Palmtree, Smartphone, HeartPulse, PartyPopper, Home, Users, Landmark, Hammer, User } from 'lucide-react';
+import { LayoutGrid, Star, Calendar, Zap, ScrollText, Utensils, Shirt, ShoppingBasket, Palmtree, Smartphone, HeartPulse, PartyPopper, Home, Users, Landmark, Hammer, User, ChevronDown } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
 import BackButton from '@/components/BackButton';
 import { useAuth } from '@/context/AuthContext';
@@ -36,6 +36,8 @@ interface BenefitsContentProps {
 }
 
 export default function BenefitsContent({ allItems, categories, locale, t }: BenefitsContentProps) {
+    const [isPoolOpen, setIsPoolOpen] = useState(false);
+    const [isCategoryOpen, setIsCategoryOpen] = useState(false);
     const searchParams = useSearchParams();
     const category = searchParams.get('category');
     const search = searchParams.get('search');
@@ -111,45 +113,86 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                 {/* Pool Selector */}
                 <div>
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ps-2">{locale === 'he' ? 'סוג הטבות' : 'Benefit Type'}</h3>
-                    <div className="flex flex-col gap-2">
-                        {poolTabs.map((tab) => (
-                            <Link
-                                key={tab.id}
-                                href={`/${locale}/benefits?pool=${tab.id}${search ? `&search=${search}` : ''}`}
-                                className={`flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all active:scale-95 ${pool === tab.id ? 'bg-[#1e3a8a] text-white shadow-lg shadow-blue-900/20' : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
-                            >
-                                {tab.icon}
-                                <span>{tab.label}</span>
-                            </Link>
-                        ))}
+                    <div className="flex flex-col">
+                        {/* Trigger */}
+                        <button 
+                            onClick={() => setIsPoolOpen(!isPoolOpen)}
+                            className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all active:scale-95 bg-[#1e3a8a] text-white shadow-lg shadow-blue-900/20"
+                        >
+                            <div className="flex items-center gap-3">
+                                {currentPool.icon}
+                                <span>{currentPool.label}</span>
+                            </div>
+                            <ChevronDown size={20} className={`transition-transform duration-300 ${isPoolOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {/* Dropdown Content */}
+                        <div className={`grid transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${isPoolOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+                            <div className="overflow-hidden flex flex-col gap-2">
+                                {poolTabs.filter(tab => tab.id !== pool).map((tab) => (
+                                    <Link
+                                        key={tab.id}
+                                        href={`/${locale}/benefits?pool=${tab.id}${search ? `&search=${search}` : ''}`}
+                                        onClick={() => setIsPoolOpen(false)}
+                                        className="flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all active:scale-95 bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+                                    >
+                                        {tab.icon}
+                                        <span>{tab.label}</span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Categories Sidebar */}
                 <div>
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ps-2">{locale === 'he' ? 'קטגוריות' : 'Categories'}</h3>
-                    <div className="flex flex-col gap-2">
-                        <Link 
-                            href={`/${locale}/benefits?pool=${pool}${search ? `&search=${search}` : ''}`} 
-                            className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${!category ? 'bg-[#1e3a8a] text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 border border-transparent'}`}
+                    <div className="flex flex-col">
+                        {/* Trigger */}
+                        <button 
+                            onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                            className="flex items-center justify-between gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 bg-[#1e3a8a] text-white shadow-md"
                         >
-                            <LayoutGrid size={18} />
-                            <span>{t.all}</span>
-                        </Link>
-                        {categories.map((cat: any) => {
-                            const Icon = categoryIcons[cat.slug] || categoryIcons.default;
-                            const isActive = category === cat.slug;
-                            return (
-                                <Link 
-                                    key={cat.id} 
-                                    href={`/${locale}/benefits?pool=${pool}&category=${cat.slug}${search ? `&search=${search}` : ''}`}
-                                    className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${isActive ? 'bg-[#1e3a8a] text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 border border-transparent'}`}
-                                >
-                                    <Icon size={18} />
-                                    <span>{cat[`name_${locale}`] || cat.name_he}</span>
-                                </Link>
-                            );
-                        })}
+                            <div className="flex items-center gap-3">
+                                {(() => {
+                                    const Icon = currentCategoryObj ? (categoryIcons[currentCategoryObj.slug] || categoryIcons.default) : LayoutGrid;
+                                    return <Icon size={18} />;
+                                })()}
+                                <span>{currentCategoryObj ? (currentCategoryObj[`name_${locale}`] || currentCategoryObj.name_he) : t.all}</span>
+                            </div>
+                            <ChevronDown size={20} className={`transition-transform duration-300 ${isCategoryOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Dropdown Content */}
+                        <div className={`grid transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCategoryOpen ? 'grid-rows-[1fr] opacity-100 mt-2' : 'grid-rows-[0fr] opacity-0 mt-0'}`}>
+                            <div className="overflow-hidden flex flex-col gap-2">
+                                {category && (
+                                    <Link 
+                                        href={`/${locale}/benefits?pool=${pool}${search ? `&search=${search}` : ''}`} 
+                                        onClick={() => setIsCategoryOpen(false)}
+                                        className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-slate-500 hover:bg-slate-50 border border-transparent"
+                                    >
+                                        <LayoutGrid size={18} />
+                                        <span>{t.all}</span>
+                                    </Link>
+                                )}
+                                {categories.filter((cat: any) => cat.slug !== category).map((cat: any) => {
+                                    const Icon = categoryIcons[cat.slug] || categoryIcons.default;
+                                    return (
+                                        <Link 
+                                            key={cat.id} 
+                                            href={`/${locale}/benefits?pool=${pool}&category=${cat.slug}${search ? `&search=${search}` : ''}`}
+                                            onClick={() => setIsCategoryOpen(false)}
+                                            className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-slate-500 hover:bg-slate-50 border border-transparent"
+                                        >
+                                            <Icon size={18} />
+                                            <span>{cat[`name_${locale}`] || cat.name_he}</span>
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </aside>

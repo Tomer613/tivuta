@@ -139,8 +139,8 @@ export default function Navbar() {
                         </div>
 
                     ) : (
-                        <div className="flex items-center gap-2">
-                            <Link href={`/${locale}/login`} className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a] hidden sm:block">
+                        <div className="flex items-center gap-1 md:gap-2">
+                            <Link href={`/${locale}/login`} className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a]">
                                 {locale === 'he' ? 'התחבר' : 'Login'}
                             </Link>
                             <Link href={`/${locale}/join`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap">
