@@ -72,13 +72,8 @@ body {
     animation: scroll 60s linear infinite;
 }
 
-@keyframes scroll-reverse {
-    0% { transform: translateX(-50%); }
-    100% { transform: translateX(0); }
-}
-
 .animate-scroll-reverse {
-    animation: scroll-reverse 60s linear infinite;
+    animation: scroll 60s linear infinite reverse;
 }
 
 @keyframes shine {
