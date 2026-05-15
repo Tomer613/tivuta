@@ -68,32 +68,33 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     return (
         <main className="min-h-screen bg-slate-50 text-start">
             {/* Premium Hero Section */}
-            <section className="relative bg-[#1e3a8a] py-24 px-6 overflow-hidden">
+            <section className="relative bg-[#1e3a8a] py-12 md:py-16 lg:py-20 px-6 overflow-hidden">
                 <div className="absolute top-0 start-0 w-full h-full opacity-10">
                     <div className="absolute top-10 start-10 w-64 h-64 bg-white rounded-full blur-3xl"></div>
                     <div className="absolute bottom-10 end-10 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
                 </div>
 
                 <div className="max-w-5xl mx-auto text-center relative z-10">
-                    <div className="text-[#f59e0b] text-xl md:text-2xl font-bold mb-8 animate-float">
+                    <div className="text-[#f59e0b] text-lg md:text-2xl font-bold mb-4 md:mb-6 animate-float">
                         <span>{dict.hero.badge}</span>
                     </div>
-                    <h1 className="text-5xl md:text-7xl font-black text-white mb-8 leading-[1.1] flex flex-col items-center">
-                        <Logo height="h-24 md:h-32" light className="-mb-2" />
+                    <h1 className="text-4xl md:text-7xl font-black text-white mb-4 md:mb-6 leading-[1.1] flex flex-col items-center">
+                        <Logo height="h-20 md:h-28" light className="-mb-2" />
                         <DynamicSlogan locale={locale} initialSlogan={dict.hero.title_sub} />
                     </h1>
-                    <p className="text-xl md:text-2xl text-blue-100 font-light max-w-3xl mx-auto leading-relaxed mb-12">
+                    <p className="text-lg md:text-2xl text-blue-100 font-light max-w-3xl mx-auto leading-relaxed mb-8">
                         {dict.hero.description}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link href={`/${locale}/join`} className="btn-primary !bg-[#f59e0b] !text-slate-900 !px-10 !py-4 text-xl">{dict.common.join_now}</Link>
-                        <Link href={`/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-white/10 !px-10 !py-4 text-xl">{dict.common.why_tivuta}</Link>
+                        <Link href={`/${locale}/join`} className="btn-primary !bg-[#f59e0b] !text-slate-900 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.join_now}</Link>
+                        <Link href={`/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-white/10 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.why_tivuta}</Link>
                     </div>
                 </div>
 
-                <div className="mt-12 w-full relative">
+                <div className="mt-8 w-full relative">
                     <PartnerLogos />
                 </div>
+
             </section>
 
             {/* Category Navigation */}
