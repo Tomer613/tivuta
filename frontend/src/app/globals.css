@@ -115,6 +115,19 @@ body {
     animation: fadeInUp 0.8s ease-out forwards;
 }
 
+@keyframes shutterDown {
+    from {
+        clip-path: inset(0 0 100% 0);
+    }
+    to {
+        clip-path: inset(0 0 0 0);
+    }
+}
+
+.animate-shutter-down {
+    animation: shutterDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @keyframes breathing-stretch {
     0%, 100% { 
         letter-spacing: -0.01em;

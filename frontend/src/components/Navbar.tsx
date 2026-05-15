@@ -6,7 +6,7 @@
 "use client";
 
 import Link from 'next/link';
-import { User, Search, Globe, LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
+import { User, Search, Globe, LogOut, LayoutDashboard, Menu, X, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -68,6 +68,7 @@ export default function Navbar() {
     const ui = navbarUI[locale] || navbarUI.he;
 
     return (
+        <>
         <nav className="glass-nav px-6 py-4 sticky top-0 z-50">
             <div className="max-w-7xl mx-auto flex justify-between items-center">
                 {/* Logo & Brand - Logical start */}
@@ -77,7 +78,6 @@ export default function Navbar() {
 
                 {/* Desktop Menu - Centered or logical layout */}
                 <div className="hidden md:flex items-center gap-8">
-                    <Link href={`/${locale}`} className="font-bold text-slate-600 hover:text-[#1e3a8a] transition-colors">{ui.home}</Link>
                     <Link href={`/${locale}/benefits`} className="font-bold text-slate-600 hover:text-[#1e3a8a] transition-colors">{ui.benefits}</Link>
                     <Link href={`/${locale}/card`} className="font-bold text-amber-600 hover:text-amber-700 transition-colors">{ui.card}</Link>
                     <Link href={`/${locale}/about`} className="font-bold text-slate-600 hover:text-[#1e3a8a] transition-colors">{ui.about}</Link>
@@ -162,17 +162,14 @@ export default function Navbar() {
                 </div>
             </div>
 
+        </nav>
+
             {/* Mobile Menu Overlay */}
-            {isMenuOpen && (
-                <div className="fixed inset-0 top-[73px] bg-white z-40 md:hidden animate-in fade-in slide-in-from-top-5">
-                    <div className="flex flex-col p-8 gap-6 h-full overflow-y-auto">
-                        <Link 
-                            href={`/${locale}`} 
-                            onClick={() => setIsMenuOpen(false)}
-                            className="text-2xl font-black text-slate-900 border-b border-slate-100 pb-4"
-                        >
-                            {ui.home}
-                        </Link>
+            <div 
+                className={`fixed inset-0 top-[73px] bg-white/90 backdrop-blur-md z-40 md:hidden shadow-2xl border-t border-slate-200/50 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                style={{ clipPath: isMenuOpen ? 'inset(0 0 0 0)' : 'inset(0 0 100% 0)' }}
+            >
+                <div className="flex flex-col p-8 gap-6 h-full overflow-y-auto">
                         <Link 
                             href={`/${locale}/benefits`} 
                             onClick={() => setIsMenuOpen(false)}
@@ -195,19 +192,31 @@ export default function Navbar() {
                             {ui.about}
                         </Link>
 
-                        <div className="mt-8 flex flex-col gap-4">
-                            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">שפה / Language</p>
-                            <div className="grid grid-cols-2 gap-3">
-                                {languages.map((lang) => (
-                                    <button
-                                        key={lang.code}
-                                        onClick={() => changeLanguage(lang.code)}
-                                        className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all ${locale === lang.code ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
-                                    >
-                                        {lang.label}
-                                    </button>
-                                ))}
-                            </div>
+                        <div className="mt-8 flex flex-col gap-4 border-t border-slate-100 pt-6">
+                            <button 
+                                onClick={() => setShowLangMenu(!showLangMenu)}
+                                className="flex items-center justify-between w-full text-slate-600 hover:text-[#1e3a8a] transition-colors"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Globe size={24} className={showLangMenu ? "text-[#1e3a8a]" : ""} />
+                                    <span className="text-xl font-black">שפה / Language</span>
+                                </div>
+                                <ChevronDown size={24} className={`transition-transform duration-300 ${showLangMenu ? 'rotate-180 text-[#1e3a8a]' : ''}`} />
+                            </button>
+                            
+                            {showLangMenu && (
+                                <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2">
+                                    {languages.map((lang) => (
+                                        <button
+                                            key={lang.code}
+                                            onClick={() => changeLanguage(lang.code)}
+                                            className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all ${locale === lang.code ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                                        >
+                                            {lang.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {!user && (
@@ -221,7 +230,6 @@ export default function Navbar() {
                         )}
                     </div>
                 </div>
-            )}
-        </nav>
+        </>
     );
 }
