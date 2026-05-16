@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { BASE_URL } from '@/lib/api';
+
 
 interface User {
     id: number;
@@ -40,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchUser = async (authToken: string) => {
         try {
-            const response = await fetch('http://127.0.0.1:8000/users/me', {
+            const response = await fetch(`${BASE_URL}/users/me`, {
                 headers: {
                     'Authorization': `Bearer ${authToken}`
                 }
@@ -68,7 +70,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const signup = async (userData: any) => {
         // Handle signup logic
-        const response = await fetch('http://127.0.0.1:8000/auth/signup', {
+        const response = await fetch(`${BASE_URL}/auth/signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData)

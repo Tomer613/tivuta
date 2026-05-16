@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { LogIn, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useParams } from 'next/navigation';
+import { BASE_URL } from '@/lib/api';
+
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
@@ -86,7 +88,7 @@ export default function LoginPage() {
             formData.append('username', email);
             formData.append('password', password);
 
-            const response = await fetch('http://127.0.0.1:8000/auth/login', {
+            const response = await fetch(`${BASE_URL}/auth/login`, {
                 method: 'POST',
                 body: formData,
             });

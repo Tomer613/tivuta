@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
+import { BASE_URL } from '@/lib/api';
+
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -111,7 +113,7 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('http://127.0.0.1:8000/users/dashboard', {
+            const response = await fetch(`${BASE_URL}/users/dashboard`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
