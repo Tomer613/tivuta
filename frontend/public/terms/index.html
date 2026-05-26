@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>טיבותא | תקנון ותנאי שימוש</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: #080d1f;
+      color: #f0e6d3;
+      font-family: 'Heebo', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #080d1f; }
+    ::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 4px; }
+
+    /* ── Navbar ── */
+    nav {
+      background: rgba(8,13,31,.96);
+      border-bottom: 1px solid rgba(212,175,55,.18);
+      padding: 14px 28px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(16px);
+    }
+    .nav-inner {
+      max-width: 860px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo-svg path, .logo-svg rect { fill: #d4af37 !important; }
+
+    a.back-link {
+      font-size: 14px;
+      font-weight: 700;
+      color: #d4af37;
+      text-decoration: none;
+      letter-spacing: .5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity .2s;
+    }
+    a.back-link:hover { opacity: .7; }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      padding: 56px 24px 80px;
+    }
+
+    .document-wrap {
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    /* ── Document header (dark luxury) ── */
+    .doc-header {
+      background: rgba(14,22,40,.95);
+      border: 1px solid rgba(212,175,55,.22);
+      border-radius: 24px 24px 0 0;
+      padding: 52px 56px 40px;
+      text-align: center;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(212,175,55,.08);
+      border: 1px solid rgba(212,175,55,.25);
+      border-radius: 100px;
+      padding: 7px 20px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #d4af37;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #f59e0b;
+      animation: blink 2.5s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.25; }
+    }
+
+    .doc-header h1 {
+      font-size: clamp(24px, 4vw, 36px);
+      font-weight: 900;
+      color: #f0e6d3;
+      margin-bottom: 12px;
+    }
+
+    .doc-header p.subtitle {
+      font-size: 15px;
+      color: #8899bb;
+      line-height: 1.7;
+    }
+
+    .ornament {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 28px 0 0;
+    }
+    .ornament-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(212,175,55,.35), transparent);
+    }
+    .ornament-diamond {
+      width: 9px;
+      height: 9px;
+      background: #d4af37;
+      transform: rotate(45deg);
+      flex-shrink: 0;
+    }
+
+    /* ── Document body (white, legal) ── */
+    .doc-body {
+      background: #ffffff;
+      border: 1px solid rgba(212,175,55,.22);
+      border-top: none;
+      border-radius: 0 0 24px 24px;
+      padding: 56px 64px;
+      color: #1a202c;
+    }
+
+    /* Draft notice */
+    .draft-notice {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 40px;
+      font-size: 13px;
+      color: #92400e;
+      line-height: 1.6;
+    }
+    .draft-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    /* Section headings */
+    .doc-body h2 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1a202c;
+      border-inline-start: 4px solid #d4af37;
+      padding-inline-start: 14px;
+      margin-top: 40px;
+      margin-bottom: 14px;
+    }
+    .doc-body h2:first-of-type { margin-top: 0; }
+
+    /* Body text */
+    .doc-body p {
+      font-size: 15px;
+      color: #4a5568;
+      line-height: 1.95;
+      margin-bottom: 10px;
+    }
+
+    .doc-body ul {
+      margin: 8px 0 12px 0;
+      padding-inline-start: 22px;
+    }
+    .doc-body li {
+      font-size: 14px;
+      color: #4a5568;
+      line-height: 1.9;
+      margin-bottom: 4px;
+    }
+
+    /* Inline highlight */
+    .gold-mark {
+      color: #92400e;
+      font-weight: 700;
+    }
+
+    /* Section divider */
+    .sec-divider {
+      border: none;
+      border-top: 1px solid #e2e8f0;
+      margin: 36px 0;
+    }
+
+    /* Placeholder paragraph (attorney fills in) */
+    .pending-text {
+      font-style: italic;
+      font-size: 14px;
+      color: #a0aec0;
+      border: 1px dashed #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 18px;
+      background: #f7fafc;
+      margin-top: 8px;
+    }
+
+    /* Metadata row */
+    .doc-meta {
+      display: flex;
+      gap: 32px;
+      flex-wrap: wrap;
+      margin-top: 48px;
+      padding-top: 28px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 13px;
+      color: #718096;
+    }
+    .doc-meta span b { color: #2d3748; }
+
+    /* ── Footer ── */
+    footer {
+      background: rgba(14,22,40,.95);
+      border-top: 1px solid rgba(212,175,55,.15);
+      padding: 28px 24px;
+      text-align: center;
+    }
+    footer p { font-size: 12px; color: #2d3748; }
+
+    /* Smart branding */
+    .smart-branding-link {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      transition: transform .3s ease;
+      margin-top: 16px;
+    }
+    .smart-branding-link:hover { transform: scale(1.06); }
+    .smart-built-by {
+      font-size: 10px;
+      color: #4a5568;
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      opacity: 0.6;
+    }
+    .smart-branding-logo {
+      height: 20px;
+      width: auto;
+      filter: grayscale(100%) brightness(240%);
+      opacity: 0.5;
+      transition: all .5s ease-in-out;
+    }
+    .smart-branding-link:hover .smart-branding-logo {
+      filter: grayscale(0%) brightness(100%);
+      opacity: 1;
+    }
+
+    @media (max-width: 600px) {
+      .doc-header { padding: 36px 24px 28px; }
+      .doc-body    { padding: 36px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav>
+  <div class="nav-inner">
+    <svg class="logo-svg" height="26" viewBox="0 0 566.9 198.4" xmlns="http://www.w3.org/2000/svg">
+      <path d="M242.7,100.2c0-3.6,2.4-6.6,5.8-7.5V84c0-13.9-3.6-24.3-10.9-31.3c-7.3-6.9-18.1-10.4-32.6-10.4h-36.1l-10.6,18.3h11.9c-2.3,3.3-4.1,7.5-5.3,12.7c-1.3,5.1-1.9,10.1-1.9,14.9v30.3c0,5.3-1.2,9.3-3.5,11.8c-1.6,1.7-3.7,2.8-6.5,3.4l12.6,17.8l-25.7,0.4c4.5,0.7,11.3,1.3,15.1,1.3c9.8,0,17.4-2.8,22.8-8.5c5.3-5.7,8-13.8,8-24.5v-34c0-4.4,0.4-8.9,1.3-13.6c0.9-4.6,2-8.6,3.4-12h14.8c6.9,0,11.9,1.7,15.1,5.2c3.2,3.5,4.8,9,4.8,16.5l0.1,69.6h23.3v-44.2C245.1,106.8,242.7,103.8,242.7,100.2z"/>
+      <path d="M274,133.6V42.4L250.5,69v23.4c4.3,0,7.8,3.5,7.8,7.8s-3.5,7.8-7.8,7.8v44h20v-18.4H274z"/>
+      <path d="M349.9,83c0-13.2-3.8-23.2-11.3-30.2c-7.5-7-18.4-10.5-32.5-10.5h-29.6v18.3h28.1c7.6,0,13.1,1.7,16.6,5.2c3.5,3.4,5.3,8.9,5.3,16.2v51.4H274V152h88.9v-17.6l-13-1.7V83z"/>
+      <rect x="270.5" y="133.6" width="3.5" height="18.4"/>
+      <path d="M374.1,64.2V42.4l-23.4,26.7v35.2h23.4v-21c-4.9-6-8-9.8-8-9.8C366.1,73.3,369.7,69.2,374.1,64.2z"/>
+      <path d="M132.5,105l22.6-41.5l1.5-2.8l10-18.3h-6h-9.3h-11l-22.2,42.3L88.3,42.4H62.1l24,33.8c-6.8,3.3-11.8,7.9-15,14c-3.2,6.1-4.7,14-4.7,23.9V152h22.6v-47.4c0-3.5,0.5-6.5,1.5-9.1c1-2.6,2.6-4.8,4.7-6.5l44.6,63.1l25.7-0.4l-12.6-17.8L132.5,105z"/>
+      <path d="M479.2,44.3c-0.7,0-1.3,0-2,0c-10.2,0-21,0-31.1,0L426.9,66c0.2,0,0.4,0,0.6,0c5,0,36.6,0.1,41.8,0.1c2.1,2.2,6.8,7.6,6.9,7.8s-35.7,43.3-39.8,48.3c-0.2-0.3-0.6-0.7-1-1.2c-7.1-8.6-38.8-46.9-38.8-47.1c0-0.3,26.1-29.5,26.1-29.5c-3.1,0-28.2,0-29.1,0c0,0,0,0,0,0c-0.3,0.1-12.1,13.5-19.6,22.1c-3.4,4-6,6.9-6,7c0,0,2.3,2.8,6,7.4c15.2,18.5,54.6,66,61.4,74.1c0.6,0.8,1,1.2,1,1.2c0.2,0,68.4-82.3,68.4-82.4C504.7,73.3,479.7,44.3,479.2,44.3z"/>
+    </svg>
+    <a href="../landing/" class="back-link">← חזרה לדף הנחיתה</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main>
+  <div class="document-wrap">
+
+    <!-- Document header (dark) -->
+    <div class="doc-header">
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        טיוטה — בבדיקה משפטית
+      </div>
+
+      <h1>תקנון ותנאי שימוש</h1>
+      <p class="subtitle">
+        מסמך זה מנוסח ונמצא בשלבי אישור סופי על ידי היועץ המשפטי של החברה.<br>
+        הגרסה הסופית תפורסם בהקדם האפשרי ותחייב את כלל המשתמשים.
+      </p>
+
+      <div class="ornament">
+        <div class="ornament-line"></div>
+        <div class="ornament-diamond"></div>
+        <div class="ornament-line"></div>
+      </div>
+    </div>
+
+    <!-- Document body (white, legal) -->
+    <div class="doc-body">
+
+      <!-- Draft notice -->
+      <div class="draft-notice">
+        <span class="draft-icon">⚖️</span>
+        <span>
+          <b>מסמך טיוטה — לא סופי.</b>
+          תוכן זה נכתב לצורך תצוגה ראשונית בלבד ועשוי להשתנות בגרסה המשפטית הסופית.
+          לכל שאלה: <a href="mailto:legal@tivuta.co.il" style="color:#d4af37;font-weight:700;">legal@tivuta.co.il</a>
+        </span>
+      </div>
+
+      <!-- 1 -->
+      <h2>1. כללי</h2>
+      <p>
+        שירות טיבותא (להלן: <span class="gold-mark">"השירות"</span> או <span class="gold-mark">"הפלטפורמה"</span>)
+        הינו מועדון פיננסי-קהילתי המיועד לאוכלוסייה החרדית העובדת בישראל.
+        השירות מופעל על ידי <b>טיבותא בע"מ</b> (להלן: <span class="gold-mark">"החברה"</span>).
+      </p>
+      <p>
+        השימוש בשירות, לרבות מילוי טופס ההרשמה לרשימת ההמתנה, מהווה הסכמה מלאה
+        ובלתי מסויגת לכל תנאי שימוש אלה. מסמך זה מנוסח בכפוף לדין הישראלי
+        ועשוי להתעדכן מעת לעת; עדכונים מהותיים יפורסמו בדף זה.
+      </p>
+
+      <hr class="sec-divider">
+
+      <!-- 2 -->
+      <h2>2. הצטרפות לרשימת ההמתנה</h2>
+      <p>
+        הרשמה לרשימת ההמתנה אינה מקנה זכות מיידית לקבלת השירות המלא,
+        אלא מהווה הצהרת עניין בלבד.
+        החברה שומרת לעצמה את הזכות לאשר בקשות הצטרפות לפי שיקול דעתה הבלעדי,
+        על פי קריטריונים שייקבעו מעת לעת, לרבות:
+      </p>
+      <ul>
+        <li>מועד ההרשמה ומיקומה בתור ההמתנה</li>
+        <li>אזור מגורים ומקום עבודה</li>
+        <li>עמידה בתנאי סף שיפורסמו בנפרד</li>
+        <li>קיבולת הפלטפורמה בשלב ההשקה</li>
+      </ul>
+      <p class="pending-text">
+        [ פרטים נוספים לגבי תהליך הבחירה ומועדי אישור יתוספו על ידי היועץ המשפטי ]
+      </p>
+
+      <hr class="sec-divider">
+
+      <!-- 3 -->
+      <h2>3. שימוש במידע אישי</h2>
+      <p>
+        המידע האישי המסופק בעת ההרשמה — לרבות שם מלא, מספר טלפון, כתובת מגורים,
+        מקום עבודה וסוג ההכנסה — ישמש לצורך:
+      </p>
+      <ul>
+        <li>יצירת קשר ועדכון על מועד הצטרפות</li>
+        <li>הערכת זכאות לפי תנאי ההטבות</li>
+        <li>אספקת שירותי הפלטפורמה לאחר אישור ההצטרפות</li>
+        <li>שיפור ופיתוח השירות על בסיס נתונים מצטברים ואנונימיים</li>
+      </ul>
+      <p>
+        המידע נשמר במערכות מאובטחות בהתאם לדרישות
+        <b>חוק הגנת הפרטיות, תשמ"א-1981</b> ותקנותיו.
+        אינכם חייבים למסור מידע כלשהו, אולם אי-מסירת שדות חובה תמנע השתתפות בשירות.
+      </p>
+
+      <hr class="sec-divider">
+
+      <!-- 4 -->
+      <h2>4. העברת פרטים לצד שלישי</h2>
+      <p>
+        חלק מפרטי המשתמש עשויים להיות מועברים לגופים שותפים מורשים —
+        לרבות בנקים, חברות ביטוח וגופי מימון קהילתיים —
+        לשם מימוש ההטבות שאליהן הגיש המשתמש בקשה.
+        העברה כאמור תתבצע:
+      </p>
+      <ul>
+        <li>אך ורק לגורמים המחויבים לאותה רמת הגנת פרטיות</li>
+        <li>בכפוף להסכמה מפורשת של המשתמש, לפי הצורך</li>
+        <li>בהיקף המינימלי הנדרש למימוש הטבה ספציפית</li>
+      </ul>
+      <p class="pending-text">
+        [ רשימת הגופים השותפים ותנאי ההעברה יפורטו בנספח נפרד שיצורף למסמך הסופי ]
+      </p>
+
+      <hr class="sec-divider">
+
+      <!-- 5 -->
+      <h2>5. הגבלת אחריות</h2>
+      <p>
+        החברה אינה נושאת באחריות לנזקים ישירים, עקיפים, מקריים או תוצאתיים
+        הנובעים מהשימוש בשירות או מהסתמכות על תכניו.
+        ההטבות המפורסמות עשויות להשתנות בהתאם לתנאי ההסכמים עם הגופים השותפים.
+      </p>
+      <p>
+        <b>אישור זכאות סופי</b> כפוף לבדיקת הגוף הפיננסי הרלוונטי ואינו מובטח
+        על ידי החברה. החברה לא תהיה אחראית לסירוב הגוף השותף, עיכוב בטיפול
+        או לכל שינוי בתנאי ההטבה לאחר פרסומה.
+      </p>
+
+      <hr class="sec-divider">
+
+      <!-- 6 -->
+      <h2>6. יצירת קשר</h2>
+      <p>
+        לכל פנייה בנושא תנאי שימוש אלה, מדיניות הפרטיות, מימוש הטבות
+        או בכל עניין אחר הקשור לשירות, ניתן לפנות אלינו:
+      </p>
+      <ul>
+        <li>דוא"ל: <a href="mailto:support@tivuta.co.il" style="color:#d4af37;font-weight:700;">support@tivuta.co.il</a></li>
+        <li>מוקד שירות חברים: <a href="tel:*9876" style="color:#d4af37;font-weight:700;">*9876</a></li>
+        <li>עניינים משפטיים: <a href="mailto:legal@tivuta.co.il" style="color:#d4af37;font-weight:700;">legal@tivuta.co.il</a></li>
+      </ul>
+
+      <!-- Document metadata -->
+      <div class="doc-meta">
+        <span><b>גרסה:</b> 0.9 — טיוטה</span>
+        <span><b>תאריך עדכון אחרון:</b> מאי 2025</span>
+        <span><b>שפה:</b> עברית — גרסה מחייבת</span>
+      </div>
+
+    </div><!-- /doc-body -->
+  </div><!-- /document-wrap -->
+</main>
+
+<!-- ── Footer ── -->
+<footer>
+  <p>© 2025 טיבותא. כל הזכויות שמורות.</p>
+
+  <a href="https://smart-studio.dev/" target="_blank" rel="noopener noreferrer" class="smart-branding-link">
+    <span class="smart-built-by">נבנה ועוצב ע"י</span>
+    <img src="../branding/smart-logo.svg" alt="Smart Studio" class="smart-branding-logo">
+  </a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="טיבותא — המועדון הפיננסי-קהילתי הגדול בישראל. הצטרפו לרשימת ההמתנה.">
+  <title>טיבותא | הצטרפו לרשימת ההמתנה</title>
+
+  <!-- Heebo Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap"
+    rel="stylesheet">
+
+  <!-- Tailwind CSS v3 Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Heebo', 'sans-serif'] },
+          colors: {
+            bg: '#080d1f',
+            surface: '#0e1628',
+            gold: '#d4af37',
+            'gold-l': '#f59e0b',
+            cream: '#f0e6d3',
+            muted: '#8899bb',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <style>
+    /* ── Base ────────────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: #080d1f;
+      color: #f0e6d3;
+      font-family: 'Heebo', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────── */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #080d1f;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #d4af37;
+      border-radius: 4px;
+    }
+
+    /* ── Gold shimmer text ───────────────────────────── */
+    @keyframes shimmer {
+      0% {
+        background-position: -200% center;
+      }
+
+      100% {
+        background-position: 200% center;
+      }
+    }
+
+    .gold-shimmer {
+      background: linear-gradient(90deg, #b8922a 0%, #e8c84a 30%, #fff8e0 50%, #e8c84a 70%, #b8922a 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 5s linear infinite;
+    }
+
+    /* ── Float animation ─────────────────────────────── */
+    @keyframes float {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-8px);
+      }
+    }
+
+    .float-anim {
+      animation: float 4s ease-in-out infinite;
+    }
+
+    /* ── Pulse dot ───────────────────────────────────── */
+    @keyframes pulse-dot {
+
+      0%,
+      100% {
+        opacity: 0.6;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1.4);
+      }
+    }
+
+    /* ── Spin ────────────────────────────────────────── */
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(212, 175, 55, .3);
+      border-top-color: #d4af37;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    /* ── Scroll reveal ───────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity .7s ease, transform .7s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Navbar ──────────────────────────────────────── */
+    #navbar {
+      position: fixed;
+      top: 0;
+      inset-inline: 0;
+      z-index: 100;
+      background: rgba(8, 13, 31, .92);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(212, 175, 55, .18);
+      transition: box-shadow .3s;
+    }
+
+    #navbar.scrolled {
+      box-shadow: 0 4px 32px rgba(0, 0, 0, .5);
+    }
+
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* ── Logo SVG gold override ──────────────────────── */
+    .logo-svg path,
+    .logo-svg rect {
+      fill: #d4af37 !important;
+    }
+
+    /* ── Language buttons ────────────────────────────── */
+    .lang-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-family: 'Heebo', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: #8899bb;
+      padding: 2px 2px 4px;
+      cursor: pointer;
+      transition: color .2s, border-color .2s;
+    }
+
+    .lang-btn:hover {
+      color: #f59e0b;
+    }
+
+    .lang-btn.active {
+      color: #d4af37;
+      border-bottom-color: #d4af37;
+    }
+
+    /* ── Hero ────────────────────────────────────────── */
+    #hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 100px 24px 64px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #stars {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .hero-glow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(30, 58, 138, .18) 0%, transparent 70%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      max-width: 820px;
+    }
+
+    /* ── Hero Logo ─────────────────────────────────── */
+    @keyframes logo-appear {
+      0%   { opacity: 0; transform: translateY(-22px) scale(.93); filter: blur(6px); }
+      60%  { filter: blur(0); }
+      100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
+    @keyframes logo-float {
+      0%, 100% { transform: translateY(0px); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    .hero-logo-wrap {
+      margin-bottom: 40px;
+      animation: logo-appear 1.4s cubic-bezier(0.16, 1, 0.3, 1) both,
+                 logo-float 7s ease-in-out infinite;
+      animation-delay: 0s, 1.4s;
+      /* Layered shadow: tight dark base (weight) + diffuse warm halo (prestige) */
+      filter:
+        drop-shadow(0 3px 3px rgba(0,0,0,.75))
+        drop-shadow(0 8px 28px rgba(148,108,20,.32));
+    }
+
+    .hero-logo-wrap svg {
+      width: clamp(240px, 46vw, 460px);
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(212, 175, 55, .1);
+      border: 1px solid rgba(212, 175, 55, .3);
+      border-radius: 100px;
+      padding: 8px 24px;
+      margin-bottom: 36px;
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #d4af37;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    /* ── CTA button ──────────────────────────────────── */
+    @keyframes btn-shine {
+      0% {
+        background-position: -200% center;
+      }
+
+      100% {
+        background-position: 200% center;
+      }
+    }
+
+    .btn-gold {
+      display: inline-block;
+      background: linear-gradient(90deg, #b8922a 0%, #e8c84a 25%, #fff8e0 50%, #e8c84a 75%, #b8922a 100%);
+      background-size: 200% auto;
+      animation: btn-shine 4s linear infinite;
+      color: #080d1f;
+      font-family: 'Heebo', sans-serif;
+      font-size: 18px;
+      font-weight: 900;
+      border: none;
+      border-radius: 100px;
+      padding: 18px 56px;
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s;
+      text-decoration: none;
+    }
+
+    .btn-gold:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 36px rgba(212, 175, 55, .45);
+    }
+
+    .btn-gold:active {
+      transform: translateY(0);
+    }
+
+    /* ── Stats bar ───────────────────────────────────── */
+    #stats {
+      background: rgba(14, 22, 40, .95);
+      border-top: 1px solid rgba(212, 175, 55, .18);
+      border-bottom: 1px solid rgba(212, 175, 55, .18);
+      padding: 56px 24px;
+    }
+
+    .stats-grid {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 0 24px;
+    }
+
+    .stat-item:not(:last-child) {
+      border-inline-end: 1px solid rgba(212, 175, 55, .2);
+    }
+
+    .stat-number {
+      font-size: clamp(36px, 5vw, 60px);
+      font-weight: 900;
+      color: #d4af37;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      color: #8899bb;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    /* ── Benefits ────────────────────────────────────── */
+    #benefits {
+      padding: 88px 24px;
+    }
+
+    .benefits-grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .benefit-card {
+      background: rgba(14, 22, 40, .85);
+      border: 1px solid rgba(212, 175, 55, .15);
+      border-radius: 22px;
+      padding: 34px 30px;
+      transition: border-color .3s, transform .3s, box-shadow .3s;
+    }
+
+    .benefit-card:hover {
+      border-color: rgba(212, 175, 55, .5);
+      transform: translateY(-5px);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, .3), 0 0 28px rgba(212, 175, 55, .1);
+    }
+
+    .benefit-icon {
+      font-size: 38px;
+      margin-bottom: 18px;
+      display: block;
+    }
+
+    .benefit-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: #f0e6d3;
+      margin-bottom: 12px;
+    }
+
+    .benefit-desc {
+      font-size: 15px;
+      color: #8899bb;
+      line-height: 1.75;
+    }
+
+    /* ── Social proof banner ─────────────────────────── */
+    #proof {
+      background: linear-gradient(135deg,
+          rgba(212, 175, 55, .12) 0%,
+          rgba(30, 58, 138, .15) 50%,
+          rgba(212, 175, 55, .12) 100%);
+      border-top: 1px solid rgba(212, 175, 55, .25);
+      border-bottom: 1px solid rgba(212, 175, 55, .25);
+      padding: 44px 24px;
+      text-align: center;
+    }
+
+    /* ── Form section ────────────────────────────────── */
+    #register {
+      padding: 88px 24px;
+    }
+
+    .form-card {
+      max-width: 640px;
+      margin: 0 auto;
+      background: rgba(14, 22, 40, .9);
+      border: 1px solid rgba(212, 175, 55, .28);
+      border-radius: 28px;
+      padding: 44px 40px;
+      backdrop-filter: blur(20px);
+    }
+
+    /* ── Form inputs ─────────────────────────────────── */
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #8899bb;
+      margin-bottom: 9px;
+    }
+
+    .field-input {
+      width: 100%;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid rgba(255, 255, 255, .1);
+      border-radius: 13px;
+      padding: 14px 18px;
+      color: #f0e6d3;
+      font-family: 'Heebo', sans-serif;
+      font-size: 16px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .field-input:focus {
+      outline: none;
+      border-color: #d4af37;
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, .15);
+    }
+
+    .field-input::placeholder {
+      color: rgba(136, 153, 187, .6);
+    }
+
+    /* ── Custom dropdown ─────────────────────────────── */
+    .cs-wrap { position: relative; }
+
+    .cs-trigger {
+      width: 100%;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 13px;
+      padding: 14px 18px;
+      color: #f0e6d3;
+      font-family: 'Heebo', sans-serif;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: border-color .2s, box-shadow .2s;
+      user-select: none;
+    }
+    .cs-trigger:hover,
+    .cs-trigger.open {
+      border-color: rgba(212,175,55,.5);
+      box-shadow: 0 0 0 3px rgba(212,175,55,.1);
+    }
+    .cs-trigger.selected { border-color: rgba(212,175,55,.35); }
+
+    .cs-arrow {
+      transition: transform .25s;
+      color: #d4af37;
+      font-size: 11px;
+      flex-shrink: 0;
+      margin-inline-start: 8px;
+    }
+    .cs-trigger.open .cs-arrow { transform: rotate(180deg); }
+
+    .cs-panel {
+      position: absolute;
+      inset-inline: 0;
+      top: calc(100% + 6px);
+      background: #0e1628;
+      border: 1px solid rgba(212,175,55,.3);
+      border-radius: 13px;
+      overflow: hidden;
+      z-index: 50;
+      box-shadow: 0 16px 40px rgba(0,0,0,.5);
+      display: none;
+    }
+    .cs-panel.open { display: block; }
+
+    .cs-opt {
+      padding: 13px 18px;
+      font-size: 16px;
+      color: #8899bb;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+    }
+    .cs-opt:last-child { border-bottom: none; }
+    .cs-opt:hover { background: rgba(212,175,55,.1); color: #f0e6d3; }
+    .cs-opt.active { color: #d4af37; font-weight: 700; }
+
+    /* ── Radio buttons ───────────────────────────────── */
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 500;
+      padding: 13px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, .08);
+      transition: border-color .2s, background .2s;
+    }
+
+    .radio-label:hover {
+      border-color: rgba(212, 175, 55, .3);
+      background: rgba(212, 175, 55, .05);
+    }
+
+    .radio-label input[type="radio"] {
+      accent-color: #d4af37;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    /* ── Submit button (form variant) ────────────────── */
+    .btn-submit {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(90deg, #b8922a 0%, #e8c84a 25%, #fff0c0 50%, #e8c84a 75%, #b8922a 100%);
+      background-size: 200% auto;
+      animation: btn-shine 4s linear infinite;
+      border: none;
+      border-radius: 14px;
+      font-family: 'Heebo', sans-serif;
+      font-size: 18px;
+      font-weight: 900;
+      color: #080d1f;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform .2s, box-shadow .2s;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 32px rgba(212, 175, 55, .4);
+    }
+
+    .btn-submit:disabled {
+      opacity: .7;
+      cursor: default;
+      transform: none;
+    }
+
+    /* ── Error message ───────────────────────────────── */
+    .error-box {
+      display: none;
+      background: rgba(220, 38, 38, .1);
+      border: 1px solid rgba(220, 38, 38, .3);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: #f87171;
+      font-size: 14px;
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    /* ── Benefit icon SVGs (Lucide) ─────────────────── */
+    .benefit-icon-svg {
+      display: block;
+      width: 44px;
+      height: 44px;
+      stroke: #d4af37;
+      stroke-width: 1.5px;
+      fill: none;
+      margin-bottom: 20px;
+      transition: transform .35s, drop-shadow .35s;
+      filter: drop-shadow(0 0 6px rgba(212,175,55,.3));
+    }
+    .benefit-card:hover .benefit-icon-svg {
+      transform: scale(1.18) translateY(-3px);
+      filter: drop-shadow(0 0 14px rgba(212,175,55,.65));
+    }
+
+    /* ── Stat suffix (unit label) ────────────────────── */
+    .stat-suffix {
+      font-size: clamp(14px, 1.8vw, 19px);
+      font-weight: 700;
+      color: #d4af37;
+      margin-top: 4px;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    /* ── Smart branding ──────────────────────────────── */
+    .smart-branding-link {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      transition: transform .3s ease;
+      margin-top: 24px;
+    }
+    .smart-branding-link:hover { transform: scale(1.06); }
+    .smart-built-by {
+      font-size: 10px;
+      color: #4a5568;
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      opacity: 0.6;
+    }
+    .smart-branding-logo {
+      height: 22px;
+      width: auto;
+      filter: grayscale(100%) brightness(240%);
+      opacity: 0.55;
+      transition: all .5s ease-in-out;
+    }
+    .smart-branding-link:hover .smart-branding-logo {
+      filter: grayscale(0%) brightness(100%);
+      opacity: 1;
+    }
+
+    /* ── Footer ──────────────────────────────────────── */
+    footer {
+      background: rgba(14, 22, 40, .95);
+      border-top: 1px solid rgba(212, 175, 55, .18);
+      padding: 44px 24px;
+      text-align: center;
+    }
+
+    /* ── Responsive ──────────────────────────────────── */
+    @media (max-width: 600px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stat-item:not(:last-child) {
+        border-inline-end: none;
+        border-bottom: 1px solid rgba(212, 175, 55, .2);
+        padding-bottom: 28px;
+        margin-bottom: 28px;
+      }
+
+      .form-card {
+        padding: 30px 22px;
+      }
+
+      .nav-inner {
+        padding: 12px 18px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .benefits-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── Section headers ─────────────────────────────── */
+    .section-tag {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #d4af37;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .section-title {
+      font-size: clamp(26px, 4vw, 46px);
+      font-weight: 900;
+      line-height: 1.25;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════
+     NAVBAR
+══════════════════════════════════════════════════════════ -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <!-- Logo -->
+      <a href="#hero" style="display:flex;align-items:center;gap:10px;text-decoration:none;"
+        onclick="document.getElementById('hero').scrollIntoView({behavior:'smooth'});return false;">
+        <svg class="logo-svg" height="30" viewBox="0 0 566.9 198.4" xmlns="http://www.w3.org/2000/svg"
+          aria-label="טיבותא">
+          <path
+            d="M242.7,100.2c0-3.6,2.4-6.6,5.8-7.5V84c0-13.9-3.6-24.3-10.9-31.3c-7.3-6.9-18.1-10.4-32.6-10.4h-36.1l-10.6,18.3h11.9c-2.3,3.3-4.1,7.5-5.3,12.7c-1.3,5.1-1.9,10.1-1.9,14.9v30.3c0,5.3-1.2,9.3-3.5,11.8c-1.6,1.7-3.7,2.8-6.5,3.4l12.6,17.8l-25.7,0.4c4.5,0.7,11.3,1.3,15.1,1.3c9.8,0,17.4-2.8,22.8-8.5c5.3-5.7,8-13.8,8-24.5v-34c0-4.4,0.4-8.9,1.3-13.6c0.9-4.6,2-8.6,3.4-12h14.8c6.9,0,11.9,1.7,15.1,5.2c3.2,3.5,4.8,9,4.8,16.5l0.1,69.6h23.3v-44.2C245.1,106.8,242.7,103.8,242.7,100.2z" />
+          <path d="M274,133.6V42.4L250.5,69v23.4c4.3,0,7.8,3.5,7.8,7.8s-3.5,7.8-7.8,7.8v44h20v-18.4H274z" />
+          <path
+            d="M349.9,83c0-13.2-3.8-23.2-11.3-30.2c-7.5-7-18.4-10.5-32.5-10.5h-29.6v18.3h28.1c7.6,0,13.1,1.7,16.6,5.2c3.5,3.4,5.3,8.9,5.3,16.2v51.4H274V152h88.9v-17.6l-13-1.7V83z" />
+          <rect x="270.5" y="133.6" width="3.5" height="18.4" />
+          <path d="M374.1,64.2V42.4l-23.4,26.7v35.2h23.4v-21c-4.9-6-8-9.8-8-9.8C366.1,73.3,369.7,69.2,374.1,64.2z" />
+          <path
+            d="M132.5,105l22.6-41.5l1.5-2.8l10-18.3h-6h-9.3h-11l-22.2,42.3L88.3,42.4H62.1l24,33.8c-6.8,3.3-11.8,7.9-15,14c-3.2,6.1-4.7,14-4.7,23.9V152h22.6v-47.4c0-3.5,0.5-6.5,1.5-9.1c1-2.6,2.6-4.8,4.7-6.5l44.6,63.1l25.7-0.4l-12.6-17.8L132.5,105z" />
+          <path
+            d="M479.2,44.3c-0.7,0-1.3,0-2,0c-10.2,0-21,0-31.1,0L426.9,66c0.2,0,0.4,0,0.6,0c5,0,36.6,0.1,41.8,0.1c2.1,2.2,6.8,7.6,6.9,7.8s-35.7,43.3-39.8,48.3c-0.2-0.3-0.6-0.7-1-1.2c-7.1-8.6-38.8-46.9-38.8-47.1c0-0.3,26.1-29.5,26.1-29.5c-3.1,0-28.2,0-29.1,0c0,0,0,0,0,0c-0.3,0.1-12.1,13.5-19.6,22.1c-3.4,4-6,6.9-6,7c0,0,2.3,2.8,6,7.4c15.2,18.5,54.6,66,61.4,74.1c0.6,0.8,1,1.2,1,1.2c0.2,0,68.4-82.3,68.4-82.4C504.7,73.3,479.7,44.3,479.2,44.3z" />
+        </svg>
+      </a>
+
+      <!-- Language switcher -->
+      <div style="display:flex;gap:14px;align-items:center;">
+        <button class="lang-btn active" id="btn-he" onclick="setLang('he',this)">עב</button>
+        <button class="lang-btn" id="btn-en" onclick="setLang('en',this)">EN</button>
+        <button class="lang-btn" id="btn-fr" onclick="setLang('fr',this)">FR</button>
+        <button class="lang-btn" id="btn-yi" onclick="setLang('yi',this)">יי</button>
+      </div>
+    </div>
+  </nav>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+     HERO
+══════════════════════════════════════════════════════════ -->
+  <section id="hero">
+    <canvas id="stars"></canvas>
+    <div class="hero-glow"></div>
+
+    <div class="hero-content">
+
+      <!-- Hero Logo -->
+      <div class="hero-logo-wrap">
+        <svg viewBox="0 0 566.9 198.4" xmlns="http://www.w3.org/2000/svg" aria-label="טיבותא">
+          <defs>
+            <!-- Brushed-gold gradient: realistic tones, very slow light-sweep -->
+            <linearGradient id="hg" x1="-566.9" y1="0" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0%"   stop-color="#6b4f10"/>
+              <stop offset="18%"  stop-color="#b8892a"/>
+              <stop offset="36%"  stop-color="#d4af37"/>
+              <stop offset="50%"  stop-color="#edd670"/>
+              <stop offset="64%"  stop-color="#d4af37"/>
+              <stop offset="82%"  stop-color="#9a7018"/>
+              <stop offset="100%" stop-color="#c09028"/>
+              <animate attributeName="x1" values="-566.9;566.9" dur="11s" repeatCount="indefinite"/>
+              <animate attributeName="x2" values="0;1133.8"      dur="11s" repeatCount="indefinite"/>
+            </linearGradient>
+          </defs>
+          <path fill="url(#hg)" d="M242.7,100.2c0-3.6,2.4-6.6,5.8-7.5V84c0-13.9-3.6-24.3-10.9-31.3c-7.3-6.9-18.1-10.4-32.6-10.4h-36.1l-10.6,18.3h11.9c-2.3,3.3-4.1,7.5-5.3,12.7c-1.3,5.1-1.9,10.1-1.9,14.9v30.3c0,5.3-1.2,9.3-3.5,11.8c-1.6,1.7-3.7,2.8-6.5,3.4l12.6,17.8l-25.7,0.4c4.5,0.7,11.3,1.3,15.1,1.3c9.8,0,17.4-2.8,22.8-8.5c5.3-5.7,8-13.8,8-24.5v-34c0-4.4,0.4-8.9,1.3-13.6c0.9-4.6,2-8.6,3.4-12h14.8c6.9,0,11.9,1.7,15.1,5.2c3.2,3.5,4.8,9,4.8,16.5l0.1,69.6h23.3v-44.2C245.1,106.8,242.7,103.8,242.7,100.2z"/>
+          <path fill="url(#hg)" d="M274,133.6V42.4L250.5,69v23.4c4.3,0,7.8,3.5,7.8,7.8s-3.5,7.8-7.8,7.8v44h20v-18.4H274z"/>
+          <path fill="url(#hg)" d="M349.9,83c0-13.2-3.8-23.2-11.3-30.2c-7.5-7-18.4-10.5-32.5-10.5h-29.6v18.3h28.1c7.6,0,13.1,1.7,16.6,5.2c3.5,3.4,5.3,8.9,5.3,16.2v51.4H274V152h88.9v-17.6l-13-1.7V83z"/>
+          <rect fill="url(#hg)" x="270.5" y="133.6" width="3.5" height="18.4"/>
+          <path fill="url(#hg)" d="M374.1,64.2V42.4l-23.4,26.7v35.2h23.4v-21c-4.9-6-8-9.8-8-9.8C366.1,73.3,369.7,69.2,374.1,64.2z"/>
+          <path fill="url(#hg)" d="M132.5,105l22.6-41.5l1.5-2.8l10-18.3h-6h-9.3h-11l-22.2,42.3L88.3,42.4H62.1l24,33.8c-6.8,3.3-11.8,7.9-15,14c-3.2,6.1-4.7,14-4.7,23.9V152h22.6v-47.4c0-3.5,0.5-6.5,1.5-9.1c1-2.6,2.6-4.8,4.7-6.5l44.6,63.1l25.7-0.4l-12.6-17.8L132.5,105z"/>
+          <path fill="url(#hg)" d="M479.2,44.3c-0.7,0-1.3,0-2,0c-10.2,0-21,0-31.1,0L426.9,66c0.2,0,0.4,0,0.6,0c5,0,36.6,0.1,41.8,0.1c2.1,2.2,6.8,7.6,6.9,7.8s-35.7,43.3-39.8,48.3c-0.2-0.3-0.6-0.7-1-1.2c-7.1-8.6-38.8-46.9-38.8-47.1c0-0.3,26.1-29.5,26.1-29.5c-3.1,0-28.2,0-29.1,0c0,0,0,0,0,0c-0.3,0.1-12.1,13.5-19.6,22.1c-3.4,4-6,6.9-6,7c0,0,2.3,2.8,6,7.4c15.2,18.5,54.6,66,61.4,74.1c0.6,0.8,1,1.2,1,1.2c0.2,0,68.4-82.3,68.4-82.4C504.7,73.3,479.7,44.3,479.2,44.3z"/>
+        </svg>
+      </div>
+
+      <!-- Badge -->
+      <div class="badge">
+        <div class="badge-dot"></div>
+        <span style="font-size:13px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#d4af37;"
+          data-i18n="hero.badge">הצטרפו למועדון הבלעדי</span>
+      </div>
+
+      <!-- Headline -->
+      <h1 style="font-size:clamp(36px,6.5vw,76px);font-weight:900;line-height:1.12;margin-bottom:28px;">
+        <span class="gold-shimmer" data-i18n-html="hero.title">המועדון הפיננסי‑קהילתי<br>הגדול בישראל</span>
+      </h1>
+
+      <!-- Subtitle -->
+      <p style="font-size:clamp(16px,2vw,21px);font-weight:400;color:#8899bb;line-height:1.75;max-width:620px;margin:0 auto 52px;"
+        data-i18n="hero.subtitle">
+        הצטרפו לרשימת ההמתנה — ותוכלו ליהנות ראשונים מכל ההטבות הפיננסיות, הקהילתיות וסגנון החיים שטיבותא מציעה
+      </p>
+
+      <!-- CTA -->
+      <a href="#register" class="btn-gold"
+        onclick="document.getElementById('register').scrollIntoView({behavior:'smooth'});return false;"
+        data-i18n="hero.cta">
+        הצטרפו עכשיו →
+      </a>
+
+      <!-- Scroll hint -->
+      <div class="float-anim" style="margin-top:64px;color:#4a5568;font-size:13px;letter-spacing:1px;"
+        data-i18n="hero.scroll">גלול להמשך ↓</div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+     STATS BAR
+══════════════════════════════════════════════════════════ -->
+  <section id="stats" class="reveal">
+    <div class="stats-grid">
+
+      <div class="stat-item">
+        <div class="stat-number" id="c1" data-target="280000" data-fmt="int">0</div>
+        <div class="stat-label" data-i18n="stats.workers">עובדים חרדים בסקטור העסקי</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-number" id="c2" data-target="120000" data-fmt="int">0</div>
+        <div class="stat-label" data-i18n="stats.students">לומדים מדי שנה</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-number" id="c3" data-target="2385" data-fmt="decimal">0</div>
+        <div class="stat-suffix" data-i18n="stats.assets_unit">מיליארד ₪</div>
+        <div class="stat-label" data-i18n="stats.assets">צבי נכסים</div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+     BENEFITS
+══════════════════════════════════════════════════════════ -->
+  <section id="benefits">
+    <div style="max-width:1100px;margin:0 auto;">
+
+      <div style="text-align:center;margin-bottom:56px;" class="reveal">
+        <span class="section-tag" data-i18n="benefits.tag">ההטבות שלנו</span>
+        <h2 class="section-title" data-i18n="benefits.title">מעטפת שלמה לכל תחומי החיים</h2>
+      </div>
+
+      <div class="benefits-grid">
+
+        <div class="benefit-card reveal">
+          <i data-lucide="landmark" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b1.title">ביטול הבנק וחברת הביטוח</div>
+          <div class="benefit-desc" data-i18n="b1.desc">גישה ישירה למימון קהילתי ופתרונות ביטוח — בלי בירוקרטיה, בתנאים
+            שלכם</div>
+        </div>
+
+        <div class="benefit-card reveal" style="transition-delay:.1s">
+          <i data-lucide="heart-handshake" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b2.title">הלוואת "בית נאמן"</div>
+          <div class="benefit-desc" data-i18n="b2.desc">עד 220,000 ₪ ללא ריבית לחתנים וכלות — מימון ייחודי לזוגות
+            הצעירים</div>
+        </div>
+
+        <div class="benefit-card reveal" style="transition-delay:.2s">
+          <i data-lucide="home" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b3.title">משכנתא בפריים מינוס 1.5%</div>
+          <div class="benefit-desc" data-i18n="b3.desc">תנאי אשראי בלעדיים מהבנק — חסכון של עשרות אלפי שקלים לאורך חיי
+            המשכנתא</div>
+        </div>
+
+        <div class="benefit-card reveal">
+          <i data-lucide="percent" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b4.title">פטור מלא ממע"מ</div>
+          <div class="benefit-desc" data-i18n="b4.desc">הטבה ייחודית על מאות מוצרים ושירותים — החיסכון נצבר ישירות
+            לכיסכם</div>
+        </div>
+
+        <div class="benefit-card reveal" style="transition-delay:.1s">
+          <i data-lucide="store" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b5.title">1,000+ בתי עסק</div>
+          <div class="benefit-desc" data-i18n="b5.desc">רשת עסקים רחבה בקהילה — הנחות אמיתיות על קניות, אירועים וסגנון
+            חיים</div>
+        </div>
+
+        <div class="benefit-card reveal" style="transition-delay:.2s">
+          <i data-lucide="shield-check" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b6.title">מעטפת 360° לחיים</div>
+          <div class="benefit-desc" data-i18n="b6.desc">CRM משפחתי, ביטחון עסקי וחוסן כלכלי — כל מה שצריך לחיים שלמים
+            ומוצלחים</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+     SOCIAL PROOF BANNER
+══════════════════════════════════════════════════════════ -->
+  <section id="proof" class="reveal">
+    <p style="font-size:clamp(18px,3vw,28px);font-weight:800;" data-i18n-html="proof.text">
+      <span style="color:#d4af37;">אלפי משפחות</span> כבר בדרך — הצטרפו גם אתם
+    </p>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+     REGISTRATION FORM
+══════════════════════════════════════════════════════════ -->
+  <section id="register">
+    <div style="text-align:center;margin-bottom:48px;max-width:700px;margin-inline:auto;" class="reveal">
+      <span class="section-tag" data-i18n="form.tag">רשימת ההמתנה</span>
+      <h2 class="section-title" data-i18n="form.title">השאירו פרטים ונחזור אליכם</h2>
+      <p style="color:#8899bb;font-size:17px;" data-i18n="form.subtitle">המקומות מוגבלים — הבטיחו את מקומכם עכשיו</p>
+    </div>
+
+    <div class="form-card reveal">
+
+      <!-- ── The form ── -->
+      <form id="leadForm" onsubmit="handleSubmit(event)">
+
+        <!-- Name -->
+        <div style="margin-bottom:20px;">
+          <label class="field-label" data-i18n="form.name">שם מלא</label>
+          <input id="fName" type="text" required class="field-input" data-i18n-ph="form.name_ph"
+            placeholder="ישראל ישראלי">
+        </div>
+
+        <!-- Phone -->
+        <div style="margin-bottom:20px;">
+          <label class="field-label" data-i18n="form.phone">מספר טלפון</label>
+          <input id="fPhone" type="tel" required class="field-input" data-i18n-ph="form.phone_ph"
+            placeholder="050-0000000">
+        </div>
+
+        <!-- Address -->
+        <div style="margin-bottom:20px;">
+          <label class="field-label" data-i18n="form.address">כתובת</label>
+          <input id="fAddress" type="text" class="field-input" data-i18n-ph="form.address_ph" placeholder="רחוב, עיר">
+        </div>
+
+        <!-- Workplace -->
+        <div style="margin-bottom:28px;">
+          <label class="field-label" data-i18n="form.workplace">מקום עבודה</label>
+          <input id="fWorkplace" type="text" class="field-input" data-i18n-ph="form.workplace_ph"
+            placeholder="שם מקום העבודה">
+        </div>
+
+        <!-- Income type -->
+        <div style="margin-bottom:28px;">
+          <label class="field-label" style="margin-bottom:14px;" data-i18n="form.income_lbl">מה מהבאים נכון?</label>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <label class="radio-label">
+              <input type="radio" name="income" value="אני המפרנס היחיד בבית">
+              <span data-i18n="form.i1">אני המפרנס היחיד בבית</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="income" value="שנינו עובדים">
+              <span data-i18n="form.i2">שנינו עובדים</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="income" value="אחר">
+              <span data-i18n="form.i3">אחר</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Referral — custom dropdown -->
+        <div style="margin-bottom:32px;" class="cs-wrap" id="refWrap">
+          <label class="field-label" data-i18n="form.ref_lbl">איך שמעת עלינו?</label>
+          <div class="cs-trigger" id="refTrigger" onclick="toggleRef()">
+            <span id="refDisplay" data-i18n="form.ref0">בחר...</span>
+            <span class="cs-arrow">▾</span>
+          </div>
+          <div class="cs-panel" id="refPanel">
+            <div class="cs-opt" data-value="" data-i18n="form.ref0" onclick="pickRef(this)">בחר...</div>
+            <div class="cs-opt" data-value="חבר / בן משפחה" data-i18n="form.ref1" onclick="pickRef(this)">חבר / בן משפחה</div>
+            <div class="cs-opt" data-value="רשתות חברתיות"  data-i18n="form.ref2" onclick="pickRef(this)">רשתות חברתיות</div>
+            <div class="cs-opt" data-value="פרסום"          data-i18n="form.ref3" onclick="pickRef(this)">פרסום</div>
+            <div class="cs-opt" data-value="מורה / רב"      data-i18n="form.ref4" onclick="pickRef(this)">מורה / רב</div>
+            <div class="cs-opt" data-value="אחר"            data-i18n="form.ref5" onclick="pickRef(this)">אחר</div>
+          </div>
+          <!-- hidden value carrier -->
+          <input type="hidden" id="fRef" value="">
+        </div>
+
+        <!-- Terms notice -->
+        <p style="font-size:13px;color:#8899bb;text-align:center;line-height:1.7;margin-bottom:24px;">
+          <span data-i18n="form.terms_pre">הפרטים יועברו לצד שלישי למימוש ההטבות — </span><a href="../terms/"
+            style="color:#d4af37;text-decoration:underline;" data-i18n="form.terms_lnk">תקנון ותנאי שימוש</a>
+        </p>
+
+        <!-- Submit -->
+        <button type="submit" id="submitBtn" class="btn-submit">
+          <span id="submitTxt" data-i18n="form.submit">שלח</span>
+          <span id="submitSpinner" class="spinner" style="display:none;"></span>
+        </button>
+
+      </form>
+
+      <!-- ── Success ── -->
+      <div id="successMsg" style="display:none;text-align:center;padding:40px 0;">
+        <div style="font-size:60px;margin-bottom:20px;">🎉</div>
+        <h3 style="font-size:26px;font-weight:900;color:#d4af37;margin-bottom:14px;" data-i18n="form.ok_title">נרשמת
+          בהצלחה!</h3>
+        <p style="color:#8899bb;font-size:17px;" data-i18n="form.ok_text">תודה על ההרשמה. נהיה בקשר בהקדם.</p>
+      </div>
+
+      <!-- ── Error ── -->
+      <div id="errMsg" class="error-box" data-i18n="form.err">אירעה שגיאה. אנא נסה שנית.</div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════════════ -->
+  <footer>
+    <svg class="logo-svg" height="26" viewBox="0 0 566.9 198.4" xmlns="http://www.w3.org/2000/svg"
+      style="margin-bottom:12px;">
+      <path
+        d="M242.7,100.2c0-3.6,2.4-6.6,5.8-7.5V84c0-13.9-3.6-24.3-10.9-31.3c-7.3-6.9-18.1-10.4-32.6-10.4h-36.1l-10.6,18.3h11.9c-2.3,3.3-4.1,7.5-5.3,12.7c-1.3,5.1-1.9,10.1-1.9,14.9v30.3c0,5.3-1.2,9.3-3.5,11.8c-1.6,1.7-3.7,2.8-6.5,3.4l12.6,17.8l-25.7,0.4c4.5,0.7,11.3,1.3,15.1,1.3c9.8,0,17.4-2.8,22.8-8.5c5.3-5.7,8-13.8,8-24.5v-34c0-4.4,0.4-8.9,1.3-13.6c0.9-4.6,2-8.6,3.4-12h14.8c6.9,0,11.9,1.7,15.1,5.2c3.2,3.5,4.8,9,4.8,16.5l0.1,69.6h23.3v-44.2C245.1,106.8,242.7,103.8,242.7,100.2z" />
+      <path d="M274,133.6V42.4L250.5,69v23.4c4.3,0,7.8,3.5,7.8,7.8s-3.5,7.8-7.8,7.8v44h20v-18.4H274z" />
+      <path
+        d="M349.9,83c0-13.2-3.8-23.2-11.3-30.2c-7.5-7-18.4-10.5-32.5-10.5h-29.6v18.3h28.1c7.6,0,13.1,1.7,16.6,5.2c3.5,3.4,5.3,8.9,5.3,16.2v51.4H274V152h88.9v-17.6l-13-1.7V83z" />
+      <rect x="270.5" y="133.6" width="3.5" height="18.4" />
+      <path d="M374.1,64.2V42.4l-23.4,26.7v35.2h23.4v-21c-4.9-6-8-9.8-8-9.8C366.1,73.3,369.7,69.2,374.1,64.2z" />
+      <path
+        d="M132.5,105l22.6-41.5l1.5-2.8l10-18.3h-6h-9.3h-11l-22.2,42.3L88.3,42.4H62.1l24,33.8c-6.8,3.3-11.8,7.9-15,14c-3.2,6.1-4.7,14-4.7,23.9V152h22.6v-47.4c0-3.5,0.5-6.5,1.5-9.1c1-2.6,2.6-4.8,4.7-6.5l44.6,63.1l25.7-0.4l-12.6-17.8L132.5,105z" />
+      <path
+        d="M479.2,44.3c-0.7,0-1.3,0-2,0c-10.2,0-21,0-31.1,0L426.9,66c0.2,0,0.4,0,0.6,0c5,0,36.6,0.1,41.8,0.1c2.1,2.2,6.8,7.6,6.9,7.8s-35.7,43.3-39.8,48.3c-0.2-0.3-0.6-0.7-1-1.2c-7.1-8.6-38.8-46.9-38.8-47.1c0-0.3,26.1-29.5,26.1-29.5c-3.1,0-28.2,0-29.1,0c0,0,0,0,0,0c-0.3,0.1-12.1,13.5-19.6,22.1c-3.4,4-6,6.9-6,7c0,0,2.3,2.8,6,7.4c15.2,18.5,54.6,66,61.4,74.1c0.6,0.8,1,1.2,1,1.2c0.2,0,68.4-82.3,68.4-82.4C504.7,73.3,479.7,44.3,479.2,44.3z" />
+    </svg>
+    <p style="font-size:14px;color:#8899bb;margin-bottom:18px;" data-i18n="footer.tagline">המעטפת הכלכלית-קהילתית השלמה
+    </p>
+    <a href="../terms/" style="color:#d4af37;font-size:14px;text-decoration:none;" data-i18n="footer.terms">תקנון ותנאי
+      שימוש</a>
+    <p style="font-size:12px;color:#2d3748;margin-top:22px;" data-i18n="footer.copy">© 2025 טיבותא. כל הזכויות שמורות.
+    </p>
+
+    <a href="https://smart-studio.dev/" target="_blank" rel="noopener noreferrer" class="smart-branding-link">
+      <span class="smart-built-by" data-i18n="footer.built_by">נבנה ועוצב ע"י</span>
+      <img src="../branding/smart-logo.svg" alt="Smart Studio" class="smart-branding-logo">
+    </a>
+  </footer>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════════════ -->
+  <script>
+    /* ─────────────────────────────────────────────────────────
+       SUPABASE CONFIG
+       Replace the two placeholders below with your credentials
+       from Supabase → Project Settings → API
+       ───────────────────────────────────────────────────────── */
+    const SUPABASE_URL = 'https://dsycdqfmammdgowvdfvo.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_0qsf-6iEqTjZ60g587i3Wg_fzjbVPCw';
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    /* ─────────────────────────────────────────────────────────
+       TRANSLATIONS
+       ───────────────────────────────────────────────────────── */
+    const T = {
+      he: {
+        'hero.badge': 'הצטרפו למועדון הבלעדי',
+        'hero.title': 'המועדון הפיננסי‑קהילתי<br>הגדול בישראל',
+        'hero.subtitle': 'הצטרפו לרשימת ההמתנה — ותוכלו ליהנות ראשונים מכל ההטבות הפיננסיות, הקהילתיות וסגנון החיים שטיבותא מציעה',
+        'hero.cta': 'הצטרפו עכשיו →',
+        'hero.scroll': 'גלול להמשך ↓',
+        'stats.workers': 'עובדים חרדים בסקטור העסקי',
+        'stats.students': 'לומדים מדי שנה',
+        'stats.assets_unit': 'מיליארד ₪',
+        'stats.assets': 'צבי נכסים',
+        'benefits.tag': 'ההטבות שלנו',
+        'benefits.title': 'מעטפת שלמה לכל תחומי החיים',
+        'b1.title': 'ביטול הבנק וחברת הביטוח',
+        'b1.desc': 'גישה ישירה למימון קהילתי ופתרונות ביטוח — בלי בירוקרטיה, בתנאים שלכם',
+        'b2.title': 'הלוואת "בית נאמן"',
+        'b2.desc': 'עד 220,000 ₪ ללא ריבית לחתנים וכלות — מימון ייחודי לזוגות הצעירים',
+        'b3.title': 'משכנתא בפריים מינוס 1.5%',
+        'b3.desc': 'תנאי אשראי בלעדיים מהבנק — חסכון של עשרות אלפי שקלים לאורך חיי המשכנתא',
+        'b4.title': 'פטור מלא ממע"מ',
+        'b4.desc': 'הטבה ייחודית על מאות מוצרים ושירותים — החיסכון נצבר ישירות לכיסכם',
+        'b5.title': '1,000+ בתי עסק',
+        'b5.desc': 'רשת עסקים רחבה בקהילה — הנחות אמיתיות על קניות, אירועים וסגנון חיים',
+        'b6.title': 'מעטפת 360° לחיים',
+        'b6.desc': 'CRM משפחתי, ביטחון עסקי וחוסן כלכלי — כל מה שצריך לחיים שלמים ומוצלחים',
+        'proof.text': '<span style="color:#d4af37;">אלפי משפחות</span> כבר בדרך — הצטרפו גם אתם',
+        'form.tag': 'רשימת ההמתנה',
+        'form.title': 'השאירו פרטים ונחזור אליכם',
+        'form.subtitle': 'המקומות מוגבלים — הבטיחו את מקומכם עכשיו',
+        'form.name': 'שם מלא', 'form.name_ph': 'ישראל ישראלי',
+        'form.phone': 'מספר טלפון', 'form.phone_ph': '050-0000000',
+        'form.address': 'כתובת', 'form.address_ph': 'רחוב, עיר',
+        'form.workplace': 'מקום עבודה', 'form.workplace_ph': 'שם מקום העבודה',
+        'form.income_lbl': 'מה מהבאים נכון?',
+        'form.i1': 'אני המפרנס היחיד בבית',
+        'form.i2': 'שנינו עובדים',
+        'form.i3': 'אחר',
+        'form.ref_lbl': 'איך שמעת עלינו?',
+        'form.ref0': 'בחר...',
+        'form.ref1': 'חבר / בן משפחה',
+        'form.ref2': 'רשתות חברתיות',
+        'form.ref3': 'פרסום',
+        'form.ref4': 'מורה / רב',
+        'form.ref5': 'אחר',
+        'form.terms_pre': 'הפרטים יועברו לצד שלישי למימוש ההטבות — ',
+        'form.terms_lnk': 'תקנון ותנאי שימוש',
+        'form.submit': 'שלח',
+        'form.ok_title': 'נרשמת בהצלחה!',
+        'form.ok_text': 'תודה על ההרשמה. נהיה בקשר בהקדם.',
+        'form.err': 'אירעה שגיאה. אנא נסה שנית.',
+        'footer.tagline': 'המעטפת הכלכלית-קהילתית השלמה',
+        'footer.terms': 'תקנון ותנאי שימוש',
+        'footer.copy': '© 2025 טיבותא. כל הזכויות שמורות.',
+        'footer.built_by': 'נבנה ועוצב ע"י',
+      },
+
+      en: {
+        'hero.badge': 'Join the Exclusive Club',
+        'hero.title': 'Israel\'s Largest Financial<br>Community Club',
+        'hero.subtitle': 'Join the waiting list — be first to enjoy all the financial, community and lifestyle benefits Tivuta offers',
+        'hero.cta': 'Join Now →',
+        'hero.scroll': 'Scroll down ↓',
+        'stats.workers': 'Haredi workers in the economy',
+        'stats.students': 'students per year',
+        'stats.assets_unit': 'Billion ₪',
+        'stats.assets': 'in managed assets',
+        'benefits.tag': 'Our Benefits',
+        'benefits.title': 'A Complete Wrapper for Every Area of Life',
+        'b1.title': 'Bypass Bank & Insurer',
+        'b1.desc': 'Direct access to community financing and insurance — no bureaucracy, your terms',
+        'b2.title': '"Faithful Home" Loan',
+        'b2.desc': 'Up to ₪220,000 interest-free for newlyweds — unique funding to help young couples build their lives',
+        'b3.title': 'Mortgage at Prime Minus 1.5%',
+        'b3.desc': 'Exclusive credit terms from the bank — saving tens of thousands over the life of the mortgage',
+        'b4.title': 'Full VAT Exemption',
+        'b4.desc': 'Unique benefit on hundreds of products and services — savings go directly into your pocket',
+        'b5.title': '1,000+ Businesses',
+        'b5.desc': 'Wide business network across the community — real discounts on shopping, events and lifestyle',
+        'b6.title': '360° Life Coverage',
+        'b6.desc': 'Family CRM, business security and financial resilience — everything for a full successful life',
+        'proof.text': '<span style="color:#d4af37;">Thousands of families</span> are already on their way — join them',
+        'form.tag': 'Waiting List',
+        'form.title': 'Leave your details and we\'ll be in touch',
+        'form.subtitle': 'Spots are limited — secure your place now',
+        'form.name': 'Full Name', 'form.name_ph': 'Your full name',
+        'form.phone': 'Phone Number', 'form.phone_ph': '050-0000000',
+        'form.address': 'Address', 'form.address_ph': 'Street, City',
+        'form.workplace': 'Workplace', 'form.workplace_ph': 'Employer name',
+        'form.income_lbl': 'Which applies to you?',
+        'form.i1': 'I am the sole breadwinner',
+        'form.i2': 'We both work',
+        'form.i3': 'Other',
+        'form.ref_lbl': 'How did you hear about us?',
+        'form.ref0': 'Select...',
+        'form.ref1': 'Friend / Family',
+        'form.ref2': 'Social Media',
+        'form.ref3': 'Advertisement',
+        'form.ref4': 'Teacher / Rabbi',
+        'form.ref5': 'Other',
+        'form.terms_pre': 'Details will be shared with a third party to fulfill benefits — ',
+        'form.terms_lnk': 'Terms & Conditions',
+        'form.submit': 'Submit',
+        'form.ok_title': 'Successfully Registered!',
+        'form.ok_text': 'Thank you for signing up. We\'ll be in touch shortly.',
+        'form.err': 'An error occurred. Please try again.',
+        'footer.tagline': 'The Complete Financial-Community Wrapper',
+        'footer.terms': 'Terms & Conditions',
+        'footer.copy': '© 2025 Tivuta. All rights reserved.',
+        'footer.built_by': 'Built & Designed by',
+      },
+
+      fr: {
+        'hero.badge': 'Rejoignez le Club Exclusif',
+        'hero.title': 'Le Plus Grand Club Financier<br>Communautaire d\'Israël',
+        'hero.subtitle': 'Inscrivez-vous sur la liste d\'attente — soyez les premiers à profiter des avantages financiers et communautaires que Tivuta propose',
+        'hero.cta': 'Rejoindre Maintenant →',
+        'hero.scroll': 'Défiler vers le bas ↓',
+        'stats.workers': 'travailleurs Haredim dans l\'économie',
+        'stats.students': 'étudiants par an',
+        'stats.assets_unit': 'Milliards ₪',
+        'stats.assets': 'en actifs gérés',
+        'benefits.tag': 'Nos Avantages',
+        'benefits.title': 'Une Couverture Complète pour Tous les Domaines',
+        'b1.title': 'Contourner Banque et Assurance',
+        'b1.desc': 'Accès direct au financement communautaire — sans bureaucratie, à vos conditions',
+        'b2.title': 'Prêt "Foyer Fidèle"',
+        'b2.desc': 'Jusqu\'à ₪220 000 sans intérêt pour les jeunes mariés',
+        'b3.title': 'Hypothèque Taux de Base Moins 1,5%',
+        'b3.desc': 'Conditions exclusives — économies de dizaines de milliers sur la durée du prêt',
+        'b4.title': 'Exonération Complète de TVA',
+        'b4.desc': 'Avantage sur des centaines de produits — les économies vont dans votre poche',
+        'b5.title': '1 000+ Entreprises',
+        'b5.desc': 'Réseau étendu — vraies réductions sur achats, événements et style de vie',
+        'b6.title': 'Couverture Vie à 360°',
+        'b6.desc': 'CRM familial, sécurité et résilience — tout pour une vie réussie',
+        'proof.text': '<span style="color:#d4af37;">Des milliers de familles</span> sont en route — rejoignez-les',
+        'form.tag': 'Liste d\'attente',
+        'form.title': 'Laissez vos coordonnées',
+        'form.subtitle': 'Les places sont limitées — réservez votre place maintenant',
+        'form.name': 'Nom Complet', 'form.name_ph': 'Votre nom complet',
+        'form.phone': 'Téléphone', 'form.phone_ph': '050-0000000',
+        'form.address': 'Adresse', 'form.address_ph': 'Rue, Ville',
+        'form.workplace': 'Lieu de Travail', 'form.workplace_ph': "Nom de l'employeur",
+        'form.income_lbl': 'Laquelle s\'applique?',
+        'form.i1': 'Je suis le seul soutien de famille',
+        'form.i2': 'Nous travaillons tous les deux',
+        'form.i3': 'Autre',
+        'form.ref_lbl': 'Comment nous avez-vous connus?',
+        'form.ref0': 'Sélectionner...',
+        'form.ref1': 'Ami / Famille',
+        'form.ref2': 'Réseaux Sociaux',
+        'form.ref3': 'Publicité',
+        'form.ref4': 'Enseignant / Rabbin',
+        'form.ref5': 'Autre',
+        'form.terms_pre': 'Informations transmises à un tiers pour les avantages — ',
+        'form.terms_lnk': 'Conditions d\'utilisation',
+        'form.submit': 'Envoyer',
+        'form.ok_title': 'Inscription réussie!',
+        'form.ok_text': 'Merci. Nous vous contacterons bientôt.',
+        'form.err': 'Une erreur s\'est produite. Veuillez réessayer.',
+        'footer.tagline': 'La Couverture Financière-Communautaire Complète',
+        'footer.terms': 'Conditions d\'utilisation',
+        'footer.copy': '© 2025 Tivuta. Tous droits réservés.',
+        'footer.built_by': 'Conçu et développé par',
+      },
+
+      yi: {
+        'hero.badge': 'טרעט צו דעם עקסקלוסיווען קלוב',
+        'hero.title': 'ישראל\'ס גרעסטן פינאנציעלן<br>קהילה-קלוב',
+        'hero.subtitle': 'שרייבט אייך איין אויפן ווארטע-ליסטע — זייט ערשטע צו גניסן פון אלע ביכלעך',
+        'hero.cta': 'טרעט איין איצט →',
+        'hero.scroll': 'גלייט אראפ ↓',
+        'stats.workers': 'חרדישע ארבעטער אין וויטשאפט',
+        'stats.students': 'לערנער יערלעך',
+        'stats.assets_unit': 'מיליאַרד ₪',
+        'stats.assets': 'אין פארוואלטעטע אקטיווע',
+        'benefits.tag': 'אונזערע ביכלעך',
+        'benefits.title': 'א גאנצע הילף פאר אלע לעבנסגעביטן',
+        'b1.title': 'באזייטיגן בנק און פארזיכערונג',
+        'b1.desc': 'דירעקטן צוטריט צו קהילה-פינאנסירונג — אן בירעקראטיע, אייערע תנאים',
+        'b2.title': '"בית נאמן" הלוואה',
+        'b2.desc': 'ביז ₪220,000 אן ריבית פאר חתנים ובית — ספעציעלע פינאנסירונג',
+        'b3.title': 'משכנתא מינוס 1.5%',
+        'b3.desc': 'עקסקלוסיווע קרעדיט-תנאים — שפאראייניקונגען פון צענדליקע טויזנטן',
+        'b4.title': 'גאנצע מע"מ-באפריאונג',
+        'b4.desc': 'ספעציעלע הנאה אויף הונדערטע פראדוקטן — שפאראייניקונגען גלייך אין אייער קעשענע',
+        'b5.title': '1,000+ עסקים',
+        'b5.desc': 'א ברייטע נעץ פון עסקים — עכטע רבאטן אויף קניות, אירועים, לעבנסשטיל',
+        'b6.title': '360° לעבנס-שוץ',
+        'b6.desc': 'משפחה-CRM, ביזנעס-זיכערהייט — אלץ פאר א גאנצן לעבן',
+        'proof.text': '<span style="color:#d4af37;">טויזנטע משפחות</span> זענען שוין אויפן וועג — שלאסט זיך צו',
+        'form.tag': 'ווארטע-ליסטע',
+        'form.title': 'לאזט אייערע פרטים',
+        'form.subtitle': 'פלעצער זענען באגרענעצט — זיכערט אייער פלאץ איצט',
+        'form.name': 'גאנצן נאמען', 'form.name_ph': 'אייער נאמען',
+        'form.phone': 'טעלעפאן', 'form.phone_ph': '050-0000000',
+        'form.address': 'אדרעס', 'form.address_ph': 'גאס, שטאט',
+        'form.workplace': 'ארבעטסארט', 'form.workplace_ph': 'ארבעטגעבערס נאמען',
+        'form.income_lbl': 'וועלכעס פון די פאלגנדע?',
+        'form.i1': 'איך בין דער איינציקן פארנאלטנר',
+        'form.i2': 'מיר ביידע ארבעטן',
+        'form.i3': 'אנדערש',
+        'form.ref_lbl': 'ווי האט איר פון אונז דערהערט?',
+        'form.ref0': 'אויסקלייבן...',
+        'form.ref1': 'חבר / משפחה',
+        'form.ref2': 'סאציאלע מעדיעס',
+        'form.ref3': 'פובליציטעט',
+        'form.ref4': 'לערער / רב',
+        'form.ref5': 'אנדערש',
+        'form.terms_pre': 'פרטים וועלן דורכגעגעבן ווערן צו א דריטן — ',
+        'form.terms_lnk': 'תנאי שימוש',
+        'form.submit': 'שיק',
+        'form.ok_title': 'איינגעשריבן!',
+        'form.ok_text': 'א דאנק. מיר וועלן זיך מעלדן.',
+        'form.err': 'א טעות. פרובירט ווידער.',
+        'footer.tagline': 'די גאנצע פינאנציעל-קהילה-מעטפת',
+        'footer.terms': 'תנאי שימוש',
+        'footer.copy': '© 2025 טיבותא. אלע רעכטן פארבעהאלטן.',
+        'footer.built_by': 'געבויט און דיזיינד דורך',
+      }
+    };
+
+    const RTL = new Set(['he', 'yi']);
+    let lang = 'he';
+
+    /* ─────────────────────────────────────────────────────────
+       LANGUAGE SWITCHER
+       ───────────────────────────────────────────────────────── */
+    function setLang(l, btn) {
+      lang = l;
+      const isRTL = RTL.has(l);
+      document.documentElement.lang = l;
+      document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+
+      // text nodes
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const v = T[l][el.dataset.i18n];
+        if (v !== undefined) el.textContent = v;
+      });
+
+      // html content (for nodes with <span> tags inside)
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        const v = T[l][el.dataset.i18nHtml];
+        if (v !== undefined) el.innerHTML = v;
+      });
+
+      // placeholders
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        const v = T[l][el.dataset.i18nPh];
+        if (v !== undefined) el.placeholder = v;
+      });
+
+      // custom dropdown options
+      document.querySelectorAll('#refPanel .cs-opt').forEach(opt => {
+        const key = opt.dataset.i18n;
+        if (key && T[l][key]) opt.textContent = T[l][key];
+      });
+      // also update the display label if nothing is selected
+      if (!document.getElementById('fRef').value) {
+        document.getElementById('refDisplay').textContent = T[l]['form.ref0'] || '';
+      }
+
+      // language button states
+      document.querySelectorAll('.lang-btn').forEach(b => {
+        b.classList.remove('active');
+      });
+      if (btn) btn.classList.add('active');
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       ANIMATED STAR CANVAS
+       ───────────────────────────────────────────────────────── */
+    function initStars() {
+      const canvas = document.getElementById('stars');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      function resize() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      const STARS = Array.from({ length: 140 }, () => ({
+        x: Math.random(), y: Math.random(),
+        r: Math.random() * 1.4 + 0.2,
+        alpha: Math.random() * 0.5 + 0.1,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.8 + 0.3,
+      }));
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const t = Date.now() / 1000;
+        STARS.forEach(s => {
+          const a = s.alpha * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase));
+          ctx.beginPath();
+          ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(212,175,55,${a})`;
+          ctx.fill();
+        });
+        requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       COUNTER ANIMATION
+       ───────────────────────────────────────────────────────── */
+    function animateCounter(el) {
+      const target = parseInt(el.dataset.target);
+      const fmt = el.dataset.fmt;
+      const suffix = el.dataset.suffix || '';
+      const dur = 2200;
+      const t0 = Date.now();
+
+      function tick() {
+        const p = Math.min((Date.now() - t0) / dur, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        const val = target * ease;
+
+        if (fmt === 'decimal') {
+          el.textContent = (val / 100).toFixed(2) + suffix;
+        } else {
+          el.textContent = Math.round(val).toLocaleString('he-IL') + suffix;
+        }
+
+        if (p < 1) requestAnimationFrame(tick);
+      }
+      tick();
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       INTERSECTION OBSERVERS
+       ───────────────────────────────────────────────────────── */
+    function initObservers() {
+      const revealObs = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+      }, { threshold: 0.1 });
+      document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+      let countersRan = false;
+      const counterObs = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting && !countersRan) {
+            countersRan = true;
+            document.querySelectorAll('[data-target]').forEach(animateCounter);
+          }
+        });
+      }, { threshold: 0.3 });
+      const statsSection = document.getElementById('stats');
+      if (statsSection) counterObs.observe(statsSection);
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       CUSTOM REFERRAL DROPDOWN
+       ───────────────────────────────────────────────────────── */
+    function toggleRef() {
+      const trigger = document.getElementById('refTrigger');
+      const panel   = document.getElementById('refPanel');
+      const isOpen  = panel.classList.toggle('open');
+      trigger.classList.toggle('open', isOpen);
+    }
+
+    function pickRef(el) {
+      const value = el.dataset.value;
+      document.getElementById('fRef').value = value;
+      document.getElementById('refDisplay').textContent = el.textContent;
+      // mark selected option
+      document.querySelectorAll('#refPanel .cs-opt').forEach(o => o.classList.remove('active'));
+      if (value) el.classList.add('active');
+      // style trigger
+      const trigger = document.getElementById('refTrigger');
+      trigger.classList.remove('open');
+      trigger.classList.toggle('selected', !!value);
+      document.getElementById('refPanel').classList.remove('open');
+    }
+
+    // close on outside click
+    document.addEventListener('click', e => {
+      if (!document.getElementById('refWrap').contains(e.target)) {
+        document.getElementById('refTrigger').classList.remove('open');
+        document.getElementById('refPanel').classList.remove('open');
+      }
+    });
+
+    /* ─────────────────────────────────────────────────────────
+       NAVBAR SHADOW ON SCROLL
+       ───────────────────────────────────────────────────────── */
+    window.addEventListener('scroll', () => {
+      document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    /* ─────────────────────────────────────────────────────────
+       FORM SUBMISSION
+       ───────────────────────────────────────────────────────── */
+    async function handleSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const txtEl = document.getElementById('submitTxt');
+      const spinEl = document.getElementById('submitSpinner');
+      const errEl = document.getElementById('errMsg');
+
+      btn.disabled = true;
+      txtEl.style.display = 'none';
+      spinEl.style.display = 'inline-block';
+      errEl.style.display = 'none';
+
+      const incomeEl = document.querySelector('input[name="income"]:checked');
+
+      const payload = {
+        name: document.getElementById('fName').value.trim(),
+        phone: document.getElementById('fPhone').value.trim(),
+        address: document.getElementById('fAddress').value.trim() || null,
+        workplace: document.getElementById('fWorkplace').value.trim() || null,
+        income_type: incomeEl ? incomeEl.value : null,
+        referral_source: document.getElementById('fRef').value || null,
+        locale: lang,
+      };
+
+      try {
+        if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+          await new Promise(r => setTimeout(r, 900));
+          showSuccess();
+          return;
+        }
+
+        const { error } = await db.from('leads').insert([payload]);
+        if (error) {
+          console.error('Supabase error:', error.message, error.details, error.hint);
+          throw error;
+        }
+        showSuccess();
+      } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+        txtEl.style.display = 'inline';
+        spinEl.style.display = 'none';
+        errEl.style.display = 'block';
+        errEl.textContent = (T[lang]['form.err'] || '') + (err.message ? ' (' + err.message + ')' : '');
+      }
+    }
+
+    function showSuccess() {
+      document.getElementById('leadForm').style.display = 'none';
+      document.getElementById('successMsg').style.display = 'block';
+    }
+
+    /* ─────────────────────────────────────────────────────────
+       INIT
+       ───────────────────────────────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      initStars();
+      initObservers();
+      setLang('he', document.getElementById('btn-he'));
+    });
+  </script>
+</body>
+
+</html>
