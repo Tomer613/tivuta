@@ -187,28 +187,62 @@
       fill: #d4af37 !important;
     }
 
-    /* ── Language buttons ────────────────────────────── */
-    .lang-btn {
+    /* ── Language Globe Dropdown ────────────────────── */
+    .lang-globe-wrap { position: relative; }
+
+    .lang-globe-btn {
       background: none;
       border: none;
-      border-bottom: 2px solid transparent;
-      font-family: 'Heebo', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      color: #8899bb;
-      padding: 2px 2px 4px;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
-      transition: color .2s, border-color .2s;
+      color: #8899bb;
+      transition: color .2s, background .2s;
     }
 
-    .lang-btn:hover {
-      color: #f59e0b;
-    }
-
-    .lang-btn.active {
+    .lang-globe-btn:hover,
+    .lang-globe-btn.open {
       color: #d4af37;
-      border-bottom-color: #d4af37;
+      background: rgba(212, 175, 55, .1);
     }
+
+    .lang-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 10px);
+      inset-inline-end: 0;
+      background: #0e1628;
+      border: 1px solid rgba(212, 175, 55, .25);
+      border-radius: 12px;
+      overflow: hidden;
+      min-width: 140px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .6);
+      z-index: 200;
+    }
+
+    .lang-dropdown.open { display: block; }
+
+    .lang-dropdown-item {
+      width: 100%;
+      background: none;
+      border: none;
+      font-family: 'Heebo', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #8899bb;
+      padding: 11px 18px;
+      text-align: start;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      display: block;
+    }
+
+    .lang-dropdown-item:hover { background: rgba(212, 175, 55, .08); color: #f0e6d3; }
+    .lang-dropdown-item.active { color: #d4af37; font-weight: 800; }
 
     /* ── Hero ────────────────────────────────────────── */
     #hero {
@@ -748,11 +782,16 @@
       </a>
 
       <!-- Language switcher -->
-      <div style="display:flex;gap:14px;align-items:center;">
-        <button class="lang-btn active" id="btn-he" onclick="setLang('he',this)">עב</button>
-        <button class="lang-btn" id="btn-en" onclick="setLang('en',this)">EN</button>
-        <button class="lang-btn" id="btn-fr" onclick="setLang('fr',this)">FR</button>
-        <button class="lang-btn" id="btn-yi" onclick="setLang('yi',this)">יי</button>
+      <div class="lang-globe-wrap">
+        <button class="lang-globe-btn" id="langGlobeBtn" aria-label="שינוי שפה / Language">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+        </button>
+        <div class="lang-dropdown" id="langDropdown">
+          <button class="lang-dropdown-item active" data-lang="he" onclick="setLang('he');closeLangMenu()">עברית</button>
+          <button class="lang-dropdown-item" data-lang="en" onclick="setLang('en');closeLangMenu()">English</button>
+          <button class="lang-dropdown-item" data-lang="fr" onclick="setLang('fr');closeLangMenu()">Français</button>
+          <button class="lang-dropdown-item" data-lang="yi" onclick="setLang('yi');closeLangMenu()">יידיש</button>
+        </div>
       </div>
     </div>
   </nav>
@@ -1088,9 +1127,9 @@
         'hero.cta': 'הצטרפו עכשיו →',
         'hero.scroll': 'גלול להמשך ↓',
         'stats.workers': 'עובדים חרדים בסקטור העסקי',
-        'stats.students': 'לומדים מדי שנה',
+        'stats.students': 'לומדי מקצוע והכשרה מדי שנה',
         'stats.assets_unit': 'מיליארד ₪',
-        'stats.assets': 'צבי נכסים',
+        'stats.assets': 'צפי נכסי פנסיה של חברי הקהילה העובדת עד 2035',
         'benefits.tag': 'ההטבות שלנו',
         'benefits.title': 'מעטפת שלמה לכל תחומי החיים',
         'b1.title': 'ביטול הבנק וחברת הביטוח',
@@ -1143,9 +1182,9 @@
         'hero.cta': 'Join Now →',
         'hero.scroll': 'Scroll down ↓',
         'stats.workers': 'Haredi workers in the economy',
-        'stats.students': 'students per year',
+        'stats.students': 'vocational training participants per year',
         'stats.assets_unit': 'Billion ₪',
-        'stats.assets': 'in managed assets',
+        'stats.assets': 'projected pension assets for community members by 2035',
         'benefits.tag': 'Our Benefits',
         'benefits.title': 'A Complete Wrapper for Every Area of Life',
         'b1.title': 'Bypass Bank & Insurer',
@@ -1198,9 +1237,9 @@
         'hero.cta': 'Rejoindre Maintenant →',
         'hero.scroll': 'Défiler vers le bas ↓',
         'stats.workers': 'travailleurs Haredim dans l\'économie',
-        'stats.students': 'étudiants par an',
+        'stats.students': 'participants en formation professionnelle par an',
         'stats.assets_unit': 'Milliards ₪',
-        'stats.assets': 'en actifs gérés',
+        'stats.assets': 'actifs de retraite projetés pour les membres d\'ici 2035',
         'benefits.tag': 'Nos Avantages',
         'benefits.title': 'Une Couverture Complète pour Tous les Domaines',
         'b1.title': 'Contourner Banque et Assurance',
@@ -1253,9 +1292,9 @@
         'hero.cta': 'טרעט איין איצט →',
         'hero.scroll': 'גלייט אראפ ↓',
         'stats.workers': 'חרדישע ארבעטער אין וויטשאפט',
-        'stats.students': 'לערנער יערלעך',
+        'stats.students': 'לערנער אין פראפעסיאנעלע הכשרה יערלעך',
         'stats.assets_unit': 'מיליאַרד ₪',
-        'stats.assets': 'אין פארוואלטעטע אקטיווע',
+        'stats.assets': 'צפי פנסיה-אקטיווע פאר קהילה-מיטגלידער ביז 2035',
         'benefits.tag': 'אונזערע ביכלעך',
         'benefits.title': 'א גאנצע הילף פאר אלע לעבנסגעביטן',
         'b1.title': 'באזייטיגן בנק און פארזיכערונג',
@@ -1308,7 +1347,7 @@
     /* ─────────────────────────────────────────────────────────
        LANGUAGE SWITCHER
        ───────────────────────────────────────────────────────── */
-    function setLang(l, btn) {
+    function setLang(l) {
       lang = l;
       const isRTL = RTL.has(l);
       document.documentElement.lang = l;
@@ -1343,10 +1382,14 @@
       }
 
       // language button states
-      document.querySelectorAll('.lang-btn').forEach(b => {
-        b.classList.remove('active');
+      document.querySelectorAll('.lang-dropdown-item').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === l);
       });
-      if (btn) btn.classList.add('active');
+    }
+
+    function closeLangMenu() {
+      document.getElementById('langDropdown').classList.remove('open');
+      document.getElementById('langGlobeBtn').classList.remove('open');
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -1465,6 +1508,9 @@
         document.getElementById('refTrigger').classList.remove('open');
         document.getElementById('refPanel').classList.remove('open');
       }
+      if (!e.target.closest('.lang-globe-wrap')) {
+        closeLangMenu();
+      }
     });
 
     /* ─────────────────────────────────────────────────────────
@@ -1536,7 +1582,17 @@
       if (typeof lucide !== 'undefined') lucide.createIcons();
       initStars();
       initObservers();
-      setLang('he', document.getElementById('btn-he'));
+
+      // Globe language menu toggle
+      const langGlobeBtn = document.getElementById('langGlobeBtn');
+      const langDropdown = document.getElementById('langDropdown');
+      langGlobeBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const isOpen = langDropdown.classList.toggle('open');
+        langGlobeBtn.classList.toggle('open', isOpen);
+      });
+
+      setLang('he');
     });
   </script>
 </body>
