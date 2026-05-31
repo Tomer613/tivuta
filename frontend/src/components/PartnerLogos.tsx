@@ -31,7 +31,7 @@ const PartnerLogos = () => {
         return (
             <div className="w-full py-2 overflow-hidden relative">
                 <div 
-                    className={`flex whitespace-nowrap hover:[animation-play-state:paused] ${reverse ? 'animate-scroll-reverse' : 'animate-scroll'} [animation-duration:10s] md:[animation-duration:25s] lg:[animation-duration:45s]`}
+                    className={`flex w-max whitespace-nowrap hover:[animation-play-state:paused] ${reverse ? 'animate-scroll-reverse' : 'animate-scroll'} [animation-duration:10s] md:[animation-duration:25s] lg:[animation-duration:45s]`}
                     dir="ltr"
                 >
                     {displayLogos.map((logo, index) => (
