@@ -15,7 +15,6 @@ const allLogos = [
 ];
 
 const splitHalf = Math.ceil(allLogos.length / 2);
-// Pre-split outside the component so the initial render already has content (no blank flash)
 const defaultRows: [string[], string[]] = [
     allLogos.slice(0, splitHalf),
     allLogos.slice(splitHalf),
@@ -27,47 +26,57 @@ interface LogoRowProps {
     basePath: string;
 }
 
-// Defined outside PartnerLogos so its reference stays stable across renders.
-// If it were inside, React would see a new component type on every render and
-// unmount+remount the rows, resetting the CSS animations and causing the flicker.
+// LogoRow is defined at module level (not inside PartnerLogos) so React never
+// unmounts/remounts it on re-renders, which would reset the CSS animations.
 const LogoRow = ({ logos, reverse = false, basePath }: LogoRowProps) => (
     <div
-        className="w-full py-2 overflow-hidden relative flex"
-        // translateZ(0) forces a GPU compositing layer on the container so that
-        // overflow:hidden correctly clips the animated children on iOS Safari,
-        // which otherwise lets transformed elements bleed outside the bounds.
+        className="w-full py-2 overflow-hidden relative"
+        // Forces a GPU compositing layer so overflow:hidden correctly clips
+        // the animated children on iOS Safari.
         style={{ transform: 'translateZ(0)' }}
     >
-        {[0, 1].map((copyIndex) => (
-            <div
-                key={copyIndex}
-                className={`flex shrink-0 hover:[animation-play-state:paused] ${reverse ? 'animate-scroll-reverse' : 'animate-scroll'} [animation-duration:35s] md:[animation-duration:70s] lg:[animation-duration:120s]`}
-                dir="ltr"
-                aria-hidden={copyIndex === 1 ? true : undefined}
-                style={{ willChange: 'transform' }}
-            >
-                {logos.map((logo, index) => (
-                    <div
-                        key={`${copyIndex}-${logo}-${index}`}
-                        className="inline-flex items-center justify-center px-10 transition-all duration-300 hover:scale-110"
-                    >
-                        <img
-                            src={`${basePath}/images/partners/${encodeURI(logo)}`}
-                            alt={logo}
-                            className="h-7 md:h-8 w-auto object-contain transition-all duration-500 mix-blend-screen [filter:invert(1)_grayscale(1)_brightness(10)_contrast(10)] hover:mix-blend-multiply hover:[filter:none] hover:scale-110"
-                            style={{ maxWidth: 'none' }}
-                        />
-                    </div>
-                ))}
-            </div>
-        ))}
+        {/*
+          Single animated wrapper containing BOTH copies side by side.
+          The wrapper's total width = 2W (max-content).
+          Animation: translateX(0) → translateX(-50%) = translateX(-W).
+          This means the wrapper shifts exactly one copy-width, creating a
+          seamless loop: when Copy A exits left, Copy B takes its place.
+          With the old approach (two independently-animated siblings), Copy A
+          exited quickly while Copy B only arrived near the end of the cycle —
+          leaving a long blank gap in the middle.
+        */}
+        <div
+            className={`flex w-max hover:[animation-play-state:paused] ${reverse ? 'animate-scroll-reverse' : 'animate-scroll'} [animation-duration:35s] md:[animation-duration:70s] lg:[animation-duration:120s]`}
+            dir="ltr"
+            style={{ willChange: 'transform' }}
+        >
+            {[0, 1].map((copyIndex) => (
+                <div
+                    key={copyIndex}
+                    className="flex shrink-0"
+                    aria-hidden={copyIndex === 1 ? true : undefined}
+                >
+                    {logos.map((logo, index) => (
+                        <div
+                            key={`${logo}-${index}`}
+                            className="inline-flex items-center justify-center px-10 transition-all duration-300 hover:scale-110"
+                        >
+                            <img
+                                src={`${basePath}/images/partners/${encodeURI(logo)}`}
+                                alt={logo}
+                                className="h-7 md:h-8 w-auto object-contain transition-all duration-500 mix-blend-screen [filter:invert(1)_grayscale(1)_brightness(10)_contrast(10)] hover:mix-blend-multiply hover:[filter:none] hover:scale-110"
+                                style={{ maxWidth: 'none' }}
+                            />
+                        </div>
+                    ))}
+                </div>
+            ))}
+        </div>
     </div>
 );
 
 const PartnerLogos = () => {
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-    // Start with real data so SSR and first paint already show logos.
-    // useEffect then shuffles once for variety — but the animation is already running.
     const [rows, setRows] = useState<[string[], string[]]>(defaultRows);
 
     useEffect(() => {
