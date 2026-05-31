@@ -15,7 +15,7 @@ const allLogos = [
 ];
 
 const PartnerLogos = () => {
-    const basePath = '/tivuta';
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     const [rows, setRows] = useState<[string[], string[]]>([[], []]);
 
     useEffect(() => {
