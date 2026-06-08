@@ -2091,10 +2091,28 @@
       spinEl.style.display = 'inline-block';
       errEl.style.display = 'none';
 
+      const affilValue = document.getElementById('fAffil').value || null;
+      if (!affilValue) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'אנא בחר שייכות למועדון';
+        btn.disabled = false;
+        txtEl.style.display = 'inline';
+        spinEl.style.display = 'none';
+        return;
+      }
+
       const trackEls = Array.from(document.querySelectorAll('input[name="track"]:checked')).map(el => el.value);
+      if (trackEls.length === 0) {
+        errEl.style.display = 'block';
+        errEl.textContent = 'אנא בחר לפחות מסלול הצטרפות אחד';
+        btn.disabled = false;
+        txtEl.style.display = 'inline';
+        spinEl.style.display = 'none';
+        return;
+      }
 
       const payload = {
-        club_affiliation: document.getElementById('fAffil').value || null,
+        club_affiliation: affilValue,
         first_name: document.getElementById('fFirstName').value.trim(),
         last_name: document.getElementById('fLastName').value.trim(),
         id_number: document.getElementById('fIdNum').value.trim(),
