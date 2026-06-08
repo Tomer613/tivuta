@@ -759,6 +759,26 @@
       margin-top: 8px;
     }
 
+    .sim-toggle-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+      color: #8899bb;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 16px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .sim-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #f0e6d3;
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
     /* ── Custom dropdown ─────────────────────────────── */
     .cs-wrap {
       position: relative;
@@ -1165,7 +1185,7 @@
       <div class="sim-grid">
         <!-- Simulator 1: Credit Card -->
         <div class="sim-card">
-          <h3 data-i18n="sim.card1_title">ניהול צריכה ואשראי</h3>
+          <h3 data-i18n="sim.card1_title">הוצאות באשראי</h3>
           <p class="sim-desc" data-i18n="sim.card1_desc">הזינו את סך ההוצאה החודשית המשוערת בכרטיס האשראי לחישוב
             פוטנציאל החזר מועדון.</p>
           <div class="sim-input-wrap">
@@ -1180,6 +1200,7 @@
           <div class="sim-segmented-bar" id="sim1-bar"></div>
           <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 8px;">(% מסך ההוצאה)</div>
           <div class="sim-categories" id="sim1-categories"></div>
+          <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim1-categories')">⚙️ התאמה אישית של האחוזים</button>
           <div class="sim-total-wrap">
             <div class="sim-total-lbl" data-i18n="sim.annual_savings">חיסכון שנתי צפוי</div>
             <div class="sim-total-val">₪<span id="sim1-val">0</span></div>
@@ -1189,7 +1210,7 @@
 
         <!-- Simulator 2: Income -->
         <div class="sim-card">
-          <h3 data-i18n="sim.card2_title">הכנסה, תוספת לקופות וקבועות</h3>
+          <h3 data-i18n="sim.card2_title">הכנסות</h3>
           <p class="sim-desc" data-i18n="sim.card2_desc">הזינו את סך ההכנסה/משכורת חודשית שלכם לחישוב חיסכון בעמלות
             ובהוצאות קבועות.</p>
           <div class="sim-input-wrap">
@@ -1204,6 +1225,7 @@
           <div class="sim-segmented-bar" id="sim2-bar"></div>
           <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 8px;">(% מסך ההכנסה)</div>
           <div class="sim-categories" id="sim2-categories"></div>
+          <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim2-categories')">⚙️ התאמה אישית של האחוזים</button>
           <div class="sim-total-wrap">
             <div class="sim-total-lbl" data-i18n="sim.annual_addition">תוספת שנתית לחסכונות</div>
             <div class="sim-total-val">₪<span id="sim2-val">0</span></div>
@@ -1465,9 +1487,9 @@
         'hero.scroll': 'גלול להמשך ↓',
         'sim.title': 'בדקו כמה תוכלו לחסוך איתנו',
         'sim.subtitle': 'הדמיית חיסכון והטבות על בסיס נתוני ההוצאה וההכנסה שלכם',
-        'sim.card1_title': 'ניהול צריכה ואשראי',
+        'sim.card1_title': 'הוצאות באשראי',
         'sim.card1_desc': 'הזינו את סך ההוצאה החודשית המשוערת בכרטיס האשראי לחישוב פוטנציאל החזר מועדון.',
-        'sim.card2_title': 'הכנסה, תוספת לקופות וקבועות',
+        'sim.card2_title': 'הכנסות',
         'sim.card2_desc': 'הזינו את סך ההכנסה/משכורת חודשית שלכם לחישוב חיסכון בעמלות ובהוצאות קבועות.',
         'sim.annual_savings': 'חיסכון שנתי צפוי',
         'sim.annual_addition': 'תוספת שנתית לחסכונות',
@@ -1475,9 +1497,9 @@
         'sim.annual_total': 'סה"כ שנתי:',
         'sim.cat.food': 'מזון וצריכה',
         'sim.cat.clothing': 'ביגוד',
-        'sim.cat.household': 'הוצאות דירה',
-        'sim.cat.furniture': 'ריהוט',
-        'sim.cat.education': 'מוסדות לימוד',
+        'sim.cat.household': 'הוצאות דירה וריהוט',
+        'sim.cat.transport': 'תחבורה ותקשורת',
+        'sim.cat.education': 'חינוך',
         'sim.cat.pension': 'קרן פנסיה',
         'sim.cat.hishtalmut': 'קרן השתלמות',
         'sim.cat.mortgage': 'משכנתא',
@@ -1771,7 +1793,7 @@
       { id: 'c_house', name: 'sim.cat.household', pct: 15, discount: 0.06, color: '#f0e6d3' },
       { id: 'c_edu', name: 'sim.cat.education', pct: 15, discount: 0.05, color: '#b8892a' },
       { id: 'c_cloth', name: 'sim.cat.clothing', pct: 10, discount: 0.10, color: '#8899bb' },
-      { id: 'c_furn', name: 'sim.cat.furniture', pct: 10, discount: 0.08, color: '#f59e0b' }
+      { id: 'c_trans', name: 'sim.cat.transport', pct: 10, discount: 0.08, color: '#f59e0b' }
     ];
 
     const sim2Config = [
@@ -1808,7 +1830,7 @@
               </div>
               <div class="sim-cat-val" id="val_${cat.id}">₪0</div>
             </div>
-            <div class="sim-cat-slider-wrap">
+            <div class="sim-cat-slider-wrap" style="display:none; margin-top:12px;">
               <input type="range" class="sim-slider" id="slider_${cat.id}" min="0" max="100" step="1" value="${cat.pct}">
               <div class="sim-cat-pct" id="pct_${cat.id}">${cat.pct}%</div>
             </div>
@@ -1856,7 +1878,7 @@
               </div>
               <div class="sim-cat-val" id="val_${cat.id}">₪0</div>
             </div>
-            <div class="sim-cat-slider-wrap">
+            <div class="sim-cat-slider-wrap" style="display:none; margin-top:12px;">
               <input type="range" class="sim-slider" id="slider_${cat.id}" min="0" max="100" step="1" value="${cat.pct}">
               <div class="sim-cat-pct" id="pct_${cat.id}">${cat.pct}%</div>
             </div>
@@ -1877,6 +1899,15 @@
             updateSimulators();
           });
         }
+      });
+    }
+
+    function toggleSliders(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const sliders = container.querySelectorAll('.sim-cat-slider-wrap');
+      sliders.forEach(s => {
+        s.style.display = (s.style.display === 'none' || s.style.display === '') ? 'flex' : 'none';
       });
     }
 
