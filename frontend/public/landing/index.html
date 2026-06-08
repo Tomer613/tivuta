@@ -1211,6 +1211,12 @@
           </div>
         </div>
       </div>
+      
+      <!-- Warning Message -->
+      <div id="sim-warning" style="display:none; text-align:center; margin-top:30px; padding:16px 24px; background:rgba(212,175,55,0.1); border:1px solid rgba(212,175,55,0.3); border-radius:12px; color:#f0e6d3; max-width:800px; margin-left:auto; margin-right:auto;">
+        <span style="display:block; font-weight:700; color:#d4af37; margin-bottom:4px; font-size:16px;">שים לב! סך ההוצאות חורג מההכנסה שהגדרת</span>
+        <span style="font-size:14px; color:#8899bb;">נראה שסך ההפרשות וההוצאות באשראי גדול מההכנסה החודשית שלך. כחברי מועדון טיבותא, תוכלו ליהנות מפתרונות אשראי והלוואות בתנאים חסרי תקדים כדי לגשר על הפערים.</span>
+      </div>
     </div>
   </section>
 
@@ -1926,6 +1932,19 @@
       if (elSim2Val) elSim2Val.textContent = Math.round(totalSavings2).toLocaleString('he-IL');
       const elSim2Sub = document.getElementById('sim2-sub');
       if (elSim2Sub) elSim2Sub.textContent = (T[lang]['sim.monthly_avg'] || 'ממוצע חודשי:') + ' ' + Math.round(totalSavings2 / 12).toLocaleString('he-IL') + ' ₪';
+
+      // Check for Overdraft Warning
+      let sim2FixedSumPct = 0;
+      sim2Config.forEach(cat => sim2FixedSumPct += cat.pct);
+      const fixedExpenses = income * (sim2FixedSumPct / 100);
+      const warningEl = document.getElementById('sim-warning');
+      if (warningEl) {
+        if ((fixedExpenses + spend) > income) {
+          warningEl.style.display = 'block';
+        } else {
+          warningEl.style.display = 'none';
+        }
+      }
     }
 
     /* ─────────────────────────────────────────────────────────
