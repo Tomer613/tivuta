@@ -71,9 +71,14 @@ export default function Navbar() {
     const ui = navbarUI[locale] || navbarUI.he;
 
     return (
-        <>
-        <nav className="glass-nav px-6 py-4 sticky top-0 z-50">
-            <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="sticky top-0 z-[100] w-full relative">
+            {/* UNDER CONSTRUCTION BANNER */}
+            <div className="bg-[#d4af37] text-[#0e1628] text-center p-2.5 font-extrabold text-[15px] shadow-md relative z-50" style={{ direction: 'rtl' }}>
+                🚧 האתר בהקמה - גרסת בטא להתרשמות בלבד 🚧
+            </div>
+
+            <nav className="glass-nav px-6 py-4 relative z-40">
+                <div className="max-w-7xl mx-auto flex justify-between items-center">
                 {/* Logo & Brand - Logical start */}
                 <Link href={`/${locale}`} className="flex items-center gap-3 group">
                     <Logo className="group-hover:scale-105" />
@@ -177,7 +182,7 @@ export default function Navbar() {
 
             {/* Mobile Search Overlay */}
             <div 
-                className={`fixed inset-x-0 top-[73px] bg-white/95 backdrop-blur-md z-30 lg:hidden shadow-2xl border-t border-slate-200/50 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMobileSearchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                className={`absolute inset-x-0 top-full h-[100vh] bg-white/95 backdrop-blur-md z-30 lg:hidden shadow-2xl border-t border-slate-200/50 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMobileSearchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                 style={{ clipPath: isMobileSearchOpen ? 'inset(0 0 0 0)' : 'inset(0 0 100% 0)' }}
             >
                 <div className="p-8">
@@ -199,7 +204,7 @@ export default function Navbar() {
 
             {/* Mobile Menu Overlay */}
             <div 
-                className={`fixed inset-0 top-[73px] bg-white/90 backdrop-blur-md z-40 md:hidden shadow-2xl border-t border-slate-200/50 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                className={`absolute inset-x-0 top-full h-[100vh] bg-white/90 backdrop-blur-md z-40 md:hidden shadow-2xl border-t border-slate-200/50 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                 style={{ clipPath: isMenuOpen ? 'inset(0 0 0 0)' : 'inset(0 0 100% 0)' }}
             >
                 <div className="flex flex-col p-8 gap-6 h-full overflow-y-auto">
@@ -263,6 +268,6 @@ export default function Navbar() {
                         )}
                     </div>
                 </div>
-        </>
+        </div>
     );
 }

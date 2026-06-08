@@ -52,10 +52,6 @@ export default async function RootLayout({
                 <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
             </head>
             <body className={`${heebo.variable} font-sans antialiased bg-slate-50 min-h-screen flex flex-col`} suppressHydrationWarning>
-                {/* UNDER CONSTRUCTION BANNER */}
-                <div className="bg-[#d4af37] text-[#0e1628] text-center p-2.5 font-extrabold text-[15px] sticky top-0 z-[1000] shadow-md" style={{ direction: 'rtl' }}>
-                    🚧 האתר בהקמה - גרסת בטא להתרשמות בלבד 🚧
-                </div>
                 <AuthProvider>
                     <NotificationProvider>
                         <Navbar />
