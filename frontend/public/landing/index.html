@@ -1178,6 +1178,7 @@
           </div>
 
           <div class="sim-segmented-bar" id="sim1-bar"></div>
+          <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 8px;">(% מסך ההוצאה)</div>
           <div class="sim-categories" id="sim1-categories"></div>
           <div class="sim-total-wrap">
             <div class="sim-total-lbl" data-i18n="sim.annual_savings">חיסכון שנתי צפוי</div>
@@ -1201,6 +1202,7 @@
           </div>
 
           <div class="sim-segmented-bar" id="sim2-bar"></div>
+          <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 8px;">(% מסך ההכנסה)</div>
           <div class="sim-categories" id="sim2-categories"></div>
           <div class="sim-total-wrap">
             <div class="sim-total-lbl" data-i18n="sim.annual_addition">תוספת שנתית לחסכונות</div>
@@ -1889,9 +1891,9 @@
 
       sim1Config.forEach(cat => {
         const elVal = document.getElementById('val_' + cat.id);
-        if (elVal) elVal.textContent = 'חיסכון: ₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
+        if (elVal) elVal.innerHTML = '<span style="color:#8899bb; font-weight:normal; margin-left:4px;">חיסכון:</span>₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
-        if (elSeg) elSeg.style.width = (totalSavings1 > 0 ? (cat.currentVal / totalSavings1) * 100 : 0) + '%';
+        if (elSeg) elSeg.style.width = cat.pct + '%';
       });
 
       const elSim1Val = document.getElementById('sim1-val');
@@ -1915,9 +1917,9 @@
 
       sim2Config.forEach(cat => {
         const elVal = document.getElementById('val_' + cat.id);
-        if (elVal) elVal.textContent = 'חיסכון: ₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
+        if (elVal) elVal.innerHTML = '<span style="color:#8899bb; font-weight:normal; margin-left:4px;">חיסכון:</span>₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
-        if (elSeg) elSeg.style.width = (totalSavings2 > 0 ? (cat.currentVal / totalSavings2) * 100 : 0) + '%';
+        if (elSeg) elSeg.style.width = cat.pct + '%';
       });
 
       const elSim2Val = document.getElementById('sim2-val');
