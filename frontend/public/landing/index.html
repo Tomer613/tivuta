@@ -1198,13 +1198,19 @@
           </div>
 
           <div class="sim-segmented-bar" id="sim1-bar"></div>
-          <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 8px;">(% מסך ההוצאה)</div>
-          <div class="sim-categories" id="sim1-categories"></div>
-          <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim1-categories')">⚙️ התאמה אישית של האחוזים</button>
-          <div class="sim-total-wrap">
+          <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 24px;">(% מסך ההוצאה)</div>
+
+          <div class="sim-total-wrap" style="padding-top: 0; border-top: none; margin-bottom: 16px;">
             <div class="sim-total-lbl" data-i18n="sim.annual_savings">חיסכון שנתי צפוי</div>
             <div class="sim-total-val">₪<span id="sim1-val">0</span></div>
             <div class="sim-total-sub" id="sim1-sub">ממוצע חודשי: 0 ₪</div>
+          </div>
+
+          <button type="button" class="sim-toggle-btn" style="border:none; margin-top:0; color:#d4af37;" onclick="toggleBreakdown('sim1-breakdown', this)">צפה בפירוט החיסכון ▾</button>
+
+          <div id="sim1-breakdown" style="display:none; margin-top:16px; border-top:1px dashed rgba(255, 255, 255, 0.08); padding-top:16px;">
+            <div class="sim-categories" id="sim1-categories"></div>
+            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim1-categories')">⚙️ התאמה אישית של האחוזים</button>
           </div>
         </div>
 
@@ -1223,81 +1229,27 @@
           </div>
 
           <div class="sim-segmented-bar" id="sim2-bar"></div>
-          <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 8px;">(% מסך ההכנסה)</div>
-          <div class="sim-categories" id="sim2-categories"></div>
-          <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim2-categories')">⚙️ התאמה אישית של האחוזים</button>
-          <div class="sim-total-wrap">
+          <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 24px;">(% מסך ההכנסה)</div>
+
+          <div class="sim-total-wrap" style="padding-top: 0; border-top: none; margin-bottom: 16px;">
             <div class="sim-total-lbl" data-i18n="sim.annual_addition">תוספת שנתית לחסכונות</div>
             <div class="sim-total-val">₪<span id="sim2-val">0</span></div>
             <div class="sim-total-sub" id="sim2-sub">ממוצע חודשי: 0 ₪</div>
           </div>
+
+          <button type="button" class="sim-toggle-btn" style="border:none; margin-top:0; color:#d4af37;" onclick="toggleBreakdown('sim2-breakdown', this)">צפה בפירוט החיסכון ▾</button>
+
+          <div id="sim2-breakdown" style="display:none; margin-top:16px; border-top:1px dashed rgba(255, 255, 255, 0.08); padding-top:16px;">
+            <div class="sim-categories" id="sim2-categories"></div>
+            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim2-categories')">⚙️ התאמה אישית של האחוזים</button>
+          </div>
         </div>
       </div>
       
-      <!-- Warning Message -->
-      <div id="sim-warning" style="display:none; text-align:center; margin-top:30px; padding:16px 24px; background:rgba(212,175,55,0.1); border:1px solid rgba(212,175,55,0.3); border-radius:12px; color:#f0e6d3; max-width:800px; margin-left:auto; margin-right:auto;">
-        <span style="display:block; font-weight:700; color:#d4af37; margin-bottom:4px; font-size:16px;">שים לב! סך ההוצאות חורג מההכנסה שהגדרת</span>
-        <span style="font-size:14px; color:#8899bb;">נראה שסך ההפרשות וההוצאות באשראי גדול מההכנסה החודשית שלך. כחברי מועדון טיבותא, תוכלו ליהנות מפתרונות אשראי והלוואות בתנאים חסרי תקדים כדי לגשר על הפערים.</span>
-      </div>
-    </div>
-  </section>
-
-
-  <!-- ══════════════════════════════════════════════════════════
-     BENEFITS
-══════════════════════════════════════════════════════════ -->
-  <section id="benefits">
-    <div style="max-width:1100px;margin:0 auto;">
-
-      <div style="text-align:center;margin-bottom:56px;" class="reveal">
-        <span class="section-tag" data-i18n="benefits.tag">ההטבות שלנו</span>
-        <h2 class="section-title" data-i18n="benefits.title">מעטפת שלמה לכל תחומי החיים</h2>
-      </div>
-
-      <div class="benefits-grid">
-
-        <div class="benefit-card reveal">
-          <i data-lucide="landmark" class="benefit-icon-svg"></i>
-          <div class="benefit-title" data-i18n="b1.title">ביטול הבנק וחברת הביטוח</div>
-          <div class="benefit-desc" data-i18n="b1.desc">גישה ישירה למימון קהילתי ופתרונות ביטוח — בלי בירוקרטיה, בתנאים
-            שלכם</div>
-        </div>
-
-        <div class="benefit-card reveal" style="transition-delay:.1s">
-          <i data-lucide="heart-handshake" class="benefit-icon-svg"></i>
-          <div class="benefit-title" data-i18n="b2.title">הלוואת "בית נאמן"</div>
-          <div class="benefit-desc" data-i18n="b2.desc">עד 220,000 ₪ ללא ריבית לחתנים וכלות — מימון ייחודי לזוגות
-            הצעירים</div>
-        </div>
-
-        <div class="benefit-card reveal" style="transition-delay:.2s">
-          <i data-lucide="home" class="benefit-icon-svg"></i>
-          <div class="benefit-title" data-i18n="b3.title">משכנתא בפריים מינוס 1.5%</div>
-          <div class="benefit-desc" data-i18n="b3.desc">תנאי אשראי בלעדיים מהבנק — חסכון של עשרות אלפי שקלים לאורך חיי
-            המשכנתא</div>
-        </div>
-
-        <div class="benefit-card reveal">
-          <i data-lucide="percent" class="benefit-icon-svg"></i>
-          <div class="benefit-title" data-i18n="b4.title">פטור מלא ממע"מ</div>
-          <div class="benefit-desc" data-i18n="b4.desc">הטבה ייחודית על מאות מוצרים ושירותים — החיסכון נצבר ישירות
-            לכיסכם</div>
-        </div>
-
-        <div class="benefit-card reveal" style="transition-delay:.1s">
-          <i data-lucide="store" class="benefit-icon-svg"></i>
-          <div class="benefit-title" data-i18n="b5.title">1,000+ בתי עסק</div>
-          <div class="benefit-desc" data-i18n="b5.desc">רשת עסקים רחבה בקהילה — הנחות אמיתיות על קניות, אירועים וסגנון
-            חיים</div>
-        </div>
-
-        <div class="benefit-card reveal" style="transition-delay:.2s">
-          <i data-lucide="shield-check" class="benefit-icon-svg"></i>
-          <div class="benefit-title" data-i18n="b6.title">מעטפת 360° לחיים</div>
-          <div class="benefit-desc" data-i18n="b6.desc">CRM משפחתי, ביטחון עסקי וחוסן כלכלי — כל מה שצריך לחיים שלמים
-            ומוצלחים</div>
-        </div>
-
+      <!-- Summary Message -->
+      <div id="sim-warning" style="text-align:center; margin-top:30px; padding:16px 24px; background:rgba(212,175,55,0.1); border:1px solid rgba(212,175,55,0.3); border-radius:12px; color:#f0e6d3; max-width:800px; margin-left:auto; margin-right:auto;">
+        <span style="display:block; font-weight:700; color:#d4af37; margin-bottom:4px; font-size:16px;">שים לב!</span>
+        <span style="font-size:14px; color:#8899bb;">כחבר מועדון טיבותא, אתה מרוויח כפול - גם חוסך בהוצאות החודשיות, וגם מגדיל את ההכנסה הפנויה.</span>
       </div>
     </div>
   </section>
@@ -1436,6 +1388,66 @@
 
 
   <!-- ══════════════════════════════════════════════════════════
+     BENEFITS
+══════════════════════════════════════════════════════════ -->
+  <section id="benefits">
+    <div style="max-width:1100px;margin:0 auto;">
+
+      <div style="text-align:center;margin-bottom:56px;" class="reveal">
+        <span class="section-tag" data-i18n="benefits.tag">ההטבות שלנו</span>
+        <h2 class="section-title" data-i18n="benefits.title">מעטפת שלמה לכל תחומי החיים</h2>
+      </div>
+
+      <div class="benefits-grid">
+
+        <div class="benefit-card reveal">
+          <i data-lucide="landmark" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b1.title">ביטול הבנק וחברת הביטוח</div>
+          <div class="benefit-desc" data-i18n="b1.desc">גישה ישירה למימון קהילתי ופתרונות ביטוח — בלי בירוקרטיה, בתנאים
+            שלכם</div>
+        </div>
+
+        <div class="benefit-card reveal" style="transition-delay:.1s">
+          <i data-lucide="heart-handshake" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b2.title">הלוואת "בית נאמן"</div>
+          <div class="benefit-desc" data-i18n="b2.desc">עד 220,000 ₪ ללא ריבית לחתנים וכלות — מימון ייחודי לזוגות
+            הצעירים</div>
+        </div>
+
+        <div class="benefit-card reveal" style="transition-delay:.2s">
+          <i data-lucide="home" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b3.title">משכנתא בפריים מינוס 1.5%</div>
+          <div class="benefit-desc" data-i18n="b3.desc">תנאי אשראי בלעדיים מהבנק — חסכון של עשרות אלפי שקלים לאורך חיי
+            המשכנתא</div>
+        </div>
+
+        <div class="benefit-card reveal">
+          <i data-lucide="percent" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b4.title">פטור מלא ממע"מ</div>
+          <div class="benefit-desc" data-i18n="b4.desc">הטבה ייחודית על מאות מוצרים ושירותים — החיסכון נצבר ישירות
+            לכיסכם</div>
+        </div>
+
+        <div class="benefit-card reveal" style="transition-delay:.1s">
+          <i data-lucide="store" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b5.title">1,000+ בתי עסק</div>
+          <div class="benefit-desc" data-i18n="b5.desc">רשת עסקים רחבה בקהילה — הנחות אמיתיות על קניות, אירועים וסגנון
+            חיים</div>
+        </div>
+
+        <div class="benefit-card reveal" style="transition-delay:.2s">
+          <i data-lucide="shield-check" class="benefit-icon-svg"></i>
+          <div class="benefit-title" data-i18n="b6.title">מעטפת 360° לחיים</div>
+          <div class="benefit-desc" data-i18n="b6.desc">CRM משפחתי, ביטחון עסקי וחוסן כלכלי — כל מה שצריך לחיים שלמים
+            ומוצלחים</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
      FOOTER
 ══════════════════════════════════════════════════════════ -->
   <footer>
@@ -1504,23 +1516,23 @@
         'sim.cat.hishtalmut': 'קרן השתלמות',
         'sim.cat.mortgage': 'משכנתא',
         'sim.cat.insurance': 'ביטוחים',
-        'sim.cat.gemel': 'חסכונות והשקעות',
+        'sim.cat.gemel': 'תכנית חיסכון לכל ילד',
         'stats.workers': 'עובדים חרדים בסקטור העסקי',
         'stats.students': 'לומדי מקצוע והכשרה מדי שנה',
         'stats.assets_unit': 'מיליארד ₪',
         'stats.assets': 'צפי נכסי פנסיה של חברי הקהילה העובדת עד 2035',
         'benefits.tag': 'ההטבות שלנו',
         'benefits.title': 'מעטפת שלמה לכל תחומי החיים',
-        'b1.title': 'ביטול הבנק וחברת הביטוח',
-        'b1.desc': 'גישה ישירה למימון קהילתי ופתרונות ביטוח — בלי בירוקרטיה, בתנאים שלכם',
-        'b2.title': 'הלוואת "בית נאמן"',
-        'b2.desc': 'עד 220,000 ₪ ללא ריבית לחתנים וכלות — מימון ייחודי לזוגות הצעירים',
-        'b3.title': 'משכנתא בפריים מינוס 1.5%',
-        'b3.desc': 'תנאי אשראי בלעדיים מהבנק — חסכון של עשרות אלפי שקלים לאורך חיי המשכנתא',
-        'b4.title': 'פטור מלא ממע"מ',
-        'b4.desc': 'הטבה ייחודית על מאות מוצרים ושירותים — החיסכון נצבר ישירות לכיסכם',
-        'b5.title': '1,000+ בתי עסק',
-        'b5.desc': 'רשת עסקים רחבה בקהילה — הנחות אמיתיות על קניות, אירועים וסגנון חיים',
+        'b1.title': 'פתרונות פיננסיים קהילתיים',
+        'b1.desc': 'גישה ישירה לגופי מימון וייעוץ פיננסי - בלי בירוקרטיה ובתנאים שלכם.',
+        'b2.title': 'הלוואת הבנק המלווה',
+        'b2.desc': 'הלוואה בתנאים ייחודיים לחתנים ולכלות החברים במועדון.',
+        'b3.title': 'משכנתאות במסלולים ייחודיים',
+        'b3.desc': 'תנאי אשראי בלעדיים מהבנק בשת"פ עם חברת הביטוח — חסכון של עשרות אלפי שקלים לאורך חיי המשכנתא',
+        'b4.title': 'פטור מלא מדמי כרטיס',
+        'b4.desc': 'הטבה ייחודית על מאות מוצרים ושירותים בכרטיס המועדון, עד להודעה החדשה',
+        'b5.title': '5,000+ בתי עסק',
+        'b5.desc': 'רשת עסקים רחבה בקהילה — הנחות אמיתיות על קניות ואירועים המותאמים למשפחה החרדית',
         'b6.title': 'מעטפת 360° לחיים',
         'b6.desc': 'CRM משפחתי, ביטחון עסקי וחוסן כלכלי — כל מה שצריך לחיים שלמים ומוצלחים',
         'proof.text': '<span style="color:#d4af37;">אלפי משפחות</span> כבר בדרך — הצטרפו גם אתם',
@@ -1800,7 +1812,7 @@
       { id: 'c_mort', name: 'sim.cat.mortgage', pct: 25, discount: 0.08, color: '#d4af37' },
       { id: 'c_pen', name: 'sim.cat.pension', pct: 20, discount: 0.05, color: '#b8892a' },
       { id: 'c_hish', name: 'sim.cat.hishtalmut', pct: 10, discount: 0.05, color: '#f0e6d3' },
-      { id: 'c_gemel', name: 'sim.cat.gemel', pct: 10, discount: 0.05, color: '#8899bb' },
+      { id: 'c_gemel', name: 'sim.cat.gemel', pct: 2, discount: 0.05, color: '#8899bb' },
       { id: 'c_ins', name: 'sim.cat.insurance', pct: 5, discount: 0.16, color: '#f59e0b' }
     ];
 
@@ -1911,6 +1923,17 @@
       });
     }
 
+    function toggleBreakdown(id, btn) {
+      const el = document.getElementById(id);
+      if (el.style.display === 'none' || el.style.display === '') {
+        el.style.display = 'block';
+        btn.textContent = 'הסתר פירוט ▴';
+      } else {
+        el.style.display = 'none';
+        btn.textContent = 'צפה בפירוט החיסכון ▾';
+      }
+    }
+
     function updateSimulators() {
       // Sim 1
       const sim1Range = document.getElementById('sim1-range');
@@ -1964,18 +1987,7 @@
       const elSim2Sub = document.getElementById('sim2-sub');
       if (elSim2Sub) elSim2Sub.textContent = (T[lang]['sim.monthly_avg'] || 'ממוצע חודשי:') + ' ' + Math.round(totalSavings2 / 12).toLocaleString('he-IL') + ' ₪';
 
-      // Check for Overdraft Warning
-      let sim2FixedSumPct = 0;
-      sim2Config.forEach(cat => sim2FixedSumPct += cat.pct);
-      const fixedExpenses = income * (sim2FixedSumPct / 100);
-      const warningEl = document.getElementById('sim-warning');
-      if (warningEl) {
-        if ((fixedExpenses + spend) > income) {
-          warningEl.style.display = 'block';
-        } else {
-          warningEl.style.display = 'none';
-        }
-      }
+
     }
 
     /* ─────────────────────────────────────────────────────────
