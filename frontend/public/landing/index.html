@@ -1153,7 +1153,7 @@
       <!-- Subtitle -->
       <p style="font-size:clamp(16px,2vw,21px);font-weight:400;color:#8899bb;line-height:1.75;max-width:620px;margin:0 auto 52px;"
         data-i18n="hero.subtitle">
-        הצטרפו לרשימת ההמתנה — ותוכלו ליהנות ראשונים מכל ההטבות הפיננסיות, הקהילתיות וסגנון החיים שטיבותא מציעה
+        הצטרפו לרשימת ההמתנה — ותוכלו ליהנות ראשונים מכל ההטבות הפיננסיות, הקהילתיות והרווחה שטיבותא מציעה
       </p>
 
       <!-- CTA -->
@@ -1209,7 +1209,7 @@
           <div style="font-size:12px; color:#d4af37; text-align:right; margin-bottom: 4px; font-weight: bold;">הוצאות שוטפות עם טיבותא:</div>
           <div class="sim-segmented-bar" id="sim1-bar-discount" style="margin-top: 4px; margin-bottom: 24px; box-shadow: 0 0 12px rgba(212,175,55,0.2);"></div>
 
-          <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim1-breakdown', this)">צפה בפירוט החיסכון ▾</button>
+          <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim1-breakdown', this)">לצפייה בפירוט החיסכון ▾</button>
 
           <div id="sim1-breakdown" style="display:none; margin-top:24px; border-top:1px dashed rgba(255, 255, 255, 0.08); padding-top:24px;">
             <div id="sim1-pct-lbl" style="display:none; font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;">(% מסך ההוצאה)</div>
@@ -1244,7 +1244,7 @@
           <div style="font-size:12px; color:#d4af37; text-align:right; margin-bottom: 4px; font-weight: bold;">הוצאות קבועות עם טיבותא:</div>
           <div class="sim-segmented-bar" id="sim2-bar-discount" style="margin-top: 4px; margin-bottom: 24px; box-shadow: 0 0 12px rgba(212,175,55,0.2);"></div>
 
-          <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim2-breakdown', this)">צפה בפירוט החיסכון ▾</button>
+          <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim2-breakdown', this)">לצפייה בפירוט החיסכון ▾</button>
 
           <div id="sim2-breakdown" style="display:none; margin-top:24px; border-top:1px dashed rgba(255, 255, 255, 0.08); padding-top:24px;">
             <div id="sim2-pct-lbl" style="display:none; font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;">(% מסך ההכנסה)</div>
@@ -1256,8 +1256,8 @@
       
       <!-- Summary Message -->
       <div id="sim-warning" style="text-align:center; margin-top:30px; padding:16px 24px; background:rgba(212,175,55,0.1); border:1px solid rgba(212,175,55,0.3); border-radius:12px; color:#f0e6d3; max-width:800px; margin-left:auto; margin-right:auto;">
-        <span style="display:block; font-weight:700; color:#d4af37; margin-bottom:4px; font-size:16px;">שים לב!</span>
-        <span style="font-size:14px; color:#8899bb;">כחבר מועדון טיבותא, אתה מרוויח כפול - גם חוסך בהוצאות החודשיות, וגם מגדיל את ההכנסה הפנויה.</span>
+        <span style="display:block; font-weight:700; color:#d4af37; margin-bottom:4px; font-size:16px;">שימו לב!</span>
+        <span style="font-size:14px; color:#8899bb;">כחברי מועדון טיבותא, אתם מרוויחים כפול - גם חוסכים בהוצאות החודשיות, וגם מגדילים את ההכנסה הפנויה.</span>
       </div>
     </div>
   </section>
@@ -1297,17 +1297,17 @@
           </div>
           <div class="cs-panel" id="affilPanel">
             <div class="cs-opt" data-value="" data-i18n="form.affil0" onclick="pickAffil(this)">בחר...</div>
-            <div class="cs-opt" data-value="לומד במכללה" data-i18n="form.affil1" onclick="pickAffil(this)">לומד במכללה
+            <div class="cs-opt" data-value="לומד במכללה" data-i18n="form.affil1" onclick="pickAffil(this)">לומד/ת במכללה
             </div>
             <div class="cs-opt" data-value="חינוך והוראה" data-i18n="form.affil2" onclick="pickAffil(this)">חינוך והוראה
             </div>
-            <div class="cs-opt" data-value="עצמאי במסחר" data-i18n="form.affil3" onclick="pickAffil(this)">עצמאי במסחר
+            <div class="cs-opt" data-value="עצמאי במסחר" data-i18n="form.affil3" onclick="pickAffil(this)">עצמאי/ת במסחר
             </div>
             <div class="cs-opt" data-value="תעשייה ובנייה" data-i18n="form.affil4" onclick="pickAffil(this)">תעשייה
               ובנייה</div>
             <div class="cs-opt" data-value="הייטק" data-i18n="form.affil5" onclick="pickAffil(this)">הייטק</div>
-            <div class="cs-opt" data-value="מקצועות חופשיים (רואה חשבון, עו&quot;ד וכדו')" data-i18n="form.affil6"
-              onclick="pickAffil(this)">מקצועות חופשיים (רואה חשבון, עו"ד וכדו')</div>
+            <div class="cs-opt" data-value="מקצועות חופשיים (רו&quot;ח, עו&quot;ד וכדו')" data-i18n="form.affil6"
+              onclick="pickAffil(this)">מקצועות חופשיים (רו"ח, עו"ד וכדו')</div>
           </div>
           <input type="hidden" id="fAffil" value="">
         </div>
@@ -1368,13 +1368,13 @@
 
         <!-- Terms notice -->
         <p style="font-size:13px;color:#8899bb;text-align:center;line-height:1.7;margin-bottom:24px;">
-          <span data-i18n="form.terms_pre">הריני מאשר שקראתי את </span><a href="../terms/"
-            style="color:#d4af37;text-decoration:underline;" data-i18n="form.terms_lnk">תקנון 'טיבותא' בנושא</a><span data-i18n-html="form.terms_post">.<br>כמו כן, הריני מאשר למועדון להשתמש בפרטיי מול חברות צד ג' לצרכים המפורטים בתקנון.</span>
+          <span data-i18n="form.terms_pre">הריני מאשר/ת שקראתי את </span><a href="../terms/"
+            style="color:#d4af37;text-decoration:underline;" data-i18n="form.terms_lnk">תקנון 'טיבותא' בנושא</a><span data-i18n-html="form.terms_post">.<br>כמו כן, הריני מאשר/ת למועדון להשתמש בפרטיי מול חברות צד ג' לצרכים המפורטים בתקנון.</span>
         </p>
 
         <!-- Submit -->
         <button type="submit" id="submitBtn" class="btn-submit">
-          <span id="submitTxt" data-i18n="form.submit">שלח</span>
+          <span id="submitTxt" data-i18n="form.submit">שליחה</span>
           <span id="submitSpinner" class="spinner" style="display:none;"></span>
         </button>
 
@@ -1383,13 +1383,13 @@
       <!-- ── Success ── -->
       <div id="successMsg" style="display:none;text-align:center;padding:40px 0;">
         <div style="font-size:60px;margin-bottom:20px;">🎉</div>
-        <h3 style="font-size:26px;font-weight:900;color:#d4af37;margin-bottom:14px;" data-i18n="form.ok_title">נרשמת
+        <h3 style="font-size:26px;font-weight:900;color:#d4af37;margin-bottom:14px;" data-i18n="form.ok_title">נרשמתם
           בהצלחה!</h3>
         <p style="color:#8899bb;font-size:17px;" data-i18n="form.ok_text">תודה על ההרשמה. נהיה בקשר בהקדם.</p>
       </div>
 
       <!-- ── Error ── -->
-      <div id="errMsg" class="error-box" data-i18n="form.err">אירעה שגיאה. אנא נסה שנית.</div>
+      <div id="errMsg" class="error-box" data-i18n="form.err">אירעה שגיאה. אנא נסו שנית.</div>
 
     </div>
   </section>
@@ -1502,7 +1502,7 @@
       he: {
         'hero.badge': 'הצטרפו למועדון הבלעדי',
         'hero.title': 'המועדון הפיננסי‑קהילתי<br>הגדול בישראל',
-        'hero.subtitle': 'הצטרפו לרשימת ההמתנה — ותוכלו ליהנות ראשונים מכל ההטבות הפיננסיות, הקהילתיות וסגנון החיים שטיבותא מציעה',
+        'hero.subtitle': 'הצטרפו לרשימת ההמתנה — ותוכלו ליהנות ראשונים מכל ההטבות הפיננסיות, הקהילתיות והרווחה שטיבותא מציעה',
         'hero.cta': 'הצטרפו עכשיו →',
         'hero.scroll': 'גלול להמשך ↓',
         'sim.title': 'בדקו כמה תוכלו לחסוך איתנו',
@@ -1549,12 +1549,12 @@
         'form.subtitle': 'המקומות מוגבלים — הבטיחו את מקומכם עכשיו',
         'form.affil_lbl': 'שייכות למועדון',
         'form.affil0': 'בחר...',
-        'form.affil1': 'לומד במכללה',
+        'form.affil1': 'לומד/ת במכללה',
         'form.affil2': 'חינוך והוראה',
-        'form.affil3': 'סוחר עצמאי',
+        'form.affil3': 'עצמאי/ת במסחר',
         'form.affil4': 'תעשייה ובנייה',
         'form.affil5': 'הייטק',
-        'form.affil6': 'מקצועות חופשיים (רואה חשבון, עו"ד וכדו\')',
+        'form.affil6': 'מקצועות חופשיים (רו"ח, עו"ד וכדו\')',
         'form.fname': 'שם פרטי', 'form.fname_ph': 'ישראל',
         'form.lname': 'שם משפחה', 'form.lname_ph': 'ישראלי',
         'form.idnum': 'מספר זהות', 'form.idnum_ph': '000000000',
@@ -1564,195 +1564,254 @@
         'form.track1': 'אשמח להצטרף ולקבל את האשראי החוץ בנקאי שלכם',
         'form.track2': 'אשמח להצטרף לביטוחים בהנחה אצל חברת הביטוח דרככם',
         'form.track3': 'אשמח לקבל פרטים לגבי משכנתא בהנחה מהבנק המוביל את התכנית',
-        'form.terms_pre': 'הריני מאשר שקראתי את ',
+        'form.terms_pre': 'הריני מאשר/ת שקראתי את ',
         'form.terms_lnk': 'תקנון \'טיבותא\' בנושא',
-        'form.terms_post': '.<br>כמו כן, הריני מאשר למועדון להשתמש בפרטיי מול חברות צד ג\' לצרכים המפורטים בתקנון.',
-        'form.submit': 'שלח',
-        'form.ok_title': 'נרשמת בהצלחה!',
+        'form.terms_post': '.<br>כמו כן, הריני מאשר/ת למועדון להשתמש בפרטיי מול חברות צד ג\' לצרכים המפורטים בתקנון.',
+        'form.submit': 'שליחה',
+        'form.ok_title': 'נרשמתם בהצלחה!',
         'form.ok_text': 'תודה על ההרשמה. נהיה בקשר בהקדם.',
-        'form.err': 'אירעה שגיאה. אנא נסה שנית.',
+        'form.err': 'אירעה שגיאה. אנא נסו שנית.',
         'footer.tagline': 'המעטפת הכלכלית-קהילתית השלמה',
         'footer.terms': 'תקנון ותנאי שימוש',
         'footer.copy': '© 2025 טיבותא. כל הזכויות שמורות.',
         'footer.built_by': 'נבנה ועוצב ע"י',
       },
-
       en: {
         'hero.badge': 'Join the Exclusive Club',
         'hero.title': 'Israel\'s Largest Financial<br>Community Club',
-        'hero.subtitle': 'Join the waiting list — be first to enjoy all the financial, community and lifestyle benefits Tivuta offers',
+        'hero.subtitle': 'Join the waiting list — be first to enjoy all the financial, community, and lifestyle benefits Tivuta offers',
         'hero.cta': 'Join Now →',
         'hero.scroll': 'Scroll down ↓',
-        'stats.workers': 'Haredi workers in the economy',
-        'stats.students': 'vocational training participants per year',
+        'sim.title': 'Check how much you can save with us',
+        'sim.subtitle': 'Savings simulation and benefits based on your expense and income data',
+        'sim.card1_title': 'Current Expenses',
+        'sim.card1_desc': 'Enter your estimated monthly credit card expenses, and we will calculate your potential savings on current expenses with our credit card.',
+        'sim.card2_title': 'Finances and Fixed Expenses',
+        'sim.card2_desc': 'Enter your monthly income, and we will calculate the potential savings on fixed expenses derived from it, once you are already part of us.',
+        'sim.annual_savings': 'Expected annual savings',
+        'sim.annual_addition': 'Annual addition to savings',
+        'sim.monthly_avg': 'Monthly average:',
+        'sim.annual_total': 'Annual total:',
+        'sim.cat.food': 'Food and Consumption',
+        'sim.cat.clothing': 'Clothing',
+        'sim.cat.household': 'Housing and Furniture',
+        'sim.cat.transport': 'Transportation and Communication',
+        'sim.cat.education': 'Education',
+        'sim.cat.pension': 'Pension Fund',
+        'sim.cat.hishtalmut': 'Study Fund',
+        'sim.cat.mortgage': 'Mortgage',
+        'sim.cat.insurance': 'Insurance',
+        'sim.cat.gemel': 'Savings Plan for Every Child',
+        'stats.workers': 'Haredi workers in the business sector',
+        'stats.students': 'Vocational training participants annually',
         'stats.assets_unit': 'Billion ₪',
-        'stats.assets': 'projected pension assets for community members by 2035',
+        'stats.assets': 'Projected pension assets of working community members by 2035',
         'benefits.tag': 'Our Benefits',
-        'benefits.title': 'A Complete Wrapper for Every Area of Life',
-        'b1.title': 'Bypass Bank & Insurer',
-        'b1.desc': 'Direct access to community financing and insurance — no bureaucracy, your terms',
-        'b2.title': '"Faithful Home" Loan',
-        'b2.desc': 'Up to ₪220,000 interest-free for newlyweds — unique funding to help young couples build their lives',
-        'b3.title': 'Mortgage at Prime Minus 1.5%',
-        'b3.desc': 'Exclusive credit terms from the bank — saving tens of thousands over the life of the mortgage',
-        'b4.title': 'Full VAT Exemption',
-        'b4.desc': 'Unique benefit on hundreds of products and services — savings go directly into your pocket',
-        'b5.title': '1,000+ Businesses',
-        'b5.desc': 'Wide business network across the community — real discounts on shopping, events and lifestyle',
-        'b6.title': '360° Life Coverage',
-        'b6.desc': 'Family CRM, business security and financial resilience — everything for a full successful life',
-        'proof.text': '<span style="color:#d4af37;">Thousands of families</span> are already on their way — join them',
+        'benefits.title': 'A comprehensive wrap for all areas of life',
+        'b1.title': 'Community Financial Solutions',
+        'b1.desc': 'Direct access to financing bodies and financial consulting - without bureaucracy and on your terms.',
+        'b2.title': 'The Accompanying Bank Loan',
+        'b2.desc': 'A loan under unique terms for grooms and brides who are club members.',
+        'b3.title': 'Mortgages in Unique Tracks',
+        'b3.desc': 'Exclusive credit terms from the bank in collaboration with the insurance company — savings of tens of thousands of shekels over the life of the mortgage',
+        'b4.title': 'Full Exemption from Card Fees',
+        'b4.desc': 'A unique benefit on hundreds of products and services with the club card, until further notice',
+        'b5.title': '5,000+ Businesses',
+        'b5.desc': 'A wide business network in the community — real discounts on shopping and events tailored to the Haredi family',
+        'b6.title': '360° Life Wrap',
+        'b6.desc': 'Family CRM, business security and financial resilience — everything needed for a complete and successful life',
+        'proof.text': '<span style="color:#d4af37;">Thousands of families</span> are already on the way — join us too',
         'form.tag': 'Waiting List',
-        'form.title': 'Leave your details and we\'ll be in touch',
+        'form.title': 'Leave your details and we will get back to you',
         'form.subtitle': 'Spots are limited — secure your place now',
-        'form.name': 'Full Name', 'form.name_ph': 'Your full name',
+        'form.affil_lbl': 'Club Affiliation',
+        'form.affil0': 'Select...',
+        'form.affil1': 'College Student',
+        'form.affil2': 'Education and Teaching',
+        'form.affil3': 'Independent in Commerce',
+        'form.affil4': 'Industry and Construction',
+        'form.affil5': 'High-Tech',
+        'form.affil6': 'Free Professions (CPA, Lawyer, etc.)',
+        'form.fname': 'First Name', 'form.fname_ph': 'Israel',
+        'form.lname': 'Last Name', 'form.lname_ph': 'Israeli',
+        'form.idnum': 'ID Number', 'form.idnum_ph': '000000000',
         'form.phone': 'Phone Number', 'form.phone_ph': '050-0000000',
-        'form.address': 'Address', 'form.address_ph': 'Street, City',
-        'form.workplace': 'Workplace', 'form.workplace_ph': 'Employer name',
-        'form.income_lbl': 'Which applies to you?',
-        'form.i1': 'I am the sole breadwinner',
-        'form.i2': 'We both work',
-        'form.i3': 'Other',
-        'form.ref_lbl': 'How did you hear about us?',
-        'form.ref0': 'Select...',
-        'form.ref1': 'Friend / Family',
-        'form.ref2': 'Social Media',
-        'form.ref3': 'Advertisement',
-        'form.ref4': 'Teacher / Rabbi',
-        'form.ref5': 'Other',
-        'form.terms_pre': 'Details will be shared with a third party to fulfill benefits — ',
-        'form.terms_lnk': 'Terms & Conditions',
+        'form.email': 'Email Address', 'form.email_ph': 'email@example.com',
+        'form.track_lbl': 'Joining Track',
+        'form.track1': 'I would like to join and receive your non-bank credit',
+        'form.track2': 'I would like to join discounted insurance at the insurance company through you',
+        'form.track3': 'I would like to receive details about a discounted mortgage from the leading bank in the program',
+        'form.terms_pre': 'I confirm that I have read the ',
+        'form.terms_lnk': '\'Tivuta\' regulations regarding this',
+        'form.terms_post': '.<br>I also authorize the club to use my details with third parties for the purposes detailed in the regulations.',
         'form.submit': 'Submit',
         'form.ok_title': 'Successfully Registered!',
-        'form.ok_text': 'Thank you for signing up. We\'ll be in touch shortly.',
+        'form.ok_text': 'Thank you for registering. We will be in touch soon.',
         'form.err': 'An error occurred. Please try again.',
-        'footer.tagline': 'The Complete Financial-Community Wrapper',
-        'footer.terms': 'Terms & Conditions',
+        'footer.tagline': 'The complete economic-community wrap',
+        'footer.terms': 'Terms of Use',
         'footer.copy': '© 2025 Tivuta. All rights reserved.',
-        'footer.built_by': 'Built & Designed by',
+        'footer.built_by': 'Built and Designed by',
       },
 
       fr: {
         'hero.badge': 'Rejoignez le Club Exclusif',
         'hero.title': 'Le Plus Grand Club Financier<br>Communautaire d\'Israël',
-        'hero.subtitle': 'Inscrivez-vous sur la liste d\'attente — soyez les premiers à profiter des avantages financiers et communautaires que Tivuta propose',
+        'hero.subtitle': 'Inscrivez-vous sur la liste d\'attente — soyez les premiers à profiter de tous les avantages financiers, communautaires et de style de vie que Tivuta propose',
         'hero.cta': 'Rejoindre Maintenant →',
         'hero.scroll': 'Défiler vers le bas ↓',
-        'sim.monthly_avg': 'ממוצע חודשי:',
-        'sim.annual_total': 'סה"כ שנתי:',
-        'sim.cat.food': 'מזון וצריכה',
-        'sim.cat.clothing': 'אופנה',
-        'sim.cat.household': 'תחזוקת הבית',
-        'sim.cat.furniture': 'ריהוט',
-        'sim.cat.vacation': 'פנאי ונופש',
-        'sim.cat.pension': 'דמי ניהול פנסיה',
-        'sim.cat.hishtalmut': 'קרן השתלמות',
-        'sim.cat.mortgage': 'החזרי משכנתא',
-        'sim.cat.insurance': 'ביטוחים',
-        'stats.workers': 'travailleurs Haredim dans l\'économie',
-        'stats.students': 'participants en formation professionnelle par an',
+        'sim.title': 'Vérifiez combien vous pouvez économiser avec nous',
+        'sim.subtitle': 'Simulation d\'économies et d\'avantages basée sur vos données de dépenses et de revenus',
+        'sim.card1_title': 'Achats et Dépenses Courantes',
+        'sim.card1_desc': 'Entrez vos dépenses mensuelles estimées par carte de crédit, et nous calculerons vos économies potentielles sur les dépenses courantes avec notre carte de crédit.',
+        'sim.card2_title': 'Finances et Dépenses Fixes',
+        'sim.card2_desc': 'Entrez votre revenu mensuel, et nous calculerons les économies potentielles sur les dépenses fixes qui en découlent, une fois que vous ferez déjà partie de nous.',
+        'sim.annual_savings': 'Économies annuelles prévues',
+        'sim.annual_addition': 'Ajout annuel aux économies',
+        'sim.monthly_avg': 'Moyenne mensuelle:',
+        'sim.annual_total': 'Total annuel:',
+        'sim.cat.food': 'Alimentation et Consommation',
+        'sim.cat.clothing': 'Vêtements',
+        'sim.cat.household': 'Logement et Meubles',
+        'sim.cat.transport': 'Transport et Communication',
+        'sim.cat.education': 'Éducation',
+        'sim.cat.pension': 'Fonds de Pension',
+        'sim.cat.hishtalmut': 'Fonds d\'Études Avancées',
+        'sim.cat.mortgage': 'Hypothèque',
+        'sim.cat.insurance': 'Assurances',
+        'sim.cat.gemel': 'Plan d\'Épargne pour Chaque Enfant',
+        'stats.workers': 'Travailleurs Haredim dans le secteur des affaires',
+        'stats.students': 'Participants en formation professionnelle par an',
         'stats.assets_unit': 'Milliards ₪',
-        'stats.assets': 'actifs de retraite projetés pour les membres d\'ici 2035',
+        'stats.assets': 'Actifs de retraite projetés pour les membres de la communauté active d\'ici 2035',
         'benefits.tag': 'Nos Avantages',
-        'benefits.title': 'Une Couverture Complète pour Tous les Domaines',
-        'b1.title': 'Contourner Banque et Assurance',
-        'b1.desc': 'Accès direct au financement communautaire — sans bureaucratie, à vos conditions',
-        'b2.title': 'Prêt "Foyer Fidèle"',
-        'b2.desc': 'Jusqu\'à ₪220 000 sans intérêt pour les jeunes mariés',
-        'b3.title': 'Hypothèque Taux de Base Moins 1,5%',
-        'b3.desc': 'Conditions exclusives — économies de dizaines de milliers sur la durée du prêt',
-        'b4.title': 'Exonération Complète de TVA',
-        'b4.desc': 'Avantage sur des centaines de produits — les économies vont dans votre poche',
-        'b5.title': '1 000+ Entreprises',
-        'b5.desc': 'Réseau étendu — vraies réductions sur achats, événements et style de vie',
+        'benefits.title': 'Une enveloppe complète pour tous les domaines de la vie',
+        'b1.title': 'Solutions Financières Communautaires',
+        'b1.desc': 'Accès direct aux organismes de financement et conseils financiers - sans bureaucratie et à vos conditions.',
+        'b2.title': 'Le Prêt Bancaire d\'Accompagnement',
+        'b2.desc': 'Un prêt à des conditions uniques pour les jeunes mariés membres du club.',
+        'b3.title': 'Hypothèques dans des Parcours Uniques',
+        'b3.desc': 'Conditions de crédit exclusives de la banque en collaboration avec la compagnie d\'assurance — des dizaines de milliers de shekels d\'économies sur la durée de l\'hypothèque',
+        'b4.title': 'Exonération Complète des Frais de Carte',
+        'b4.desc': 'Un avantage unique sur des centaines de produits et services avec la carte du club, jusqu\'à nouvel ordre',
+        'b5.title': '5 000+ Entreprises',
+        'b5.desc': 'Un vaste réseau commercial dans la communauté — de vraies réductions sur les achats et événements adaptés à la famille Haredi',
         'b6.title': 'Couverture Vie à 360°',
-        'b6.desc': 'CRM familial, sécurité et résilience — tout pour une vie réussie',
-        'proof.text': '<span style="color:#d4af37;">Des milliers de familles</span> sont en route — rejoignez-les',
+        'b6.desc': 'CRM familial, sécurité commerciale et résilience financière — tout ce qu\'il faut pour une vie complète et réussie',
+        'proof.text': '<span style="color:#d4af37;">Des milliers de familles</span> sont déjà en route — rejoignez-nous aussi',
         'form.tag': 'Liste d\'attente',
-        'form.title': 'Laissez vos coordonnées',
+        'form.title': 'Laissez vos coordonnées et nous vous contacterons',
         'form.subtitle': 'Les places sont limitées — réservez votre place maintenant',
-        'form.name': 'Nom Complet', 'form.name_ph': 'Votre nom complet',
-        'form.phone': 'Téléphone', 'form.phone_ph': '050-0000000',
-        'form.address': 'Adresse', 'form.address_ph': 'Rue, Ville',
-        'form.workplace': 'Lieu de Travail', 'form.workplace_ph': "Nom de l'employeur",
-        'form.income_lbl': 'Laquelle s\'applique?',
-        'form.i1': 'Je suis le seul soutien de famille',
-        'form.i2': 'Nous travaillons tous les deux',
-        'form.i3': 'Autre',
-        'form.ref_lbl': 'Comment nous avez-vous connus?',
-        'form.ref0': 'Sélectionner...',
-        'form.ref1': 'Ami / Famille',
-        'form.ref2': 'Réseaux Sociaux',
-        'form.ref3': 'Publicité',
-        'form.ref4': 'Enseignant / Rabbin',
-        'form.ref5': 'Autre',
-        'form.terms_pre': 'Informations transmises à un tiers pour les avantages — ',
-        'form.terms_lnk': 'Conditions d\'utilisation',
+        'form.affil_lbl': 'Affiliation au Club',
+        'form.affil0': 'Sélectionner...',
+        'form.affil1': 'Étudiant',
+        'form.affil2': 'Éducation et Enseignement',
+        'form.affil3': 'Indépendant en Commerce',
+        'form.affil4': 'Industrie et Construction',
+        'form.affil5': 'High-Tech',
+        'form.affil6': 'Professions Libérales (CPA, Avocat, etc.)',
+        'form.fname': 'Prénom', 'form.fname_ph': 'Israël',
+        'form.lname': 'Nom de Famille', 'form.lname_ph': 'Israéli',
+        'form.idnum': 'Numéro d\'Identité', 'form.idnum_ph': '000000000',
+        'form.phone': 'Numéro de Téléphone', 'form.phone_ph': '050-0000000',
+        'form.email': 'Adresse E-mail', 'form.email_ph': 'email@example.com',
+        'form.track_lbl': 'Parcours d\'Inscription',
+        'form.track1': 'Je souhaite m\'inscrire et recevoir votre crédit non bancaire',
+        'form.track2': 'Je souhaite souscrire une assurance à prix réduit auprès de la compagnie d\'assurance par votre intermédiaire',
+        'form.track3': 'Je souhaite recevoir des détails sur une hypothèque à prix réduit de la banque leader du programme',
+        'form.terms_pre': 'Je confirme avoir lu les ',
+        'form.terms_lnk': 'règlements de \'Tivuta\' à ce sujet',
+        'form.terms_post': '.<br>J\'autorise également le club à utiliser mes coordonnées avec des tiers pour les fins détaillées dans les règlements.',
         'form.submit': 'Envoyer',
-        'form.ok_title': 'Inscription réussie!',
-        'form.ok_text': 'Merci. Nous vous contacterons bientôt.',
+        'form.ok_title': 'Inscription Réussie !',
+        'form.ok_text': 'Merci pour votre inscription. Nous vous contacterons sous peu.',
         'form.err': 'Une erreur s\'est produite. Veuillez réessayer.',
-        'footer.tagline': 'La Couverture Financière-Communautaire Complète',
+        'footer.tagline': 'L\'enveloppe économique-communautaire complète',
         'footer.terms': 'Conditions d\'utilisation',
         'footer.copy': '© 2025 Tivuta. Tous droits réservés.',
-        'footer.built_by': 'Conçu et développé par',
+        'footer.built_by': 'Construit et conçu par',
       },
 
       yi: {
         'hero.badge': 'טרעט צו דעם עקסקלוסיווען קלוב',
         'hero.title': 'ישראל\'ס גרעסטן פינאנציעלן<br>קהילה-קלוב',
-        'hero.subtitle': 'שרייבט אייך איין אויפן ווארטע-ליסטע — זייט ערשטע צו גניסן פון אלע ביכלעך',
+        'hero.subtitle': 'שרייבט אייך איין אויפן ווארטע-ליסטע — זייט ערשטע צו גניסן פון אלע פינאנציעלע, קהילה און לעבנסשטיל ביכלעך וואס טיבותא פאָרשלאָגט',
         'hero.cta': 'טרעט איין איצט →',
         'hero.scroll': 'גלייט אראפ ↓',
-        'stats.workers': 'חרדישע ארבעטער אין וויטשאפט',
+        'sim.title': 'קאָנטראָליר ווי פיל איר קענט שפּאָרן מיט אונדז',
+        'sim.subtitle': 'שפּאָרן און ביכלעך סימולאציע באזירט אויף אייערע הוצאות און הכנסות דאַטן',
+        'sim.card1_title': 'איינקויפן און שוטף הוצאות',
+        'sim.card1_desc': 'לייגט אריין אייער געשאצטע חודשליכע קרעדיט קארטל הוצאות, און מיר וועלן רעכענען אייערע פאטענציעלע שפאָרונגען אויף די שוטף הוצאות מיט אונזער קרעדיט קארטל.',
+        'sim.card2_title': 'פינאנצן און קבועות הוצאות',
+        'sim.card2_desc': 'לייגט אריין אייער חודשליכע הכנסה, און מיר וועלן רעכענען אייערע פאטענציעלע שפאָרונגען אויף די קבועות הוצאות וואס זענען אפהענגיק אין איר, ווען איר זענט שוין א טייל פון אונדז.',
+        'sim.annual_savings': 'ערווארטעטע יערליכע שפאָרונגען',
+        'sim.annual_addition': 'יערליכע צוגאב צו די שפאָרונגען',
+        'sim.monthly_avg': 'חודשליכע דורכשניט:',
+        'sim.annual_total': 'יערליכע סך הכל:',
+        'sim.cat.food': 'שפּייַז און פאַרנוץ',
+        'sim.cat.clothing': 'קליידונג',
+        'sim.cat.household': 'הויז און מעבל טראגונג',
+        'sim.cat.transport': 'טראַנספּאָרט און קאָמוניקאַציע',
+        'sim.cat.education': 'חינוך',
+        'sim.cat.pension': 'פּענסיע פאָנד',
+        'sim.cat.hishtalmut': 'השתלמות פאָנד',
+        'sim.cat.mortgage': 'משכנתא',
+        'sim.cat.insurance': 'פאַרזיכערונגען',
+        'sim.cat.gemel': 'שפּאָרן פלאַן פֿאַר יעדער קינד',
+        'stats.workers': 'חרדישע ארבעטער אין דער געשעפט סעקטאָר',
         'stats.students': 'לערנער אין פראפעסיאנעלע הכשרה יערלעך',
         'stats.assets_unit': 'מיליאַרד ₪',
         'stats.assets': 'צפי פנסיה-אקטיווע פאר קהילה-מיטגלידער ביז 2035',
         'benefits.tag': 'אונזערע ביכלעך',
         'benefits.title': 'א גאנצע הילף פאר אלע לעבנסגעביטן',
-        'b1.title': 'באזייטיגן בנק און פארזיכערונג',
-        'b1.desc': 'דירעקטן צוטריט צו קהילה-פינאנסירונג — אן בירעקראטיע, אייערע תנאים',
-        'b2.title': '"בית נאמן" הלוואה',
-        'b2.desc': 'ביז ₪220,000 אן ריבית פאר חתנים ובית — ספעציעלע פינאנסירונג',
-        'b3.title': 'משכנתא מינוס 1.5%',
-        'b3.desc': 'עקסקלוסיווע קרעדיט-תנאים — שפאראייניקונגען פון צענדליקע טויזנטן',
-        'b4.title': 'גאנצע מע"מ-באפריאונג',
-        'b4.desc': 'ספעציעלע הנאה אויף הונדערטע פראדוקטן — שפאראייניקונגען גלייך אין אייער קעשענע',
-        'b5.title': '1,000+ עסקים',
-        'b5.desc': 'א ברייטע נעץ פון עסקים — עכטע רבאטן אויף קניות, אירועים, לעבנסשטיל',
+        'b1.title': 'קהילה פינאנציעלע לייזונגען',
+        'b1.desc': 'דירעקטן צוטריט צו פינאנסירונג קערפער און פינאנציעלע ראט - אן בירעקראטיע און לויט אייערע תנאים.',
+        'b2.title': 'באגלייטנדע באנק הלוואה',
+        'b2.desc': 'הלוואה מיט ספעציעלע תנאים פאר חתנים און כלות וואס זענען קלוב מיטגלידער.',
+        'b3.title': 'משכנתאות אין ספעציעלע טרעקס',
+        'b3.desc': 'עקסקלוסיווע קרעדיט תנאים פונעם באנק אין מיטארבעט מיט די פארזיכערונג פירמע — שפאראייניקונגען פון צענדליקע טויזנטן דורכאויס דעם משכנתא',
+        'b4.title': 'פולע פטור פון קארטל אפצאל',
+        'b4.desc': 'א ספעציעלע הנאה אויף הונדערטער פראדוקטן און דינסטן מיטן קלוב קארטל, ביז ווייטערדיגע מעלדונג',
+        'b5.title': '5,000+ געשעפטן',
+        'b5.desc': 'א ברייטע ביזנעס נעץ אין דער קהילה — עכטע רבאטן אויף קניות און אירועים אנגעפאסט פאר דער חרדישער משפחה',
         'b6.title': '360° לעבנס-שוץ',
-        'b6.desc': 'משפחה-CRM, ביזנעס-זיכערהייט — אלץ פאר א גאנצן לעבן',
-        'proof.text': '<span style="color:#d4af37;">טויזנטע משפחות</span> זענען שוין אויפן וועג — שלאסט זיך צו',
+        'b6.desc': 'משפחה-CRM, ביזנעס-זיכערהייט און פינאנציעלע פעסטקייט — אלץ וואס מ\'דארף פאר א גאנצן און געראטנקייטן לעבן',
+        'proof.text': '<span style="color:#d4af37;">טויזנטע משפחות</span> זענען שוין אויפן וועג — שלאסט זיך צו אויך איר',
         'form.tag': 'ווארטע-ליסטע',
-        'form.title': 'לאזט אייערע פרטים',
+        'form.title': 'לאזט אייערע פרטים און מיר וועלן צוריקקומען צו אייך',
         'form.subtitle': 'פלעצער זענען באגרענעצט — זיכערט אייער פלאץ איצט',
-        'form.name': 'גאנצן נאמען', 'form.name_ph': 'אייער נאמען',
-        'form.phone': 'טעלעפאן', 'form.phone_ph': '050-0000000',
-        'form.address': 'אדרעס', 'form.address_ph': 'גאס, שטאט',
-        'form.workplace': 'ארבעטסארט', 'form.workplace_ph': 'ארבעטגעבערס נאמען',
-        'form.income_lbl': 'וועלכעס פון די פאלגנדע?',
-        'form.i1': 'איך בין דער איינציקן פארנאלטנר',
-        'form.i2': 'מיר ביידע ארבעטן',
-        'form.i3': 'אנדערש',
-        'form.ref_lbl': 'ווי האט איר פון אונז דערהערט?',
-        'form.ref0': 'אויסקלייבן...',
-        'form.ref1': 'חבר / משפחה',
-        'form.ref2': 'סאציאלע מעדיעס',
-        'form.ref3': 'פובליציטעט',
-        'form.ref4': 'לערער / רב',
-        'form.ref5': 'אנדערש',
-        'form.terms_pre': 'פרטים וועלן דורכגעגעבן ווערן צו א דריטן — ',
-        'form.terms_lnk': 'תנאי שימוש',
-        'form.submit': 'שיק',
-        'form.ok_title': 'איינגעשריבן!',
-        'form.ok_text': 'א דאנק. מיר וועלן זיך מעלדן.',
-        'form.err': 'א טעות. פרובירט ווידער.',
-        'footer.tagline': 'די גאנצע פינאנציעל-קהילה-מעטפת',
-        'footer.terms': 'תנאי שימוש',
-        'footer.copy': '© 2025 טיבותא. אלע רעכטן פארבעהאלטן.',
+        'form.affil_lbl': 'קלוב אנשלוס',
+        'form.affil0': 'קלייַבן...',
+        'form.affil1': 'קאָלעדזש תּלמיד',
+        'form.affil2': 'חינוך און לערנען',
+        'form.affil3': 'זעלבסטשטענדיקער הענדלער',
+        'form.affil4': 'אינדוסטריע און בויען',
+        'form.affil5': 'היי-טעק',
+        'form.affil6': 'פרייע פראפעסיעס (רו"ח, אדוואקאט א.א.וו.)',
+        'form.fname': 'ערשטע נאָמען', 'form.fname_ph': 'ישראל',
+        'form.lname': 'לעצטע נאָמען', 'form.lname_ph': 'ישראלי',
+        'form.idnum': 'אידענטיטעט נומער', 'form.idnum_ph': '000000000',
+        'form.phone': 'טעלעפאן נומער', 'form.phone_ph': '050-0000000',
+        'form.email': 'בליצפּאָסט אַדרעס', 'form.email_ph': 'email@example.com',
+        'form.track_lbl': 'איינשלוס טרעק',
+        'form.track1': 'איך וואָלט געוואָלט זיך איינשרייבן און באקומען אייער ניט-באנק קרעדיט',
+        'form.track2': 'איך וואָלט געוואָלט זיך איינשרייבן צו דיסקאָנטירטע פארזיכערונג ביים פארזיכערונג פירמע דורך אייך',
+        'form.track3': 'איך וואָלט געוואָלט באקומען פרטים איבער א דיסקאָנטירטע משכנתא פונעם פירנדיקן באנק אינעם פראגראם',
+        'form.terms_pre': 'איך באשטעטיג אז איך האב געליינט די ',
+        'form.terms_lnk': '\'טיבותא\' תקנות אויפן ענין',
+        'form.terms_post': '.<br>איך דעריבער בארעכטיג דעם קלוב צו נוצן מיינע פרטים מיט דריטע צדדים פאר די צוועקן אנגעוויזן אין די תקנות.',
+        'form.submit': 'שיקן',
+        'form.ok_title': 'איינגעשריבן מיט הצלחה!',
+        'form.ok_text': 'א דאנק פארן איינשרייבן. מיר וועלן זיין אין קאנטאקט אין גיכן.',
+        'form.err': 'א טעות האט פאסירט. ביטע פרובירט נאכאמאל.',
+        'footer.tagline': 'די פולשטענדיגע פינאנציעלע-קהילה הילף',
+        'footer.terms': 'תקנות און באדינגונגען',
+        'footer.copy': '© 2025 טיבותא. אלע רעכטן רעזערווירט.',
         'footer.built_by': 'געבויט און דיזיינד דורך',
       }
+
     };
+
 
     const RTL = new Set(['he', 'yi']);
     let lang = 'he';
@@ -1960,7 +2019,7 @@
         lbl.style.display = isOpen ? 'block' : 'none';
       }
       if (btn) {
-        btn.textContent = isOpen ? '⚙️ הסתר אחוזים' : '⚙️ התאמה אישית של האחוזים';
+        btn.textContent = isOpen ? '⚙️ להסתרת האחוזים' : '⚙️ התאמה אישית של האחוזים';
       }
     }
 
@@ -1968,10 +2027,10 @@
       const el = document.getElementById(id);
       if (el.style.display === 'none' || el.style.display === '') {
         el.style.display = 'block';
-        btn.textContent = 'הסתר פירוט ▴';
+        btn.textContent = 'להסתרת הפירוט ▴';
       } else {
         el.style.display = 'none';
-        btn.textContent = 'צפה בפירוט החיסכון ▾';
+        btn.textContent = 'לצפייה בפירוט החיסכון ▾';
       }
     }
 
