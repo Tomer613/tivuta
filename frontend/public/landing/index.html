@@ -1203,7 +1203,11 @@
             <div class="sim-total-sub" id="sim1-sub">ממוצע חודשי: 0 ₪</div>
           </div>
 
-          <div class="sim-segmented-bar" id="sim1-bar" style="margin-bottom: 24px;"></div>
+          <div style="font-size:12px; color:#8899bb; text-align:right; margin-bottom: 4px;">הוצאות באשראי נוכחיות:</div>
+          <div class="sim-segmented-bar" id="sim1-bar" style="margin-top: 4px; margin-bottom: 16px; opacity: 0.6;"></div>
+          
+          <div style="font-size:12px; color:#d4af37; text-align:right; margin-bottom: 4px; font-weight: bold;">הוצאות באשראי עם טיבותא:</div>
+          <div class="sim-segmented-bar" id="sim1-bar-discount" style="margin-top: 4px; margin-bottom: 24px; box-shadow: 0 0 12px rgba(212,175,55,0.2);"></div>
 
           <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim1-breakdown', this)">צפה בפירוט החיסכון ▾</button>
 
@@ -1234,7 +1238,11 @@
             <div class="sim-total-sub" id="sim2-sub">ממוצע חודשי: 0 ₪</div>
           </div>
 
-          <div class="sim-segmented-bar" id="sim2-bar" style="margin-bottom: 24px;"></div>
+          <div style="font-size:12px; color:#8899bb; text-align:right; margin-bottom: 4px;">הוצאות קבועות נוכחיות:</div>
+          <div class="sim-segmented-bar" id="sim2-bar" style="margin-top: 4px; margin-bottom: 16px; opacity: 0.6;"></div>
+          
+          <div style="font-size:12px; color:#d4af37; text-align:right; margin-bottom: 4px; font-weight: bold;">הוצאות קבועות עם טיבותא:</div>
+          <div class="sim-segmented-bar" id="sim2-bar-discount" style="margin-top: 4px; margin-bottom: 24px; box-shadow: 0 0 12px rgba(212,175,55,0.2);"></div>
 
           <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim2-breakdown', this)">צפה בפירוט החיסכון ▾</button>
 
@@ -1818,8 +1826,10 @@
 
     function initSimUI() {
       const bar1 = document.getElementById('sim1-bar');
+      const bar1D = document.getElementById('sim1-bar-discount');
       const cats1 = document.getElementById('sim1-categories');
       if (bar1) bar1.innerHTML = '';
+      if (bar1D) bar1D.innerHTML = '';
       if (cats1) cats1.innerHTML = '';
 
       sim1Config.forEach(cat => {
@@ -1829,6 +1839,13 @@
           seg.id = 'seg_' + cat.id;
           seg.style.backgroundColor = cat.color;
           bar1.appendChild(seg);
+        }
+        if (bar1D) {
+          const segD = document.createElement('div');
+          segD.className = 'sim-segment';
+          segD.id = 'seg_d_' + cat.id;
+          segD.style.backgroundColor = cat.color;
+          bar1D.appendChild(segD);
         }
 
         if (cats1) {
@@ -1866,8 +1883,10 @@
       });
 
       const bar2 = document.getElementById('sim2-bar');
+      const bar2D = document.getElementById('sim2-bar-discount');
       const cats2 = document.getElementById('sim2-categories');
       if (bar2) bar2.innerHTML = '';
+      if (bar2D) bar2D.innerHTML = '';
       if (cats2) cats2.innerHTML = '';
 
       sim2Config.forEach(cat => {
@@ -1877,6 +1896,13 @@
           seg.id = 'seg_' + cat.id;
           seg.style.backgroundColor = cat.color;
           bar2.appendChild(seg);
+        }
+        if (bar2D) {
+          const segD = document.createElement('div');
+          segD.className = 'sim-segment';
+          segD.id = 'seg_d_' + cat.id;
+          segD.style.backgroundColor = cat.color;
+          bar2D.appendChild(segD);
         }
 
         if (cats2) {
@@ -1954,6 +1980,8 @@
         if (elVal) elVal.innerHTML = '<span style="color:#8899bb; font-weight:normal; margin-left:4px;">חיסכון:</span>₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
         if (elSeg) elSeg.style.width = cat.pct + '%';
+        const elSegD = document.getElementById('seg_d_' + cat.id);
+        if (elSegD) elSegD.style.width = (cat.pct * (1 - cat.discount)) + '%';
       });
 
       const elSim1Val = document.getElementById('sim1-val');
@@ -1980,6 +2008,8 @@
         if (elVal) elVal.innerHTML = '<span style="color:#8899bb; font-weight:normal; margin-left:4px;">חיסכון:</span>₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
         if (elSeg) elSeg.style.width = cat.pct + '%';
+        const elSegD = document.getElementById('seg_d_' + cat.id);
+        if (elSegD) elSegD.style.width = (cat.pct * (1 - cat.discount)) + '%';
       });
 
       const elSim2Val = document.getElementById('sim2-val');
