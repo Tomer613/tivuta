@@ -1212,9 +1212,9 @@
           <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim1-breakdown', this)">צפה בפירוט החיסכון ▾</button>
 
           <div id="sim1-breakdown" style="display:none; margin-top:24px; border-top:1px dashed rgba(255, 255, 255, 0.08); padding-top:24px;">
-            <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;">(% מסך ההוצאה)</div>
+            <div id="sim1-pct-lbl" style="display:none; font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;">(% מסך ההוצאה)</div>
             <div class="sim-categories" id="sim1-categories"></div>
-            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim1-categories')">⚙️ התאמה אישית של האחוזים</button>
+            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim1-categories', this)">⚙️ התאמה אישית של האחוזים</button>
           </div>
         </div>
 
@@ -1247,9 +1247,9 @@
           <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim2-breakdown', this)">צפה בפירוט החיסכון ▾</button>
 
           <div id="sim2-breakdown" style="display:none; margin-top:24px; border-top:1px dashed rgba(255, 255, 255, 0.08); padding-top:24px;">
-            <div style="font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;">(% מסך ההכנסה)</div>
+            <div id="sim2-pct-lbl" style="display:none; font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;">(% מסך ההכנסה)</div>
             <div class="sim-categories" id="sim2-categories"></div>
-            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim2-categories')">⚙️ התאמה אישית של האחוזים</button>
+            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim2-categories', this)">⚙️ התאמה אישית של האחוזים</button>
           </div>
         </div>
       </div>
@@ -1940,13 +1940,28 @@
       });
     }
 
-    function toggleSliders(containerId) {
+    function toggleSliders(containerId, btn) {
       const container = document.getElementById(containerId);
       if (!container) return;
       const sliders = container.querySelectorAll('.sim-cat-slider-wrap');
+      let isOpen = false;
       sliders.forEach(s => {
-        s.style.display = (s.style.display === 'none' || s.style.display === '') ? 'flex' : 'none';
+        if (s.style.display === 'none' || s.style.display === '') {
+          s.style.display = 'flex';
+          isOpen = true;
+        } else {
+          s.style.display = 'none';
+          isOpen = false;
+        }
       });
+      const lblId = containerId.replace('-categories', '-pct-lbl');
+      const lbl = document.getElementById(lblId);
+      if (lbl) {
+        lbl.style.display = isOpen ? 'block' : 'none';
+      }
+      if (btn) {
+        btn.textContent = isOpen ? '⚙️ הסתר אחוזים' : '⚙️ התאמה אישית של האחוזים';
+      }
     }
 
     function toggleBreakdown(id, btn) {
