@@ -524,6 +524,8 @@
       border-radius: 24px;
       padding: 32px;
       position: relative;
+      display: flex;
+      flex-direction: column;
     }
     .sim-card h3 {
       font-size: 24px;
@@ -557,6 +559,12 @@
       font-family: inherit;
       text-align: left;
       direction: ltr;
+      -moz-appearance: textfield;
+    }
+    .sim-input-wrap input::-webkit-outer-spin-button,
+    .sim-input-wrap input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
     }
     .sim-currency {
       color: #d4af37;
@@ -668,7 +676,7 @@
     }
     .sim-total-wrap {
       text-align: center;
-      margin: 36px 0 10px;
+      margin-top: auto;
       padding-top: 36px;
       border-top: 1px dashed rgba(255,255,255,0.08);
     }
@@ -1655,10 +1663,10 @@
     ];
 
     const sim2Config = [
-      { id: 'c_pen', name: 'sim.cat.pension', discount: 0.01, color: '#d4af37' },
-      { id: 'c_hish', name: 'sim.cat.hishtalmut', discount: 0.005, color: '#b8892a' },
-      { id: 'c_mort', name: 'sim.cat.mortgage', discount: 0.02, color: '#f0e6d3' },
-      { id: 'c_ins', name: 'sim.cat.insurance', discount: 0.008, color: '#8899bb' }
+      { id: 'c_pen', name: 'sim.cat.pension', pct: 20, discount: 0.05, color: '#d4af37' },
+      { id: 'c_hish', name: 'sim.cat.hishtalmut', pct: 10, discount: 0.05, color: '#b8892a' },
+      { id: 'c_mort', name: 'sim.cat.mortgage', pct: 25, discount: 0.08, color: '#f0e6d3' },
+      { id: 'c_ins', name: 'sim.cat.insurance', pct: 5, discount: 0.16, color: '#8899bb' }
     ];
 
     function initSimUI() {
@@ -1695,7 +1703,15 @@
           cats1.appendChild(row);
           
           document.getElementById('slider_' + cat.id).addEventListener('input', (e) => {
-            cat.pct = parseFloat(e.target.value);
+            let sumOthers = 0;
+            sim1Config.forEach(c => { if(c !== cat) sumOthers += c.pct; });
+            const maxAllowed = 100 - sumOthers;
+            let val = parseFloat(e.target.value);
+            if(val > maxAllowed) {
+              val = maxAllowed;
+              e.target.value = val;
+            }
+            cat.pct = val;
             document.getElementById('pct_' + cat.id).textContent = cat.pct + '%';
             updateSimulators();
           });
@@ -1720,15 +1736,33 @@
           const row = document.createElement('div');
           row.className = 'sim-cat-row';
           row.innerHTML = `
-            <div class="sim-cat-header" style="margin-bottom:0;">
+            <div class="sim-cat-header">
               <div class="sim-cat-title">
                 <div class="sim-cat-dot" style="background:${cat.color}"></div>
                 <span data-i18n-dynamic="${cat.name}">${T[lang][cat.name] || cat.name}</span>
               </div>
               <div class="sim-cat-val" id="val_${cat.id}">₪0</div>
             </div>
+            <div class="sim-cat-slider-wrap">
+              <input type="range" class="sim-slider" id="slider_${cat.id}" min="0" max="100" step="1" value="${cat.pct}">
+              <div class="sim-cat-pct" id="pct_${cat.id}">${cat.pct}%</div>
+            </div>
           `;
           cats2.appendChild(row);
+
+          document.getElementById('slider_' + cat.id).addEventListener('input', (e) => {
+            let sumOthers = 0;
+            sim2Config.forEach(c => { if(c !== cat) sumOthers += c.pct; });
+            const maxAllowed = 100 - sumOthers;
+            let val = parseFloat(e.target.value);
+            if(val > maxAllowed) {
+              val = maxAllowed;
+              e.target.value = val;
+            }
+            cat.pct = val;
+            document.getElementById('pct_' + cat.id).textContent = cat.pct + '%';
+            updateSimulators();
+          });
         }
       });
     }
@@ -1769,7 +1803,7 @@
       
       let totalSavings2 = 0;
       sim2Config.forEach(cat => {
-        const val = income * cat.discount;
+        const val = income * (cat.pct / 100) * cat.discount;
         cat.currentVal = val;
         totalSavings2 += val;
       });
