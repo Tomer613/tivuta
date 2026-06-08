@@ -188,7 +188,9 @@
     }
 
     /* ── Language Globe Dropdown ────────────────────── */
-    .lang-globe-wrap { position: relative; }
+    .lang-globe-wrap {
+      position: relative;
+    }
 
     .lang-globe-btn {
       background: none;
@@ -224,7 +226,9 @@
       z-index: 200;
     }
 
-    .lang-dropdown.open { display: block; }
+    .lang-dropdown.open {
+      display: block;
+    }
 
     .lang-dropdown-item {
       width: 100%;
@@ -241,8 +245,15 @@
       display: block;
     }
 
-    .lang-dropdown-item:hover { background: rgba(212, 175, 55, .08); color: #f0e6d3; }
-    .lang-dropdown-item.active { color: #d4af37; font-weight: 800; }
+    .lang-dropdown-item:hover {
+      background: rgba(212, 175, 55, .08);
+      color: #f0e6d3;
+    }
+
+    .lang-dropdown-item.active {
+      color: #d4af37;
+      font-weight: 800;
+    }
 
     /* ── Hero ────────────────────────────────────────── */
     #hero {
@@ -279,25 +290,43 @@
 
     /* ── Hero Logo ─────────────────────────────────── */
     @keyframes logo-appear {
-      0%   { opacity: 0; transform: translateY(-22px) scale(.93); filter: blur(6px); }
-      60%  { filter: blur(0); }
-      100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+      0% {
+        opacity: 0;
+        transform: translateY(-22px) scale(.93);
+        filter: blur(6px);
+      }
+
+      60% {
+        filter: blur(0);
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+      }
     }
 
     @keyframes logo-float {
-      0%, 100% { transform: translateY(0px); }
-      50%       { transform: translateY(-8px); }
+
+      0%,
+      100% {
+        transform: translateY(0px);
+      }
+
+      50% {
+        transform: translateY(-8px);
+      }
     }
 
     .hero-logo-wrap {
       margin-bottom: 40px;
       animation: logo-appear 1.4s cubic-bezier(0.16, 1, 0.3, 1) both,
-                 logo-float 7s ease-in-out infinite;
+        logo-float 7s ease-in-out infinite;
       animation-delay: 0s, 1.4s;
       /* Layered shadow: tight dark base (weight) + diffuse warm halo (prestige) */
       filter:
-        drop-shadow(0 3px 3px rgba(0,0,0,.75))
-        drop-shadow(0 8px 28px rgba(148,108,20,.32));
+        drop-shadow(0 3px 3px rgba(0, 0, 0, .75)) drop-shadow(0 8px 28px rgba(148, 108, 20, .32));
     }
 
     .hero-logo-wrap svg {
@@ -515,39 +544,47 @@
       grid-template-columns: 1fr 1fr;
       gap: 32px;
     }
+
     @media (max-width: 900px) {
-      .sim-grid { grid-template-columns: 1fr; }
+      .sim-grid {
+        grid-template-columns: 1fr;
+      }
     }
+
     .sim-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 24px;
       padding: 32px;
       position: relative;
       display: flex;
       flex-direction: column;
     }
+
     .sim-card h3 {
       font-size: 24px;
       color: #d4af37;
       margin-bottom: 12px;
       font-weight: 700;
     }
+
     .sim-desc {
       color: #8899bb;
       font-size: 15px;
       line-height: 1.6;
       margin-bottom: 24px;
     }
+
     .sim-input-wrap {
-      background: rgba(0,0,0,0.3);
-      border: 1px solid rgba(212,175,55,0.4);
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(212, 175, 55, 0.4);
       border-radius: 12px;
       padding: 12px 16px;
       display: flex;
       align-items: center;
       margin-bottom: 16px;
     }
+
     .sim-input-wrap input {
       background: transparent;
       border: none;
@@ -561,17 +598,20 @@
       direction: ltr;
       -moz-appearance: textfield;
     }
+
     .sim-input-wrap input::-webkit-outer-spin-button,
     .sim-input-wrap input::-webkit-inner-spin-button {
       -webkit-appearance: none;
       margin: 0;
     }
+
     .sim-currency {
       color: #d4af37;
       font-size: 24px;
       font-weight: 700;
       margin-inline-end: 8px;
     }
+
     .sim-slider {
       width: 100%;
       appearance: none;
@@ -579,8 +619,9 @@
       outline: none;
       height: 6px;
       border-radius: 4px;
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.1);
     }
+
     .sim-slider::-webkit-slider-thumb {
       appearance: none;
       width: 24px;
@@ -588,51 +629,59 @@
       border-radius: 50%;
       background: #d4af37;
       cursor: pointer;
-      box-shadow: 0 0 10px rgba(212,175,55,0.5);
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
     }
+
     .sim-slider::-moz-range-thumb {
       width: 24px;
       height: 24px;
       border-radius: 50%;
       background: #d4af37;
       cursor: pointer;
-      box-shadow: 0 0 10px rgba(212,175,55,0.5);
+      box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
       border: none;
     }
+
     .sim-segmented-bar {
       display: flex;
       height: 14px;
       border-radius: 7px;
       overflow: hidden;
       margin: 32px 0 28px;
-      background: rgba(255,255,255,0.05);
-      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
     }
+
     .sim-segment {
       height: 100%;
       transition: width 0.4s ease;
     }
+
     .sim-categories {
       display: flex;
       flex-direction: column;
       gap: 12px;
     }
+
     .sim-cat-row {
-      background: rgba(0,0,0,0.15);
-      border: 1px solid rgba(255,255,255,0.03);
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.03);
       border-radius: 12px;
       padding: 16px 20px;
       transition: background 0.2s;
     }
+
     .sim-cat-row:hover {
-      background: rgba(255,255,255,0.02);
+      background: rgba(255, 255, 255, 0.02);
     }
+
     .sim-cat-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 12px;
     }
+
     .sim-cat-title {
       display: flex;
       align-items: center;
@@ -641,31 +690,37 @@
       font-weight: 600;
       font-size: 15px;
     }
+
     .sim-cat-dot {
       width: 14px;
       height: 14px;
       border-radius: 50%;
       box-shadow: 0 0 8px currentColor;
     }
+
     .sim-cat-val {
       color: #fff;
       font-weight: 800;
       font-size: 16px;
       direction: ltr;
     }
+
     .sim-cat-slider-wrap {
       display: flex;
       align-items: center;
       gap: 14px;
     }
+
     .sim-cat-slider-wrap .sim-slider {
       flex: 1;
       height: 4px;
     }
+
     .sim-cat-slider-wrap .sim-slider::-webkit-slider-thumb {
       width: 16px;
       height: 16px;
     }
+
     .sim-cat-pct {
       font-size: 14px;
       font-weight: 700;
@@ -674,25 +729,29 @@
       text-align: left;
       direction: ltr;
     }
+
     .sim-total-wrap {
       text-align: center;
       margin-top: auto;
       padding-top: 36px;
-      border-top: 1px dashed rgba(255,255,255,0.08);
+      border-top: 1px dashed rgba(255, 255, 255, 0.08);
     }
+
     .sim-total-lbl {
       color: #8899bb;
       font-size: 15px;
       font-weight: 600;
       margin-bottom: 6px;
     }
+
     .sim-total-val {
       color: #fff;
       font-size: 48px;
       font-weight: 900;
       line-height: 1.1;
-      text-shadow: 0 4px 16px rgba(212,175,55,0.2);
+      text-shadow: 0 4px 16px rgba(212, 175, 55, 0.2);
     }
+
     .sim-total-sub {
       color: #d4af37;
       font-size: 15px;
@@ -701,12 +760,14 @@
     }
 
     /* ── Custom dropdown ─────────────────────────────── */
-    .cs-wrap { position: relative; }
+    .cs-wrap {
+      position: relative;
+    }
 
     .cs-trigger {
       width: 100%;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid rgba(255, 255, 255, .1);
       border-radius: 13px;
       padding: 14px 18px;
       color: #f0e6d3;
@@ -719,12 +780,16 @@
       transition: border-color .2s, box-shadow .2s;
       user-select: none;
     }
+
     .cs-trigger:hover,
     .cs-trigger.open {
-      border-color: rgba(212,175,55,.5);
-      box-shadow: 0 0 0 3px rgba(212,175,55,.1);
+      border-color: rgba(212, 175, 55, .5);
+      box-shadow: 0 0 0 3px rgba(212, 175, 55, .1);
     }
-    .cs-trigger.selected { border-color: rgba(212,175,55,.35); }
+
+    .cs-trigger.selected {
+      border-color: rgba(212, 175, 55, .35);
+    }
 
     .cs-arrow {
       transition: transform .25s;
@@ -733,21 +798,27 @@
       flex-shrink: 0;
       margin-inline-start: 8px;
     }
-    .cs-trigger.open .cs-arrow { transform: rotate(180deg); }
+
+    .cs-trigger.open .cs-arrow {
+      transform: rotate(180deg);
+    }
 
     .cs-panel {
       position: absolute;
       inset-inline: 0;
       top: calc(100% + 6px);
       background: #0e1628;
-      border: 1px solid rgba(212,175,55,.3);
+      border: 1px solid rgba(212, 175, 55, .3);
       border-radius: 13px;
       overflow: hidden;
       z-index: 50;
-      box-shadow: 0 16px 40px rgba(0,0,0,.5);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
       display: none;
     }
-    .cs-panel.open { display: block; }
+
+    .cs-panel.open {
+      display: block;
+    }
 
     .cs-opt {
       padding: 13px 18px;
@@ -755,11 +826,22 @@
       color: #8899bb;
       cursor: pointer;
       transition: background .15s, color .15s;
-      border-bottom: 1px solid rgba(255,255,255,.05);
+      border-bottom: 1px solid rgba(255, 255, 255, .05);
     }
-    .cs-opt:last-child { border-bottom: none; }
-    .cs-opt:hover { background: rgba(212,175,55,.1); color: #f0e6d3; }
-    .cs-opt.active { color: #d4af37; font-weight: 700; }
+
+    .cs-opt:last-child {
+      border-bottom: none;
+    }
+
+    .cs-opt:hover {
+      background: rgba(212, 175, 55, .1);
+      color: #f0e6d3;
+    }
+
+    .cs-opt.active {
+      color: #d4af37;
+      font-weight: 700;
+    }
 
     /* ── Radio buttons ───────────────────────────────── */
     .radio-label {
@@ -844,11 +926,12 @@
       fill: none;
       margin-bottom: 20px;
       transition: transform .35s, drop-shadow .35s;
-      filter: drop-shadow(0 0 6px rgba(212,175,55,.3));
+      filter: drop-shadow(0 0 6px rgba(212, 175, 55, .3));
     }
+
     .benefit-card:hover .benefit-icon-svg {
       transform: scale(1.18) translateY(-3px);
-      filter: drop-shadow(0 0 14px rgba(212,175,55,.65));
+      filter: drop-shadow(0 0 14px rgba(212, 175, 55, .65));
     }
 
     /* ── Stat suffix (unit label) ────────────────────── */
@@ -871,7 +954,11 @@
       transition: transform .3s ease;
       margin-top: 24px;
     }
-    .smart-branding-link:hover { transform: scale(1.06); }
+
+    .smart-branding-link:hover {
+      transform: scale(1.06);
+    }
+
     .smart-built-by {
       font-size: 10px;
       color: #4a5568;
@@ -879,6 +966,7 @@
       letter-spacing: 2.5px;
       opacity: 0.6;
     }
+
     .smart-branding-logo {
       height: 22px;
       width: auto;
@@ -886,6 +974,7 @@
       opacity: 0.55;
       transition: all .5s ease-in-out;
     }
+
     .smart-branding-link:hover .smart-branding-logo {
       filter: grayscale(0%) brightness(100%);
       opacity: 1;
@@ -976,10 +1065,16 @@
       <!-- Language switcher -->
       <div class="lang-globe-wrap">
         <button class="lang-globe-btn" id="langGlobeBtn" aria-label="שינוי שפה / Language">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+            <path d="M2 12h20" />
+          </svg>
         </button>
         <div class="lang-dropdown" id="langDropdown">
-          <button class="lang-dropdown-item active" data-lang="he" onclick="setLang('he');closeLangMenu()">עברית</button>
+          <button class="lang-dropdown-item active" data-lang="he"
+            onclick="setLang('he');closeLangMenu()">עברית</button>
           <button class="lang-dropdown-item" data-lang="en" onclick="setLang('en');closeLangMenu()">English</button>
           <button class="lang-dropdown-item" data-lang="fr" onclick="setLang('fr');closeLangMenu()">Français</button>
           <button class="lang-dropdown-item" data-lang="yi" onclick="setLang('yi');closeLangMenu()">יידיש</button>
@@ -1004,24 +1099,30 @@
           <defs>
             <!-- Brushed-gold gradient: realistic tones, very slow light-sweep -->
             <linearGradient id="hg" x1="-566.9" y1="0" x2="0" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0%"   stop-color="#6b4f10"/>
-              <stop offset="18%"  stop-color="#b8892a"/>
-              <stop offset="36%"  stop-color="#d4af37"/>
-              <stop offset="50%"  stop-color="#edd670"/>
-              <stop offset="64%"  stop-color="#d4af37"/>
-              <stop offset="82%"  stop-color="#9a7018"/>
-              <stop offset="100%" stop-color="#c09028"/>
-              <animate attributeName="x1" values="-566.9;566.9" dur="11s" repeatCount="indefinite"/>
-              <animate attributeName="x2" values="0;1133.8"      dur="11s" repeatCount="indefinite"/>
+              <stop offset="0%" stop-color="#6b4f10" />
+              <stop offset="18%" stop-color="#b8892a" />
+              <stop offset="36%" stop-color="#d4af37" />
+              <stop offset="50%" stop-color="#edd670" />
+              <stop offset="64%" stop-color="#d4af37" />
+              <stop offset="82%" stop-color="#9a7018" />
+              <stop offset="100%" stop-color="#c09028" />
+              <animate attributeName="x1" values="-566.9;566.9" dur="11s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="0;1133.8" dur="11s" repeatCount="indefinite" />
             </linearGradient>
           </defs>
-          <path fill="url(#hg)" d="M242.7,100.2c0-3.6,2.4-6.6,5.8-7.5V84c0-13.9-3.6-24.3-10.9-31.3c-7.3-6.9-18.1-10.4-32.6-10.4h-36.1l-10.6,18.3h11.9c-2.3,3.3-4.1,7.5-5.3,12.7c-1.3,5.1-1.9,10.1-1.9,14.9v30.3c0,5.3-1.2,9.3-3.5,11.8c-1.6,1.7-3.7,2.8-6.5,3.4l12.6,17.8l-25.7,0.4c4.5,0.7,11.3,1.3,15.1,1.3c9.8,0,17.4-2.8,22.8-8.5c5.3-5.7,8-13.8,8-24.5v-34c0-4.4,0.4-8.9,1.3-13.6c0.9-4.6,2-8.6,3.4-12h14.8c6.9,0,11.9,1.7,15.1,5.2c3.2,3.5,4.8,9,4.8,16.5l0.1,69.6h23.3v-44.2C245.1,106.8,242.7,103.8,242.7,100.2z"/>
-          <path fill="url(#hg)" d="M274,133.6V42.4L250.5,69v23.4c4.3,0,7.8,3.5,7.8,7.8s-3.5,7.8-7.8,7.8v44h20v-18.4H274z"/>
-          <path fill="url(#hg)" d="M349.9,83c0-13.2-3.8-23.2-11.3-30.2c-7.5-7-18.4-10.5-32.5-10.5h-29.6v18.3h28.1c7.6,0,13.1,1.7,16.6,5.2c3.5,3.4,5.3,8.9,5.3,16.2v51.4H274V152h88.9v-17.6l-13-1.7V83z"/>
-          <rect fill="url(#hg)" x="270.5" y="133.6" width="3.5" height="18.4"/>
-          <path fill="url(#hg)" d="M374.1,64.2V42.4l-23.4,26.7v35.2h23.4v-21c-4.9-6-8-9.8-8-9.8C366.1,73.3,369.7,69.2,374.1,64.2z"/>
-          <path fill="url(#hg)" d="M132.5,105l22.6-41.5l1.5-2.8l10-18.3h-6h-9.3h-11l-22.2,42.3L88.3,42.4H62.1l24,33.8c-6.8,3.3-11.8,7.9-15,14c-3.2,6.1-4.7,14-4.7,23.9V152h22.6v-47.4c0-3.5,0.5-6.5,1.5-9.1c1-2.6,2.6-4.8,4.7-6.5l44.6,63.1l25.7-0.4l-12.6-17.8L132.5,105z"/>
-          <path fill="url(#hg)" d="M479.2,44.3c-0.7,0-1.3,0-2,0c-10.2,0-21,0-31.1,0L426.9,66c0.2,0,0.4,0,0.6,0c5,0,36.6,0.1,41.8,0.1c2.1,2.2,6.8,7.6,6.9,7.8s-35.7,43.3-39.8,48.3c-0.2-0.3-0.6-0.7-1-1.2c-7.1-8.6-38.8-46.9-38.8-47.1c0-0.3,26.1-29.5,26.1-29.5c-3.1,0-28.2,0-29.1,0c0,0,0,0,0,0c-0.3,0.1-12.1,13.5-19.6,22.1c-3.4,4-6,6.9-6,7c0,0,2.3,2.8,6,7.4c15.2,18.5,54.6,66,61.4,74.1c0.6,0.8,1,1.2,1,1.2c0.2,0,68.4-82.3,68.4-82.4C504.7,73.3,479.7,44.3,479.2,44.3z"/>
+          <path fill="url(#hg)"
+            d="M242.7,100.2c0-3.6,2.4-6.6,5.8-7.5V84c0-13.9-3.6-24.3-10.9-31.3c-7.3-6.9-18.1-10.4-32.6-10.4h-36.1l-10.6,18.3h11.9c-2.3,3.3-4.1,7.5-5.3,12.7c-1.3,5.1-1.9,10.1-1.9,14.9v30.3c0,5.3-1.2,9.3-3.5,11.8c-1.6,1.7-3.7,2.8-6.5,3.4l12.6,17.8l-25.7,0.4c4.5,0.7,11.3,1.3,15.1,1.3c9.8,0,17.4-2.8,22.8-8.5c5.3-5.7,8-13.8,8-24.5v-34c0-4.4,0.4-8.9,1.3-13.6c0.9-4.6,2-8.6,3.4-12h14.8c6.9,0,11.9,1.7,15.1,5.2c3.2,3.5,4.8,9,4.8,16.5l0.1,69.6h23.3v-44.2C245.1,106.8,242.7,103.8,242.7,100.2z" />
+          <path fill="url(#hg)"
+            d="M274,133.6V42.4L250.5,69v23.4c4.3,0,7.8,3.5,7.8,7.8s-3.5,7.8-7.8,7.8v44h20v-18.4H274z" />
+          <path fill="url(#hg)"
+            d="M349.9,83c0-13.2-3.8-23.2-11.3-30.2c-7.5-7-18.4-10.5-32.5-10.5h-29.6v18.3h28.1c7.6,0,13.1,1.7,16.6,5.2c3.5,3.4,5.3,8.9,5.3,16.2v51.4H274V152h88.9v-17.6l-13-1.7V83z" />
+          <rect fill="url(#hg)" x="270.5" y="133.6" width="3.5" height="18.4" />
+          <path fill="url(#hg)"
+            d="M374.1,64.2V42.4l-23.4,26.7v35.2h23.4v-21c-4.9-6-8-9.8-8-9.8C366.1,73.3,369.7,69.2,374.1,64.2z" />
+          <path fill="url(#hg)"
+            d="M132.5,105l22.6-41.5l1.5-2.8l10-18.3h-6h-9.3h-11l-22.2,42.3L88.3,42.4H62.1l24,33.8c-6.8,3.3-11.8,7.9-15,14c-3.2,6.1-4.7,14-4.7,23.9V152h22.6v-47.4c0-3.5,0.5-6.5,1.5-9.1c1-2.6,2.6-4.8,4.7-6.5l44.6,63.1l25.7-0.4l-12.6-17.8L132.5,105z" />
+          <path fill="url(#hg)"
+            d="M479.2,44.3c-0.7,0-1.3,0-2,0c-10.2,0-21,0-31.1,0L426.9,66c0.2,0,0.4,0,0.6,0c5,0,36.6,0.1,41.8,0.1c2.1,2.2,6.8,7.6,6.9,7.8s-35.7,43.3-39.8,48.3c-0.2-0.3-0.6-0.7-1-1.2c-7.1-8.6-38.8-46.9-38.8-47.1c0-0.3,26.1-29.5,26.1-29.5c-3.1,0-28.2,0-29.1,0c0,0,0,0,0,0c-0.3,0.1-12.1,13.5-19.6,22.1c-3.4,4-6,6.9-6,7c0,0,2.3,2.8,6,7.4c15.2,18.5,54.6,66,61.4,74.1c0.6,0.8,1,1.2,1,1.2c0.2,0,68.4-82.3,68.4-82.4C504.7,73.3,479.7,44.3,479.2,44.3z" />
         </svg>
       </div>
 
@@ -1060,16 +1161,21 @@
   <!-- ══════════════════════════════════════════════════════════
      SAVINGS SIMULATOR
 ══════════════════════════════════════════════════════════ -->
-  <section id="simulator" class="reveal" style="padding: 60px 20px; background: rgba(14,22,40,0.5); border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05);">
+  <section id="simulator" class="reveal"
+    style="padding: 60px 20px; background: rgba(14,22,40,0.5); border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05);">
     <div style="max-width:1200px; margin:0 auto;">
-      <h2 style="text-align:center; font-size:clamp(28px, 4vw, 40px); font-weight:800; color:#f0e6d3; margin-bottom: 16px;" data-i18n="sim.title">בדקו כמה תוכלו לחסוך</h2>
-      <p style="text-align:center; font-size:18px; color:#8899bb; margin-bottom: 50px;" data-i18n="sim.subtitle">הדמיית חיסכון והטבות על בסיס נתוני ההוצאה וההכנסה שלכם</p>
-      
+      <h2
+        style="text-align:center; font-size:clamp(28px, 4vw, 40px); font-weight:800; color:#f0e6d3; margin-bottom: 16px;"
+        data-i18n="sim.title">בדקו כמה תוכלו לחסוך</h2>
+      <p style="text-align:center; font-size:18px; color:#8899bb; margin-bottom: 50px;" data-i18n="sim.subtitle">הדמיית
+        חיסכון והטבות על בסיס נתוני ההוצאה וההכנסה שלכם</p>
+
       <div class="sim-grid">
         <!-- Simulator 1: Credit Card -->
         <div class="sim-card">
           <h3 data-i18n="sim.card1_title">ניהול צריכה ואשראי</h3>
-          <p class="sim-desc" data-i18n="sim.card1_desc">הזינו את סך ההוצאה החודשית המשוערת בכרטיס האשראי לחישוב פוטנציאל החזר מועדון.</p>
+          <p class="sim-desc" data-i18n="sim.card1_desc">הזינו את סך ההוצאה החודשית המשוערת בכרטיס האשראי לחישוב
+            פוטנציאל החזר מועדון.</p>
           <div class="sim-input-wrap">
             <span class="sim-currency">₪</span>
             <input type="number" id="sim1-num" value="10000" min="2000" max="50000" step="100">
@@ -1078,7 +1184,7 @@
           <div style="display:flex; justify-content:space-between; color:#8899bb; font-size:13px; margin-top:8px;">
             <span>2,000</span><span>50,000+</span>
           </div>
-          
+
           <div class="sim-segmented-bar" id="sim1-bar"></div>
           <div class="sim-categories" id="sim1-categories"></div>
           <div class="sim-total-wrap">
@@ -1091,7 +1197,8 @@
         <!-- Simulator 2: Income -->
         <div class="sim-card">
           <h3 data-i18n="sim.card2_title">הכנסה, תוספת לקופות וקבועות</h3>
-          <p class="sim-desc" data-i18n="sim.card2_desc">הזינו את סך ההכנסה/משכורת חודשית שלכם לחישוב חיסכון בעמלות ובהוצאות קבועות.</p>
+          <p class="sim-desc" data-i18n="sim.card2_desc">הזינו את סך ההכנסה/משכורת חודשית שלכם לחישוב חיסכון בעמלות
+            ובהוצאות קבועות.</p>
           <div class="sim-input-wrap">
             <span class="sim-currency">₪</span>
             <input type="number" id="sim2-num" value="18000" min="5000" max="100000" step="100">
@@ -1104,9 +1211,9 @@
           <div class="sim-segmented-bar" id="sim2-bar"></div>
           <div class="sim-categories" id="sim2-categories"></div>
           <div class="sim-total-wrap">
-            <div class="sim-total-lbl" data-i18n="sim.monthly_addition">תוספת לחסכונות בחודש</div>
+            <div class="sim-total-lbl" data-i18n="sim.annual_addition">תוספת שנתית לחסכונות</div>
             <div class="sim-total-val">₪<span id="sim2-val">0</span></div>
-            <div class="sim-total-sub" id="sim2-sub">סה"כ שנתי: 0 ₪</div>
+            <div class="sim-total-sub" id="sim2-sub">ממוצע חודשי: 0 ₪</div>
           </div>
         </div>
       </div>
@@ -1208,12 +1315,17 @@
           </div>
           <div class="cs-panel" id="affilPanel">
             <div class="cs-opt" data-value="" data-i18n="form.affil0" onclick="pickAffil(this)">בחר...</div>
-            <div class="cs-opt" data-value="לומד במכללה" data-i18n="form.affil1" onclick="pickAffil(this)">לומד במכללה</div>
-            <div class="cs-opt" data-value="חינוך והוראה" data-i18n="form.affil2" onclick="pickAffil(this)">חינוך והוראה</div>
-            <div class="cs-opt" data-value="עצמאי במסחר" data-i18n="form.affil3" onclick="pickAffil(this)">עצמאי במסחר</div>
-            <div class="cs-opt" data-value="תעשייה ובנייה" data-i18n="form.affil4" onclick="pickAffil(this)">תעשייה ובנייה</div>
+            <div class="cs-opt" data-value="לומד במכללה" data-i18n="form.affil1" onclick="pickAffil(this)">לומד במכללה
+            </div>
+            <div class="cs-opt" data-value="חינוך והוראה" data-i18n="form.affil2" onclick="pickAffil(this)">חינוך והוראה
+            </div>
+            <div class="cs-opt" data-value="עצמאי במסחר" data-i18n="form.affil3" onclick="pickAffil(this)">עצמאי במסחר
+            </div>
+            <div class="cs-opt" data-value="תעשייה ובנייה" data-i18n="form.affil4" onclick="pickAffil(this)">תעשייה
+              ובנייה</div>
             <div class="cs-opt" data-value="הייטק" data-i18n="form.affil5" onclick="pickAffil(this)">הייטק</div>
-            <div class="cs-opt" data-value="מקצועות חופשיים (לדוג' רואה חשבון, עו&quot;ד וכו')" data-i18n="form.affil6" onclick="pickAffil(this)">מקצועות חופשיים (לדוג' רואה חשבון, עו"ד וכו')</div>
+            <div class="cs-opt" data-value="מקצועות חופשיים (לדוג' רואה חשבון, עו&quot;ד וכו')" data-i18n="form.affil6"
+              onclick="pickAffil(this)">מקצועות חופשיים (רואה חשבון, עו"ד וכדו')</div>
           </div>
           <input type="hidden" id="fAffil" value="">
         </div>
@@ -1222,31 +1334,35 @@
         <div style="margin-bottom:20px; display:flex; gap:16px;">
           <div style="flex:1;">
             <label class="field-label" data-i18n="form.fname">שם פרטי</label>
-            <input id="fFirstName" type="text" required class="field-input" data-i18n-ph="form.fname_ph" placeholder="ישראל">
+            <input id="fFirstName" type="text" required class="field-input" data-i18n-ph="form.fname_ph"
+              placeholder="ישראל">
           </div>
           <div style="flex:1;">
             <label class="field-label" data-i18n="form.lname">שם משפחה</label>
-            <input id="fLastName" type="text" required class="field-input" data-i18n-ph="form.lname_ph" placeholder="ישראלי">
+            <input id="fLastName" type="text" required class="field-input" data-i18n-ph="form.lname_ph"
+              placeholder="ישראלי">
           </div>
         </div>
 
         <!-- ID Number -->
         <div style="margin-bottom:20px;">
           <label class="field-label" data-i18n="form.idnum">מספר זהות</label>
-          <input id="fIdNum" type="text" required class="field-input" data-i18n-ph="form.idnum_ph" placeholder="000000000">
+          <input id="fIdNum" type="text" required class="field-input" data-i18n-ph="form.idnum_ph"
+            placeholder="000000000">
         </div>
 
         <!-- Phone -->
         <div style="margin-bottom:20px;">
           <label class="field-label" data-i18n="form.phone">מספר טלפון</label>
           <input id="fPhone" type="tel" required class="field-input" data-i18n-ph="form.phone_ph"
-            placeholder="050-0000000">
+            placeholder="050-0000000" style="text-align: right; direction: ltr;">
         </div>
 
         <!-- Email -->
         <div style="margin-bottom:20px;">
           <label class="field-label" data-i18n="form.email">כתובת דוא"ל (אימייל)</label>
-          <input id="fEmail" type="email" required class="field-input" data-i18n-ph="form.email_ph" placeholder="email@example.com">
+          <input id="fEmail" type="email" required class="field-input" data-i18n-ph="form.email_ph"
+            placeholder="email@example.com">
         </div>
 
         <!-- Joining Track -->
@@ -1254,12 +1370,12 @@
           <label class="field-label" style="margin-bottom:14px;" data-i18n="form.track_lbl">מסלול הצטרפות</label>
           <div style="display:flex;flex-direction:column;gap:10px;">
             <label class="radio-label">
-              <input type="checkbox" name="track" value="אשמח להצטרף ולקבל את האשראי החוץ בנקאי">
-              <span data-i18n="form.track1">אשמח להצטרף ולקבל את האשראי החוץ בנקאי</span>
+              <input type="checkbox" name="track" value="אשמח להצטרף ולקבל את האשראי החוץ בנקאי שלכם">
+              <span data-i18n="form.track1">אשמח להצטרף ולקבל את האשראי החוץ בנקאי שלכם</span>
             </label>
             <label class="radio-label">
-              <input type="checkbox" name="track" value="אשמח להצטרף לביטוחים בהנחה דרך חברת הביטוח">
-              <span data-i18n="form.track2">אשמח להצטרף לביטוחים בהנחה דרך חברת הביטוח</span>
+              <input type="checkbox" name="track" value="אשמח להצטרף לביטוחים בהנחה אצל חברת הביטוח דרככם">
+              <span data-i18n="form.track2">אשמח להצטרף לביטוחים בהנחה אצל חברת הביטוח דרככם</span>
             </label>
             <label class="radio-label">
               <input type="checkbox" name="track" value="אשמח לקבל פרטים לגבי משכנתא בהנחה מהבנק המוביל את התכנית">
@@ -1270,8 +1386,8 @@
 
         <!-- Terms notice -->
         <p style="font-size:13px;color:#8899bb;text-align:center;line-height:1.7;margin-bottom:24px;">
-          <span data-i18n="form.terms_pre">הפרטים יועברו לצד שלישי למימוש ההטבות — </span><a href="../terms/"
-            style="color:#d4af37;text-decoration:underline;" data-i18n="form.terms_lnk">תקנון ותנאי שימוש</a>
+          <span data-i18n="form.terms_pre">הריני מאשר שקראתי את </span><a href="../terms/"
+            style="color:#d4af37;text-decoration:underline;" data-i18n="form.terms_lnk">תקנון 'טיבותא' בנושא</a><span data-i18n="form.terms_post">. כמו כן, הריני מאשר למועדון להשתמש בפרטיי מול חברות צד ג' לצרכים המפורטים בתקנון.</span>
         </p>
 
         <!-- Submit -->
@@ -1353,14 +1469,14 @@
         'hero.subtitle': 'הצטרפו לרשימת ההמתנה — ותוכלו ליהנות ראשונים מכל ההטבות הפיננסיות, הקהילתיות וסגנון החיים שטיבותא מציעה',
         'hero.cta': 'הצטרפו עכשיו →',
         'hero.scroll': 'גלול להמשך ↓',
-        'sim.title': 'בדקו כמה תוכלו לחסוך',
+        'sim.title': 'בדקו כמה תוכלו לחסוך איתנו',
         'sim.subtitle': 'הדמיית חיסכון והטבות על בסיס נתוני ההוצאה וההכנסה שלכם',
         'sim.card1_title': 'ניהול צריכה ואשראי',
         'sim.card1_desc': 'הזינו את סך ההוצאה החודשית המשוערת בכרטיס האשראי לחישוב פוטנציאל החזר מועדון.',
         'sim.card2_title': 'הכנסה, תוספת לקופות וקבועות',
         'sim.card2_desc': 'הזינו את סך ההכנסה/משכורת חודשית שלכם לחישוב חיסכון בעמלות ובהוצאות קבועות.',
         'sim.annual_savings': 'חיסכון שנתי צפוי',
-        'sim.monthly_addition': 'תוספת לחסכונות בחודש',
+        'sim.annual_addition': 'תוספת שנתית לחסכונות',
         'sim.monthly_avg': 'ממוצע חודשי:',
         'sim.annual_total': 'סה"כ שנתי:',
         'sim.cat.food': 'מזון וצריכה',
@@ -1399,7 +1515,7 @@
         'form.affil0': 'בחר...',
         'form.affil1': 'לומד במכללה',
         'form.affil2': 'חינוך והוראה',
-        'form.affil3': 'עצמאי במסחר',
+        'form.affil3': 'סוחר עצמאי',
         'form.affil4': 'תעשייה ובנייה',
         'form.affil5': 'הייטק',
         'form.affil6': 'מקצועות חופשיים (לדוג\' רואה חשבון, עו"ד וכו\')',
@@ -1409,11 +1525,12 @@
         'form.phone': 'מספר טלפון', 'form.phone_ph': '050-0000000',
         'form.email': 'כתובת דוא"ל (אימייל)', 'form.email_ph': 'email@example.com',
         'form.track_lbl': 'מסלול הצטרפות',
-        'form.track1': 'אשמח להצטרף ולקבל את האשראי החוץ בנקאי',
-        'form.track2': 'אשמח להצטרף לביטוחים בהנחה דרך חברת הביטוח',
+        'form.track1': 'אשמח להצטרף ולקבל את האשראי החוץ בנקאי שלכם',
+        'form.track2': 'אשמח להצטרף לביטוחים בהנחה אצל חברת הביטוח דרככם',
         'form.track3': 'אשמח לקבל פרטים לגבי משכנתא בהנחה מהבנק המוביל את התכנית',
-        'form.terms_pre': 'הפרטים יועברו לצד שלישי למימוש ההטבות — ',
-        'form.terms_lnk': 'תקנון ותנאי שימוש',
+        'form.terms_pre': 'הריני מאשר שקראתי את ',
+        'form.terms_lnk': 'תקנון \'טיבותא\' בנושא',
+        'form.terms_post': '. כמו כן, הריני מאשר למועדון להשתמש בפרטיי מול חברות צד ג\' לצרכים המפורטים בתקנון.',
         'form.submit': 'שלח',
         'form.ok_title': 'נרשמת בהצלחה!',
         'form.ok_text': 'תודה על ההרשמה. נהיה בקשר בהקדם.',
@@ -1674,19 +1791,19 @@
     function initSimUI() {
       const bar1 = document.getElementById('sim1-bar');
       const cats1 = document.getElementById('sim1-categories');
-      if(bar1) bar1.innerHTML = '';
-      if(cats1) cats1.innerHTML = '';
-      
+      if (bar1) bar1.innerHTML = '';
+      if (cats1) cats1.innerHTML = '';
+
       sim1Config.forEach(cat => {
-        if(bar1) {
+        if (bar1) {
           const seg = document.createElement('div');
           seg.className = 'sim-segment';
           seg.id = 'seg_' + cat.id;
           seg.style.backgroundColor = cat.color;
           bar1.appendChild(seg);
         }
-        
-        if(cats1) {
+
+        if (cats1) {
           const row = document.createElement('div');
           row.className = 'sim-cat-row';
           row.innerHTML = `
@@ -1703,13 +1820,13 @@
             </div>
           `;
           cats1.appendChild(row);
-          
+
           document.getElementById('slider_' + cat.id).addEventListener('input', (e) => {
             let sumOthers = 0;
-            sim1Config.forEach(c => { if(c !== cat) sumOthers += c.pct; });
+            sim1Config.forEach(c => { if (c !== cat) sumOthers += c.pct; });
             const maxAllowed = 100 - sumOthers;
             let val = parseFloat(e.target.value);
-            if(val > maxAllowed) {
+            if (val > maxAllowed) {
               val = maxAllowed;
               e.target.value = val;
             }
@@ -1722,11 +1839,11 @@
 
       const bar2 = document.getElementById('sim2-bar');
       const cats2 = document.getElementById('sim2-categories');
-      if(bar2) bar2.innerHTML = '';
-      if(cats2) cats2.innerHTML = '';
+      if (bar2) bar2.innerHTML = '';
+      if (cats2) cats2.innerHTML = '';
 
       sim2Config.forEach(cat => {
-        if(bar2) {
+        if (bar2) {
           const seg = document.createElement('div');
           seg.className = 'sim-segment';
           seg.id = 'seg_' + cat.id;
@@ -1734,7 +1851,7 @@
           bar2.appendChild(seg);
         }
 
-        if(cats2) {
+        if (cats2) {
           const row = document.createElement('div');
           row.className = 'sim-cat-row';
           row.innerHTML = `
@@ -1754,10 +1871,10 @@
 
           document.getElementById('slider_' + cat.id).addEventListener('input', (e) => {
             let sumOthers = 0;
-            sim2Config.forEach(c => { if(c !== cat) sumOthers += c.pct; });
+            sim2Config.forEach(c => { if (c !== cat) sumOthers += c.pct; });
             const maxAllowed = 100 - sumOthers;
             let val = parseFloat(e.target.value);
-            if(val > maxAllowed) {
+            if (val > maxAllowed) {
               val = maxAllowed;
               e.target.value = val;
             }
@@ -1773,10 +1890,10 @@
       // Sim 1
       const sim1Range = document.getElementById('sim1-range');
       if (!sim1Range) return;
-      const spend = parseFloat(sim1Range.value);
+      const spend = parseFloat(sim1Range.value) || 0;
       const s1Num = document.getElementById('sim1-num');
-      if(s1Num && document.activeElement !== s1Num) s1Num.value = spend;
-      
+      if (s1Num && document.activeElement !== s1Num) s1Num.value = spend || '';
+
       let totalSavings1 = 0;
       sim1Config.forEach(cat => {
         const val = spend * (cat.pct / 100) * cat.discount * 12;
@@ -1786,23 +1903,23 @@
 
       sim1Config.forEach(cat => {
         const elVal = document.getElementById('val_' + cat.id);
-        if(elVal) elVal.textContent = '₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
+        if (elVal) elVal.textContent = '₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
-        if(elSeg) elSeg.style.width = (totalSavings1 > 0 ? (cat.currentVal / totalSavings1) * 100 : 0) + '%';
+        if (elSeg) elSeg.style.width = (totalSavings1 > 0 ? (cat.currentVal / totalSavings1) * 100 : 0) + '%';
       });
-      
+
       const elSim1Val = document.getElementById('sim1-val');
-      if(elSim1Val) elSim1Val.textContent = Math.round(totalSavings1).toLocaleString('he-IL');
+      if (elSim1Val) elSim1Val.textContent = Math.round(totalSavings1).toLocaleString('he-IL');
       const elSim1Sub = document.getElementById('sim1-sub');
-      if(elSim1Sub) elSim1Sub.textContent = (T[lang]['sim.monthly_avg'] || 'ממוצע חודשי:') + ' ' + Math.round(totalSavings1 / 12).toLocaleString('he-IL') + ' ₪';
+      if (elSim1Sub) elSim1Sub.textContent = (T[lang]['sim.monthly_avg'] || 'ממוצע חודשי:') + ' ' + Math.round(totalSavings1 / 12).toLocaleString('he-IL') + ' ₪';
 
       // Sim 2
       const sim2Range = document.getElementById('sim2-range');
       if (!sim2Range) return;
-      const income = parseFloat(sim2Range.value);
+      const income = parseFloat(sim2Range.value) || 0;
       const s2Num = document.getElementById('sim2-num');
-      if(s2Num && document.activeElement !== s2Num) s2Num.value = income;
-      
+      if (s2Num && document.activeElement !== s2Num) s2Num.value = income || '';
+
       let totalSavings2 = 0;
       sim2Config.forEach(cat => {
         const val = income * (cat.pct / 100) * cat.discount;
@@ -1812,15 +1929,15 @@
 
       sim2Config.forEach(cat => {
         const elVal = document.getElementById('val_' + cat.id);
-        if(elVal) elVal.textContent = '₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
+        if (elVal) elVal.textContent = '₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
-        if(elSeg) elSeg.style.width = (totalSavings2 > 0 ? (cat.currentVal / totalSavings2) * 100 : 0) + '%';
+        if (elSeg) elSeg.style.width = (totalSavings2 > 0 ? (cat.currentVal / totalSavings2) * 100 : 0) + '%';
       });
 
       const elSim2Val = document.getElementById('sim2-val');
-      if(elSim2Val) elSim2Val.textContent = Math.round(totalSavings2).toLocaleString('he-IL');
+      if (elSim2Val) elSim2Val.textContent = Math.round(totalSavings2 * 12).toLocaleString('he-IL');
       const elSim2Sub = document.getElementById('sim2-sub');
-      if(elSim2Sub) elSim2Sub.textContent = (T[lang]['sim.annual_total'] || 'סה"כ שנתי:') + ' ' + Math.round(totalSavings2 * 12).toLocaleString('he-IL') + ' ₪';
+      if (elSim2Sub) elSim2Sub.textContent = (T[lang]['sim.monthly_avg'] || 'ממוצע חודשי:') + ' ' + Math.round(totalSavings2).toLocaleString('he-IL') + ' ₪';
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -1914,8 +2031,8 @@
        ───────────────────────────────────────────────────────── */
     function toggleAffil() {
       const trigger = document.getElementById('affilTrigger');
-      const panel   = document.getElementById('affilPanel');
-      const isOpen  = panel.classList.toggle('open');
+      const panel = document.getElementById('affilPanel');
+      const isOpen = panel.classList.toggle('open');
       trigger.classList.toggle('open', isOpen);
     }
 
@@ -2033,12 +2150,12 @@
       const s2r = document.getElementById('sim2-range');
       const s1n = document.getElementById('sim1-num');
       const s2n = document.getElementById('sim2-num');
-      
+
       if (s1r) s1r.addEventListener('input', updateSimulators);
       if (s2r) s2r.addEventListener('input', updateSimulators);
       if (s1n) s1n.addEventListener('input', e => { s1r.value = e.target.value; updateSimulators(); });
       if (s2n) s2n.addEventListener('input', e => { s2r.value = e.target.value; updateSimulators(); });
-      
+
       updateSimulators();
     });
   </script>
