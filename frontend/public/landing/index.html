@@ -1619,6 +1619,101 @@
     }
 
     /* ─────────────────────────────────────────────────────────
+       SAVINGS SIMULATOR LOGIC
+       ───────────────────────────────────────────────────────── */
+    const C = 2 * Math.PI * 80;
+
+    function createDonutChart(svgId, labelsId, data) {
+      const svg = document.getElementById(svgId);
+      const labelsContainer = document.getElementById(labelsId);
+      if (!svg || !labelsContainer) return;
+      
+      svg.innerHTML = '<circle cx="100" cy="100" r="80" class="bg-circle"></circle>';
+      labelsContainer.innerHTML = '';
+
+      let offset = 0;
+      
+      data.forEach(item => {
+        if (item.value <= 0) return;
+        const slicePercentage = item.percentage;
+        const sliceLength = (slicePercentage / 100) * C;
+        
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '100');
+        circle.setAttribute('cy', '100');
+        circle.setAttribute('r', '80');
+        circle.style.stroke = item.color;
+        circle.style.strokeDasharray = `${sliceLength} ${C - sliceLength}`;
+        circle.style.strokeDashoffset = -offset;
+        svg.appendChild(circle);
+
+        const midAngle = (offset + sliceLength / 2) / C * 2 * Math.PI;
+        const angleHTML = midAngle - Math.PI / 2;
+        
+        const radius = 120;
+        const x = 50 + (radius * Math.cos(angleHTML) / 200 * 100);
+        const y = 50 + (radius * Math.sin(angleHTML) / 200 * 100);
+
+        const lbl = document.createElement('div');
+        lbl.className = 'sim-label-item';
+        lbl.style.left = `${x}%`;
+        lbl.style.top = `${y}%`;
+        lbl.style.borderColor = item.color;
+        
+        const translatedName = T[lang][item.name] || item.name;
+        lbl.innerHTML = `${item.icon}<div class="lbl-title" data-i18n-dynamic="${item.name}">${translatedName}</div><div class="lbl-val">₪${Math.round(item.value).toLocaleString('he-IL')}</div>`;
+        labelsContainer.appendChild(lbl);
+
+        offset += sliceLength;
+      });
+    }
+
+    function updateSimulators() {
+      // Sim 1
+      const sim1Range = document.getElementById('sim1-range');
+      if (!sim1Range) return;
+      const spend = parseFloat(sim1Range.value);
+      document.getElementById('sim1-num').value = spend;
+      
+      const sim1Data = [
+        { name: 'sim.cat.food', percentage: 37.5, color: '#3b82f6', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', value: spend * 0.30 * 0.04 * 12 },
+        { name: 'sim.cat.clothing', percentage: 18.75, color: '#a855f7', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.47a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h1.15a1 1 0 00.99-.84l.58-3.47a2 2 0 00-1.34-2.23z"/></svg>', value: spend * 0.15 * 0.10 * 12 },
+        { name: 'sim.cat.household', percentage: 18.75, color: '#10b981', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', value: spend * 0.15 * 0.06 * 12 },
+        { name: 'sim.cat.furniture', percentage: 12.5, color: '#06b6d4', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h18M5 10V4h14v6M8 20v-5M16 20v-5"/></svg>', value: spend * 0.10 * 0.08 * 12 },
+        { name: 'sim.cat.vacation', percentage: 12.5, color: '#f59e0b', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 20H2M5 20V4l14 6-14 6"/></svg>', value: spend * 0.10 * 0.08 * 12 }
+      ];
+      const sim1Total = sim1Data.reduce((acc, curr) => acc + curr.value, 0);
+      document.getElementById('sim1-val').textContent = Math.round(sim1Total).toLocaleString('he-IL');
+      document.getElementById('sim1-sub').textContent = (T[lang]['sim.monthly_avg'] || 'ממוצע חודשי:') + ' ' + Math.round(sim1Total / 12).toLocaleString('he-IL') + ' ₪';
+      
+      createDonutChart('svg1', 'sim1-labels', sim1Data);
+
+      // Sim 2
+      const sim2Range = document.getElementById('sim2-range');
+      if (!sim2Range) return;
+      const income = parseFloat(sim2Range.value);
+      document.getElementById('sim2-num').value = income;
+      
+      const valPen = income * 0.01;
+      const valHish = income * 0.005;
+      const valMort = income * 0.02;
+      const valIns = income * 0.008;
+      const sim2Total = valPen + valHish + valMort + valIns;
+      
+      const sim2Data = [
+        { name: 'sim.cat.pension', percentage: (valPen/sim2Total)*100, color: '#3b82f6', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>', value: valPen },
+        { name: 'sim.cat.hishtalmut', percentage: (valHish/sim2Total)*100, color: '#10b981', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/></svg>', value: valHish },
+        { name: 'sim.cat.mortgage', percentage: (valMort/sim2Total)*100, color: '#ef4444', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', value: valMort },
+        { name: 'sim.cat.insurance', percentage: (valIns/sim2Total)*100, color: '#06b6d4', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', value: valIns }
+      ];
+      
+      document.getElementById('sim2-val').textContent = Math.round(sim2Total).toLocaleString('he-IL');
+      document.getElementById('sim2-sub').textContent = (T[lang]['sim.annual_total'] || 'סה"כ שנתי:') + ' ' + Math.round(sim2Total * 12).toLocaleString('he-IL') + ' ₪';
+      
+      createDonutChart('svg2', 'sim2-labels', sim2Data);
+    }
+
+    /* ─────────────────────────────────────────────────────────
        ANIMATED STAR CANVAS
        ───────────────────────────────────────────────────────── */
     function initStars() {
@@ -1821,6 +1916,19 @@
       });
 
       setLang('he');
+
+      // Initialize Simulators
+      const s1r = document.getElementById('sim1-range');
+      const s2r = document.getElementById('sim2-range');
+      const s1n = document.getElementById('sim1-num');
+      const s2n = document.getElementById('sim2-num');
+      
+      if (s1r) s1r.addEventListener('input', updateSimulators);
+      if (s2r) s2r.addEventListener('input', updateSimulators);
+      if (s1n) s1n.addEventListener('input', e => { s1r.value = e.target.value; updateSimulators(); });
+      if (s2n) s2n.addEventListener('input', e => { s2r.value = e.target.value; updateSimulators(); });
+      
+      updateSimulators();
     });
   </script>
 </body>
