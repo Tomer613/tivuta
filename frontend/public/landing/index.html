@@ -1469,12 +1469,12 @@
         'sim.cat.clothing': 'ביגוד',
         'sim.cat.household': 'הוצאות דירה',
         'sim.cat.furniture': 'ריהוט',
-        'sim.cat.vacation': 'נופש',
+        'sim.cat.education': 'מוסדות לימוד',
         'sim.cat.pension': 'קרן פנסיה',
         'sim.cat.hishtalmut': 'קרן השתלמות',
         'sim.cat.mortgage': 'משכנתא',
         'sim.cat.insurance': 'ביטוחים',
-        'sim.cat.gemel': 'קופת גמל',
+        'sim.cat.gemel': 'חסכונות והשקעות',
         'stats.workers': 'עובדים חרדים בסקטור העסקי',
         'stats.students': 'לומדי מקצוע והכשרה מדי שנה',
         'stats.assets_unit': 'מיליארד ₪',
@@ -1759,19 +1759,19 @@
        SAVINGS SIMULATOR LOGIC
        ───────────────────────────────────────────────────────── */
     const sim1Config = [
-      { id: 'c_food', name: 'sim.cat.food', pct: 30, discount: 0.04, color: '#d4af37' },
-      { id: 'c_cloth', name: 'sim.cat.clothing', pct: 15, discount: 0.10, color: '#f0e6d3' },
-      { id: 'c_house', name: 'sim.cat.household', pct: 15, discount: 0.06, color: '#b8892a' },
-      { id: 'c_furn', name: 'sim.cat.furniture', pct: 10, discount: 0.08, color: '#8899bb' },
-      { id: 'c_vac', name: 'sim.cat.vacation', pct: 10, discount: 0.08, color: '#f59e0b' }
+      { id: 'c_food', name: 'sim.cat.food', pct: 35, discount: 0.04, color: '#d4af37' },
+      { id: 'c_house', name: 'sim.cat.household', pct: 15, discount: 0.06, color: '#f0e6d3' },
+      { id: 'c_edu', name: 'sim.cat.education', pct: 15, discount: 0.05, color: '#b8892a' },
+      { id: 'c_cloth', name: 'sim.cat.clothing', pct: 10, discount: 0.10, color: '#8899bb' },
+      { id: 'c_furn', name: 'sim.cat.furniture', pct: 10, discount: 0.08, color: '#f59e0b' }
     ];
 
     const sim2Config = [
-      { id: 'c_pen', name: 'sim.cat.pension', pct: 20, discount: 0.05, color: '#d4af37' },
-      { id: 'c_hish', name: 'sim.cat.hishtalmut', pct: 10, discount: 0.05, color: '#b8892a' },
-      { id: 'c_mort', name: 'sim.cat.mortgage', pct: 25, discount: 0.08, color: '#f0e6d3' },
-      { id: 'c_ins', name: 'sim.cat.insurance', pct: 5, discount: 0.16, color: '#8899bb' },
-      { id: 'c_gemel', name: 'sim.cat.gemel', pct: 10, discount: 0.05, color: '#f59e0b' }
+      { id: 'c_mort', name: 'sim.cat.mortgage', pct: 25, discount: 0.08, color: '#d4af37' },
+      { id: 'c_pen', name: 'sim.cat.pension', pct: 20, discount: 0.05, color: '#b8892a' },
+      { id: 'c_hish', name: 'sim.cat.hishtalmut', pct: 10, discount: 0.05, color: '#f0e6d3' },
+      { id: 'c_gemel', name: 'sim.cat.gemel', pct: 10, discount: 0.05, color: '#8899bb' },
+      { id: 'c_ins', name: 'sim.cat.insurance', pct: 5, discount: 0.16, color: '#f59e0b' }
     ];
 
     function initSimUI() {
@@ -1889,7 +1889,7 @@
 
       sim1Config.forEach(cat => {
         const elVal = document.getElementById('val_' + cat.id);
-        if (elVal) elVal.textContent = '₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
+        if (elVal) elVal.textContent = 'חיסכון: ₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
         if (elSeg) elSeg.style.width = (totalSavings1 > 0 ? (cat.currentVal / totalSavings1) * 100 : 0) + '%';
       });
@@ -1908,22 +1908,22 @@
 
       let totalSavings2 = 0;
       sim2Config.forEach(cat => {
-        const val = income * (cat.pct / 100) * cat.discount;
+        const val = income * (cat.pct / 100) * cat.discount * 12; // Yearly savings
         cat.currentVal = val;
         totalSavings2 += val;
       });
 
       sim2Config.forEach(cat => {
         const elVal = document.getElementById('val_' + cat.id);
-        if (elVal) elVal.textContent = '₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
+        if (elVal) elVal.textContent = 'חיסכון: ₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
         if (elSeg) elSeg.style.width = (totalSavings2 > 0 ? (cat.currentVal / totalSavings2) * 100 : 0) + '%';
       });
 
       const elSim2Val = document.getElementById('sim2-val');
-      if (elSim2Val) elSim2Val.textContent = Math.round(totalSavings2 * 12).toLocaleString('he-IL');
+      if (elSim2Val) elSim2Val.textContent = Math.round(totalSavings2).toLocaleString('he-IL');
       const elSim2Sub = document.getElementById('sim2-sub');
-      if (elSim2Sub) elSim2Sub.textContent = (T[lang]['sim.monthly_avg'] || 'ממוצע חודשי:') + ' ' + Math.round(totalSavings2).toLocaleString('he-IL') + ' ₪';
+      if (elSim2Sub) elSim2Sub.textContent = (T[lang]['sim.monthly_avg'] || 'ממוצע חודשי:') + ' ' + Math.round(totalSavings2 / 12).toLocaleString('he-IL') + ' ₪';
     }
 
     /* ─────────────────────────────────────────────────────────
