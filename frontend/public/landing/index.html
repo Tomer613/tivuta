@@ -1059,6 +1059,13 @@
 <body>
 
   <!-- ══════════════════════════════════════════════════════════
+     UNDER CONSTRUCTION BANNER
+══════════════════════════════════════════════════════════ -->
+  <div style="background-color: rgba(212, 175, 55, 0.95); color: #0e1628; text-align: center; padding: 10px; font-weight: 800; font-size: 15px; position: sticky; top: 0; z-index: 1000; direction: rtl; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+    🚧 האתר בהקמה - גרסת בטא להתרשמות בלבד 🚧
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
      NAVBAR
 ══════════════════════════════════════════════════════════ -->
   <nav id="navbar">
@@ -1185,9 +1192,8 @@
       <div class="sim-grid">
         <!-- Simulator 1: Credit Card -->
         <div class="sim-card">
-          <h3 data-i18n="sim.card1_title">הוצאות באשראי</h3>
-          <p class="sim-desc" data-i18n="sim.card1_desc">הזינו את סך ההוצאה החודשית המשוערת בכרטיס האשראי לחישוב
-            פוטנציאל החזר מועדון.</p>
+          <h3 data-i18n="sim.card1_title">קניות והוצאות שוטפות</h3>
+          <p class="sim-desc" data-i18n="sim.card1_desc">הזינו את סך ההוצאה החודשית המשוערת בכרטיס האשראי, ואנחנו נחשב את פוטנציאל החיסכון בהוצאות השוטפות שלכם, עם כרטיס האשראי שלנו.</p>
           <div class="sim-input-wrap">
             <span class="sim-currency">₪</span>
             <input type="number" id="sim1-num" value="10000" min="2000" max="50000" step="100">
@@ -1203,26 +1209,25 @@
             <div class="sim-total-sub" id="sim1-sub">ממוצע חודשי: 0 ₪</div>
           </div>
 
-          <div style="font-size:12px; color:#8899bb; text-align:right; margin-bottom: 4px;">הוצאות שוטפות נוכחיות:</div>
+          <div style="font-size:12px; color:#8899bb; text-align:right; margin-bottom: 4px;" data-i18n="sim.current_expenses">הוצאות שוטפות נוכחיות:</div>
           <div class="sim-segmented-bar" id="sim1-bar" style="margin-top: 4px; margin-bottom: 16px; opacity: 0.6;"></div>
           
-          <div style="font-size:12px; color:#d4af37; text-align:right; margin-bottom: 4px; font-weight: bold;">הוצאות שוטפות עם טיבותא:</div>
+          <div style="font-size:12px; color:#d4af37; text-align:right; margin-bottom: 4px; font-weight: bold;" data-i18n="sim.tivuta_expenses">הוצאות שוטפות עם טיבותא:</div>
           <div class="sim-segmented-bar" id="sim1-bar-discount" style="margin-top: 4px; margin-bottom: 24px; box-shadow: 0 0 12px rgba(212,175,55,0.2);"></div>
 
-          <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim1-breakdown', this)">לצפייה בפירוט החיסכון ▾</button>
+          <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim1-breakdown', this)" data-i18n="sim.show_breakdown">לצפייה בפירוט החיסכון ▾</button>
 
           <div id="sim1-breakdown" style="display:none; margin-top:24px; border-top:1px dashed rgba(255, 255, 255, 0.08); padding-top:24px;">
-            <div id="sim1-pct-lbl" style="display:none; font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;">(% מסך ההוצאה)</div>
+            <div id="sim1-pct-lbl" style="display:none; font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;" data-i18n="sim.pct_expense">(% מסך ההוצאה)</div>
             <div class="sim-categories" id="sim1-categories"></div>
-            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim1-categories', this)">⚙️ התאמה אישית של האחוזים</button>
+            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim1-categories', this)" data-i18n="sim.show_pct">⚙️ התאמה אישית של האחוזים</button>
           </div>
         </div>
 
         <!-- Simulator 2: Income -->
         <div class="sim-card">
-          <h3 data-i18n="sim.card2_title">הכנסות</h3>
-          <p class="sim-desc" data-i18n="sim.card2_desc">הזינו את סך ההכנסה/משכורת חודשית שלכם לחישוב חיסכון בעמלות
-            ובהוצאות קבועות.</p>
+          <h3 data-i18n="sim.card2_title">פיננסים והוצאות קבועות</h3>
+          <p class="sim-desc" data-i18n="sim.card2_desc">הזינו את סך ההכנסה החודשית שלכם, ואנחנו נחשב את פוטנציאל החיסכון בהוצאות הקבועות הנגזרות ממנה, כשאתם כבר חלק מאיתנו.</p>
           <div class="sim-input-wrap">
             <span class="sim-currency">₪</span>
             <input type="number" id="sim2-num" value="18000" min="5000" max="100000" step="100">
@@ -1238,26 +1243,26 @@
             <div class="sim-total-sub" id="sim2-sub">ממוצע חודשי: 0 ₪</div>
           </div>
 
-          <div style="font-size:12px; color:#8899bb; text-align:right; margin-bottom: 4px;">הוצאות קבועות נוכחיות:</div>
+          <div style="font-size:12px; color:#8899bb; text-align:right; margin-bottom: 4px;" data-i18n="sim.current_fixed">הוצאות קבועות נוכחיות:</div>
           <div class="sim-segmented-bar" id="sim2-bar" style="margin-top: 4px; margin-bottom: 16px; opacity: 0.6;"></div>
           
-          <div style="font-size:12px; color:#d4af37; text-align:right; margin-bottom: 4px; font-weight: bold;">הוצאות קבועות עם טיבותא:</div>
+          <div style="font-size:12px; color:#d4af37; text-align:right; margin-bottom: 4px; font-weight: bold;" data-i18n="sim.tivuta_fixed">הוצאות קבועות עם טיבותא:</div>
           <div class="sim-segmented-bar" id="sim2-bar-discount" style="margin-top: 4px; margin-bottom: 24px; box-shadow: 0 0 12px rgba(212,175,55,0.2);"></div>
 
-          <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim2-breakdown', this)">לצפייה בפירוט החיסכון ▾</button>
+          <button type="button" class="sim-toggle-btn" style="margin-top:0; color:#d4af37; border-style: solid;" onclick="toggleBreakdown('sim2-breakdown', this)" data-i18n="sim.show_breakdown">לצפייה בפירוט החיסכון ▾</button>
 
           <div id="sim2-breakdown" style="display:none; margin-top:24px; border-top:1px dashed rgba(255, 255, 255, 0.08); padding-top:24px;">
-            <div id="sim2-pct-lbl" style="display:none; font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;">(% מסך ההכנסה)</div>
+            <div id="sim2-pct-lbl" style="display:none; font-size:12px; color:#8899bb; text-align:left; margin-bottom: 12px;" data-i18n="sim.pct_income">(% מסך ההכנסה)</div>
             <div class="sim-categories" id="sim2-categories"></div>
-            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim2-categories', this)">⚙️ התאמה אישית של האחוזים</button>
+            <button type="button" class="sim-toggle-btn" onclick="toggleSliders('sim2-categories', this)" data-i18n="sim.show_pct">⚙️ התאמה אישית של האחוזים</button>
           </div>
         </div>
       </div>
       
       <!-- Summary Message -->
       <div id="sim-warning" style="text-align:center; margin-top:30px; padding:16px 24px; background:rgba(212,175,55,0.1); border:1px solid rgba(212,175,55,0.3); border-radius:12px; color:#f0e6d3; max-width:800px; margin-left:auto; margin-right:auto;">
-        <span style="display:block; font-weight:700; color:#d4af37; margin-bottom:4px; font-size:16px;">שימו לב!</span>
-        <span style="font-size:14px; color:#8899bb;">כחברי מועדון טיבותא, אתם מרוויחים כפול - גם חוסכים בהוצאות החודשיות, וגם מגדילים את ההכנסה הפנויה.</span>
+        <span style="display:block; font-weight:700; color:#d4af37; margin-bottom:4px; font-size:16px;" data-i18n="sim.warning_title">שימו לב!</span>
+        <span style="font-size:14px; color:#8899bb;" data-i18n="sim.warning_desc">כחברי מועדון טיבותא, אתם מרוויחים כפול - גם חוסכים בהוצאות החודשיות, וגם מגדילים את ההכנסה הפנויה.</span>
       </div>
     </div>
   </section>
@@ -1575,6 +1580,20 @@
         'footer.terms': 'תקנון ותנאי שימוש',
         'footer.copy': '© 2025 טיבותא. כל הזכויות שמורות.',
         'footer.built_by': 'נבנה ועוצב ע"י',
+
+        'sim.current_expenses': 'הוצאות שוטפות נוכחיות:',
+        'sim.tivuta_expenses': 'הוצאות שוטפות עם טיבותא:',
+        'sim.current_fixed': 'הוצאות קבועות נוכחיות:',
+        'sim.tivuta_fixed': 'הוצאות קבועות עם טיבותא:',
+        'sim.pct_expense': '(% מסך ההוצאה)',
+        'sim.pct_income': '(% מסך ההכנסה)',
+        'sim.warning_title': 'שימו לב!',
+        'sim.warning_desc': 'כחברי מועדון טיבותא, אתם מרוויחים כפול - גם חוסכים בהוצאות החודשיות, וגם מגדילים את ההכנסה הפנויה.',
+        'sim.saving': 'חיסכון: ',
+        'sim.hide_pct': '⚙️ להסתרת האחוזים',
+        'sim.show_pct': '⚙️ התאמה אישית של האחוזים',
+        'sim.hide_breakdown': 'להסתרת הפירוט ▴',
+        'sim.show_breakdown': 'לצפייה בפירוט החיסכון ▾',
       },
       en: {
         'hero.badge': 'Join the Exclusive Club',
@@ -1652,6 +1671,20 @@
         'footer.terms': 'Terms of Use',
         'footer.copy': '© 2025 Tivuta. All rights reserved.',
         'footer.built_by': 'Built and Designed by',
+
+        'sim.current_expenses': 'Current expenses:',
+        'sim.tivuta_expenses': 'Expenses with Tivuta:',
+        'sim.current_fixed': 'Current fixed expenses:',
+        'sim.tivuta_fixed': 'Fixed expenses with Tivuta:',
+        'sim.pct_expense': '(% of total expense)',
+        'sim.pct_income': '(% of total income)',
+        'sim.warning_title': 'Please note!',
+        'sim.warning_desc': 'As Tivuta club members, you earn double - saving on monthly expenses while increasing disposable income.',
+        'sim.saving': 'Savings: ',
+        'sim.hide_pct': '⚙️ Hide percentages',
+        'sim.show_pct': '⚙️ Customize percentages',
+        'sim.hide_breakdown': 'Hide breakdown ▴',
+        'sim.show_breakdown': 'View savings breakdown ▾',
       },
 
       fr: {
@@ -1730,6 +1763,20 @@
         'footer.terms': 'Conditions d\'utilisation',
         'footer.copy': '© 2025 Tivuta. Tous droits réservés.',
         'footer.built_by': 'Construit et conçu par',
+
+        'sim.current_expenses': 'Dépenses courantes actuelles :',
+        'sim.tivuta_expenses': 'Dépenses courantes avec Tivuta :',
+        'sim.current_fixed': 'Dépenses fixes actuelles :',
+        'sim.tivuta_fixed': 'Dépenses fixes avec Tivuta :',
+        'sim.pct_expense': '(% des dépenses totales)',
+        'sim.pct_income': '(% du revenu total)',
+        'sim.warning_title': 'Veuillez noter !',
+        'sim.warning_desc': 'En tant que membres du club Tivuta, vous gagnez double - économisant sur les dépenses mensuelles tout en augmentant le revenu disponible.',
+        'sim.saving': 'Économies : ',
+        'sim.hide_pct': '⚙️ Masquer les pourcentages',
+        'sim.show_pct': '⚙️ Personnaliser les pourcentages',
+        'sim.hide_breakdown': 'Masquer les détails ▴',
+        'sim.show_breakdown': 'Voir les détails des économies ▾',
       },
 
       yi: {
@@ -1808,6 +1855,20 @@
         'footer.terms': 'תקנות און באדינגונגען',
         'footer.copy': '© 2025 טיבותא. אלע רעכטן רעזערווירט.',
         'footer.built_by': 'געבויט און דיזיינד דורך',
+
+        'sim.current_expenses': 'איצטיגע שוטף הוצאות:',
+        'sim.tivuta_expenses': 'שוטף הוצאות מיט טיבותא:',
+        'sim.current_fixed': 'איצטיגע קבועות הוצאות:',
+        'sim.tivuta_fixed': 'קבועות הוצאות מיט טיבותא:',
+        'sim.pct_expense': '(% פון סך הכל הוצאה)',
+        'sim.pct_income': '(% פון סך הכל הכנסה)',
+        'sim.warning_title': 'אכטונג!',
+        'sim.warning_desc': 'ווי טיבותא קלוב מיטגלידער, פאַרדינט איר דאָפּלט - שפּאָרנדיק אויף חודשליכע הוצאות און פאַרגרעסערנדיק אייער פרייע הכנסה.',
+        'sim.saving': 'שפאָרונגען: ',
+        'sim.hide_pct': '⚙️ באהאלט פראצענטן',
+        'sim.show_pct': '⚙️ פאסצירט פראצענטן',
+        'sim.hide_breakdown': 'באהאלט פרטים ▴',
+        'sim.show_breakdown': 'זען שפאָרונגען פרטים ▾',
       }
 
     };
@@ -1857,6 +1918,17 @@
       document.querySelectorAll('.lang-dropdown-item').forEach(b => {
         b.classList.toggle('active', b.dataset.lang === l);
       });
+
+      // update dynamic categories inside JS
+      document.querySelectorAll('[data-i18n-dynamic]').forEach(el => {
+        const key = el.getAttribute('data-i18n-dynamic');
+        if (key && T[l] && T[l][key]) el.textContent = T[l][key];
+      });
+
+      // re-trigger simulator updates so "savings:" string updates
+      if (typeof updateSimulators === 'function') {
+        updateSimulators();
+      }
     }
 
     function closeLangMenu() {
@@ -2019,7 +2091,7 @@
         lbl.style.display = isOpen ? 'block' : 'none';
       }
       if (btn) {
-        btn.textContent = isOpen ? '⚙️ להסתרת האחוזים' : '⚙️ התאמה אישית של האחוזים';
+        btn.textContent = isOpen ? T[lang]['sim.hide_pct'] : T[lang]['sim.show_pct'];
       }
     }
 
@@ -2027,10 +2099,10 @@
       const el = document.getElementById(id);
       if (el.style.display === 'none' || el.style.display === '') {
         el.style.display = 'block';
-        btn.textContent = 'להסתרת הפירוט ▴';
+        btn.textContent = T[lang]['sim.hide_breakdown'];
       } else {
         el.style.display = 'none';
-        btn.textContent = 'לצפייה בפירוט החיסכון ▾';
+        btn.textContent = T[lang]['sim.show_breakdown'];
       }
     }
 
@@ -2051,7 +2123,7 @@
 
       sim1Config.forEach(cat => {
         const elVal = document.getElementById('val_' + cat.id);
-        if (elVal) elVal.innerHTML = '<span style="color:#8899bb; font-weight:normal; margin-left:4px;">חיסכון:</span>₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
+        if (elVal) elVal.innerHTML = `<span style="color:#8899bb; font-weight:normal; margin-left:4px;">${T[lang]['sim.saving'] || 'חיסכון: '}</span>₪` + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
         if (elSeg) elSeg.style.width = cat.pct + '%';
         const elSegD = document.getElementById('seg_d_' + cat.id);
@@ -2079,7 +2151,7 @@
 
       sim2Config.forEach(cat => {
         const elVal = document.getElementById('val_' + cat.id);
-        if (elVal) elVal.innerHTML = '<span style="color:#8899bb; font-weight:normal; margin-left:4px;">חיסכון:</span>₪' + Math.round(cat.currentVal).toLocaleString('he-IL');
+        if (elVal) elVal.innerHTML = `<span style="color:#8899bb; font-weight:normal; margin-left:4px;">${T[lang]['sim.saving'] || 'חיסכון: '}</span>₪` + Math.round(cat.currentVal).toLocaleString('he-IL');
         const elSeg = document.getElementById('seg_' + cat.id);
         if (elSeg) elSeg.style.width = cat.pct + '%';
         const elSegD = document.getElementById('seg_d_' + cat.id);
