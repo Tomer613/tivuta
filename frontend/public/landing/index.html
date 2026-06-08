@@ -589,7 +589,8 @@
       background: rgba(212, 175, 55, .05);
     }
 
-    .radio-label input[type="radio"] {
+    .radio-label input[type="radio"],
+    .radio-label input[type="checkbox"] {
       accent-color: #d4af37;
       width: 18px;
       height: 18px;
@@ -976,11 +977,41 @@
       <!-- ── The form ── -->
       <form id="leadForm" onsubmit="handleSubmit(event)">
 
+        <!-- Club Affiliation — custom dropdown -->
+        <div style="margin-bottom:20px;" class="cs-wrap" id="affilWrap">
+          <label class="field-label" data-i18n="form.affil_lbl">שייכות למועדון</label>
+          <div class="cs-trigger" id="affilTrigger" onclick="toggleAffil()">
+            <span id="affilDisplay" data-i18n="form.affil0">בחר...</span>
+            <span class="cs-arrow">▾</span>
+          </div>
+          <div class="cs-panel" id="affilPanel">
+            <div class="cs-opt" data-value="" data-i18n="form.affil0" onclick="pickAffil(this)">בחר...</div>
+            <div class="cs-opt" data-value="לומד במכללה" data-i18n="form.affil1" onclick="pickAffil(this)">לומד במכללה</div>
+            <div class="cs-opt" data-value="חינוך והוראה" data-i18n="form.affil2" onclick="pickAffil(this)">חינוך והוראה</div>
+            <div class="cs-opt" data-value="עצמאי במסחר" data-i18n="form.affil3" onclick="pickAffil(this)">עצמאי במסחר</div>
+            <div class="cs-opt" data-value="תעשייה ובנייה" data-i18n="form.affil4" onclick="pickAffil(this)">תעשייה ובנייה</div>
+            <div class="cs-opt" data-value="הייטק" data-i18n="form.affil5" onclick="pickAffil(this)">הייטק</div>
+            <div class="cs-opt" data-value="מקצועות חופשיים (לדוג' רואה חשבון, עו&quot;ד וכו')" data-i18n="form.affil6" onclick="pickAffil(this)">מקצועות חופשיים (לדוג' רואה חשבון, עו"ד וכו')</div>
+          </div>
+          <input type="hidden" id="fAffil" value="">
+        </div>
+
         <!-- Name -->
+        <div style="margin-bottom:20px; display:flex; gap:16px;">
+          <div style="flex:1;">
+            <label class="field-label" data-i18n="form.fname">שם פרטי</label>
+            <input id="fFirstName" type="text" required class="field-input" data-i18n-ph="form.fname_ph" placeholder="ישראל">
+          </div>
+          <div style="flex:1;">
+            <label class="field-label" data-i18n="form.lname">שם משפחה</label>
+            <input id="fLastName" type="text" required class="field-input" data-i18n-ph="form.lname_ph" placeholder="ישראלי">
+          </div>
+        </div>
+
+        <!-- ID Number -->
         <div style="margin-bottom:20px;">
-          <label class="field-label" data-i18n="form.name">שם מלא</label>
-          <input id="fName" type="text" required class="field-input" data-i18n-ph="form.name_ph"
-            placeholder="ישראל ישראלי">
+          <label class="field-label" data-i18n="form.idnum">מספר זהות</label>
+          <input id="fIdNum" type="text" required class="field-input" data-i18n-ph="form.idnum_ph" placeholder="000000000">
         </div>
 
         <!-- Phone -->
@@ -990,55 +1021,29 @@
             placeholder="050-0000000">
         </div>
 
-        <!-- Address -->
+        <!-- Email -->
         <div style="margin-bottom:20px;">
-          <label class="field-label" data-i18n="form.address">כתובת</label>
-          <input id="fAddress" type="text" class="field-input" data-i18n-ph="form.address_ph" placeholder="רחוב, עיר">
+          <label class="field-label" data-i18n="form.email">כתובת דוא"ל (אימייל)</label>
+          <input id="fEmail" type="email" required class="field-input" data-i18n-ph="form.email_ph" placeholder="email@example.com">
         </div>
 
-        <!-- Workplace -->
-        <div style="margin-bottom:28px;">
-          <label class="field-label" data-i18n="form.workplace">מקום עבודה</label>
-          <input id="fWorkplace" type="text" class="field-input" data-i18n-ph="form.workplace_ph"
-            placeholder="שם מקום העבודה">
-        </div>
-
-        <!-- Income type -->
-        <div style="margin-bottom:28px;">
-          <label class="field-label" style="margin-bottom:14px;" data-i18n="form.income_lbl">מה מהבאים נכון?</label>
+        <!-- Joining Track -->
+        <div style="margin-bottom:32px;">
+          <label class="field-label" style="margin-bottom:14px;" data-i18n="form.track_lbl">מסלול הצטרפות</label>
           <div style="display:flex;flex-direction:column;gap:10px;">
             <label class="radio-label">
-              <input type="radio" name="income" value="אני המפרנס היחיד בבית">
-              <span data-i18n="form.i1">אני המפרנס היחיד בבית</span>
+              <input type="checkbox" name="track" value="אשמח להצטרף ולקבל את האשראי החוץ בנקאי">
+              <span data-i18n="form.track1">אשמח להצטרף ולקבל את האשראי החוץ בנקאי</span>
             </label>
             <label class="radio-label">
-              <input type="radio" name="income" value="שנינו עובדים">
-              <span data-i18n="form.i2">שנינו עובדים</span>
+              <input type="checkbox" name="track" value="אשמח להצטרף לביטוחים בהנחה דרך חברת הביטוח">
+              <span data-i18n="form.track2">אשמח להצטרף לביטוחים בהנחה דרך חברת הביטוח</span>
             </label>
             <label class="radio-label">
-              <input type="radio" name="income" value="אחר">
-              <span data-i18n="form.i3">אחר</span>
+              <input type="checkbox" name="track" value="אשמח לקבל פרטים לגבי משכנתא בהנחה מהבנק המוביל את התכנית">
+              <span data-i18n="form.track3">אשמח לקבל פרטים לגבי משכנתא בהנחה מהבנק המוביל את התכנית</span>
             </label>
           </div>
-        </div>
-
-        <!-- Referral — custom dropdown -->
-        <div style="margin-bottom:32px;" class="cs-wrap" id="refWrap">
-          <label class="field-label" data-i18n="form.ref_lbl">איך שמעת עלינו?</label>
-          <div class="cs-trigger" id="refTrigger" onclick="toggleRef()">
-            <span id="refDisplay" data-i18n="form.ref0">בחר...</span>
-            <span class="cs-arrow">▾</span>
-          </div>
-          <div class="cs-panel" id="refPanel">
-            <div class="cs-opt" data-value="" data-i18n="form.ref0" onclick="pickRef(this)">בחר...</div>
-            <div class="cs-opt" data-value="חבר / בן משפחה" data-i18n="form.ref1" onclick="pickRef(this)">חבר / בן משפחה</div>
-            <div class="cs-opt" data-value="רשתות חברתיות"  data-i18n="form.ref2" onclick="pickRef(this)">רשתות חברתיות</div>
-            <div class="cs-opt" data-value="פרסום"          data-i18n="form.ref3" onclick="pickRef(this)">פרסום</div>
-            <div class="cs-opt" data-value="מורה / רב"      data-i18n="form.ref4" onclick="pickRef(this)">מורה / רב</div>
-            <div class="cs-opt" data-value="אחר"            data-i18n="form.ref5" onclick="pickRef(this)">אחר</div>
-          </div>
-          <!-- hidden value carrier -->
-          <input type="hidden" id="fRef" value="">
         </div>
 
         <!-- Terms notice -->
@@ -1148,21 +1153,23 @@
         'form.tag': 'רשימת ההמתנה',
         'form.title': 'השאירו פרטים ונחזור אליכם',
         'form.subtitle': 'המקומות מוגבלים — הבטיחו את מקומכם עכשיו',
-        'form.name': 'שם מלא', 'form.name_ph': 'ישראל ישראלי',
+        'form.affil_lbl': 'שייכות למועדון',
+        'form.affil0': 'בחר...',
+        'form.affil1': 'לומד במכללה',
+        'form.affil2': 'חינוך והוראה',
+        'form.affil3': 'עצמאי במסחר',
+        'form.affil4': 'תעשייה ובנייה',
+        'form.affil5': 'הייטק',
+        'form.affil6': 'מקצועות חופשיים (לדוג\' רואה חשבון, עו"ד וכו\')',
+        'form.fname': 'שם פרטי', 'form.fname_ph': 'ישראל',
+        'form.lname': 'שם משפחה', 'form.lname_ph': 'ישראלי',
+        'form.idnum': 'מספר זהות', 'form.idnum_ph': '000000000',
         'form.phone': 'מספר טלפון', 'form.phone_ph': '050-0000000',
-        'form.address': 'כתובת', 'form.address_ph': 'רחוב, עיר',
-        'form.workplace': 'מקום עבודה', 'form.workplace_ph': 'שם מקום העבודה',
-        'form.income_lbl': 'מה מהבאים נכון?',
-        'form.i1': 'אני המפרנס היחיד בבית',
-        'form.i2': 'שנינו עובדים',
-        'form.i3': 'אחר',
-        'form.ref_lbl': 'איך שמעת עלינו?',
-        'form.ref0': 'בחר...',
-        'form.ref1': 'חבר / בן משפחה',
-        'form.ref2': 'רשתות חברתיות',
-        'form.ref3': 'פרסום',
-        'form.ref4': 'מורה / רב',
-        'form.ref5': 'אחר',
+        'form.email': 'כתובת דוא"ל (אימייל)', 'form.email_ph': 'email@example.com',
+        'form.track_lbl': 'מסלול הצטרפות',
+        'form.track1': 'אשמח להצטרף ולקבל את האשראי החוץ בנקאי',
+        'form.track2': 'אשמח להצטרף לביטוחים בהנחה דרך חברת הביטוח',
+        'form.track3': 'אשמח לקבל פרטים לגבי משכנתא בהנחה מהבנק המוביל את התכנית',
         'form.terms_pre': 'הפרטים יועברו לצד שלישי למימוש ההטבות — ',
         'form.terms_lnk': 'תקנון ותנאי שימוש',
         'form.submit': 'שלח',
@@ -1372,13 +1379,13 @@
       });
 
       // custom dropdown options
-      document.querySelectorAll('#refPanel .cs-opt').forEach(opt => {
+      document.querySelectorAll('#affilPanel .cs-opt').forEach(opt => {
         const key = opt.dataset.i18n;
-        if (key && T[l][key]) opt.textContent = T[l][key];
+        if (key && T[l] && T[l][key]) opt.textContent = T[l][key];
       });
       // also update the display label if nothing is selected
-      if (!document.getElementById('fRef').value) {
-        document.getElementById('refDisplay').textContent = T[l]['form.ref0'] || '';
+      if (!document.getElementById('fAffil').value) {
+        document.getElementById('affilDisplay').textContent = (T[l] && T[l]['form.affil0']) || '';
       }
 
       // language button states
@@ -1479,34 +1486,35 @@
     }
 
     /* ─────────────────────────────────────────────────────────
-       CUSTOM REFERRAL DROPDOWN
+       CUSTOM AFFILIATION DROPDOWN
        ───────────────────────────────────────────────────────── */
-    function toggleRef() {
-      const trigger = document.getElementById('refTrigger');
-      const panel   = document.getElementById('refPanel');
+    function toggleAffil() {
+      const trigger = document.getElementById('affilTrigger');
+      const panel   = document.getElementById('affilPanel');
       const isOpen  = panel.classList.toggle('open');
       trigger.classList.toggle('open', isOpen);
     }
 
-    function pickRef(el) {
+    function pickAffil(el) {
       const value = el.dataset.value;
-      document.getElementById('fRef').value = value;
-      document.getElementById('refDisplay').textContent = el.textContent;
+      document.getElementById('fAffil').value = value;
+      document.getElementById('affilDisplay').textContent = el.textContent;
       // mark selected option
-      document.querySelectorAll('#refPanel .cs-opt').forEach(o => o.classList.remove('active'));
+      document.querySelectorAll('#affilPanel .cs-opt').forEach(o => o.classList.remove('active'));
       if (value) el.classList.add('active');
       // style trigger
-      const trigger = document.getElementById('refTrigger');
+      const trigger = document.getElementById('affilTrigger');
       trigger.classList.remove('open');
       trigger.classList.toggle('selected', !!value);
-      document.getElementById('refPanel').classList.remove('open');
+      document.getElementById('affilPanel').classList.remove('open');
     }
 
     // close on outside click
     document.addEventListener('click', e => {
-      if (!document.getElementById('refWrap').contains(e.target)) {
-        document.getElementById('refTrigger').classList.remove('open');
-        document.getElementById('refPanel').classList.remove('open');
+      const wrap = document.getElementById('affilWrap');
+      if (wrap && !wrap.contains(e.target)) {
+        document.getElementById('affilTrigger').classList.remove('open');
+        document.getElementById('affilPanel').classList.remove('open');
       }
       if (!e.target.closest('.lang-globe-wrap')) {
         closeLangMenu();
@@ -1535,15 +1543,16 @@
       spinEl.style.display = 'inline-block';
       errEl.style.display = 'none';
 
-      const incomeEl = document.querySelector('input[name="income"]:checked');
+      const trackEls = Array.from(document.querySelectorAll('input[name="track"]:checked')).map(el => el.value);
 
       const payload = {
-        name: document.getElementById('fName').value.trim(),
+        club_affiliation: document.getElementById('fAffil').value || null,
+        first_name: document.getElementById('fFirstName').value.trim(),
+        last_name: document.getElementById('fLastName').value.trim(),
+        id_number: document.getElementById('fIdNum').value.trim(),
         phone: document.getElementById('fPhone').value.trim(),
-        address: document.getElementById('fAddress').value.trim() || null,
-        workplace: document.getElementById('fWorkplace').value.trim() || null,
-        income_type: incomeEl ? incomeEl.value : null,
-        referral_source: document.getElementById('fRef').value || null,
+        email: document.getElementById('fEmail').value.trim(),
+        joining_tracks: trackEls,
         locale: lang,
       };
 
