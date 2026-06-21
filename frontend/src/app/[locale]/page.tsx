@@ -86,7 +86,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                         {dict.hero.description}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Link href={`/${locale}/join`} className="btn-primary !bg-[#f59e0b] !text-slate-900 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.join_now}</Link>
+                        <a href="/landing/" className="btn-primary !bg-[#f59e0b] !text-slate-900 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.join_now}</a>
                         <Link href={`/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-white/10 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.why_tivuta}</Link>
                     </div>
                 </div>
@@ -145,9 +145,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                             placeholder={t.phone_p} 
                             className="flex-grow bg-transparent border-none rounded-2xl px-8 py-5 text-white focus:ring-0 outline-none text-lg text-start" 
                         />
-                        <button className="btn-primary !bg-[#f59e0b] !text-slate-900 !py-5 !px-12 !text-xl font-black rounded-2xl hover:scale-105 transition-transform whitespace-nowrap">
+                        <a href="/landing/" className="btn-primary !bg-[#f59e0b] !text-slate-900 !py-5 !px-12 !text-xl font-black rounded-2xl hover:scale-105 transition-transform whitespace-nowrap flex items-center justify-center">
                             {dict.common.join_now}
-                        </button>
+                        </a>
                     </div>
                 </div>
             </section>

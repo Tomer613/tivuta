@@ -148,9 +148,9 @@ export default function Navbar() {
 
                     ) : (
                         <div className="flex items-center gap-1 md:gap-2">
-                            <Link href={`/${locale}/join`} className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a] hidden sm:block">
+                            <a href="/landing/" className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a] hidden sm:block">
                                 {ui.joinNow}
-                            </Link>
+                            </a>
                             <Link href={`/${locale}/login`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap">
                                 <User size={18} />
                                 <span>{ui.login}</span>
@@ -258,13 +258,13 @@ export default function Navbar() {
                         </div>
 
                         {!user && (
-                            <Link 
-                                href={`/${locale}/join`}
+                            <a 
+                                href="/landing/"
                                 onClick={() => setIsMenuOpen(false)}
                                 className="mt-auto bg-[#1e3a8a] text-white py-4 rounded-2xl font-black text-center text-lg shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
                             >
                                 {ui.joinNow}
-                            </Link>
+                            </a>
                         )}
                     </div>
                 </div>
