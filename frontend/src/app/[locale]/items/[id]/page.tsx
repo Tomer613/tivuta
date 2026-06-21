@@ -80,7 +80,7 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-12">
                     <div className="bg-[#0e1628] rounded-[4rem] p-12 shadow-sm border border-[#d4af37]/20">
-                        <h2 className="text-2xl font-black mb-6 border-s-8 border-amber-500 ps-6">{t.details}</h2>
+                        <h2 className="text-2xl font-black mb-6 border-s-8 border-[#d4af37] ps-6">{t.details}</h2>
                         <p className="text-xl text-[#f0e6d3] leading-relaxed text-start">{desc}</p>
                     </div>
 
@@ -105,7 +105,7 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
                     <div className="sticky top-32 space-y-6">
                         <div className="bg-[#1e3a8a] rounded-[3rem] p-10 text-white shadow-2xl shadow-blue-900/40">
                             <h3 className="text-2xl font-black mb-8">{t.open}</h3>
-                            <button className="w-full bg-amber-500 text-[#f0e6d3] py-6 rounded-2xl font-black text-xl hover:bg-amber-400 transition-all transform hover:scale-[1.02] active:scale-95">
+                            <button className="w-full bg-[#d4af37] text-[#080d1f] py-6 rounded-2xl font-black text-xl hover:bg-[#f5d061] transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-[#d4af37]/20">
                                 {t.redeem}
                             </button>
                             <p className="mt-8 text-sm opacity-60 text-center leading-relaxed">

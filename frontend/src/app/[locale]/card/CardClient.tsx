@@ -104,7 +104,7 @@ export default function CardClient({ locale }: { locale: string }) {
                         </p>
                         <Link
                             href={`/${locale}/join`}
-                            className="inline-block bg-amber-400 text-[#f0e6d3] font-black text-lg px-10 py-4 rounded-2xl hover:bg-amber-300 transition-all shadow-2xl shadow-amber-500/20 hover:scale-105 active:scale-100"
+                            className="inline-block bg-[#d4af37] text-[#080d1f] font-black text-lg px-10 py-4 rounded-2xl hover:bg-[#f5d061] transition-all shadow-2xl shadow-[#d4af37]/20 hover:scale-105 active:scale-100"
                         >
                             {t.cta}
                         </Link>
@@ -181,7 +181,7 @@ export default function CardClient({ locale }: { locale: string }) {
                     <p className="text-blue-200 mb-10 text-lg font-light">{t.cta2_sub}</p>
                     <Link
                         href={`/${locale}/join`}
-                        className="inline-block bg-amber-400 text-[#f0e6d3] font-black text-xl px-14 py-5 rounded-2xl hover:bg-amber-300 transition-all hover:scale-105 active:scale-100 shadow-2xl shadow-amber-500/20"
+                        className="inline-block bg-[#d4af37] text-[#080d1f] font-black text-xl px-14 py-5 rounded-2xl hover:bg-[#f5d061] transition-all hover:scale-105 active:scale-100 shadow-2xl shadow-[#d4af37]/20"
                     >
                         {t.cta2_btn}
                     </Link>
