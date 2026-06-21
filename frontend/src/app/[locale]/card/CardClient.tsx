@@ -73,7 +73,7 @@ export default function CardClient({ locale }: { locale: string }) {
     };
 
     return (
-        <main className="min-h-screen bg-[#111a2f]">
+        <main className="min-h-screen bg-[#0e1628]">
 
             {/* ─── Hero — deep luxurious dark ─── */}
             <section className="relative bg-[#0d1b35] py-28 px-6 overflow-hidden">
@@ -125,7 +125,7 @@ export default function CardClient({ locale }: { locale: string }) {
             {/* ─── Benefits grid ─── */}
             <section className="max-w-6xl mx-auto py-24 px-6">
                 <div className="text-center mb-16">
-                    <h2 className="text-4xl font-black mb-3" style={{ color: BRAND.navy }}>{t.benefits_title}</h2>
+                    <h2 className="text-4xl font-black mb-3 text-[#f0e6d3]">{t.benefits_title}</h2>
                     <p className="text-xl font-light text-[#f0e6d3]/60">{t.benefits_sub}</p>
                 </div>
 
@@ -143,14 +143,14 @@ export default function CardClient({ locale }: { locale: string }) {
                                 transition={{ delay: i * 0.08 }}
                                 whileHover={{
                                     y: -6,
-                                    backgroundColor: '#111a2f',
+                                    backgroundColor: '#1a2540',
                                     borderColor: `${BRAND.gold}99`,
                                     boxShadow: `0 16px 48px -8px rgba(212,175,55,0.22)`,
                                     transition: { duration: 0.22 },
                                 }}
                                 className="p-8 rounded-3xl cursor-default"
                                 style={{
-                                    background: 'linear-gradient(145deg, #0e1628, #111a2f)',
+                                    background: 'linear-gradient(145deg, #111a2f, #151f38)',
                                     border: `1px solid rgba(212,175,55,0.22)`,
                                     boxShadow: '0 2px 16px rgba(212,175,55,0.06)',
                                 }}
@@ -162,7 +162,7 @@ export default function CardClient({ locale }: { locale: string }) {
                                 >
                                     <Icon size={22} style={{ color: BRAND.gold }} />
                                 </motion.div>
-                                <h3 className="font-black text-lg mb-2" style={{ color: BRAND.navy }}>{title}</h3>
+                                <h3 className="font-black text-lg mb-2 text-[#f0e6d3]">{title}</h3>
                                 <p className="text-sm leading-relaxed text-[#f0e6d3]/60">{desc}</p>
                             </motion.div>
                         );
