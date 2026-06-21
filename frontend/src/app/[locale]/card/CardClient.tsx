@@ -73,7 +73,7 @@ export default function CardClient({ locale }: { locale: string }) {
     };
 
     return (
-        <main className="min-h-screen bg-slate-50">
+        <main className="min-h-screen bg-[#111a2f]">
 
             {/* ─── Hero — deep luxurious dark ─── */}
             <section className="relative bg-[#0d1b35] py-28 px-6 overflow-hidden">
@@ -104,7 +104,7 @@ export default function CardClient({ locale }: { locale: string }) {
                         </p>
                         <Link
                             href={`/${locale}/join`}
-                            className="inline-block bg-amber-400 text-slate-900 font-black text-lg px-10 py-4 rounded-2xl hover:bg-amber-300 transition-all shadow-2xl shadow-amber-500/20 hover:scale-105 active:scale-100"
+                            className="inline-block bg-amber-400 text-[#f0e6d3] font-black text-lg px-10 py-4 rounded-2xl hover:bg-amber-300 transition-all shadow-2xl shadow-amber-500/20 hover:scale-105 active:scale-100"
                         >
                             {t.cta}
                         </Link>
@@ -126,7 +126,7 @@ export default function CardClient({ locale }: { locale: string }) {
             <section className="max-w-6xl mx-auto py-24 px-6">
                 <div className="text-center mb-16">
                     <h2 className="text-4xl font-black mb-3" style={{ color: BRAND.navy }}>{t.benefits_title}</h2>
-                    <p className="text-xl font-light text-slate-400">{t.benefits_sub}</p>
+                    <p className="text-xl font-light text-[#f0e6d3]/60">{t.benefits_sub}</p>
                 </div>
 
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -143,16 +143,16 @@ export default function CardClient({ locale }: { locale: string }) {
                                 transition={{ delay: i * 0.08 }}
                                 whileHover={{
                                     y: -6,
-                                    backgroundColor: '#fdf3e3',
+                                    backgroundColor: '#111a2f',
                                     borderColor: `${BRAND.gold}99`,
-                                    boxShadow: `0 16px 48px -8px rgba(197,160,89,0.22)`,
+                                    boxShadow: `0 16px 48px -8px rgba(212,175,55,0.22)`,
                                     transition: { duration: 0.22 },
                                 }}
                                 className="p-8 rounded-3xl cursor-default"
                                 style={{
-                                    background: 'linear-gradient(145deg, #ffffff, #fdf8f2)',
-                                    border: `1px solid rgba(197,160,89,0.22)`,
-                                    boxShadow: '0 2px 16px rgba(197,160,89,0.06)',
+                                    background: 'linear-gradient(145deg, #0e1628, #111a2f)',
+                                    border: `1px solid rgba(212,175,55,0.22)`,
+                                    boxShadow: '0 2px 16px rgba(212,175,55,0.06)',
                                 }}
                             >
                                 <motion.div
@@ -163,7 +163,7 @@ export default function CardClient({ locale }: { locale: string }) {
                                     <Icon size={22} style={{ color: BRAND.gold }} />
                                 </motion.div>
                                 <h3 className="font-black text-lg mb-2" style={{ color: BRAND.navy }}>{title}</h3>
-                                <p className="text-sm leading-relaxed text-slate-500">{desc}</p>
+                                <p className="text-sm leading-relaxed text-[#f0e6d3]/60">{desc}</p>
                             </motion.div>
                         );
                     })}
@@ -181,7 +181,7 @@ export default function CardClient({ locale }: { locale: string }) {
                     <p className="text-blue-200 mb-10 text-lg font-light">{t.cta2_sub}</p>
                     <Link
                         href={`/${locale}/join`}
-                        className="inline-block bg-amber-400 text-slate-900 font-black text-xl px-14 py-5 rounded-2xl hover:bg-amber-300 transition-all hover:scale-105 active:scale-100 shadow-2xl shadow-amber-500/20"
+                        className="inline-block bg-amber-400 text-[#f0e6d3] font-black text-xl px-14 py-5 rounded-2xl hover:bg-amber-300 transition-all hover:scale-105 active:scale-100 shadow-2xl shadow-amber-500/20"
                     >
                         {t.cta2_btn}
                     </Link>

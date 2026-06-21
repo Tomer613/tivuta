@@ -51,7 +51,7 @@ export default async function RootLayout({
                 <meta name="google" content="notranslate" />
                 <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
             </head>
-            <body className={`${heebo.variable} font-sans antialiased bg-slate-50 min-h-screen flex flex-col`} suppressHydrationWarning>
+            <body className={`${heebo.variable} font-sans antialiased bg-[#111a2f] min-h-screen flex flex-col`} suppressHydrationWarning>
                 <AuthProvider>
                     <NotificationProvider>
                         <Navbar />

@@ -11,7 +11,7 @@ export default function SectionTitle({ recommended, featured }: SectionTitleProp
     const { user } = useAuth();
 
     return (
-        <h2 className="text-4xl font-black text-slate-900 mb-12 flex items-center gap-4 border-s-8 border-[#f59e0b] ps-6 text-start animate-in fade-in slide-in-from-right-4">
+        <h2 className="text-4xl font-black text-[#f0e6d3] mb-12 flex items-center gap-4 border-s-8 border-[#f59e0b] ps-6 text-start animate-in fade-in slide-in-from-right-4">
             {user ? recommended : featured}
         </h2>
     );

@@ -97,7 +97,7 @@ export default function Navbar() {
                     <div className="relative hidden sm:block">
                         <button 
                             onClick={() => setShowLangMenu(!showLangMenu)}
-                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-white/10 rounded-full transition-all"
+                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-[#0e1628]/10 rounded-full transition-all"
                         >
                             <Globe size={20} />
                         </button>
@@ -132,7 +132,7 @@ export default function Navbar() {
                     {user ? (
                         <div className="flex items-center gap-2 md:gap-3">
                             <div className="flex items-center relative">
-                                <Link href={`/${locale}/dashboard`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap bg-slate-900 shadow-none hover:bg-slate-800">
+                                <Link href={`/${locale}/dashboard`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap bg-[#080d1f] shadow-none hover:bg-slate-800">
                                     <LayoutDashboard size={18} />
                                     <span className="hidden sm:inline">{ui.dashboard}</span>
                                 </Link>
@@ -141,7 +141,7 @@ export default function Navbar() {
                                 </div>
                             </div>
 
-                            <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title={ui.logout}>
+                            <button onClick={logout} className="p-2 text-[#f0e6d3]/60 hover:text-red-500 transition-colors" title={ui.logout}>
                                 <LogOut size={20} />
                             </button>
                         </div>
@@ -163,7 +163,7 @@ export default function Navbar() {
                     {/* Mobile Search Toggle */}
                     <button 
                         onClick={() => { setIsMobileSearchOpen(!isMobileSearchOpen); setIsMenuOpen(false); }}
-                        className="lg:hidden w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-white/10 rounded-full transition-all"
+                        className="lg:hidden w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-[#0e1628]/10 rounded-full transition-all"
                     >
                         {isMobileSearchOpen ? <X size={20} /> : <Search size={20} />}
                     </button>
@@ -171,7 +171,7 @@ export default function Navbar() {
                     {/* Mobile Menu Toggle */}
                     <button 
                         onClick={() => { setIsMenuOpen(!isMenuOpen); setIsMobileSearchOpen(false); }}
-                        className="md:hidden w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-white/10 rounded-full transition-all"
+                        className="md:hidden w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-[#0e1628]/10 rounded-full transition-all"
                     >
                         {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>

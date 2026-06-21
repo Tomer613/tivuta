@@ -128,7 +128,7 @@ export default function JoinPage() {
     };
 
     return (
-        <main className="min-h-screen bg-slate-50 py-24 px-8 overflow-hidden">
+        <main className="min-h-screen bg-[#111a2f] py-24 px-8 overflow-hidden">
             <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center text-start">
                 
                 {/* Left Side: Marketing Info */}
@@ -138,11 +138,11 @@ export default function JoinPage() {
                     transition={{ duration: 0.8 }}
                     className="flex flex-col items-start"
                 >
-                    <h1 className="text-6xl font-black text-slate-900 mb-8 leading-tight text-start">
+                    <h1 className="text-6xl font-black text-[#f0e6d3] mb-8 leading-tight text-start">
                         {t.title.split(' ').slice(0, -1).join(' ')} <br />
                         <span className="text-[#1e3a8a]">{t.title.split(' ').slice(-1)}</span>
                     </h1>
-                    <p className="text-2xl text-slate-500 mb-12 font-light leading-relaxed text-start">
+                    <p className="text-2xl text-[#f0e6d3]/60 mb-12 font-light leading-relaxed text-start">
                         {t.subtitle}
                     </p>
                     
@@ -158,7 +158,7 @@ export default function JoinPage() {
                                 <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
                                     <CheckCircle2 size={24} />
                                 </div>
-                                <span className="text-xl font-bold text-slate-700">{f}</span>
+                                <span className="text-xl font-bold text-[#f0e6d3]">{f}</span>
                             </motion.div>
                         ))}
                     </div>
@@ -169,9 +169,9 @@ export default function JoinPage() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.8 }}
-                    className="bg-white p-12 rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-slate-100 flex flex-col items-start w-full relative overflow-hidden"
+                    className="bg-[#0e1628] p-12 rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-[#d4af37]/20 flex flex-col items-start w-full relative overflow-hidden"
                 >
-                    <h2 className="text-3xl font-black text-slate-900 mb-8 text-start">{t.form_title}</h2>
+                    <h2 className="text-3xl font-black text-[#f0e6d3] mb-8 text-start">{t.form_title}</h2>
                     
                     {error && (
                         <div className="w-full p-4 mb-6 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100">
@@ -182,58 +182,58 @@ export default function JoinPage() {
                     <form className="space-y-6 w-full" onSubmit={handleSubmit}>
                         <div className="grid grid-cols-2 gap-6">
                             <div className="flex flex-col gap-2 items-start">
-                                <label className="text-sm font-bold text-slate-600 px-2">{t.fname}</label>
+                                <label className="text-sm font-bold text-[#f0e6d3] px-2">{t.fname}</label>
                                 <input 
                                     type="text" 
                                     name="first_name"
                                     required
                                     value={formData.first_name}
                                     onChange={handleChange}
-                                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                                    className="w-full bg-[#111a2f] border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
                                 />
                             </div>
                             <div className="flex flex-col gap-2 items-start">
-                                <label className="text-sm font-bold text-slate-600 px-2">{t.lname}</label>
+                                <label className="text-sm font-bold text-[#f0e6d3] px-2">{t.lname}</label>
                                 <input 
                                     type="text" 
                                     name="last_name"
                                     required
                                     value={formData.last_name}
                                     onChange={handleChange}
-                                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                                    className="w-full bg-[#111a2f] border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
                                 />
                             </div>
                         </div>
                         <div className="flex flex-col gap-2 items-start">
-                            <label className="text-sm font-bold text-slate-600 px-2">{t.phone}</label>
+                            <label className="text-sm font-bold text-[#f0e6d3] px-2">{t.phone}</label>
                             <input 
                                 type="tel" 
                                 name="phone"
                                 value={formData.phone}
                                 onChange={handleChange}
-                                className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                                className="w-full bg-[#111a2f] border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
                             />
                         </div>
                         <div className="flex flex-col gap-2 items-start">
-                            <label className="text-sm font-bold text-slate-600 px-2">{t.email}</label>
+                            <label className="text-sm font-bold text-[#f0e6d3] px-2">{t.email}</label>
                             <input 
                                 type="email" 
                                 name="email"
                                 required
                                 value={formData.email}
                                 onChange={handleChange}
-                                className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                                className="w-full bg-[#111a2f] border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
                             />
                         </div>
                         <div className="flex flex-col gap-2 items-start">
-                            <label className="text-sm font-bold text-slate-600 px-2">{t.password}</label>
+                            <label className="text-sm font-bold text-[#f0e6d3] px-2">{t.password}</label>
                             <input 
                                 type="password" 
                                 name="password"
                                 required
                                 value={formData.password}
                                 onChange={handleChange}
-                                className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
+                                className="w-full bg-[#111a2f] border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] text-start transition-all" 
                             />
                         </div>
                         
@@ -246,7 +246,7 @@ export default function JoinPage() {
                         </button>
                     </form>
                     
-                    <div className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-400 font-bold uppercase tracking-widest self-center">
+                    <div className="mt-8 flex items-center justify-center gap-2 text-xs text-[#f0e6d3]/60 font-bold uppercase tracking-widest self-center">
                         <ShieldCheck size={16} />
                         <span>{t.secure}</span>
                     </div>

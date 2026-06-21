@@ -80,9 +80,9 @@ export default async function CategoryPage({
     const t = translations[locale] || translations.he;
 
     return (
-        <main className="min-h-screen bg-slate-50">
+        <main className="min-h-screen bg-[#111a2f]">
             {/* Header Section */}
-            <section className="bg-white border-b border-slate-200 pt-32 pb-16 px-6">
+            <section className="bg-[#0e1628] border-b border-[#d4af37]/20 pt-32 pb-16 px-6">
                 <div className="max-w-7xl mx-auto relative">
                     <div className="flex flex-col md:flex-row items-center gap-8 text-center md:text-start">
                         <BackButton locale={locale} />
@@ -92,12 +92,12 @@ export default async function CategoryPage({
                         </div>
 
                         <div>
-                            <div className="flex items-center gap-2 text-slate-400 text-sm mb-2 font-bold uppercase tracking-widest justify-center md:justify-start">
+                            <div className="flex items-center gap-2 text-[#f0e6d3]/60 text-sm mb-2 font-bold uppercase tracking-widest justify-center md:justify-start">
                                 <Link href={`/${locale}`} className="hover:text-[#1e3a8a] transition-colors">TIVUTA</Link>
                                 <ChevronRight size={14} className={isRTL ? "rotate-180" : ""} />
-                                <span className="text-slate-900">{categoryName}</span>
+                                <span className="text-[#f0e6d3]">{categoryName}</span>
                             </div>
-                            <h1 className="text-4xl md:text-5xl font-black text-slate-900">
+                            <h1 className="text-4xl md:text-5xl font-black text-[#f0e6d3]">
                                 {categoryName}
                             </h1>
                         </div>

@@ -86,8 +86,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                         {dict.hero.description}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <a href="/landing/" className="btn-primary !bg-[#f59e0b] !text-slate-900 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.join_now}</a>
-                        <Link href={`/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-white/10 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.why_tivuta}</Link>
+                        <a href="/landing/" className="bg-[#d4af37] text-[#080d1f] hover:bg-[#f5d061] shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-[1.05] !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl font-bold rounded-2xl transition-all whitespace-nowrap">{dict.common.join_now}</a>
+                        <Link href={`/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-[#0e1628]/10 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.why_tivuta}</Link>
                     </div>
                 </div>
 
@@ -136,16 +136,16 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 <div className="absolute top-0 end-0 w-64 h-64 bg-[#d4af37]/10 rounded-full blur-3xl -me-32 -mt-32"></div>
                 <div className="max-w-3xl mx-auto relative z-10">
                     <h2 className="text-4xl md:text-5xl font-black text-white mb-6 text-center">{t.newsletter_t}</h2>
-                    <p className="text-slate-400 mb-12 text-xl font-light text-center">{t.newsletter_s}</p>
+                    <p className="text-[#f0e6d3]/60 mb-12 text-xl font-light text-center">{t.newsletter_s}</p>
                     
                     {/* Newsletter Input - Logical flex-row */}
-                    <div className="flex flex-col sm:flex-row gap-4 bg-white/5 p-2 rounded-3xl backdrop-blur-md border border-white/10 items-stretch">
+                    <div className="flex flex-col sm:flex-row gap-4 bg-[#0e1628]/5 p-2 rounded-3xl backdrop-blur-md border border-white/10 items-stretch">
                         <input 
                             type="text" 
                             placeholder={t.phone_p} 
                             className="flex-grow bg-transparent border-none rounded-2xl px-8 py-5 text-white focus:ring-0 outline-none text-lg text-start" 
                         />
-                        <a href="/landing/" className="btn-primary !bg-[#f59e0b] !text-slate-900 !py-5 !px-12 !text-xl font-black rounded-2xl hover:scale-105 transition-transform whitespace-nowrap flex items-center justify-center">
+                        <a href="/landing/" className="bg-[#d4af37] text-[#080d1f] hover:bg-[#f5d061] !py-5 !px-12 !text-xl font-black rounded-2xl shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-105 transition-all whitespace-nowrap flex items-center justify-center">
                             {dict.common.join_now}
                         </a>
                     </div>

@@ -88,12 +88,12 @@ export default async function AboutPage({ params }: { params: Promise<{ locale: 
     const t = translations[locale] || translations.he;
 
     return (
-        <main className="min-h-screen bg-white">
+        <main className="min-h-screen bg-[#0e1628]">
             {/* Hero Section */}
-            <header className="bg-slate-50 py-24 px-8 border-b border-slate-200">
+            <header className="bg-[#111a2f] py-24 px-8 border-b border-[#d4af37]/20">
                 <div className="max-w-4xl mx-auto text-center">
-                    <h1 className="text-5xl font-black text-slate-900 mb-8">{t.title}</h1>
-                    <p className="text-2xl text-slate-500 font-light leading-relaxed">
+                    <h1 className="text-5xl font-black text-[#f0e6d3] mb-8">{t.title}</h1>
+                    <p className="text-2xl text-[#f0e6d3]/60 font-light leading-relaxed">
                         {t.subtitle}
                     </p>
                 </div>
@@ -102,40 +102,40 @@ export default async function AboutPage({ params }: { params: Promise<{ locale: 
             {/* Values Grid */}
             <section className="max-w-7xl mx-auto py-24 px-8 grid md:grid-cols-2 lg:grid-cols-4 gap-12">
                 <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-blue-100 text-[#1e3a8a] rounded-2xl flex items-center justify-center mb-6">
+                    <div className="w-16 h-16 bg-[#d4af37]/20 text-[#d4af37] rounded-2xl flex items-center justify-center mb-6">
                         <ShieldCheck size={32} />
                     </div>
-                    <h3 className="text-xl font-bold mb-4">{t.value1_t}</h3>
-                    <p className="text-slate-500">{t.value1_d}</p>
+                    <h3 className="text-xl font-bold mb-4 text-[#f0e6d3]">{t.value1_t}</h3>
+                    <p className="text-[#f0e6d3]/60">{t.value1_d}</p>
                 </div>
 
                 <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-amber-100 text-[#d97706] rounded-2xl flex items-center justify-center mb-6">
+                    <div className="w-16 h-16 bg-[#d4af37]/20 text-[#d4af37] rounded-2xl flex items-center justify-center mb-6">
                         <Target size={32} />
                     </div>
-                    <h3 className="text-xl font-bold mb-4">{t.value2_t}</h3>
-                    <p className="text-slate-500">{t.value2_d}</p>
+                    <h3 className="text-xl font-bold mb-4 text-[#f0e6d3]">{t.value2_t}</h3>
+                    <p className="text-[#f0e6d3]/60">{t.value2_d}</p>
                 </div>
 
                 <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-6">
+                    <div className="w-16 h-16 bg-[#d4af37]/20 text-[#d4af37] rounded-2xl flex items-center justify-center mb-6">
                         <Heart size={32} />
                     </div>
-                    <h3 className="text-xl font-bold mb-4">{t.value3_t}</h3>
-                    <p className="text-slate-500">{t.value3_d}</p>
+                    <h3 className="text-xl font-bold mb-4 text-[#f0e6d3]">{t.value3_t}</h3>
+                    <p className="text-[#f0e6d3]/60">{t.value3_d}</p>
                 </div>
 
                 <div className="flex flex-col items-center text-center">
-                    <div className="w-16 h-16 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center mb-6">
+                    <div className="w-16 h-16 bg-[#d4af37]/20 text-[#d4af37] rounded-2xl flex items-center justify-center mb-6">
                         <Users size={32} />
                     </div>
-                    <h3 className="text-xl font-bold mb-4">{t.value4_t}</h3>
-                    <p className="text-slate-500">{t.value4_d}</p>
+                    <h3 className="text-xl font-bold mb-4 text-[#f0e6d3]">{t.value4_t}</h3>
+                    <p className="text-[#f0e6d3]/60">{t.value4_d}</p>
                 </div>
             </section>
 
             {/* Vision Section */}
-            <section className="max-w-5xl mx-auto py-24 px-8 bg-slate-900 rounded-[3rem] mb-24 text-white text-center">
+            <section className="max-w-5xl mx-auto py-24 px-8 bg-[#080d1f] rounded-[3rem] mb-24 text-white text-center">
                 <h2 className="text-3xl font-black mb-8 italic uppercase tracking-tighter">{t.vision_title}</h2>
                 <p className="text-2xl font-light leading-relaxed opacity-80 italic">
                     "{t.vision_text}"

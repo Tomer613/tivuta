@@ -102,8 +102,8 @@ export default async function BenefitsPage({
     const t = translations[locale] || translations.he;
 
     return (
-        <main className="min-h-screen bg-slate-50 text-start">
-            <Suspense fallback={<div className="p-24 text-center text-slate-400 font-bold">Loading Benefits...</div>}>
+        <main className="min-h-screen bg-[#111a2f] text-start">
+            <Suspense fallback={<div className="p-24 text-center text-[#f0e6d3]/60 font-bold">Loading Benefits...</div>}>
                 <BenefitsContent 
                     allItems={allItems} 
                     categories={categories} 

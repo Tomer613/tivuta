@@ -48,7 +48,7 @@ export default function BackButton({ locale, className = "" }: BackButtonProps) 
     return (
         <button 
             onClick={handleBack}
-            className={`group flex items-center justify-center w-14 h-14 bg-white/90 backdrop-blur-md border border-slate-200 rounded-full text-[#1e3a8a] shadow-xl hover:bg-white hover:scale-110 transition-all active:scale-90 z-30 ${className}`}
+            className={`group flex items-center justify-center w-14 h-14 bg-[#0e1628]/90 backdrop-blur-md border border-[#d4af37]/20 rounded-full text-[#1e3a8a] shadow-xl hover:bg-[#0e1628] hover:scale-110 transition-all active:scale-90 z-30 ${className}`}
             id="global-back-button"
             aria-label={t.back}
         >

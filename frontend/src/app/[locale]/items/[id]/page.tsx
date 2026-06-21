@@ -59,19 +59,19 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
     const desc = item[`description_${locale}`] || item.description_he;
 
     return (
-        <main className="min-h-screen bg-slate-50">
+        <main className="min-h-screen bg-[#111a2f]">
             {/* Breadcrumbs & Header */}
-            <div className="bg-white border-b border-slate-200 pt-32 pb-12 px-8">
+            <div className="bg-[#0e1628] border-b border-[#d4af37]/20 pt-32 pb-12 px-8">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-10">
                     <BackButton locale={locale} />
                     
                     <div className="flex-grow">
-                        <div className="flex items-center gap-2 text-slate-400 text-sm mb-4 font-bold uppercase tracking-widest justify-center md:justify-start">
+                        <div className="flex items-center gap-2 text-[#f0e6d3]/60 text-sm mb-4 font-bold uppercase tracking-widest justify-center md:justify-start">
                             <Link href={`/${locale}`} className="hover:text-[#1e3a8a]">{t.home}</Link>
                             <ChevronRight size={14} />
                             <span className="text-[#1e3a8a]">{t.exclusive}</span>
                         </div>
-                        <h1 className="text-4xl md:text-6xl font-black text-slate-900 leading-tight text-center md:text-start">{title}</h1>
+                        <h1 className="text-4xl md:text-6xl font-black text-[#f0e6d3] leading-tight text-center md:text-start">{title}</h1>
                     </div>
                 </div>
             </div>
@@ -79,23 +79,23 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
             <div className="max-w-7xl mx-auto py-16 px-8 grid grid-cols-1 lg:grid-cols-3 gap-16">
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-12">
-                    <div className="bg-white rounded-[4rem] p-12 shadow-sm border border-slate-200">
+                    <div className="bg-[#0e1628] rounded-[4rem] p-12 shadow-sm border border-[#d4af37]/20">
                         <h2 className="text-2xl font-black mb-6 border-s-8 border-amber-500 ps-6">{t.details}</h2>
-                        <p className="text-xl text-slate-600 leading-relaxed text-start">{desc}</p>
+                        <p className="text-xl text-[#f0e6d3] leading-relaxed text-start">{desc}</p>
                     </div>
 
                     <div className="grid md:grid-cols-3 gap-6">
-                        <div className="bg-white p-8 rounded-3xl border border-slate-100 flex flex-col items-center text-center">
+                        <div className="bg-[#0e1628] p-8 rounded-3xl border border-[#d4af37]/20 flex flex-col items-center text-center">
                             <ShieldCheck className="text-green-600 mb-4" size={40} />
-                            <span className="font-bold text-slate-900">{t.trust}</span>
+                            <span className="font-bold text-[#f0e6d3]">{t.trust}</span>
                         </div>
-                        <div className="bg-white p-8 rounded-3xl border border-slate-100 flex flex-col items-center text-center">
-                            <Zap className="text-amber-500 mb-4" size={40} />
-                            <span className="font-bold text-slate-900">{t.speed}</span>
+                        <div className="bg-[#0e1628] p-8 rounded-3xl border border-[#d4af37]/20 flex flex-col items-center text-center">
+                            <Zap className="text-[#d4af37] mb-4" size={40} />
+                            <span className="font-bold text-[#f0e6d3]">{t.speed}</span>
                         </div>
-                        <div className="bg-white p-8 rounded-3xl border border-slate-100 flex flex-col items-center text-center">
+                        <div className="bg-[#0e1628] p-8 rounded-3xl border border-[#d4af37]/20 flex flex-col items-center text-center">
                             <Clock className="text-blue-600 mb-4" size={40} />
-                            <span className="font-bold text-slate-900">24/7 Support</span>
+                            <span className="font-bold text-[#f0e6d3]">24/7 Support</span>
                         </div>
                     </div>
                 </div>
@@ -105,7 +105,7 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
                     <div className="sticky top-32 space-y-6">
                         <div className="bg-[#1e3a8a] rounded-[3rem] p-10 text-white shadow-2xl shadow-blue-900/40">
                             <h3 className="text-2xl font-black mb-8">{t.open}</h3>
-                            <button className="w-full bg-amber-500 text-slate-900 py-6 rounded-2xl font-black text-xl hover:bg-amber-400 transition-all transform hover:scale-[1.02] active:scale-95">
+                            <button className="w-full bg-amber-500 text-[#f0e6d3] py-6 rounded-2xl font-black text-xl hover:bg-amber-400 transition-all transform hover:scale-[1.02] active:scale-95">
                                 {t.redeem}
                             </button>
                             <p className="mt-8 text-sm opacity-60 text-center leading-relaxed">

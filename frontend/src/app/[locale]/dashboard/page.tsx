@@ -132,25 +132,25 @@ export default function DashboardPage() {
 
     if (authLoading || loading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-[#111a2f] gap-4">
                 <Loader2 className="w-12 h-12 text-[#1e3a8a] animate-spin" />
-                <p className="text-slate-400 font-bold animate-pulse">טוען את הנתונים שלך...</p>
+                <p className="text-[#f0e6d3]/60 font-bold animate-pulse">טוען את הנתונים שלך...</p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-8 text-center">
-                <div className="bg-white p-12 rounded-[3rem] shadow-xl border border-slate-100 max-w-md">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-[#111a2f] p-8 text-center">
+                <div className="bg-[#0e1628] p-12 rounded-[3rem] shadow-xl border border-[#d4af37]/20 max-w-md">
                     <div className="w-20 h-20 bg-red-50 text-red-500 rounded-3xl flex items-center justify-center mb-8 mx-auto">
                         <ShoppingBag size={40} />
                     </div>
-                    <h2 className="text-2xl font-black text-slate-900 mb-4">אופס, משהו השתבש</h2>
-                    <p className="text-slate-500 mb-8 font-medium">{error}</p>
+                    <h2 className="text-2xl font-black text-[#f0e6d3] mb-4">אופס, משהו השתבש</h2>
+                    <p className="text-[#f0e6d3]/60 mb-8 font-medium">{error}</p>
                     <button
                         onClick={() => window.location.reload()}
-                        className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition-all"
+                        className="w-full bg-[#080d1f] text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition-all"
                     >
                         נסה שוב
                     </button>
@@ -178,10 +178,10 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                     >
-                        <h1 className="text-4xl font-black text-slate-900 mb-2">
+                        <h1 className="text-4xl font-black text-[#f0e6d3] mb-2">
                             {t.welcome} <span className="text-[#1e3a8a]">{user?.first_name}</span>
                         </h1>
-                        <p className="text-slate-500 font-medium">{t.subtitle}</p>
+                        <p className="text-[#f0e6d3]/60 font-medium">{t.subtitle}</p>
                     </motion.div>
 
                     <motion.div
@@ -190,35 +190,35 @@ export default function DashboardPage() {
                         className="flex flex-wrap gap-3 md:justify-end"
                     >
                         {/* Monthly Savings */}
-                        <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
+                        <div className="bg-[#0e1628] px-5 py-3 rounded-2xl shadow-sm border border-[#d4af37]/20 flex items-center gap-3">
                             <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
                                 <TrendingUp size={20} />
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t.savings_title}</p>
-                                <p className="text-lg font-black text-slate-900">{t.currency}{data.total_savings.toLocaleString()}</p>
+                                <p className="text-[10px] font-bold text-[#f0e6d3]/60 uppercase tracking-widest leading-none mb-1">{t.savings_title}</p>
+                                <p className="text-lg font-black text-[#f0e6d3]">{t.currency}{data.total_savings.toLocaleString()}</p>
                             </div>
                         </div>
 
                         {/* Monthly Expenses */}
-                        <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-50 text-[#1e3a8a] rounded-xl flex items-center justify-center">
+                        <div className="bg-[#0e1628] px-5 py-3 rounded-2xl shadow-sm border border-[#d4af37]/20 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#111a2f] text-[#1e3a8a] rounded-xl flex items-center justify-center">
                                 <ShoppingBag size={20} />
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t.expenses_title}</p>
-                                <p className="text-lg font-black text-slate-900">{t.currency}{data.monthly_expenses.toLocaleString()}</p>
+                                <p className="text-[10px] font-bold text-[#f0e6d3]/60 uppercase tracking-widest leading-none mb-1">{t.expenses_title}</p>
+                                <p className="text-lg font-black text-[#f0e6d3]">{t.currency}{data.monthly_expenses.toLocaleString()}</p>
                             </div>
                         </div>
 
                         {/* Points */}
-                        <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-3">
-                            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+                        <div className="bg-[#0e1628] px-5 py-3 rounded-2xl shadow-sm border border-[#d4af37]/20 flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#d4af37]/10 text-[#d4af37] rounded-xl flex items-center justify-center">
                                 <Coins size={20} />
                             </div>
                             <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t.points_title}</p>
-                                <p className="text-lg font-black text-amber-600">{(data.total_savings * 1.5).toFixed(0)}</p>
+                                <p className="text-[10px] font-bold text-[#f0e6d3]/60 uppercase tracking-widest leading-none mb-1">{t.points_title}</p>
+                                <p className="text-lg font-black text-[#d4af37]">{(data.total_savings * 1.5).toFixed(0)}</p>
                             </div>
                         </div>
                     </motion.div>
@@ -239,9 +239,9 @@ export default function DashboardPage() {
                             <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100"
+                                className="bg-[#0e1628] p-8 rounded-[2.5rem] shadow-sm border border-[#d4af37]/20"
                             >
-                                <h3 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-3">
+                                <h3 className="text-xl font-bold text-[#f0e6d3] mb-8 flex items-center gap-3">
                                     <ShoppingBag className="text-[#1e3a8a]" size={20} />
                                     {t.distribution_title}
                                 </h3>
@@ -273,9 +273,9 @@ export default function DashboardPage() {
                             <motion.div
                                 initial={{ opacity: 0, x: 20 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100"
+                                className="bg-[#0e1628] p-8 rounded-[2.5rem] shadow-sm border border-[#d4af37]/20"
                             >
-                                <h3 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-3">
+                                <h3 className="text-xl font-bold text-[#f0e6d3] mb-8 flex items-center gap-3">
                                     <CreditCard className="text-[#1e3a8a]" size={20} />
                                     {t.expenses_title}
                                 </h3>
@@ -291,8 +291,8 @@ export default function DashboardPage() {
                                     </ResponsiveContainer>
                                 </div>
                                 <div className="mt-4 flex justify-between items-center text-sm font-bold">
-                                    <span className="text-slate-400">סה"כ הוצאות:</span>
-                                    <span className="text-slate-900 text-lg">{t.currency}{data.monthly_expenses.toLocaleString()}</span>
+                                    <span className="text-[#f0e6d3]/60">סה"כ הוצאות:</span>
+                                    <span className="text-[#f0e6d3] text-lg">{t.currency}{data.monthly_expenses.toLocaleString()}</span>
                                 </div>
                             </motion.div>
                         </div>
@@ -302,26 +302,26 @@ export default function DashboardPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
-                            className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100"
+                            className="bg-[#0e1628] p-8 rounded-[2.5rem] shadow-sm border border-[#d4af37]/20"
                         >
-                            <h3 className="text-xl font-bold text-slate-800 mb-8 flex items-center gap-3">
+                            <h3 className="text-xl font-bold text-[#f0e6d3] mb-8 flex items-center gap-3">
                                 <ArrowRightLeft className="text-[#1e3a8a]" size={20} />
                                 {t.orders_title}
                             </h3>
                             <div className="space-y-4">
                                 {data.recent_orders.map((order: any, i: number) => (
-                                    <div key={i} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-colors group">
+                                    <div key={i} className="flex items-center justify-between p-4 hover:bg-[#111a2f] rounded-2xl transition-colors group">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 group-hover:bg-[#1e3a8a]/10 group-hover:text-[#1e3a8a] transition-colors">
+                                            <div className="w-12 h-12 bg-[#111a2f] rounded-xl flex items-center justify-center text-[#f0e6d3]/60 group-hover:bg-[#1e3a8a]/10 group-hover:text-[#1e3a8a] transition-colors">
                                                 <ShoppingBag size={20} />
                                             </div>
                                             <div>
-                                                <p className="font-bold text-slate-800">{order.title_he}</p>
-                                                <p className="text-xs font-medium text-slate-400">{new Date(order.date).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US')}</p>
+                                                <p className="font-bold text-[#f0e6d3]">{order.title_he}</p>
+                                                <p className="text-xs font-medium text-[#f0e6d3]/60">{new Date(order.date).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-US')}</p>
                                             </div>
                                         </div>
                                         <div className="text-start">
-                                            <p className="font-black text-slate-900">-{t.currency}{order.amount}</p>
+                                            <p className="font-black text-[#f0e6d3]">-{t.currency}{order.amount}</p>
                                             <p className="text-[10px] font-black uppercase tracking-tighter text-green-500 bg-green-50 px-2 py-0.5 rounded-full inline-block">
                                                 {order.status}
                                             </p>
@@ -341,21 +341,21 @@ export default function DashboardPage() {
                             animate={{ opacity: 1, x: 0 }}
                             className="bg-gradient-to-br from-[#1e3a8a] to-[#3b82f6] p-8 rounded-[2.5rem] shadow-xl text-white relative overflow-hidden"
                         >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-[#0e1628]/10 rounded-full -mr-16 -mt-16 blur-2xl" />
                             <div className="relative z-10">
                                 <Wallet className="mb-6 opacity-80" size={32} />
                                 <h3 className="text-2xl font-black mb-2">מה עושים עם החסכון?</h3>
-                                <p className="text-blue-100 mb-8 font-medium">חסכת החודש {t.currency}{data.total_savings.toLocaleString()} באמצעות כרטיס TIVUTA.</p>
+                                <p className="text-[#f0e6d3]/80 mb-8 font-medium">חסכת החודש {t.currency}{data.total_savings.toLocaleString()} באמצעות כרטיס TIVUTA.</p>
 
                                 <div className="space-y-4">
-                                    <button className="w-full bg-white/20 backdrop-blur-md border border-white/30 p-4 rounded-2xl flex items-center justify-between hover:bg-white/30 transition-all group">
+                                    <button className="w-full bg-[#0e1628]/20 backdrop-blur-md border border-white/30 p-4 rounded-2xl flex items-center justify-between hover:bg-[#0e1628]/30 transition-all group">
                                         <div className="flex items-center gap-3">
                                             <Coins size={20} />
                                             <span className="font-bold text-sm">{t.savings_cta}</span>
                                         </div>
                                         <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                                     </button>
-                                    <button className="w-full bg-white text-[#1e3a8a] p-4 rounded-2xl flex items-center justify-between hover:bg-white/90 transition-all group">
+                                    <button className="w-full bg-[#0e1628] text-[#1e3a8a] p-4 rounded-2xl flex items-center justify-between hover:bg-[#0e1628]/90 transition-all group">
                                         <div className="flex items-center gap-3">
                                             <TrendingUp size={20} />
                                             <span className="font-bold text-sm">{t.invest_cta}</span>
@@ -373,9 +373,9 @@ export default function DashboardPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.4 }}
-                            className="bg-amber-50 border border-amber-100 p-8 rounded-[2.5rem]"
+                            className="bg-[#d4af37]/10 border border-amber-100 p-8 rounded-[2.5rem]"
                         >
-                            <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center mb-6">
+                            <div className="w-10 h-10 bg-[#d4af37]/20 text-[#d4af37] rounded-xl flex items-center justify-center mb-6">
                                 <Coins size={20} />
                             </div>
                             <h4 className="font-black text-amber-900 mb-2">טיפ פיננסי חכם</h4>

@@ -91,16 +91,16 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
     return (
         <>
             {/* Dynamic Page Header */}
-            <header className="bg-white border-b border-slate-200 py-20 px-8">
+            <header className="bg-[#0e1628] border-b border-[#d4af37]/20 py-20 px-8">
                 <div className="max-w-7xl mx-auto relative">
                     <div className="lg:absolute lg:-start-24 lg:top-0 mb-10 lg:mb-0">
                         <BackButton locale={locale} />
                     </div>
                     <div className="flex flex-col items-start">
-                        <h1 className="text-6xl font-black text-slate-900 mb-6 text-start w-full animate-in fade-in slide-in-from-bottom-2">
+                        <h1 className="text-6xl font-black text-[#f0e6d3] mb-6 text-start w-full animate-in fade-in slide-in-from-bottom-2">
                             {currentPool.title}
                         </h1>
-                        <p className="text-2xl text-slate-500 max-w-2xl font-light leading-relaxed text-start w-full animate-in fade-in slide-in-from-bottom-4">
+                        <p className="text-2xl text-[#f0e6d3]/60 max-w-2xl font-light leading-relaxed text-start w-full animate-in fade-in slide-in-from-bottom-4">
                             {currentPool.subtitle}
                         </p>
                     </div>
@@ -112,12 +112,12 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
             <aside className="lg:w-64 flex-shrink-0 flex flex-col gap-8">
                 {/* Pool Selector */}
                 <div>
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ps-2">{locale === 'he' ? 'סוג הטבות' : 'Benefit Type'}</h3>
+                    <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-4 ps-2">{locale === 'he' ? 'סוג הטבות' : 'Benefit Type'}</h3>
                     <div className="flex flex-col">
                         {/* Trigger */}
                         <button 
                             onClick={() => setIsPoolOpen(!isPoolOpen)}
-                            className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all active:scale-95 bg-[#1e3a8a] text-white shadow-lg shadow-blue-900/20"
+                            className="flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all active:scale-95 bg-[#d4af37] text-[#080d1f] shadow-lg shadow-[#d4af37]/20"
                         >
                             <div className="flex items-center gap-3">
                                 {currentPool.icon}
@@ -134,7 +134,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                                         key={tab.id}
                                         href={`/${locale}/benefits?pool=${tab.id}${search ? `&search=${search}` : ''}`}
                                         onClick={() => setIsPoolOpen(false)}
-                                        className="flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all active:scale-95 bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+                                        className="flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all active:scale-95 bg-[#0e1628] text-[#f0e6d3] hover:bg-[#111a2f] border border-[#d4af37]/20"
                                     >
                                         {tab.icon}
                                         <span>{tab.label}</span>
@@ -147,12 +147,12 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
 
                 {/* Categories Sidebar */}
                 <div>
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ps-2">{locale === 'he' ? 'קטגוריות' : 'Categories'}</h3>
+                    <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-4 ps-2">{locale === 'he' ? 'קטגוריות' : 'Categories'}</h3>
                     <div className="flex flex-col">
                         {/* Trigger */}
                         <button 
                             onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                            className="flex items-center justify-between gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 bg-[#1e3a8a] text-white shadow-md"
+                            className="flex items-center justify-between gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 bg-[#d4af37] text-[#080d1f] shadow-md"
                         >
                             <div className="flex items-center gap-3">
                                 {(() => {
@@ -171,7 +171,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                                     <Link 
                                         href={`/${locale}/benefits?pool=${pool}${search ? `&search=${search}` : ''}`} 
                                         onClick={() => setIsCategoryOpen(false)}
-                                        className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-slate-500 hover:bg-slate-50 border border-transparent"
+                                        className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-[#f0e6d3]/60 hover:bg-[#111a2f] border border-transparent"
                                     >
                                         <LayoutGrid size={18} />
                                         <span>{t.all}</span>
@@ -184,7 +184,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                                             key={cat.id} 
                                             href={`/${locale}/benefits?pool=${pool}&category=${cat.slug}${search ? `&search=${search}` : ''}`}
                                             onClick={() => setIsCategoryOpen(false)}
-                                            className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-slate-500 hover:bg-slate-50 border border-transparent"
+                                            className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-[#f0e6d3]/60 hover:bg-[#111a2f] border border-transparent"
                                         >
                                             <Icon size={18} />
                                             <span>{cat[`name_${locale}`] || cat.name_he}</span>
@@ -201,13 +201,13 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
             <div className="flex-grow">
                 {/* Results Header */}
                 <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-black text-slate-900">
+                    <h2 className="text-2xl font-black text-[#f0e6d3]">
                         {poolTabs.find(p => p.id === pool)?.label}
-                        {category && <span className="text-slate-400 font-light mx-2">/</span>}
-                        {category && <span className="text-[#1e3a8a]">{currentCategoryObj?.[`name_${locale}`] || currentCategoryObj?.name_he}</span>}
+                        {category && <span className="text-[#f0e6d3]/60 font-light mx-2">/</span>}
+                        {category && <span className="text-[#d4af37]">{currentCategoryObj?.[`name_${locale}`] || currentCategoryObj?.name_he}</span>}
                     </h2>
                     {!isPoolRestricted && (
-                        <span className="bg-slate-100 text-slate-500 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
+                        <span className="bg-[#111a2f] text-[#f0e6d3]/60 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
                             {filteredItems.length} {t.results}
                         </span>
                     )}
@@ -215,14 +215,14 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
 
                 {/* Catalog Grid or Login Prompt */}
                 {isPoolRestricted ? (
-                    <div className="text-center py-24 bg-white rounded-[3rem] border border-slate-200 shadow-sm animate-in fade-in zoom-in-95 duration-500">
-                        <div className="w-24 h-24 bg-blue-50 text-[#1e3a8a] rounded-full flex items-center justify-center mx-auto mb-8">
+                    <div className="text-center py-24 bg-[#0e1628] rounded-[3rem] border border-[#d4af37]/20 shadow-sm animate-in fade-in zoom-in-95 duration-500">
+                        <div className="w-24 h-24 bg-[#d4af37]/20 text-[#d4af37] rounded-full flex items-center justify-center mx-auto mb-8">
                             <User size={48} />
                         </div>
-                        <h3 className="text-2xl font-black text-slate-900 mb-12 px-8 leading-tight">
+                        <h3 className="text-2xl font-black text-[#f0e6d3] mb-12 px-8 leading-tight">
                             {t.login_required}
                         </h3>
-                        <Link href={`/${locale}/login`} className="btn-primary !bg-[#1e3a8a] !px-12 !py-4 text-lg">
+                        <Link href={`/${locale}/login`} className="btn-primary !bg-[#d4af37] !text-[#080d1f] hover:!bg-[#f5d061] !px-12 !py-4 text-lg">
                             {t.login_btn}
                         </Link>
                     </div>
@@ -233,13 +233,13 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-24 bg-white rounded-[3rem] border-2 border-dashed border-slate-200">
+                    <div className="text-center py-24 bg-[#0e1628] rounded-[3rem] border-2 border-dashed border-[#d4af37]/20">
                         <div className="text-slate-100 flex justify-center mb-6">
                             <LayoutGrid size={80} strokeWidth={1} />
                         </div>
-                        <h3 className="text-2xl font-black text-slate-900 mb-2">{t.empty}</h3>
-                        <p className="text-slate-400 mb-8">{locale === 'he' ? 'נסה להסיר את הסינונים כדי לראות עוד תוצאות.' : 'Try removing filters to see more results.'}</p>
-                        <Link href={`/${locale}/benefits?pool=all`} className="btn-primary !bg-[#1e3a8a] !px-8">
+                        <h3 className="text-2xl font-black text-[#f0e6d3] mb-2">{t.empty}</h3>
+                        <p className="text-[#f0e6d3]/60 mb-8">{locale === 'he' ? 'נסה להסיר את הסינונים כדי לראות עוד תוצאות.' : 'Try removing filters to see more results.'}</p>
+                        <Link href={`/${locale}/benefits?pool=all`} className="btn-primary !bg-[#d4af37] !text-[#080d1f] hover:!bg-[#f5d061] !px-8">
                             {t.pool_all}
                         </Link>
                     </div>
@@ -247,13 +247,13 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
 
                 {/* Browse All CTA if in monthly/featured mode and not empty */}
                 {pool !== 'all' && filteredItems.length > 0 && (
-                    <div className="mt-16 pt-12 border-t border-slate-200 text-center">
+                    <div className="mt-16 pt-12 border-t border-[#d4af37]/20 text-center">
                         <Link 
                             href={`/${locale}/benefits?pool=all`}
-                            className="inline-flex items-center gap-2 text-[#1e3a8a] font-black text-lg hover:gap-4 transition-all duration-300 group"
+                            className="inline-flex items-center gap-2 text-[#d4af37] font-black text-lg hover:gap-4 transition-all duration-300 group"
                         >
                             <span>{t.browse_all}</span>
-                            <div className="w-8 h-8 bg-[#1e3a8a] text-white rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <div className="w-8 h-8 bg-[#d4af37] text-[#080d1f] rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                                 <Zap size={14} fill="currentColor" />
                             </div>
                         </Link>

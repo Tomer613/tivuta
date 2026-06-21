@@ -32,7 +32,7 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
             {/* Sub-Categories Filter Section */}
             {category.sub_categories && category.sub_categories.length > 0 && (
                 <section className="max-w-7xl mx-auto py-12 px-6">
-                    <h2 className="text-lg font-black text-slate-400 uppercase tracking-widest mb-8 text-start">
+                    <h2 className="text-lg font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-8 text-start">
                         {t.sub_categories}
                     </h2>
                     <div className="flex flex-wrap gap-3">
@@ -40,8 +40,8 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
                             href={`/${locale}/categories/${category.slug}`}
                             className={`px-6 py-3 rounded-full font-bold transition-all active:scale-95 border ${
                                 !activeSubSlug 
-                                ? "bg-[#1e3a8a] text-white border-[#1e3a8a] shadow-lg shadow-blue-900/20" 
-                                : "bg-white text-slate-700 border-slate-200 hover:border-[#1e3a8a]"
+                                ? "bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-lg shadow-[#d4af37]/20" 
+                                : "bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]"
                             }`}
                         >
                             {t.all}
@@ -53,8 +53,8 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
                                 href={`/${locale}/categories/${category.slug}?sub=${sub.slug}`}
                                 className={`px-6 py-3 rounded-full font-bold transition-all active:scale-95 border ${
                                     activeSubSlug === sub.slug
-                                    ? "bg-[#1e3a8a] text-white border-[#1e3a8a] shadow-lg shadow-blue-900/20" 
-                                    : "bg-white text-slate-700 border-slate-200 hover:border-[#1e3a8a]"
+                                    ? "bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-lg shadow-[#d4af37]/20" 
+                                    : "bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]"
                                 }`}
                             >
                                 {sub[`name_${locale}`] || sub.name_he}
@@ -66,7 +66,7 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
 
             {/* Items Grid */}
             <section className="max-w-7xl mx-auto py-12 px-6">
-                <h2 className="text-3xl font-black text-slate-900 mb-12 text-start">
+                <h2 className="text-3xl font-black text-[#f0e6d3] mb-12 text-start">
                     {activeSubSlug 
                         ? category.sub_categories.find((s: any) => s.slug === activeSubSlug)?.[`name_${locale}`] || t.all_items
                         : t.all_items
@@ -80,8 +80,8 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
                         ))}
                     </div>
                 ) : (
-                    <div className="bg-white border border-dashed border-slate-300 rounded-[3rem] p-24 text-center">
-                        <p className="text-slate-400 text-xl italic">{t.no_items}</p>
+                    <div className="bg-[#0e1628] border border-dashed border-[#d4af37]/20 rounded-[3rem] p-24 text-center">
+                        <p className="text-[#f0e6d3]/60 text-xl italic">{t.no_items}</p>
                     </div>
                 )}
             </section>

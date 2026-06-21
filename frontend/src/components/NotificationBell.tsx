@@ -30,7 +30,7 @@ export default function NotificationBell() {
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white z-10 animate-pulse">
                 {unreadCount}
             </div>
-            <div className="p-2 bg-amber-100 text-amber-600 rounded-full shadow-sm hover:bg-amber-200 transition-colors">
+            <div className="p-2 bg-[#d4af37]/20 text-[#d4af37] rounded-full shadow-sm hover:bg-amber-200 transition-colors">
                 <Bell size={18} />
             </div>
         </motion.div>

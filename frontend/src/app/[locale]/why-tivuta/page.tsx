@@ -74,7 +74,7 @@ export default async function WhyTivutaPage({ params }: { params: Promise<{ loca
     const t = translations[locale] || translations.he;
 
     return (
-        <main className="min-h-screen bg-white">
+        <main className="min-h-screen bg-[#0e1628]">
             {/* Header */}
             <header className="bg-[#1e3a8a] py-32 px-8 text-center relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-full opacity-10">
@@ -82,7 +82,7 @@ export default async function WhyTivutaPage({ params }: { params: Promise<{ loca
                 </div>
                 <div className="max-w-4xl mx-auto relative z-10">
                     <h1 className="text-5xl md:text-7xl font-black text-white mb-8 tracking-tight">{t.hero_t}</h1>
-                    <p className="text-2xl text-blue-100 font-light leading-relaxed">
+                    <p className="text-2xl text-[#f0e6d3]/80 font-light leading-relaxed">
                         {t.hero_s}
                     </p>
                 </div>
@@ -94,16 +94,16 @@ export default async function WhyTivutaPage({ params }: { params: Promise<{ loca
                 {/* Point 1 - Logical Layout */}
                 <div className="grid md:grid-cols-2 gap-16 items-center text-start">
                     <div className="flex flex-col items-start">
-                        <div className="w-14 h-14 bg-blue-50 text-[#1e3a8a] rounded-2xl flex items-center justify-center mb-6 shadow-inner">
+                        <div className="w-14 h-14 bg-[#111a2f] text-[#1e3a8a] rounded-2xl flex items-center justify-center mb-6 shadow-inner">
                             <BarChart3 size={28} />
                         </div>
-                        <h2 className="text-4xl font-black text-slate-900 mb-6">{t.p1_t}</h2>
-                        <p className="text-xl text-slate-500 leading-relaxed text-start">
+                        <h2 className="text-4xl font-black text-[#f0e6d3] mb-6">{t.p1_t}</h2>
+                        <p className="text-xl text-[#f0e6d3]/60 leading-relaxed text-start">
                             {t.p1_d}
                         </p>
                     </div>
-                    <div className="bg-slate-50 h-80 rounded-[4rem] border border-slate-100 flex items-center justify-center shadow-inner">
-                        <div className="text-slate-200">
+                    <div className="bg-[#111a2f] h-80 rounded-[4rem] border border-[#d4af37]/20 flex items-center justify-center shadow-inner">
+                        <div className="text-[#f0e6d3]/40">
                             <Zap size={140} strokeWidth={0.5} />
                         </div>
                     </div>
@@ -111,17 +111,17 @@ export default async function WhyTivutaPage({ params }: { params: Promise<{ loca
 
                 {/* Point 2 - Natural Grid Flip */}
                 <div className="grid md:grid-cols-2 gap-16 items-center text-start">
-                    <div className="bg-slate-50 h-80 rounded-[4rem] border border-slate-100 flex items-center justify-center shadow-inner md:order-first order-last">
-                        <div className="text-slate-200">
+                    <div className="bg-[#111a2f] h-80 rounded-[4rem] border border-[#d4af37]/20 flex items-center justify-center shadow-inner md:order-first order-last">
+                        <div className="text-[#f0e6d3]/40">
                             <ShieldCheck size={140} strokeWidth={0.5} />
                         </div>
                     </div>
                     <div className="flex flex-col items-start">
-                        <div className="w-14 h-14 bg-amber-50 text-[#d97706] rounded-2xl flex items-center justify-center mb-6 shadow-inner">
+                        <div className="w-14 h-14 bg-[#d4af37]/10 text-[#d97706] rounded-2xl flex items-center justify-center mb-6 shadow-inner">
                             <Sparkles size={28} />
                         </div>
-                        <h2 className="text-4xl font-black text-slate-900 mb-6">{t.p2_t}</h2>
-                        <p className="text-xl text-slate-500 leading-relaxed text-start">
+                        <h2 className="text-4xl font-black text-[#f0e6d3] mb-6">{t.p2_t}</h2>
+                        <p className="text-xl text-[#f0e6d3]/60 leading-relaxed text-start">
                             {t.p2_d}
                         </p>
                     </div>
@@ -130,11 +130,11 @@ export default async function WhyTivutaPage({ params }: { params: Promise<{ loca
             </section>
 
             {/* Closing CTA */}
-            <section className="bg-slate-50 py-32 px-8 text-center border-t border-slate-200 rounded-t-[5rem]">
-                <h2 className="text-4xl font-black text-slate-900 mb-10">{t.cta_t}</h2>
+            <section className="bg-[#111a2f] py-32 px-8 text-center border-t border-[#d4af37]/20 rounded-t-[5rem]">
+                <h2 className="text-4xl font-black text-[#f0e6d3] mb-10">{t.cta_t}</h2>
                 <div className="flex flex-col sm:flex-row justify-center gap-6">
                     <Link href={`/${locale}/join`} className="btn-primary !px-12 !py-5 !text-xl shadow-2xl">{t.cta_join}</Link>
-                    <Link href={`/${locale}/benefits`} className="btn-secondary !px-12 !py-5 !text-xl bg-white">{t.cta_list}</Link>
+                    <Link href={`/${locale}/benefits`} className="btn-secondary !px-12 !py-5 !text-xl bg-[#0e1628]">{t.cta_list}</Link>
                 </div>
             </section>
         </main>
