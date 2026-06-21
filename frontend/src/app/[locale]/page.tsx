@@ -66,23 +66,23 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
     };
 
     return (
-        <main className="min-h-screen bg-slate-50 text-start">
+        <main className="min-h-screen bg-[#080d1f] text-start">
             {/* Premium Hero Section */}
-            <section className="relative bg-[#1e3a8a] py-12 md:py-16 lg:py-20 px-6 overflow-hidden">
+            <section className="relative bg-[#080d1f] py-12 md:py-16 lg:py-20 px-6 overflow-hidden">
                 <div className="absolute top-0 start-0 w-full h-full opacity-10">
-                    <div className="absolute top-10 start-10 w-64 h-64 bg-white rounded-full blur-3xl"></div>
-                    <div className="absolute bottom-10 end-10 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
+                    <div className="absolute top-10 start-10 w-64 h-64 bg-[#d4af37] rounded-full blur-3xl"></div>
+                    <div className="absolute bottom-10 end-10 w-96 h-96 bg-[#1e3a8a] rounded-full blur-3xl"></div>
                 </div>
 
                 <div className="max-w-5xl mx-auto text-center relative z-10">
-                    <div className="text-[#f59e0b] text-lg md:text-2xl font-bold mb-4 md:mb-6 animate-float">
+                    <div className="text-[#d4af37] text-lg md:text-2xl font-bold mb-4 md:mb-6 animate-float">
                         <span>{dict.hero.badge}</span>
                     </div>
                     <h1 className="text-4xl md:text-7xl font-black text-white mb-4 md:mb-6 leading-[1.1] flex flex-col items-center">
                         <Logo height="h-20 md:h-28" light className="-mb-2" />
                         <DynamicSlogan locale={locale} initialSlogan={dict.hero.title_sub} />
                     </h1>
-                    <p className="text-lg md:text-2xl text-blue-100 font-light max-w-3xl mx-auto leading-relaxed mb-8">
+                    <p className="text-lg md:text-2xl text-[#f0e6d3]/80 font-light max-w-3xl mx-auto leading-relaxed mb-8">
                         {dict.hero.description}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -104,12 +104,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                         <div key={cat.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                             <Link
                                 href={`/${locale}/benefits?pool=all&category=${cat.slug}`}
-                                className="takhles-card p-8 text-center group flex flex-col items-center justify-center gap-4 border-b-4 border-transparent hover:border-[#1e3a8a] h-full"
+                                className="takhles-card p-8 text-center group flex flex-col items-center justify-center gap-4 h-full"
                             >
-                                <div className="w-16 h-16 bg-slate-50 text-[#1e3a8a] rounded-2xl flex items-center justify-center group-hover:bg-[#1e3a8a] group-hover:text-white transition-all duration-500 shadow-inner group-hover:scale-110">
+                                <div className="w-16 h-16 bg-[#111a2f] border border-[#d4af37]/20 text-[#d4af37] rounded-2xl flex items-center justify-center group-hover:bg-[#d4af37] group-hover:text-[#080d1f] transition-all duration-500 shadow-inner group-hover:scale-110">
                                     {categoryIcons[cat.slug] || categoryIcons.default}
                                 </div>
-                                <span className="font-bold text-slate-800 text-lg">
+                                <span className="font-bold text-[#f0e6d3] text-lg">
                                     {cat[`name_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || cat.name_he}
                                 </span>
                             </Link>
@@ -132,8 +132,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </section>
 
             {/* Newsletter / CTA Section - Logical layout */}
-            <section className="bg-slate-900 py-24 px-6 mx-6 rounded-[4rem] mb-24 text-center relative overflow-hidden">
-                <div className="absolute top-0 end-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -me-32 -mt-32"></div>
+            <section className="bg-[#0e1628] border border-[#d4af37]/20 py-24 px-6 mx-6 rounded-[4rem] mb-24 text-center relative overflow-hidden">
+                <div className="absolute top-0 end-0 w-64 h-64 bg-[#d4af37]/10 rounded-full blur-3xl -me-32 -mt-32"></div>
                 <div className="max-w-3xl mx-auto relative z-10">
                     <h2 className="text-4xl md:text-5xl font-black text-white mb-6 text-center">{t.newsletter_t}</h2>
                     <p className="text-slate-400 mb-12 text-xl font-light text-center">{t.newsletter_s}</p>

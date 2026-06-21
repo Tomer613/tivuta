@@ -4,15 +4,15 @@
 @import "tailwindcss";
 
 :root {
-    /* Premium Vibrant Palette */
-    --primary-navy: #1e3a8a;
-    --primary-royal: #2563eb;
-    --accent-amber: #f59e0b;
-    --slate-50: #f8fafc;
-    --slate-100: #f1f5f9;
-    --slate-200: #e2e8f0;
-    --slate-800: #1e293b;
-    --slate-900: #0f172a;
+    /* Dark Luxury Palette */
+    --primary-navy: #080d1f;      /* Deep dark blue (background) */
+    --primary-royal: #0e1628;     /* Slightly lighter dark blue (cards/elements) */
+    --accent-amber: #d4af37;      /* Gold accent */
+    --slate-50: #080d1f;          /* Overridden for dark background */
+    --slate-100: #0e1628;         /* Overridden for dark elements */
+    --slate-200: rgba(212, 175, 55, 0.2); /* Gold subtle borders */
+    --slate-800: #f0e6d3;         /* Cream text default */
+    --slate-900: #ffffff;         /* White text high contrast */
 }
 
 body {
@@ -25,11 +25,11 @@ body {
 
 /* Premium Component Classes */
 .glass-nav {
-    @apply sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200;
+    @apply sticky top-0 z-50 bg-[#080d1f]/90 backdrop-blur-md border-b border-[#d4af37]/20;
 }
 
 .takhles-card {
-    @apply bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] hover:-translate-y-3 transition-all duration-500 cursor-pointer min-h-[180px] w-full;
+    @apply bg-[#0e1628] border border-[#d4af37]/20 rounded-3xl shadow-sm hover:shadow-[0_20px_50px_rgba(212,175,55,0.15)] hover:border-[#d4af37]/50 hover:-translate-y-3 transition-all duration-500 cursor-pointer min-h-[180px] w-full;
 }
 
 .takhles-card:hover .group-hover\:scale-110 {
@@ -37,25 +37,25 @@ body {
 }
 
 .btn-primary {
-    @apply bg-[#1e3a8a] text-white px-6 py-3 rounded-2xl font-bold hover:bg-[#2563eb] hover:shadow-[0_20px_40px_rgba(30,58,138,0.4)] hover:scale-[1.05] transition-all active:scale-95 relative overflow-hidden;
+    @apply bg-gradient-to-r from-[#111a2f] to-[#1a2540] text-[#d4af37] border border-[#d4af37]/40 px-6 py-3 rounded-2xl font-bold hover:border-[#d4af37] hover:shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:scale-[1.05] transition-all active:scale-95 relative overflow-hidden;
 }
 
 .btn-primary::after {
     content: '';
-    @apply absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent;
+    @apply absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-[#d4af37]/20 to-transparent;
     animation: shine 3s infinite;
 }
 
 .btn-secondary {
-    @apply bg-white text-slate-700 border border-slate-200 px-6 py-3 rounded-2xl font-bold hover:bg-slate-50 hover:border-slate-300 transition-all;
+    @apply bg-transparent text-[#f0e6d3] border border-[#f0e6d3]/30 px-6 py-3 rounded-2xl font-bold hover:bg-white/10 hover:border-[#f0e6d3]/60 transition-all;
 }
 
 .section-title {
-    @apply text-3xl font-black text-slate-900 mb-10 border-s-8 border-[#f59e0b] ps-6;
+    @apply text-3xl font-black text-white mb-10 border-s-8 border-[#d4af37] ps-6;
 }
 
 .text-premium-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-br from-[#1e3a8a] to-[#2563eb];
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-[#d4af37] to-[#f5d061];
 }
 
 .branding-link {

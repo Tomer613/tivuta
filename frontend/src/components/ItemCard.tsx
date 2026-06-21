@@ -58,10 +58,10 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
     return (
         <Link 
             href={`/${locale}/items/${item.id}`}
-            className="flex flex-col h-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group text-start relative"
+            className="flex flex-col h-full bg-[#0e1628] rounded-2xl border border-[#d4af37]/20 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group text-start relative"
         >
             {/* Image Section - Optimized with Next/Image */}
-            <div className="h-48 w-full bg-slate-100 relative overflow-hidden">
+            <div className="h-48 w-full bg-[#111a2f] relative overflow-hidden">
                 <Image
                     src={imagePath}
                     alt={title}
@@ -72,7 +72,7 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 {item.category && (
-                    <span className="absolute top-3 start-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-slate-700 uppercase z-10">
+                    <span className="absolute top-3 start-3 bg-[#080d1f]/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-[#f0e6d3] uppercase z-10">
                         {item.category}
                     </span>
                 )}
@@ -80,24 +80,24 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
 
             {/* Content Section */}
             <div className="p-6 flex flex-col flex-grow items-start text-start">
-                <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#1e3a8a] transition-colors line-clamp-1 w-full">
+                <h3 className="text-xl font-bold text-[#f0e6d3] mb-2 group-hover:text-[#d4af37] transition-colors line-clamp-1 w-full">
                     {title}
                 </h3>
-                <p className="text-slate-500 text-sm line-clamp-2 mb-6 leading-relaxed w-full font-light">
+                <p className="text-[#f0e6d3]/60 text-sm line-clamp-2 mb-6 leading-relaxed w-full font-light">
                     {description}
                 </p>
 
                 {/* Price and Action - Visual Takhles */}
-                <div className="mt-auto flex justify-between items-end pt-4 border-t border-slate-100 w-full">
+                <div className="mt-auto flex justify-between items-end pt-4 border-t border-[#d4af37]/20 w-full">
                     <div className="flex flex-col items-start">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <span className="text-[10px] font-black text-[#f0e6d3]/40 uppercase tracking-widest">
                             {translations.price_label}
                         </span>
-                        <span className="text-2xl font-black text-[#1e3a8a]">
+                        <span className="text-2xl font-black text-[#d4af37]">
                             {item.price ? `₪${item.price}` : translations.free}
                         </span>
                     </div>
-                    <div className="btn-primary !text-sm !py-2.5 !px-5 group-hover:bg-[#2563eb]">
+                    <div className="btn-primary !text-sm !py-2.5 !px-5">
                         {translations.details}
                     </div>
                 </div>

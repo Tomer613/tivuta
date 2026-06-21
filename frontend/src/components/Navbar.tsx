@@ -81,14 +81,14 @@ export default function Navbar() {
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                 {/* Logo & Brand - Logical start */}
                 <Link href={`/${locale}`} className="flex items-center gap-3 group">
-                    <Logo className="group-hover:scale-105" />
+                    <Logo light className="group-hover:scale-105" />
                 </Link>
 
                 {/* Desktop Menu - Centered or logical layout */}
                 <div className="hidden md:flex items-center gap-8">
-                    <Link href={`/${locale}/benefits`} className="font-bold text-slate-600 hover:text-[#1e3a8a] transition-colors">{ui.benefits}</Link>
-                    <Link href={`/${locale}/card`} className="font-bold text-amber-600 hover:text-amber-700 transition-colors">{ui.card}</Link>
-                    <Link href={`/${locale}/about`} className="font-bold text-slate-600 hover:text-[#1e3a8a] transition-colors">{ui.about}</Link>
+                    <Link href={`/${locale}/benefits`} className="font-bold text-[#f0e6d3] hover:text-[#d4af37] transition-colors">{ui.benefits}</Link>
+                    <Link href={`/${locale}/card`} className="font-bold text-[#d4af37] hover:text-[#f5d061] transition-colors">{ui.card}</Link>
+                    <Link href={`/${locale}/about`} className="font-bold text-[#f0e6d3] hover:text-[#d4af37] transition-colors">{ui.about}</Link>
                 </div>
 
                 {/* Actions - Logical end */}
@@ -97,17 +97,17 @@ export default function Navbar() {
                     <div className="relative hidden sm:block">
                         <button 
                             onClick={() => setShowLangMenu(!showLangMenu)}
-                            className="w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-white/10 rounded-full transition-all"
                         >
                             <Globe size={20} />
                         </button>
                         {showLangMenu && (
-                            <div className="absolute top-12 start-0 bg-white border border-slate-200 rounded-2xl shadow-xl py-3 w-32 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
+                            <div className="absolute top-12 start-0 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl shadow-xl py-3 w-32 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
                                 {languages.map((lang) => (
                                     <button
                                         key={lang.code}
                                         onClick={() => changeLanguage(lang.code)}
-                                        className={`w-full text-start px-4 py-2 text-sm hover:bg-slate-50 transition-colors ${locale === lang.code ? 'font-black text-[#1e3a8a]' : 'text-slate-600'}`}
+                                        className={`w-full text-start px-4 py-2 text-sm hover:bg-[#111a2f] transition-colors ${locale === lang.code ? 'font-black text-[#d4af37]' : 'text-[#f0e6d3]'}`}
                                     >
                                         {lang.label}
                                     </button>
@@ -122,12 +122,12 @@ export default function Navbar() {
                             placeholder={ui.search} 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-100 border-none rounded-full ps-12 pe-6 py-2.5 text-sm focus:ring-2 focus:ring-[#1e3a8a] outline-none w-56 focus:w-80 transition-all duration-300 shadow-inner text-start"
+                            className="bg-[#0e1628] border border-[#d4af37]/20 rounded-full ps-12 pe-6 py-2.5 text-sm focus:ring-2 focus:ring-[#d4af37] outline-none w-56 focus:w-80 transition-all duration-300 shadow-inner text-[#f0e6d3] text-start placeholder:text-[#f0e6d3]/50"
                         />
-                        <Search size={18} className="absolute start-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#1e3a8a] transition-colors" />
+                        <Search size={18} className="absolute start-4 top-1/2 -translate-y-1/2 text-[#f0e6d3]/50 group-focus-within:text-[#d4af37] transition-colors" />
                     </form>
                     
-                    <div className="h-8 w-px bg-slate-200 mx-2 md:block hidden"></div>
+                    <div className="h-8 w-px bg-[#d4af37]/20 mx-2 md:block hidden"></div>
                     
                     {user ? (
                         <div className="flex items-center gap-2 md:gap-3">
@@ -148,7 +148,7 @@ export default function Navbar() {
 
                     ) : (
                         <div className="flex items-center gap-1 md:gap-2">
-                            <a href="/landing/" className="text-slate-600 font-bold text-sm px-2 md:px-4 hover:text-[#1e3a8a] hidden sm:block">
+                            <a href="/landing/" className="text-[#f0e6d3] font-bold text-sm px-2 md:px-4 hover:text-[#d4af37] hidden sm:block">
                                 {ui.joinNow}
                             </a>
                             <Link href={`/${locale}/login`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap">
@@ -163,7 +163,7 @@ export default function Navbar() {
                     {/* Mobile Search Toggle */}
                     <button 
                         onClick={() => { setIsMobileSearchOpen(!isMobileSearchOpen); setIsMenuOpen(false); }}
-                        className="lg:hidden w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                        className="lg:hidden w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-white/10 rounded-full transition-all"
                     >
                         {isMobileSearchOpen ? <X size={20} /> : <Search size={20} />}
                     </button>
@@ -171,7 +171,7 @@ export default function Navbar() {
                     {/* Mobile Menu Toggle */}
                     <button 
                         onClick={() => { setIsMenuOpen(!isMenuOpen); setIsMobileSearchOpen(false); }}
-                        className="md:hidden w-10 h-10 flex items-center justify-center text-slate-600 hover:bg-slate-100 rounded-full transition-all"
+                        className="md:hidden w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-white/10 rounded-full transition-all"
                     >
                         {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
@@ -182,7 +182,7 @@ export default function Navbar() {
 
             {/* Mobile Search Overlay */}
             <div 
-                className={`absolute inset-x-0 top-full h-[100vh] bg-white/95 backdrop-blur-md z-30 lg:hidden shadow-2xl border-t border-slate-200/50 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMobileSearchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                className={`absolute inset-x-0 top-full h-[100vh] bg-[#080d1f]/95 backdrop-blur-md z-30 lg:hidden shadow-2xl border-t border-[#d4af37]/20 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMobileSearchOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                 style={{ clipPath: isMobileSearchOpen ? 'inset(0 0 0 0)' : 'inset(0 0 100% 0)' }}
             >
                 <div className="p-8">
@@ -192,10 +192,10 @@ export default function Navbar() {
                             placeholder={ui.search} 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-slate-100 border-none rounded-full ps-14 pe-16 py-4 text-lg focus:ring-2 focus:ring-[#1e3a8a] outline-none shadow-inner transition-all text-slate-900 font-bold"
+                            className="w-full bg-[#0e1628] border border-[#d4af37]/20 rounded-full ps-14 pe-16 py-4 text-lg focus:ring-2 focus:ring-[#d4af37] outline-none shadow-inner transition-all text-[#f0e6d3] placeholder:text-[#f0e6d3]/50 font-bold"
                         />
-                        <Search size={24} className="absolute start-5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <button type="submit" className="absolute end-2 top-1/2 -translate-y-1/2 bg-[#1e3a8a] text-white p-3 rounded-full hover:bg-[#2563eb] transition-colors shadow-md">
+                        <Search size={24} className="absolute start-5 top-1/2 -translate-y-1/2 text-[#f0e6d3]/50" />
+                        <button type="submit" className="absolute end-2 top-1/2 -translate-y-1/2 bg-[#d4af37] text-[#080d1f] p-3 rounded-full hover:bg-[#f5d061] transition-colors shadow-md">
                             <Search size={20} />
                         </button>
                     </form>
@@ -204,42 +204,42 @@ export default function Navbar() {
 
             {/* Mobile Menu Overlay */}
             <div 
-                className={`absolute inset-x-0 top-full h-[100vh] bg-white/90 backdrop-blur-md z-40 md:hidden shadow-2xl border-t border-slate-200/50 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+                className={`absolute inset-x-0 top-full h-[100vh] bg-[#080d1f]/95 backdrop-blur-md z-40 md:hidden shadow-2xl border-t border-[#d4af37]/20 overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
                 style={{ clipPath: isMenuOpen ? 'inset(0 0 0 0)' : 'inset(0 0 100% 0)' }}
             >
                 <div className="flex flex-col p-8 gap-6 h-full overflow-y-auto">
                         <Link 
                             href={`/${locale}/benefits`} 
                             onClick={() => setIsMenuOpen(false)}
-                            className="text-2xl font-black text-slate-900 border-b border-slate-100 pb-4"
+                            className="text-2xl font-black text-[#f0e6d3] border-b border-[#d4af37]/20 pb-4"
                         >
                             {ui.benefits}
                         </Link>
                         <Link 
                             href={`/${locale}/card`} 
                             onClick={() => setIsMenuOpen(false)}
-                            className="text-2xl font-black text-amber-600 border-b border-slate-100 pb-4"
+                            className="text-2xl font-black text-[#d4af37] border-b border-[#d4af37]/20 pb-4"
                         >
                             {ui.card}
                         </Link>
                         <Link 
                             href={`/${locale}/about`} 
                             onClick={() => setIsMenuOpen(false)}
-                            className="text-2xl font-black text-slate-900 border-b border-slate-100 pb-4"
+                            className="text-2xl font-black text-[#f0e6d3] border-b border-[#d4af37]/20 pb-4"
                         >
                             {ui.about}
                         </Link>
 
-                        <div className="mt-8 flex flex-col gap-4 border-t border-slate-100 pt-6">
+                        <div className="mt-8 flex flex-col gap-4 border-t border-[#d4af37]/20 pt-6">
                             <button 
                                 onClick={() => setShowLangMenu(!showLangMenu)}
-                                className="flex items-center justify-between w-full text-slate-600 hover:text-[#1e3a8a] transition-colors"
+                                className="flex items-center justify-between w-full text-[#f0e6d3] hover:text-[#d4af37] transition-colors"
                             >
                                 <div className="flex items-center gap-3">
-                                    <Globe size={24} className={showLangMenu ? "text-[#1e3a8a]" : ""} />
+                                    <Globe size={24} className={showLangMenu ? "text-[#d4af37]" : ""} />
                                     <span className="text-xl font-black">שפה / Language</span>
                                 </div>
-                                <ChevronDown size={24} className={`transition-transform duration-300 ${showLangMenu ? 'rotate-180 text-[#1e3a8a]' : ''}`} />
+                                <ChevronDown size={24} className={`transition-transform duration-300 ${showLangMenu ? 'rotate-180 text-[#d4af37]' : ''}`} />
                             </button>
                             
                             {showLangMenu && (
@@ -248,7 +248,7 @@ export default function Navbar() {
                                         <button
                                             key={lang.code}
                                             onClick={() => changeLanguage(lang.code)}
-                                            className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all ${locale === lang.code ? 'bg-[#1e3a8a] text-white border-[#1e3a8a]' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
+                                            className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all ${locale === lang.code ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37]' : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20'}`}
                                         >
                                             {lang.label}
                                         </button>

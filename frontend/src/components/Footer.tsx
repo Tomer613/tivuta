@@ -32,7 +32,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
     const links = footerLinks[locale] || footerLinks.he;
 
     return (
-        <footer className="bg-slate-900 text-slate-300 py-16 px-8 border-t border-slate-800">
+        <footer className="bg-[#080d1f] text-[#f0e6d3]/70 py-16 px-8 border-t border-[#d4af37]/20">
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 text-start">
 
                 {/* Column 1: Branding */}
@@ -44,7 +44,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
                                 locale === 'fr' ? 'L’écosystème professionnel leader pour la communauté Harédi.' :
                                     'The leading professional ecosystem for the working Haredi community.'}
                     </p>
-                    <div className="flex items-center gap-2 text-[#d97706] font-bold text-xs uppercase tracking-widest">
+                    <div className="flex items-center gap-2 text-[#d4af37] font-bold text-xs uppercase tracking-widest">
                         <ShieldCheck size={16} />
                         Safe & Secure Portal
                     </div>
@@ -52,7 +52,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
 
                 {/* Column 2: Quick Links */}
                 <div className="flex flex-col items-start">
-                    <h3 className="text-white font-bold mb-6 border-s-4 border-[#2563eb] ps-3">{d.quick_links}</h3>
+                    <h3 className="text-[#f0e6d3] font-bold mb-6 border-s-4 border-[#d4af37] ps-3">{d.quick_links}</h3>
                     <ul className="flex flex-col gap-3 text-sm items-start">
                         <li><Link href={`/${locale}/benefits?pool=all`} className="hover:text-white transition-colors">{links.benefits}</Link></li>
                         <li><Link href={`/${locale}/join`} className="hover:text-white transition-colors">{links.account}</Link></li>
@@ -63,34 +63,34 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
 
                 {/* Column 3: Contact */}
                 <div className="flex flex-col items-start">
-                    <h3 className="text-white font-bold mb-6 border-s-4 border-[#2563eb] ps-3">{d.contact_us}</h3>
+                    <h3 className="text-[#f0e6d3] font-bold mb-6 border-s-4 border-[#d4af37] ps-3">{d.contact_us}</h3>
                     <ul className="flex flex-col gap-4 text-sm items-start">
                         <li className="flex items-center gap-3">
-                            <Phone size={18} className="text-[#2563eb]" />
+                            <Phone size={18} className="text-[#d4af37]" />
                             <a href="tel:*9876" className="hover:text-white transition-colors">*9876</a>
                         </li>
                         <li className="flex items-center gap-3">
-                            <Mail size={18} className="text-[#2563eb]" />
+                            <Mail size={18} className="text-[#d4af37]" />
                             <a href="mailto:support@tivuta.co.il" className="hover:text-white transition-colors">support@tivuta.co.il</a>
                         </li>
                         <li className="flex items-center gap-3">
-                            <MapPin size={18} className="text-[#2563eb]" />
+                            <MapPin size={18} className="text-[#d4af37]" />
                             <span>{locale === 'he' ? 'ירושלים / בית שמש' : locale === 'yi' ? 'ארץ ישראל' : 'Israel'}</span>
                         </li>
                     </ul>
                 </div>
 
                 {/* Column 4: Service Center */}
-                <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 flex flex-col items-start">
-                    <h3 className="text-white font-bold mb-2 text-sm">{d.service_center}</h3>
+                <div className="bg-[#0e1628] p-6 rounded-2xl border border-[#d4af37]/20 flex flex-col items-start">
+                    <h3 className="text-[#f0e6d3] font-bold mb-2 text-sm">{d.service_center}</h3>
                     <p className="text-xs opacity-60 mb-4 text-start">{d.service_desc}</p>
-                    <Link href={`/${locale}/contact`} className="w-full bg-[#2563eb] text-white py-4 rounded-2xl font-bold hover:bg-[#1e40af] transition-all text-center block">
+                    <Link href={`/${locale}/contact`} className="w-full bg-[#d4af37] text-[#080d1f] py-4 rounded-2xl font-bold hover:bg-[#f5d061] transition-all text-center block">
                         {d.open_ticket}
                     </Link>
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-800 flex flex-col items-center gap-6 text-xs">
+            <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-[#d4af37]/20 flex flex-col items-center gap-6 text-xs">
                 <p className="opacity-40">© {new Date().getFullYear()} TIVUTA Ecosystem. All rights reserved.</p>
 
                 <a
