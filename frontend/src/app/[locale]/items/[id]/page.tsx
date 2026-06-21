@@ -8,6 +8,7 @@ import { getTrendingItems } from '@/lib/api';
 import BackButton from '@/components/BackButton';
 import { ShieldCheck, Zap, Clock, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 type SupportedLocale = 'he' | 'en' | 'fr' | 'yi';
 
@@ -58,6 +59,11 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
     const title = item[`title_${locale}`] || item.title_he;
     const desc = item[`description_${locale}`] || item.description_he;
 
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const imagePath = item.image_url
+        ? `${basePath}/images/items/${item.image_url}`
+        : `${basePath}/images/items/placeholder.jpg`;
+
     return (
         <main className="min-h-screen bg-[#111a2f]">
             {/* Breadcrumbs & Header */}
@@ -80,6 +86,14 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-12">
                     <div className="bg-[#0e1628] rounded-[4rem] p-12 shadow-sm border border-[#d4af37]/20">
+                        <div className="w-full h-80 md:h-96 relative rounded-3xl overflow-hidden mb-12 border border-[#d4af37]/10">
+                            <Image 
+                                src={imagePath}
+                                alt={title}
+                                fill
+                                className="object-cover"
+                            />
+                        </div>
                         <h2 className="text-2xl font-black mb-6 border-s-8 border-[#d4af37] ps-6">{t.details}</h2>
                         <p className="text-xl text-[#f0e6d3] leading-relaxed text-start">{desc}</p>
                     </div>
@@ -103,7 +117,7 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
                 {/* Sidebar CTA */}
                 <div className="lg:col-span-1">
                     <div className="sticky top-32 space-y-6">
-                        <div className="bg-[#1e3a8a] rounded-[3rem] p-10 text-white shadow-2xl shadow-blue-900/40">
+                        <div className="bg-[#111a2f] border border-[#d4af37]/20 rounded-[3rem] p-10 text-[#f0e6d3] shadow-2xl shadow-[#111a2f]/40">
                             <h3 className="text-2xl font-black mb-8">{t.open}</h3>
                             <button className="w-full bg-[#d4af37] text-[#080d1f] py-6 rounded-2xl font-black text-xl hover:bg-[#f5d061] transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-[#d4af37]/20">
                                 {t.redeem}
