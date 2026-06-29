@@ -37,7 +37,7 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
                     </h2>
                     <div className="flex flex-wrap gap-3">
                         <Link
-                            href={`/${locale}/categories/${category.slug}`}
+                            href={`/benefits/${locale}/categories/${category.slug}`}
                             className={`px-6 py-3 rounded-full font-bold transition-all active:scale-95 border ${
                                 !activeSubSlug 
                                 ? "bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-lg shadow-[#d4af37]/20" 
@@ -50,7 +50,7 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
                         {category.sub_categories.map((sub: any) => (
                             <Link
                                 key={sub.id}
-                                href={`/${locale}/categories/${category.slug}?sub=${sub.slug}`}
+                                href={`/benefits/${locale}/categories/${category.slug}?sub=${sub.slug}`}
                                 className={`px-6 py-3 rounded-full font-bold transition-all active:scale-95 border ${
                                     activeSubSlug === sub.slug
                                     ? "bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-lg shadow-[#d4af37]/20" 

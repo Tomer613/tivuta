@@ -99,3 +99,214 @@ export async function getCategoryItems(slug: string) {
         return MOCK_ITEMS;
     }
 }
+
+/**
+ * New multi-vertical site API (diamonds/cars/insurance).
+ * Reads (products/surveys) are public at the API level - same pattern as the
+ * legacy /benefits catalog - so static export can pre-render dynamic routes
+ * at build time. Writes (leads, votes, admin) always require a token.
+ */
+
+type MaybeToken = string | null | undefined;
+
+function authHeaders(token?: MaybeToken): Record<string, string> {
+    return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function getProducts(token: MaybeToken, vertical: string, sort?: string) {
+    const params = new URLSearchParams({ vertical });
+    if (sort) params.set('sort', sort);
+    const res = await fetch(`${BASE_URL}/products?${params.toString()}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load products');
+    return res.json();
+}
+
+// output:'export' requires at least one entry per dynamic segment at build time,
+// so we always fall back to a placeholder id - the real content is fetched
+// client-side at runtime anyway (same pattern as items/[id]).
+const FALLBACK_SURVEY_IDS = [{ id: 1 }];
+
+export async function getAllSurveysStatic() {
+    try {
+        const res = await fetch(`${BASE_URL}/surveys`, { next: { revalidate: 0 } });
+        if (!res.ok) return FALLBACK_SURVEY_IDS;
+        const data = await res.json();
+        return data.length > 0 ? data : FALLBACK_SURVEY_IDS;
+    } catch (e) {
+        console.warn('Backend unreachable during build, using a placeholder survey id.');
+        return FALLBACK_SURVEY_IDS;
+    }
+}
+
+export async function createLead(token: string, payload: { product_id: number; scheduled_at?: string | null; locale?: string }) {
+    const res = await fetch(`${BASE_URL}/leads`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to submit request');
+    return res.json();
+}
+
+export async function forgotPassword(email: string, locale: string) {
+    const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, locale }),
+    });
+    return res.ok;
+}
+
+export async function resetPassword(token: string, new_password: string) {
+    const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, new_password }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to reset password');
+    }
+    return res.json();
+}
+
+export async function getSurveys(token?: MaybeToken) {
+    const res = await fetch(`${BASE_URL}/surveys`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load surveys');
+    return res.json();
+}
+
+export async function getSurvey(token: MaybeToken, id: number) {
+    const res = await fetch(`${BASE_URL}/surveys/${id}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load survey');
+    return res.json();
+}
+
+export async function voteSurvey(token: string, surveyId: number, surveyOptionId: number) {
+    const res = await fetch(`${BASE_URL}/surveys/${surveyId}/vote`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ survey_option_id: surveyOptionId }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to vote');
+    }
+    return res.json();
+}
+
+/** Admin endpoints */
+
+export async function adminListUsers(token: string) {
+    const res = await fetch(`${BASE_URL}/admin/users`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load users');
+    return res.json();
+}
+
+export async function adminCreateUser(token: string, payload: any) {
+    const res = await fetch(`${BASE_URL}/admin/users`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create user');
+    }
+    return res.json();
+}
+
+export async function adminSetUserRole(token: string, userId: number, role: string) {
+    const res = await fetch(`${BASE_URL}/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+    });
+    if (!res.ok) throw new Error('Failed to set role');
+    return res.json();
+}
+
+export async function adminListProducts(token: string) {
+    const verticals = ['diamonds', 'cars', 'insurance'];
+    const results = await Promise.all(verticals.map((v) => getProducts(token, v)));
+    return results.flat();
+}
+
+export async function adminCreateProduct(token: string, payload: any) {
+    const res = await fetch(`${BASE_URL}/admin/products`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create product');
+    }
+    return res.json();
+}
+
+export async function adminUpdateProduct(token: string, id: number, payload: any) {
+    const res = await fetch(`${BASE_URL}/admin/products/${id}`, {
+        method: 'PUT',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to update product');
+    return res.json();
+}
+
+export async function adminDeleteProduct(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/products/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to delete product');
+    return res.json();
+}
+
+export async function adminListLeads(token: string) {
+    const res = await fetch(`${BASE_URL}/admin/leads`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load leads');
+    return res.json();
+}
+
+export async function adminCreateSurvey(token: string, payload: any) {
+    const res = await fetch(`${BASE_URL}/admin/surveys`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create survey');
+    }
+    return res.json();
+}
+
+export async function adminListDistributions(token: string) {
+    const res = await fetch(`${BASE_URL}/admin/distributions`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load distributions');
+    return res.json();
+}
+
+export async function adminCreateDistribution(token: string, payload: any) {
+    const res = await fetch(`${BASE_URL}/admin/distributions`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create distribution');
+    }
+    return res.json();
+}
+
+export async function adminSendDistribution(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/send`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to send distribution');
+    return res.json();
+}

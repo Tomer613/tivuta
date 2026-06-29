@@ -43,7 +43,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 text_en: 'Want to open a bank account and get exclusive benefits?',
                 type: 'info',
                 isRead: false,
-                link: '/benefits',
+                link: '/monthly',
                 createdAt: new Date()
             },
             {
@@ -52,7 +52,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 text_en: 'Want to transfer your insurances and save hundreds?',
                 type: 'info',
                 isRead: false,
-                link: '/benefits',
+                link: '/monthly',
                 createdAt: new Date()
             }
         ];

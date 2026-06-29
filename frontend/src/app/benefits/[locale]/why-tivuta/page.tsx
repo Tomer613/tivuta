@@ -133,8 +133,8 @@ export default async function WhyTivutaPage({ params }: { params: Promise<{ loca
             <section className="bg-[#111a2f] py-32 px-8 text-center border-t border-[#d4af37]/20 rounded-t-[5rem]">
                 <h2 className="text-4xl font-black text-[#f0e6d3] mb-10">{t.cta_t}</h2>
                 <div className="flex flex-col sm:flex-row justify-center gap-6">
-                    <Link href={`/${locale}/join`} className="btn-primary !px-12 !py-5 !text-xl shadow-2xl">{t.cta_join}</Link>
-                    <Link href={`/${locale}/benefits`} className="btn-secondary !px-12 !py-5 !text-xl bg-[#0e1628]">{t.cta_list}</Link>
+                    <Link href={`/benefits/${locale}/join`} className="btn-primary !px-12 !py-5 !text-xl shadow-2xl">{t.cta_join}</Link>
+                    <Link href={`/benefits/${locale}/monthly`} className="btn-secondary !px-12 !py-5 !text-xl bg-[#0e1628]">{t.cta_list}</Link>
                 </div>
             </section>
         </main>

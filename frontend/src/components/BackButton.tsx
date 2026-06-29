@@ -36,9 +36,9 @@ export default function BackButton({ locale, className = "" }: BackButtonProps) 
     const handleBack = () => {
         // Logical navigation that preserves the current locale
         if (pathname.includes('/items/')) {
-            router.push(`/${locale}/benefits`);
-        } else if (pathname.includes('/categories/') || pathname.includes('/benefits')) {
-            router.push(`/${locale}`);
+            router.push(`/benefits/${locale}/monthly`);
+        } else if (pathname.includes('/categories/') || pathname.includes('/monthly')) {
+            router.push(`/benefits/${locale}`);
         } else {
             // Fallback for other pages
             router.back();

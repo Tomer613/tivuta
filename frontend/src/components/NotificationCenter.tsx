@@ -69,7 +69,7 @@ export default function NotificationCenter() {
                                     )}
                                     {notif.link && (
                                         <Link 
-                                            href={`/${locale}${notif.link}`}
+                                            href={`/benefits/${locale}${notif.link}`}
                                             className="p-1.5 bg-[#080d1f] text-white rounded-lg hover:bg-slate-800 transition-colors"
                                             title={locale === 'he' ? 'מעבר לפרטים' : 'View details'}
                                         >

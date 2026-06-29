@@ -87,7 +87,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <a href="/landing/" className="bg-[#d4af37] text-[#080d1f] hover:bg-[#f5d061] shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-[1.05] !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl font-bold rounded-2xl transition-all whitespace-nowrap">{dict.common.join_now}</a>
-                        <Link href={`/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-[#0e1628]/10 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.why_tivuta}</Link>
+                        <Link href={`/benefits/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-[#0e1628]/10 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.why_tivuta}</Link>
                     </div>
                 </div>
 
@@ -103,7 +103,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                     {categories.map((cat: any, index: number) => (
                         <div key={cat.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                             <Link
-                                href={`/${locale}/benefits?pool=all&category=${cat.slug}`}
+                                href={`/benefits/${locale}/monthly?pool=all&category=${cat.slug}`}
                                 className="takhles-card p-8 text-center group flex flex-col items-center justify-center gap-4 h-full"
                             >
                                 <div className="w-16 h-16 bg-[#111a2f] border border-[#d4af37]/20 text-[#d4af37] rounded-2xl flex items-center justify-center group-hover:bg-[#d4af37] group-hover:text-[#080d1f] transition-all duration-500 shadow-inner group-hover:scale-110">

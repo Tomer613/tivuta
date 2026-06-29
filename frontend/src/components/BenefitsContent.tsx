@@ -132,7 +132,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                                 {poolTabs.filter(tab => tab.id !== pool).map((tab) => (
                                     <Link
                                         key={tab.id}
-                                        href={`/${locale}/benefits?pool=${tab.id}${search ? `&search=${search}` : ''}`}
+                                        href={`/benefits/${locale}/monthly?pool=${tab.id}${search ? `&search=${search}` : ''}`}
                                         onClick={() => setIsPoolOpen(false)}
                                         className="flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all active:scale-95 bg-[#0e1628] text-[#f0e6d3] hover:bg-[#111a2f] border border-[#d4af37]/20"
                                     >
@@ -169,7 +169,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                             <div className="overflow-hidden flex flex-col gap-2">
                                 {category && (
                                     <Link 
-                                        href={`/${locale}/benefits?pool=${pool}${search ? `&search=${search}` : ''}`} 
+                                        href={`/benefits/${locale}/monthly?pool=${pool}${search ? `&search=${search}` : ''}`} 
                                         onClick={() => setIsCategoryOpen(false)}
                                         className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-[#f0e6d3]/60 hover:bg-[#111a2f] border border-transparent"
                                     >
@@ -182,7 +182,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                                     return (
                                         <Link 
                                             key={cat.id} 
-                                            href={`/${locale}/benefits?pool=${pool}&category=${cat.slug}${search ? `&search=${search}` : ''}`}
+                                            href={`/benefits/${locale}/monthly?pool=${pool}&category=${cat.slug}${search ? `&search=${search}` : ''}`}
                                             onClick={() => setIsCategoryOpen(false)}
                                             className="flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-[#f0e6d3]/60 hover:bg-[#111a2f] border border-transparent"
                                         >
@@ -222,7 +222,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                         <h3 className="text-2xl font-black text-[#f0e6d3] mb-12 px-8 leading-tight">
                             {t.login_required}
                         </h3>
-                        <Link href={`/${locale}/login`} className="btn-primary !bg-[#d4af37] !text-[#080d1f] hover:!bg-[#f5d061] !px-12 !py-4 text-lg">
+                        <Link href={`/benefits/${locale}/login`} className="btn-primary !bg-[#d4af37] !text-[#080d1f] hover:!bg-[#f5d061] !px-12 !py-4 text-lg">
                             {t.login_btn}
                         </Link>
                     </div>
@@ -239,7 +239,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                         </div>
                         <h3 className="text-2xl font-black text-[#f0e6d3] mb-2">{t.empty}</h3>
                         <p className="text-[#f0e6d3]/60 mb-8">{locale === 'he' ? 'נסה להסיר את הסינונים כדי לראות עוד תוצאות.' : 'Try removing filters to see more results.'}</p>
-                        <Link href={`/${locale}/benefits?pool=all`} className="btn-primary !bg-[#d4af37] !text-[#080d1f] hover:!bg-[#f5d061] !px-8">
+                        <Link href={`/benefits/${locale}/monthly?pool=all`} className="btn-primary !bg-[#d4af37] !text-[#080d1f] hover:!bg-[#f5d061] !px-8">
                             {t.pool_all}
                         </Link>
                     </div>
@@ -249,7 +249,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                 {pool !== 'all' && filteredItems.length > 0 && (
                     <div className="mt-16 pt-12 border-t border-[#d4af37]/20 text-center">
                         <Link 
-                            href={`/${locale}/benefits?pool=all`}
+                            href={`/benefits/${locale}/monthly?pool=all`}
                             className="inline-flex items-center gap-2 text-[#d4af37] font-black text-lg hover:gap-4 transition-all duration-300 group"
                         >
                             <span>{t.browse_all}</span>

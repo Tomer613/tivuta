@@ -57,7 +57,7 @@ export default function ItemCard({ item, locale = 'he' }: ItemCardProps) {
 
     return (
         <Link 
-            href={`/${locale}/items/${item.id}`}
+            href={`/benefits/${locale}/items/${item.id}`}
             className="flex flex-col h-full bg-[#0e1628] rounded-2xl border border-[#d4af37]/20 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group text-start relative"
         >
             {/* Image Section - Optimized with Next/Image */}

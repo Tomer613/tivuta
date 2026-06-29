@@ -73,7 +73,7 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
                     
                     <div className="flex-grow">
                         <div className="flex items-center gap-2 text-[#f0e6d3]/60 text-sm mb-4 font-bold uppercase tracking-widest justify-center md:justify-start">
-                            <Link href={`/${locale}`} className="hover:text-[#1e3a8a]">{t.home}</Link>
+                            <Link href={`/benefits/${locale}`} className="hover:text-[#1e3a8a]">{t.home}</Link>
                             <ChevronRight size={14} />
                             <span className="text-[#1e3a8a]">{t.exclusive}</span>
                         </div>

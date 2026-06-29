@@ -100,7 +100,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!authLoading && !user) {
-            router.push(`/${locale}/login`);
+            router.push(`/benefits/${locale}/login`);
             return;
         }
 

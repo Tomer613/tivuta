@@ -20,7 +20,7 @@ const footerLinks: Record<string, FooterLinks> = {
     yi: { benefits: "אלע בענעפיטן", account: "מיין קאנטע", about: "איבער טיבותא", why: "פאר וואס מיר?" }
 };
 
-export default function Footer({ locale = 'he', dict }: { locale?: string, dict?: any }) {
+export default function BenefitsFooter({ locale = 'he', dict }: { locale?: string, dict?: any }) {
     const d = dict?.footer || {
         quick_links: "ניווט מהיר",
         contact_us: "צור קשר",
@@ -54,10 +54,10 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
                 <div className="flex flex-col items-start">
                     <h3 className="text-[#f0e6d3] font-bold mb-6 border-s-4 border-[#d4af37] ps-3">{d.quick_links}</h3>
                     <ul className="flex flex-col gap-3 text-sm items-start">
-                        <li><Link href={`/${locale}/benefits?pool=all`} className="hover:text-white transition-colors">{links.benefits}</Link></li>
-                        <li><Link href={`/${locale}/join`} className="hover:text-white transition-colors">{links.account}</Link></li>
-                        <li><Link href={`/${locale}/about`} className="hover:text-white transition-colors">{links.about}</Link></li>
-                        <li><Link href={`/${locale}/why-tivuta`} className="hover:text-white transition-colors">{links.why}</Link></li>
+                        <li><Link href={`/benefits/${locale}/monthly?pool=all`} className="hover:text-white transition-colors">{links.benefits}</Link></li>
+                        <li><Link href={`/benefits/${locale}/join`} className="hover:text-white transition-colors">{links.account}</Link></li>
+                        <li><Link href={`/benefits/${locale}/about`} className="hover:text-white transition-colors">{links.about}</Link></li>
+                        <li><Link href={`/benefits/${locale}/why-tivuta`} className="hover:text-white transition-colors">{links.why}</Link></li>
                     </ul>
                 </div>
 
@@ -84,7 +84,7 @@ export default function Footer({ locale = 'he', dict }: { locale?: string, dict?
                 <div className="bg-[#0e1628] p-6 rounded-2xl border border-[#d4af37]/20 flex flex-col items-start">
                     <h3 className="text-[#f0e6d3] font-bold mb-2 text-sm">{d.service_center}</h3>
                     <p className="text-xs opacity-60 mb-4 text-start">{d.service_desc}</p>
-                    <Link href={`/${locale}/contact`} className="w-full bg-[#d4af37] text-[#080d1f] py-4 rounded-2xl font-bold hover:bg-[#f5d061] transition-all text-center block">
+                    <Link href={`/benefits/${locale}/contact`} className="w-full bg-[#d4af37] text-[#080d1f] py-4 rounded-2xl font-bold hover:bg-[#f5d061] transition-all text-center block">
                         {d.open_ticket}
                     </Link>
                 </div>

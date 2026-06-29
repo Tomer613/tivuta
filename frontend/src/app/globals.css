@@ -215,6 +215,59 @@ body {
     100% { left: 150%; }
 }
 
+/* Accessibility toolbar (Israeli Standard 5568) */
+html[data-a11y-fontsize="large"] {
+    font-size: 112.5%;
+}
+
+html[data-a11y-fontsize="xlarge"] {
+    font-size: 125%;
+}
+
+html[data-a11y-contrast="high"] body {
+    background-color: #000000;
+    color: #ffffff;
+}
+
+html[data-a11y-contrast="high"] .takhles-card,
+html[data-a11y-contrast="high"] .glass-nav,
+html[data-a11y-contrast="high"] .world-tile {
+    background-color: #000000 !important;
+    border-color: #ffff00 !important;
+}
+
+html[data-a11y-grayscale="true"] {
+    filter: grayscale(100%);
+}
+
+html[data-a11y-underline-links="true"] a {
+    text-decoration: underline !important;
+}
+
+html[data-a11y-readable-font="true"] body {
+    font-family: Arial, Helvetica, sans-serif !important;
+    letter-spacing: 0.02em;
+    line-height: 1.7;
+}
+
+html[data-a11y-stop-animations="true"] *,
+html[data-a11y-stop-animations="true"] *::before,
+html[data-a11y-stop-animations="true"] *::after {
+    animation: none !important;
+    transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+.world-tile {
+    @apply bg-[#0e1628] border border-[#d4af37]/20 rounded-[2.5rem] shadow-sm hover:shadow-[0_24px_60px_rgba(212,175,55,0.18)] hover:border-[#d4af37]/50 hover:-translate-y-2 transition-all duration-500 cursor-pointer w-full;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;

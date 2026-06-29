@@ -93,7 +93,7 @@ export default async function CategoryPage({
 
                         <div>
                             <div className="flex items-center gap-2 text-[#f0e6d3]/60 text-sm mb-2 font-bold uppercase tracking-widest justify-center md:justify-start">
-                                <Link href={`/${locale}`} className="hover:text-[#1e3a8a] transition-colors">TIVUTA</Link>
+                                <Link href={`/benefits/${locale}`} className="hover:text-[#1e3a8a] transition-colors">TIVUTA</Link>
                                 <ChevronRight size={14} className={isRTL ? "rotate-180" : ""} />
                                 <span className="text-[#f0e6d3]">{categoryName}</span>
                             </div>

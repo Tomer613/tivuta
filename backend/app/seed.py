@@ -186,7 +186,7 @@ def seed_db():
         
         # Seed Users
         print("Seeding mock users...")
-        from .main import get_password_hash
+        from .security import get_password_hash
         
         # Check if users already exist to avoid duplicates if re-running
         if db.query(models.User).count() == 0:

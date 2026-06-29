@@ -103,7 +103,7 @@ export default function CardClient({ locale }: { locale: string }) {
                             {t.sub}
                         </p>
                         <Link
-                            href={`/${locale}/join`}
+                            href={`/benefits/${locale}/join`}
                             className="inline-block bg-[#d4af37] text-[#080d1f] font-black text-lg px-10 py-4 rounded-2xl hover:bg-[#f5d061] transition-all shadow-2xl shadow-[#d4af37]/20 hover:scale-105 active:scale-100"
                         >
                             {t.cta}

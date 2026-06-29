@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { LogIn, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
 
 import { motion } from 'framer-motion';
@@ -70,6 +70,7 @@ const translations: Record<string, LoginTranslation> = {
 
 export default function LoginPage() {
     const params = useParams();
+    const router = useRouter();
     const locale = params.locale as string || 'he';
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +97,7 @@ export default function LoginPage() {
             if (response.ok) {
                 const data = await response.json();
                 await login(data.access_token);
+                router.push(`/benefits/${locale}/dashboard`);
             } else {
                 setError(t.error_invalid);
             }
@@ -181,7 +183,7 @@ export default function LoginPage() {
                 </form>
 
                 <div className="mt-12 pt-8 border-t border-[#d4af37]/20 text-center">
-                    <Link href={`/${locale}/join`} className="text-sm font-bold text-[#f0e6d3]/60 hover:text-[#1e3a8a] transition-colors">
+                    <Link href={`/benefits/${locale}/join`} className="text-sm font-bold text-[#f0e6d3]/60 hover:text-[#1e3a8a] transition-colors">
                         {t.no_account}
                     </Link>
                 </div>

@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 
 interface JoinTranslation {
@@ -96,6 +96,7 @@ const translations: Record<string, JoinTranslation> = {
 
 export default function JoinPage() {
     const params = useParams();
+    const router = useRouter();
     const locale = params.locale as string || 'he';
     const { signup } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
@@ -116,6 +117,7 @@ export default function JoinPage() {
         setError(null);
         try {
             await signup(formData);
+            router.push(`/benefits/${locale}/login`);
         } catch (err: any) {
             setError(err.message || 'Signup failed');
         } finally {

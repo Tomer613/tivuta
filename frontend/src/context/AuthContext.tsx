@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
 
 
@@ -11,6 +10,7 @@ interface User {
     first_name: string;
     last_name: string;
     phone?: string;
+    role?: 'member' | 'admin';
 }
 
 interface AuthContextType {
@@ -28,7 +28,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const router = useRouter();
 
     useEffect(() => {
         const storedToken = localStorage.getItem('tivuta_token');
@@ -65,7 +64,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('tivuta_token', authToken);
         setToken(authToken);
         await fetchUser(authToken);
-        router.push('/he/dashboard');
     };
 
     const signup = async (userData: any) => {
@@ -75,21 +73,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData)
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Signup failed');
         }
-        
-        // After signup, we usually log them in or redirect to login
-        router.push('/he/login');
     };
 
     const logout = () => {
         localStorage.removeItem('tivuta_token');
         setToken(null);
         setUser(null);
-        router.push('/he');
     };
 
     return (
