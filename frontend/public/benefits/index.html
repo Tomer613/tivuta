@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <title>TIVUTA</title>
+    <meta http-equiv="refresh" content="0; url=/benefits/he/" />
+    <script>
+        (function () {
+            var supported = ['he', 'en', 'fr', 'yi'];
+            var browserLang = (navigator.language || 'he').slice(0, 2);
+            var locale = supported.indexOf(browserLang) !== -1 ? browserLang : 'he';
+            window.location.replace('/benefits/' + locale + '/');
+        })();
+    </script>
+</head>
+<body>
+    <p>מעביר אותך... / Redirecting...</p>
+</body>
+</html>
