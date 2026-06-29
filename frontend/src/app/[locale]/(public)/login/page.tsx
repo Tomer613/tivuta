@@ -180,9 +180,9 @@ export default function LoginPage() {
                 </form>
 
                 <div className="mt-12 pt-8 border-t border-[#d4af37]/20 text-center">
-                    <a href="/landing/" className="text-sm font-bold text-[#f0e6d3]/60 hover:text-[#1e3a8a] transition-colors">
+                    <Link href={`/${locale}/register`} className="text-sm font-bold text-[#f0e6d3]/60 hover:text-[#1e3a8a] transition-colors">
                         {t.no_account}
-                    </a>
+                    </Link>
                 </div>
 
                 <div className="mt-8 flex items-center justify-center gap-2 text-[10px] text-[#f0e6d3]/60 font-bold uppercase tracking-widest">
