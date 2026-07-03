@@ -9,12 +9,20 @@ from ..security import get_current_admin, get_current_user, get_db
 router = APIRouter(tags=["surveys"])
 
 
-def _serialize_survey(survey: models.Survey) -> schemas.SurveyRead:
+def _serialize_survey(survey: models.Survey, db: Session = None) -> schemas.SurveyRead:
+    product_titles: dict = {}
+    if db is not None:
+        ids = [opt.product_id for opt in survey.options if opt.product_id]
+        if ids:
+            products = db.query(models.Product).filter(models.Product.id.in_(ids)).all()
+            product_titles = {p.id: p.title_he for p in products}
+
     options = [
         schemas.SurveyOptionRead(
             id=opt.id,
             product_id=opt.product_id,
             label_override_he=opt.label_override_he,
+            product_title_he=product_titles.get(opt.product_id),
             vote_count=len(opt.votes),
         )
         for opt in survey.options
@@ -33,7 +41,7 @@ def _serialize_survey(survey: models.Survey) -> schemas.SurveyRead:
 @router.get("/surveys", response_model=List[schemas.SurveyRead])
 def list_surveys(db: Session = Depends(get_db)):
     surveys = db.query(models.Survey).filter(models.Survey.is_active == True).all()
-    return [_serialize_survey(s) for s in surveys]
+    return [_serialize_survey(s, db) for s in surveys]
 
 
 @router.get("/surveys/{survey_id}", response_model=schemas.SurveyRead)
@@ -41,7 +49,13 @@ def get_survey(survey_id: int, db: Session = Depends(get_db)):
     survey = db.query(models.Survey).filter(models.Survey.id == survey_id).first()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
-    return _serialize_survey(survey)
+    return _serialize_survey(survey, db)
+
+
+@router.get("/admin/surveys", response_model=List[schemas.SurveyRead], dependencies=[Depends(get_current_admin)])
+def admin_list_surveys(db: Session = Depends(get_db)):
+    surveys = db.query(models.Survey).order_by(models.Survey.id.desc()).all()
+    return [_serialize_survey(s, db) for s in surveys]
 
 
 @router.post("/surveys/{survey_id}/vote")
@@ -81,7 +95,7 @@ def admin_create_survey(payload: schemas.SurveyCreate, db: Session = Depends(get
 
     db.commit()
     db.refresh(survey)
-    return _serialize_survey(survey)
+    return _serialize_survey(survey, db)
 
 
 @router.patch("/admin/surveys/{survey_id}", response_model=schemas.SurveyRead, dependencies=[Depends(get_current_admin)])
@@ -92,4 +106,4 @@ def admin_set_survey_active(survey_id: int, is_active: bool, db: Session = Depen
     survey.is_active = is_active
     db.commit()
     db.refresh(survey)
-    return _serialize_survey(survey)
+    return _serialize_survey(survey, db)

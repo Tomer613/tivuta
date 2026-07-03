@@ -108,16 +108,35 @@ def admin_create_products_batch(products_in: List[schemas.ProductCreate], db: Se
 
 
 @router.put("/admin/products/{product_id}", response_model=schemas.ProductRead, dependencies=[Depends(get_current_admin)])
-def admin_update_product(product_id: int, product_in: schemas.ProductCreate, db: Session = Depends(get_db)):
-    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+def admin_update_product(product_id: int, product_in: schemas.ProductUpdate, db: Session = Depends(get_db)):
+    product = (
+        db.query(models.Product)
+        .filter(models.Product.id == product_id)
+        .options(selectinload(models.Product.promotions))
+        .first()
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    _validate_vertical(product_in.vertical)
-    for key, value in product_in.model_dump().items():
+    update_data = product_in.model_dump(exclude_unset=True)
+    if "vertical" in update_data:
+        _validate_vertical(update_data["vertical"])
+    for key, value in update_data.items():
         setattr(product, key, value)
     db.commit()
     db.refresh(product)
-    return product
+    return _product_read(product)
+
+
+@router.get("/admin/products", response_model=List[schemas.ProductRead], dependencies=[Depends(get_current_admin)])
+def admin_list_all_products(db: Session = Depends(get_db)):
+    """Returns all products including inactive ones — for admin management."""
+    products = (
+        db.query(models.Product)
+        .options(selectinload(models.Product.promotions))
+        .order_by(models.Product.created_at.desc())
+        .all()
+    )
+    return [_product_read(p) for p in products]
 
 
 @router.delete("/admin/products/{product_id}", dependencies=[Depends(get_current_admin)])

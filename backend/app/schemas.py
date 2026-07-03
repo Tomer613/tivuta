@@ -104,6 +104,21 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     pass
 
+class ProductUpdate(BaseModel):
+    vertical: Optional[str] = None
+    title_he: Optional[str] = None
+    title_en: Optional[str] = None
+    title_fr: Optional[str] = None
+    title_yi: Optional[str] = None
+    description_he: Optional[str] = None
+    description_en: Optional[str] = None
+    description_fr: Optional[str] = None
+    description_yi: Optional[str] = None
+    image_url: Optional[str] = None
+    price: Optional[float] = None
+    attributes: Optional[dict] = None
+    is_active: Optional[bool] = None
+
 class PromotionBrief(BaseModel):
     id: int
     name_he: str
@@ -176,13 +191,14 @@ class PromotionStatusRead(BaseModel):
     type: str
     name_he: str
     participants_count: int
-    limit: Optional[int] = None       # first_n: max allowed
-    remaining: Optional[int] = None   # first_n: spots left
+    limit: Optional[int] = None
+    remaining: Optional[int] = None
     is_full: bool = False
-    is_closed: bool = False            # raffle: drawn and done
+    is_closed: bool = False
     end_date: Optional[datetime] = None
-    winner_name: Optional[str] = None  # winner first_name + last_name
+    winner_name: Optional[str] = None
     has_entered: bool = False
+    is_current_user_winner: bool = False
 
 # Lead Schemas
 class LeadCreate(BaseModel):
@@ -220,6 +236,7 @@ class SurveyOptionRead(BaseModel):
     id: int
     product_id: int
     label_override_he: Optional[str] = None
+    product_title_he: Optional[str] = None
     vote_count: int = 0
 
     class Config:

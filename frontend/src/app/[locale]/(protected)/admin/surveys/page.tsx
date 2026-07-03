@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateSurvey, getSurveys } from '@/lib/api';
-import { Plus, Loader2, X } from 'lucide-react';
+import { adminListProducts, adminCreateSurvey, adminListSurveys, adminSetSurveyActive } from '@/lib/api';
+import { Plus, Loader2, X, ToggleLeft, ToggleRight } from 'lucide-react';
 
 export default function AdminSurveysPage() {
     const { token } = useAuth();
@@ -17,7 +17,7 @@ export default function AdminSurveysPage() {
     const load = () => {
         if (!token) return;
         setLoading(true);
-        Promise.all([getSurveys(token), adminListProducts(token)])
+        Promise.all([adminListSurveys(token), adminListProducts(token)])
             .then(([s, p]) => { setSurveys(s); setProducts(p); })
             .finally(() => setLoading(false));
     };
@@ -55,8 +55,21 @@ export default function AdminSurveysPage() {
                     {surveys.map((s) => {
                         const total = s.options.reduce((sum: number, o: any) => sum + o.vote_count, 0) || 1;
                         return (
-                            <div key={s.id} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-3xl p-6">
-                                <h2 className="text-xl font-bold text-[#f0e6d3] mb-5">{s.question_he}</h2>
+                            <div key={s.id} className={`bg-[#0e1628] border rounded-3xl p-6 ${s.is_active ? 'border-[#d4af37]/20' : 'border-red-500/20 opacity-60'}`}>
+                                <div className="flex items-start justify-between mb-5 gap-4">
+                                    <h2 className="text-xl font-bold text-[#f0e6d3]">{s.question_he}</h2>
+                                    <button
+                                        onClick={async () => {
+                                            if (!token) return;
+                                            await adminSetSurveyActive(token, s.id, !s.is_active);
+                                            load();
+                                        }}
+                                        className={`flex items-center gap-1.5 text-sm font-bold flex-shrink-0 ${s.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
+                                    >
+                                        {s.is_active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                                        {s.is_active ? 'השבת' : 'הפעל'}
+                                    </button>
+                                </div>
                                 <div className="flex flex-col gap-3">
                                     {s.options.map((opt: any) => {
                                         const pct = Math.round((opt.vote_count / total) * 100);

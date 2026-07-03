@@ -171,7 +171,7 @@ export default function AdminPromotionsPage() {
     };
 
     const isRaffleDrawable = (promo: any) =>
-        promo.type === 'raffle' && promo.end_date && new Date(promo.end_date) < new Date();
+        promo.type === 'raffle' && promo.is_active && promo.end_date && new Date(promo.end_date) < new Date();
 
     const formatDate = (d: string | null) => {
         if (!d) return '-';

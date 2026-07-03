@@ -20,6 +20,7 @@ interface PromotionStatus {
     end_date: string | null;
     winner_name: string | null;
     has_entered: boolean;
+    is_current_user_winner: boolean;
 }
 
 type Locale = 'he' | 'en' | 'fr' | 'yi';
@@ -138,7 +139,7 @@ function PromoZone({ promo, status, onEnter, locale }: {
                                         {t.raffle_winner}: {status.winner_name}
                                     </p>
                                 )}
-                                {status.has_entered && status.winner_name?.includes('') && (
+                                {status.is_current_user_winner && (
                                     <p className="text-green-400 font-black">{t.raffle_you_won}</p>
                                 )}
                             </div>

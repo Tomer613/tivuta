@@ -131,6 +131,13 @@ def _winner_email_body(promotion_name: str, user_first_name: str) -> str:
 
 def _do_draw(promotion: models.Promotion, db: Session) -> Optional[models.PromotionEntry]:
     """Pick a random winner, mark promotion closed, send winner email. Returns winning entry or None."""
+    existing_winner = db.query(models.PromotionEntry).filter(
+        models.PromotionEntry.promotion_id == promotion.id,
+        models.PromotionEntry.is_winner == True,
+    ).first()
+    if existing_winner:
+        return existing_winner
+
     entries = db.query(models.PromotionEntry).filter(
         models.PromotionEntry.promotion_id == promotion.id
     ).all()
@@ -164,6 +171,17 @@ def enter_promotion(
         raise HTTPException(status_code=404, detail="Promotion not found")
     if not promotion.is_active:
         raise HTTPException(status_code=400, detail="המבצע אינו פעיל")
+
+    # Verify the product actually belongs to this promotion
+    from sqlalchemy import exists
+    is_assigned = db.query(
+        exists().where(
+            (models.product_promotions_table.c.promotion_id == promotion_id) &
+            (models.product_promotions_table.c.product_id == product_id)
+        )
+    ).scalar()
+    if not is_assigned:
+        raise HTTPException(status_code=400, detail="המוצר אינו משויך למבצע זה")
 
     # Check not already entered
     existing = db.query(models.PromotionEntry).filter(
@@ -260,6 +278,7 @@ def get_promotion_status(
         end_date=promotion.end_date,
         winner_name=winner_name,
         has_entered=(my_entry is not None),
+        is_current_user_winner=(my_entry is not None and my_entry.is_winner),
     )
 
 

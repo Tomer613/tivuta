@@ -16,6 +16,7 @@ interface SurveyOption {
     id: number;
     product_id: number;
     label_override_he?: string | null;
+    product_title_he?: string | null;
     vote_count: number;
 }
 
@@ -105,7 +106,7 @@ export default function SurveyVoteClient({ surveyId }: { surveyId: number }) {
                                         style={{ width: `${pct}%` }}
                                     />
                                     <div className="relative flex justify-between items-center">
-                                        <span className="font-bold text-[#f0e6d3]">{opt.label_override_he || `#${opt.product_id}`}</span>
+                                        <span className="font-bold text-[#f0e6d3]">{opt.label_override_he || opt.product_title_he || `מוצר ${opt.product_id}`}</span>
                                         <span className="font-black text-[#d4af37]">{pct}%</span>
                                     </div>
                                 </button>

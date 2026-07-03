@@ -263,9 +263,9 @@ export async function adminSetUserRole(token: string, userId: number, role: stri
 }
 
 export async function adminListProducts(token: string) {
-    const verticals = ['diamonds', 'cars', 'insurance'];
-    const results = await Promise.all(verticals.map((v) => getProducts(token, v)));
-    return results.flat();
+    const res = await fetch(`${BASE_URL}/admin/products`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load products');
+    return res.json();
 }
 
 export async function adminCreateProduct(token: string, payload: any) {
@@ -303,6 +303,21 @@ export async function adminDeleteProduct(token: string, id: number) {
 export async function adminListLeads(token: string) {
     const res = await fetch(`${BASE_URL}/admin/leads`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load leads');
+    return res.json();
+}
+
+export async function adminListSurveys(token: string) {
+    const res = await fetch(`${BASE_URL}/admin/surveys`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load surveys');
+    return res.json();
+}
+
+export async function adminSetSurveyActive(token: string, surveyId: number, isActive: boolean) {
+    const res = await fetch(`${BASE_URL}/admin/surveys/${surveyId}?is_active=${isActive}`, {
+        method: 'PATCH',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to update survey');
     return res.json();
 }
 
