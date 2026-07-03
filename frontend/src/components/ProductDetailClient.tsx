@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { getProduct, getPromotionStatus, enterPromotion, createLead } from '@/lib/api';
 import { PromotionBrief } from '@/components/ProductTile';
 import AppointmentModal from '@/components/AppointmentModal';
-import { CalendarCheck, MessageCircle, CheckCircle2, Loader2, Trophy, Users, Tag } from 'lucide-react';
+import { CalendarCheck, MessageCircle, CheckCircle2, Loader2, Trophy, Users, Tag, ArrowRight } from 'lucide-react';
 
 interface PromotionStatus {
     promotion_id: number;
@@ -205,10 +205,13 @@ function PromoZone({ promo, status, onEnter, locale }: {
     return null;
 }
 
+const VERTICAL_LABELS: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
+
 export default function ProductDetailClient({ productId }: { productId: number }) {
     const params = useParams();
     const locale = ((params?.locale as string) || 'he') as Locale;
     const { token } = useAuth();
+    const router = useRouter();
     const t = T[locale] || T.he;
 
     const [product, setProduct] = useState<any>(null);
@@ -291,6 +294,13 @@ export default function ProductDetailClient({ productId }: { productId: number }
     return (
         <main className="min-h-screen bg-[#111a2f] py-12 px-6">
             <div className="max-w-4xl mx-auto">
+                <button
+                    onClick={() => product ? router.push(`/${locale}/${product.vertical}`) : router.back()}
+                    className="flex items-center gap-1.5 text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors text-sm font-semibold mb-8"
+                >
+                    <ArrowRight size={16} />
+                    {product ? VERTICAL_LABELS[product.vertical] || 'חזרה' : 'חזרה'}
+                </button>
                 <div className="grid md:grid-cols-2 gap-10">
                     {/* Image */}
                     <div className="rounded-3xl overflow-hidden h-80 md:h-auto bg-[#0e1628]">

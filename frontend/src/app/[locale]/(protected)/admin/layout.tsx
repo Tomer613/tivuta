@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Package, Users, BarChart3, Send, Tag } from 'lucide-react';
+import { Package, Users, BarChart3, Send, Tag, ExternalLink } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 
 interface T {
@@ -38,21 +38,37 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <AdminGuard>
             <div className="min-h-screen bg-[#111a2f]">
                 <nav className="bg-[#0e1628] border-b border-[#d4af37]/20 px-6 py-4">
-                    <div className="max-w-7xl mx-auto flex items-center gap-3 flex-wrap">
-                        {tabs.map((tab) => (
-                            <Link
-                                key={tab.href}
-                                href={tab.href}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                                    pathname === tab.href
-                                        ? 'bg-[#d4af37] text-[#080d1f]'
-                                        : 'text-[#f0e6d3] hover:bg-[#111a2f]'
-                                }`}
-                            >
-                                {tab.icon}
-                                {tab.label}
-                            </Link>
-                        ))}
+                    <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+                        <div className="flex items-center gap-4 flex-wrap">
+                            <div className="flex items-center gap-3">
+                                <span className="text-[#d4af37] font-black text-lg tracking-widest">TIVUTA</span>
+                                <span className="text-[#d4af37]/25 text-sm">|</span>
+                                <span className="text-[#f0e6d3]/35 text-[11px] uppercase tracking-widest font-bold">בק-אופיס</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {tabs.map((tab) => (
+                                    <Link
+                                        key={tab.href}
+                                        href={tab.href}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+                                            pathname === tab.href
+                                                ? 'bg-[#d4af37] text-[#080d1f]'
+                                                : 'text-[#f0e6d3] hover:bg-[#111a2f]'
+                                        }`}
+                                    >
+                                        {tab.icon}
+                                        {tab.label}
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                        <Link
+                            href={`/${locale}`}
+                            className="flex items-center gap-1.5 text-xs text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors font-semibold"
+                        >
+                            <ExternalLink size={13} />
+                            חזרה לאתר
+                        </Link>
                     </div>
                 </nav>
                 <div className="max-w-7xl mx-auto px-6 py-10">{children}</div>

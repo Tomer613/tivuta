@@ -129,7 +129,11 @@ export default function AdminProductsPage() {
                                     <td className="p-4">{p.vertical}</td>
                                     <td className="p-4">{p.title_he}</td>
                                     <td className="p-4">{p.price ? `₪${p.price}` : '-'}</td>
-                                    <td className="p-4">{p.is_active ? 'פעיל' : 'מוסתר'}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${p.is_active ? 'bg-green-500/20 text-green-400' : 'bg-[#111a2f] text-[#f0e6d3]/40'}`}>
+                                            {p.is_active ? 'פעיל' : 'מוסתר'}
+                                        </span>
+                                    </td>
                                     <td className="p-4">
                                         <button onClick={() => handleDelete(p.id)} className="text-red-400 hover:text-red-300">
                                             <Trash2 size={16} />

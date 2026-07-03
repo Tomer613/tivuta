@@ -168,6 +168,7 @@ class PromotionUpdate(BaseModel):
 class PromotionRead(PromotionBase):
     id: int
     created_at: datetime
+    entry_count: int = 0
 
     class Config:
         from_attributes = True
@@ -271,12 +272,17 @@ class DistributionRead(BaseModel):
     distribution_type: str
     survey_id: Optional[int] = None
     product_id: Optional[int] = None
+    survey_title: Optional[str] = None
+    product_title: Optional[str] = None
     title_he: Optional[str] = None
     message_he: Optional[str] = None
     channels: List[str]
     status: str
     created_at: datetime
     sent_at: Optional[datetime] = None
+    sent_count: int = 0
+    failed_count: int = 0
+    skipped_count: int = 0
 
     class Config:
         from_attributes = True

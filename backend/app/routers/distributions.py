@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..database import SessionLocal
@@ -210,7 +210,34 @@ def _send_distribution(distribution_id: int) -> None:
 
 @router.get("/admin/distributions", response_model=List[schemas.DistributionRead], dependencies=[Depends(get_current_admin)])
 def admin_list_distributions(db: Session = Depends(get_db)):
-    return db.query(models.Distribution).order_by(models.Distribution.created_at.desc()).all()
+    distributions = (
+        db.query(models.Distribution)
+        .options(
+            selectinload(models.Distribution.send_logs),
+            selectinload(models.Distribution.survey),
+            selectinload(models.Distribution.product),
+        )
+        .order_by(models.Distribution.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for dist in distributions:
+        sent_count = sum(1 for log in dist.send_logs if log.status == "sent")
+        failed_count = sum(1 for log in dist.send_logs if log.status == "failed")
+        skipped_count = sum(1 for log in dist.send_logs if log.status == "skipped")
+        survey_title = (dist.survey.question_he[:60] if dist.survey and dist.survey.question_he else None)
+        product_title = dist.product.title_he if dist.product else None
+        result.append(
+            schemas.DistributionRead.model_validate(dist).model_copy(update={
+                "sent_count": sent_count,
+                "failed_count": failed_count,
+                "skipped_count": skipped_count,
+                "survey_title": survey_title,
+                "product_title": product_title,
+            })
+        )
+    return result
 
 
 @router.post("/admin/distributions", response_model=schemas.DistributionRead)

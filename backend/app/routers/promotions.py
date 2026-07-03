@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
@@ -38,7 +39,20 @@ def list_promotions(
     query = db.query(models.Promotion)
     if is_active is not None:
         query = query.filter(models.Promotion.is_active == is_active)
-    return query.order_by(models.Promotion.created_at.desc()).all()
+    promos = query.order_by(models.Promotion.created_at.desc()).all()
+
+    entry_counts: dict = {}
+    if promos:
+        entry_counts = dict(
+            db.query(models.PromotionEntry.promotion_id, func.count(models.PromotionEntry.id))
+            .group_by(models.PromotionEntry.promotion_id)
+            .all()
+        )
+
+    return [
+        schemas.PromotionRead.model_validate(p).model_copy(update={"entry_count": entry_counts.get(p.id, 0)})
+        for p in promos
+    ]
 
 
 @router.post("/admin/promotions", response_model=schemas.PromotionRead, dependencies=[Depends(get_current_admin)])

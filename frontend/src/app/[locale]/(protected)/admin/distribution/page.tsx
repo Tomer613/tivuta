@@ -143,17 +143,27 @@ export default function AdminDistributionPage() {
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
                                 <th className="p-4 text-start">סוג</th>
-                                <th className="p-4 text-start">כותרת</th>
+                                <th className="p-4 text-start">יעד</th>
                                 <th className="p-4 text-start">ערוצים</th>
                                 <th className="p-4 text-start">סטטוס</th>
+                                <th className="p-4 text-start">תוצאות</th>
                                 <th className="p-4 text-start"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {distributions.map((d) => (
                                 <tr key={d.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
-                                    <td className="p-4">{d.distribution_type === 'survey' ? 'סקר' : 'דיל היומי'}</td>
-                                    <td className="p-4">{d.title_he || '-'}</td>
+                                    <td className="p-4 whitespace-nowrap">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${d.distribution_type === 'survey' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                            {d.distribution_type === 'survey' ? 'סקר' : 'דיל היומי'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 max-w-[220px]">
+                                        <p className="text-sm text-[#f0e6d3] truncate">{d.survey_title || d.product_title || d.title_he || '-'}</p>
+                                        {d.title_he && (d.survey_title || d.product_title) && (
+                                            <p className="text-xs text-[#f0e6d3]/40 truncate mt-0.5">{d.title_he}</p>
+                                        )}
+                                    </td>
                                     <td className="p-4">
                                         <div className="flex gap-2">
                                             {d.channels.includes('email') && <Mail size={16} className="text-[#d4af37]" />}
@@ -165,6 +175,20 @@ export default function AdminDistributionPage() {
                                             {statusBadge(d.status)}
                                             {d.status === 'sending' && <RefreshCw size={12} className="animate-spin text-yellow-400" />}
                                         </div>
+                                        {d.sent_at && (
+                                            <p className="text-[10px] text-[#f0e6d3]/30 mt-1">
+                                                {new Date(d.sent_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        )}
+                                    </td>
+                                    <td className="p-4">
+                                        {(d.sent_count > 0 || d.failed_count > 0 || d.skipped_count > 0) ? (
+                                            <div className="text-xs space-y-0.5">
+                                                {d.sent_count > 0 && <div className="text-green-400">{d.sent_count} נשלחו ✓</div>}
+                                                {d.failed_count > 0 && <div className="text-red-400">{d.failed_count} נכשלו</div>}
+                                                {d.skipped_count > 0 && <div className="text-[#f0e6d3]/40">{d.skipped_count} דולגו</div>}
+                                            </div>
+                                        ) : <span className="text-[#f0e6d3]/25 text-xs">—</span>}
                                     </td>
                                     <td className="p-4">
                                         {d.status === 'draft' && (
@@ -180,7 +204,7 @@ export default function AdminDistributionPage() {
                                 </tr>
                             ))}
                             {distributions.length === 0 && (
-                                <tr><td colSpan={5} className="p-8 text-center text-[#f0e6d3]/60">אין הפצות עדיין.</td></tr>
+                                <tr><td colSpan={6} className="p-8 text-center text-[#f0e6d3]/60">אין הפצות עדיין.</td></tr>
                             )}
                         </tbody>
                     </table>

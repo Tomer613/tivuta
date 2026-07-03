@@ -65,6 +65,7 @@ export default function AdminPromotionsPage() {
     const [assignLoading, setAssignLoading] = useState(false);
     const [drawingId, setDrawingId] = useState<number | null>(null);
     const [drawResult, setDrawResult] = useState<Record<number, string>>({});
+    const [drawError, setDrawError] = useState<string | null>(null);
 
     const [form, setForm] = useState({
         name_he: '',
@@ -159,12 +160,13 @@ export default function AdminPromotionsPage() {
     const handleDraw = async (promo: any) => {
         if (!token) return;
         setDrawingId(promo.id);
+        setDrawError(null);
         try {
             const result = await adminDrawPromotion(token, promo.id);
             setDrawResult((prev) => ({ ...prev, [promo.id]: result.winner_name || 'הגרלה בוצעה' }));
             load();
         } catch (err: any) {
-            alert(err.message || 'שגיאה בביצוע הגרלה');
+            setDrawError(err.message || 'שגיאה בביצוע הגרלה');
         } finally {
             setDrawingId(null);
         }
@@ -197,6 +199,7 @@ export default function AdminPromotionsPage() {
                                 <th className="p-4 text-start">שם מבצע</th>
                                 <th className="p-4 text-start">סוג</th>
                                 <th className="p-4 text-start">ערוץ</th>
+                                <th className="p-4 text-start">משתתפים</th>
                                 <th className="p-4 text-start">סטטוס</th>
                                 <th className="p-4 text-start">תאריך סיום</th>
                                 <th className="p-4 text-start">פעולות</th>
@@ -205,16 +208,31 @@ export default function AdminPromotionsPage() {
                         <tbody>
                             {promotions.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="p-8 text-center text-[#f0e6d3]/40">אין מבצעים עדיין</td>
+                                    <td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין מבצעים עדיין</td>
                                 </tr>
                             )}
                             {promotions.map((promo) => (
                                 <tr key={promo.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
                                     <td className="p-4 font-semibold">{promo.name_he}</td>
-                                    <td className="p-4">{TYPE_LABELS[promo.type] ?? promo.type}</td>
+                                    <td className="p-4">
+                                        <span className="text-sm">{TYPE_LABELS[promo.type] ?? promo.type}</span>
+                                    </td>
                                     <td className="p-4">{CHANNEL_LABELS[promo.channel] ?? promo.channel}</td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${promo.is_active ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                        {(promo.type === 'raffle' || promo.type === 'first_n') ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <Users size={14} className="text-[#d4af37]" />
+                                                <span className="text-sm font-bold text-[#d4af37]">{promo.entry_count ?? 0}</span>
+                                                {promo.type === 'first_n' && promo.config?.limit && (
+                                                    <span className="text-xs text-[#f0e6d3]/40">/ {promo.config.limit}</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-[#f0e6d3]/25">—</span>
+                                        )}
+                                    </td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${promo.is_active ? 'bg-green-500/20 text-green-400' : 'bg-[#111a2f] text-[#f0e6d3]/40'}`}>
                                             {promo.is_active ? 'פעיל' : 'כבוי'}
                                         </span>
                                     </td>
@@ -235,7 +253,7 @@ export default function AdminPromotionsPage() {
                                             </button>
                                             {isRaffleDrawable(promo) && (
                                                 drawResult[promo.id] ? (
-                                                    <span className="text-xs text-green-400 font-bold">זוכה: {drawResult[promo.id]}</span>
+                                                    <span className="text-xs text-green-400 font-bold">🏆 זוכה: {drawResult[promo.id]}</span>
                                                 ) : (
                                                     <button
                                                         onClick={() => handleDraw(promo)}
@@ -253,6 +271,13 @@ export default function AdminPromotionsPage() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {drawError && (
+                <div className="mt-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-center justify-between">
+                    <p className="text-red-400 text-sm font-semibold">{drawError}</p>
+                    <button onClick={() => setDrawError(null)} className="text-red-400/60 hover:text-red-400 text-lg leading-none">×</button>
                 </div>
             )}
 
