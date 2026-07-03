@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_db
@@ -11,16 +12,34 @@ router = APIRouter(tags=["products"])
 VALID_VERTICALS = ("diamonds", "cars", "insurance")
 
 
+def _active_promotions(product: models.Product) -> List[schemas.PromotionBrief]:
+    now = datetime.utcnow()
+    return [
+        schemas.PromotionBrief.model_validate(p)
+        for p in product.promotions
+        if p.is_active and (p.end_date is None or p.end_date > now)
+    ]
+
+
+def _product_read(product: models.Product) -> schemas.ProductRead:
+    result = schemas.ProductRead.model_validate(product)
+    result.promotions = _active_promotions(product)
+    return result
+
+
 @router.get("/products", response_model=List[schemas.ProductRead])
 def list_products(
     vertical: Optional[str] = None,
     sort: Optional[str] = None,  # 'price_asc' | 'price_desc' | 'newest'
     db: Session = Depends(get_db),
 ):
-    query = db.query(models.Product).filter(models.Product.is_active == True)
+    query = (
+        db.query(models.Product)
+        .filter(models.Product.is_active == True)
+        .options(selectinload(models.Product.promotions))
+    )
     if vertical:
         query = query.filter(models.Product.vertical == vertical)
-
     if sort == "price_asc":
         query = query.order_by(models.Product.price.asc())
     elif sort == "price_desc":
@@ -28,15 +47,20 @@ def list_products(
     else:
         query = query.order_by(models.Product.created_at.desc())
 
-    return query.all()
+    return [_product_read(p) for p in query.all()]
 
 
 @router.get("/products/{product_id}", response_model=schemas.ProductRead)
 def get_product(product_id: int, db: Session = Depends(get_db)):
-    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    product = (
+        db.query(models.Product)
+        .filter(models.Product.id == product_id)
+        .options(selectinload(models.Product.promotions))
+        .first()
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    return product
+    return _product_read(product)
 
 
 def _validate_vertical(vertical: str):

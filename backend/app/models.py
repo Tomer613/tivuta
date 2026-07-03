@@ -1,7 +1,17 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Float, Text, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Float, Text, JSON, UniqueConstraint, Table
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
+
+product_promotions_table = Table(
+    "product_promotions",
+    Base.metadata,
+    Column("id", Integer, primary_key=True),
+    Column("product_id", Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False),
+    Column("promotion_id", Integer, ForeignKey("promotions.id", ondelete="CASCADE"), nullable=False),
+    Column("added_at", DateTime, default=datetime.utcnow),
+    UniqueConstraint("product_id", "promotion_id", name="uq_product_promotion"),
+)
 
 class Category(Base):
     """
@@ -133,6 +143,27 @@ class Product(Base):
     attributes = Column(JSON, nullable=True)  # vertical-specific facets, e.g. {"carat": 1.2, "clarity": "VS1"}
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    promotions = relationship("Promotion", secondary=product_promotions_table, back_populates="products")
+
+
+class Promotion(Base):
+    __tablename__ = "promotions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name_he = Column(String(255), nullable=False)
+    name_en = Column(String(255), nullable=True)
+    # first_n | raffle | percentage_discount | fixed_discount | flash_sale
+    type = Column(String(50), nullable=False)
+    # online | physical | both
+    channel = Column(String(20), nullable=False, default="both")
+    config = Column(JSON, nullable=False, default=dict)
+    is_active = Column(Boolean, default=True)
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    products = relationship("Product", secondary=product_promotions_table, back_populates="promotions")
 
 
 class Lead(Base):

@@ -104,11 +104,60 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     pass
 
-class ProductRead(ProductBase):
+class PromotionBrief(BaseModel):
     id: int
+    name_he: str
+    name_en: Optional[str] = None
+    type: str
+    channel: str
+    config: dict = {}
+    end_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class ProductRead(ProductBase):
+    id: int
+    promotions: List["PromotionBrief"] = []
+
+    class Config:
+        from_attributes = True
+
+
+# Promotion Schemas
+class PromotionBase(BaseModel):
+    name_he: str
+    name_en: Optional[str] = None
+    type: str
+    channel: str = "both"
+    config: dict = {}
+    is_active: bool = True
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+class PromotionCreate(PromotionBase):
+    pass
+
+class PromotionUpdate(BaseModel):
+    name_he: Optional[str] = None
+    name_en: Optional[str] = None
+    type: Optional[str] = None
+    channel: Optional[str] = None
+    config: Optional[dict] = None
+    is_active: Optional[bool] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+class PromotionRead(PromotionBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ProductAssignRequest(BaseModel):
+    product_ids: List[int]
 
 # Lead Schemas
 class LeadCreate(BaseModel):
