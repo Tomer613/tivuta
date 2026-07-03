@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,6 +15,10 @@ origins = [
     "http://localhost:8000",
     "http://127.0.0.1:8000",
 ]
+
+extra_origins = os.environ.get("CORS_ORIGINS", "")
+if extra_origins:
+    origins.extend(origin.strip() for origin in extra_origins.split(",") if origin.strip())
 
 app.add_middleware(
     CORSMiddleware,
