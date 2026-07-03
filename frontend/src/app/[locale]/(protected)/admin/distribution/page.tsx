@@ -1,9 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListDistributions, adminCreateDistribution, adminSendDistribution, getSurveys, adminListProducts } from '@/lib/api';
-import { Plus, Loader2, X, Send, Mail, MessageCircle } from 'lucide-react';
+import {
+    adminListDistributions,
+    adminCreateDistribution,
+    adminSendDistribution,
+    adminListSurveys,
+    adminListProducts,
+} from '@/lib/api';
+import { Plus, Loader2, X, Send, Mail, MessageCircle, Eye, RefreshCw } from 'lucide-react';
+
+const BASE_SITE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://tivuta.co.il';
 
 export default function AdminDistributionPage() {
     const { token } = useAuth();
@@ -12,10 +20,12 @@ export default function AdminDistributionPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
     const [sendingId, setSendingId] = useState<number | null>(null);
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const [form, setForm] = useState({
-        distribution_type: 'daily_deal' as 'daily_deal' | 'survey',
+        distribution_type: 'survey' as 'daily_deal' | 'survey',
         survey_id: '',
         product_id: '',
         title_he: '',
@@ -23,15 +33,46 @@ export default function AdminDistributionPage() {
         channels: ['email'] as string[],
     });
 
-    const load = () => {
+    const load = async () => {
         if (!token) return;
         setLoading(true);
-        Promise.all([adminListDistributions(token), getSurveys(token), adminListProducts(token)])
-            .then(([d, s, p]) => { setDistributions(d); setSurveys(s); setProducts(p); })
-            .finally(() => setLoading(false));
+        try {
+            const [d, s, p] = await Promise.all([
+                adminListDistributions(token),
+                adminListSurveys(token),
+                adminListProducts(token),
+            ]);
+            setDistributions(d);
+            setSurveys(s);
+            setProducts(p);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { load(); }, [token]);
+
+    // Poll every 3s when any distribution is 'sending'
+    useEffect(() => {
+        const hasSending = distributions.some((d) => d.status === 'sending');
+        if (hasSending && !pollRef.current) {
+            pollRef.current = setInterval(async () => {
+                if (!token) return;
+                const fresh = await adminListDistributions(token);
+                setDistributions(fresh);
+                if (!fresh.some((d: any) => d.status === 'sending')) {
+                    clearInterval(pollRef.current!);
+                    pollRef.current = null;
+                }
+            }, 3000);
+        }
+        return () => {
+            if (!hasSending && pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
+            }
+        };
+    }, [distributions, token]);
 
     const toggleChannel = (channel: string) => {
         setForm((f) => ({
@@ -48,19 +89,41 @@ export default function AdminDistributionPage() {
             survey_id: form.distribution_type === 'survey' ? Number(form.survey_id) : null,
             product_id: form.distribution_type === 'daily_deal' ? Number(form.product_id) : null,
             title_he: form.title_he,
-            message_he: form.message_he,
+            message_he: form.message_he || null,
             channels: form.channels,
         });
         setShowForm(false);
+        setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: ['email'] });
         load();
     };
 
     const handleSend = async (id: number) => {
         if (!token) return;
         setSendingId(id);
-        await adminSendDistribution(token, id);
-        setTimeout(load, 1500);
-        setSendingId(null);
+        try {
+            await adminSendDistribution(token, id);
+            await load();
+        } finally {
+            setSendingId(null);
+        }
+    };
+
+    const selectedSurvey = surveys.find((s) => s.id === Number(form.survey_id));
+    const surveyUrl = selectedSurvey ? `https://tivuta.co.il/he/survey/${selectedSurvey.id}` : null;
+
+    const statusBadge = (status: string) => {
+        const map: Record<string, string> = {
+            draft: 'bg-[#111a2f] text-[#f0e6d3]/60',
+            sending: 'bg-yellow-500/20 text-yellow-400',
+            sent: 'bg-green-500/20 text-green-400',
+            failed: 'bg-red-500/20 text-red-400',
+        };
+        const labels: Record<string, string> = { draft: 'טיוטה', sending: 'שולח...', sent: 'נשלח', failed: 'שגיאה' };
+        return (
+            <span className={`px-3 py-1 rounded-full text-xs font-bold ${map[status] ?? 'bg-[#111a2f] text-[#f0e6d3]/60'}`}>
+                {labels[status] ?? status}
+            </span>
+        );
     };
 
     return (
@@ -91,18 +154,25 @@ export default function AdminDistributionPage() {
                                 <tr key={d.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
                                     <td className="p-4">{d.distribution_type === 'survey' ? 'סקר' : 'דיל היומי'}</td>
                                     <td className="p-4">{d.title_he || '-'}</td>
-                                    <td className="p-4 flex gap-2">
-                                        {d.channels.includes('email') && <Mail size={16} className="text-[#d4af37]" />}
-                                        {d.channels.includes('whatsapp') && <MessageCircle size={16} className="text-[#d4af37]" />}
+                                    <td className="p-4">
+                                        <div className="flex gap-2">
+                                            {d.channels.includes('email') && <Mail size={16} className="text-[#d4af37]" />}
+                                            {d.channels.includes('whatsapp') && <MessageCircle size={16} className="text-[#d4af37]" />}
+                                        </div>
                                     </td>
                                     <td className="p-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${d.status === 'sent' ? 'bg-green-500/20 text-green-400' : d.status === 'failed' ? 'bg-red-500/20 text-red-400' : 'bg-[#111a2f] text-[#f0e6d3]/60'}`}>
-                                            {d.status}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            {statusBadge(d.status)}
+                                            {d.status === 'sending' && <RefreshCw size={12} className="animate-spin text-yellow-400" />}
+                                        </div>
                                     </td>
                                     <td className="p-4">
                                         {d.status === 'draft' && (
-                                            <button onClick={() => handleSend(d.id)} disabled={sendingId === d.id} className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50">
+                                            <button
+                                                onClick={() => handleSend(d.id)}
+                                                disabled={sendingId === d.id}
+                                                className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
+                                            >
                                                 <Send size={14} /> שלח
                                             </button>
                                         )}
@@ -117,34 +187,89 @@ export default function AdminDistributionPage() {
                 </div>
             )}
 
+            {/* Create Distribution Modal */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={() => setShowForm(false)}>
-                    <form onSubmit={handleCreate} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-lg space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <form
+                        onSubmit={handleCreate}
+                        className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-xl font-black text-[#f0e6d3]">הפצה חדשה</h2>
                             <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
 
+                        {/* Type selector */}
                         <div className="flex gap-3">
-                            <button type="button" onClick={() => setForm({ ...form, distribution_type: 'daily_deal' })} className={`flex-1 py-3 rounded-xl font-bold text-sm ${form.distribution_type === 'daily_deal' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}>דיל היומי</button>
-                            <button type="button" onClick={() => setForm({ ...form, distribution_type: 'survey' })} className={`flex-1 py-3 rounded-xl font-bold text-sm ${form.distribution_type === 'survey' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}>סקר</button>
+                            <button
+                                type="button"
+                                onClick={() => setForm({ ...form, distribution_type: 'survey', product_id: '' })}
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm ${form.distribution_type === 'survey' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}
+                            >סקר</button>
+                            <button
+                                type="button"
+                                onClick={() => setForm({ ...form, distribution_type: 'daily_deal', survey_id: '' })}
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm ${form.distribution_type === 'daily_deal' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}
+                            >דיל היומי</button>
                         </div>
 
-                        {form.distribution_type === 'daily_deal' ? (
-                            <select required value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
+                        {/* Survey / product selector */}
+                        {form.distribution_type === 'survey' ? (
+                            <select
+                                required
+                                value={form.survey_id}
+                                onChange={(e) => setForm({ ...form, survey_id: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                            >
+                                <option value="">בחר סקר...</option>
+                                {surveys.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.question_he}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <select
+                                required
+                                value={form.product_id}
+                                onChange={(e) => setForm({ ...form, product_id: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                            >
                                 <option value="">בחר מוצר...</option>
                                 {products.map((p) => <option key={p.id} value={p.id}>{p.title_he}</option>)}
                             </select>
-                        ) : (
-                            <select required value={form.survey_id} onChange={(e) => setForm({ ...form, survey_id: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
-                                <option value="">בחר סקר...</option>
-                                {surveys.map((s) => <option key={s.id} value={s.id}>{s.question_he}</option>)}
-                            </select>
                         )}
 
-                        <input required placeholder="כותרת ההודעה" value={form.title_he} onChange={(e) => setForm({ ...form, title_he: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        <textarea placeholder="תוכן ההודעה" value={form.message_he} onChange={(e) => setForm({ ...form, message_he: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                        {/* Survey URL preview */}
+                        {surveyUrl && (
+                            <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3">
+                                <p className="text-green-400 text-xs font-bold mb-1">קישור שיישלח אוטומטית</p>
+                                <p className="text-[#f0e6d3]/70 text-xs break-all">{surveyUrl}</p>
+                            </div>
+                        )}
 
+                        <input
+                            required
+                            placeholder="כותרת ההודעה"
+                            value={form.title_he}
+                            onChange={(e) => setForm({ ...form, title_he: e.target.value })}
+                            className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                        />
+                        <div>
+                            <textarea
+                                placeholder="מבוא אופציונלי (הקישור יתווסף אוטומטית)"
+                                value={form.message_he}
+                                onChange={(e) => setForm({ ...form, message_he: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                rows={3}
+                            />
+                            <p className="text-[#f0e6d3]/30 text-xs mt-1">
+                                {form.distribution_type === 'survey'
+                                    ? 'השאלה, האפשרויות ולינק ההצבעה יתווספו אוטומטית למייל.'
+                                    : 'תמונת המוצר, המחיר ולינק יתווספו אוטומטית למייל.'}
+                            </p>
+                        </div>
+
+                        {/* Channel selectors */}
                         <div className="flex gap-3">
                             <label className="flex-1 flex items-center gap-2 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
                                 <input type="checkbox" checked={form.channels.includes('email')} onChange={() => toggleChannel('email')} />
@@ -155,8 +280,17 @@ export default function AdminDistributionPage() {
                                 <MessageCircle size={16} /> WhatsApp
                             </label>
                         </div>
+                        {form.channels.length === 0 && (
+                            <p className="text-red-400 text-xs">יש לבחור לפחות ערוץ אחד</p>
+                        )}
 
-                        <button type="submit" className="btn-primary w-full">צור הפצה</button>
+                        <button
+                            type="submit"
+                            disabled={form.channels.length === 0}
+                            className="btn-primary w-full disabled:opacity-50"
+                        >
+                            צור הפצה
+                        </button>
                     </form>
                 </div>
             )}

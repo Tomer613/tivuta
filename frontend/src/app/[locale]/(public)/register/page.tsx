@@ -120,7 +120,8 @@ export default function RegisterPage() {
             if (response.ok) {
                 const data = await response.json();
                 await login(data.access_token);
-                router.push(`/${locale}`);
+                const redirectTo = new URLSearchParams(window.location.search).get('redirect');
+                router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : `/${locale}`);
             } else {
                 router.push(`/${locale}/login`);
             }
@@ -239,7 +240,10 @@ export default function RegisterPage() {
                 </form>
 
                 <div className="mt-10 pt-8 border-t border-[#d4af37]/20 text-center">
-                    <Link href={`/${locale}/login`} className="text-sm font-bold text-[#f0e6d3]/60 hover:text-[#1e3a8a] transition-colors">
+                    <Link
+                        href={`/${locale}/login${typeof window !== 'undefined' && window.location.search ? window.location.search : ''}`}
+                        className="text-sm font-bold text-[#f0e6d3]/60 hover:text-[#1e3a8a] transition-colors"
+                    >
                         {t.have_account}
                     </Link>
                 </div>

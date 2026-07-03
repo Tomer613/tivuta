@@ -96,7 +96,8 @@ export default function LoginPage() {
             if (response.ok) {
                 const data = await response.json();
                 await login(data.access_token);
-                router.push(`/${locale}`);
+                const redirectTo = new URLSearchParams(window.location.search).get('redirect');
+                router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : `/${locale}`);
             } else {
                 setError(t.error_invalid);
             }
@@ -180,7 +181,10 @@ export default function LoginPage() {
                 </form>
 
                 <div className="mt-12 pt-8 border-t border-[#d4af37]/20 text-center">
-                    <Link href={`/${locale}/register`} className="text-sm font-bold text-[#f0e6d3]/60 hover:text-[#1e3a8a] transition-colors">
+                    <Link
+                        href={`/${locale}/register${typeof window !== 'undefined' && window.location.search ? window.location.search : ''}`}
+                        className="text-sm font-bold text-[#f0e6d3]/60 hover:text-[#1e3a8a] transition-colors"
+                    >
                         {t.no_account}
                     </Link>
                 </div>
