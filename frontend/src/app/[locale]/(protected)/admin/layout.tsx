@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Package, Users, BarChart3, Send } from 'lucide-react';
+import { Package, Users, BarChart3, Send, Tag } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 
 interface T {
@@ -10,13 +10,14 @@ interface T {
     users: string;
     surveys: string;
     distribution: string;
+    promotions: string;
 }
 
 const translations: Record<string, T> = {
-    he: { products: 'מוצרים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה' },
-    en: { products: 'Products', users: 'Users', surveys: 'Surveys', distribution: 'Distribution' },
-    fr: { products: 'Produits', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion' },
-    yi: { products: 'פראדוקטן', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג' },
+    he: { products: 'מוצרים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים' },
+    en: { products: 'Products', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions' },
+    fr: { products: 'Produits', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions' },
+    yi: { products: 'פראדוקטן', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים' },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: `/${locale}/admin/users`, label: t.users, icon: <Users size={18} /> },
         { href: `/${locale}/admin/surveys`, label: t.surveys, icon: <BarChart3 size={18} /> },
         { href: `/${locale}/admin/distribution`, label: t.distribution, icon: <Send size={18} /> },
+        { href: `/${locale}/admin/promotions`, label: t.promotions, icon: <Tag size={18} /> },
     ];
 
     return (

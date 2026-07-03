@@ -113,11 +113,47 @@ function authHeaders(token?: MaybeToken): Record<string, string> {
     return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function getProducts(token: MaybeToken, vertical: string, sort?: string) {
+export async function getProducts(token: MaybeToken, vertical: string, sort?: string, promotionType?: string | null) {
     const params = new URLSearchParams({ vertical });
     if (sort) params.set('sort', sort);
+    if (promotionType) params.set('promotion_type', promotionType);
     const res = await fetch(`${BASE_URL}/products?${params.toString()}`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load products');
+    return res.json();
+}
+
+export async function getProduct(token: MaybeToken, id: number) {
+    const res = await fetch(`${BASE_URL}/products/${id}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load product');
+    return res.json();
+}
+
+export async function getAllProductIds(): Promise<{ id: number }[]> {
+    try {
+        const res = await fetch(`${BASE_URL}/products`, { next: { revalidate: 0 } });
+        if (!res.ok) return [{ id: 1 }];
+        const data = await res.json();
+        return data.length > 0 ? data.map((p: any) => ({ id: p.id })) : [{ id: 1 }];
+    } catch {
+        return [{ id: 1 }];
+    }
+}
+
+export async function getPromotionStatus(token: string, promotionId: number) {
+    const res = await fetch(`${BASE_URL}/promotions/${promotionId}/status`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load promotion status');
+    return res.json();
+}
+
+export async function enterPromotion(token: string, promotionId: number, productId: number) {
+    const res = await fetch(`${BASE_URL}/promotions/${promotionId}/enter?product_id=${productId}`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to enter promotion');
+    }
     return res.json();
 }
 
@@ -308,5 +344,83 @@ export async function adminSendDistribution(token: string, id: number) {
         headers: authHeaders(token),
     });
     if (!res.ok) throw new Error('Failed to send distribution');
+    return res.json();
+}
+
+/** Promotions admin endpoints */
+
+export async function adminListPromotions(token: string, isActive?: boolean) {
+    const params = isActive !== undefined ? `?is_active=${isActive}` : '';
+    const res = await fetch(`${BASE_URL}/admin/promotions${params}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load promotions');
+    return res.json();
+}
+
+export async function adminCreatePromotion(token: string, payload: any) {
+    const res = await fetch(`${BASE_URL}/admin/promotions`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create promotion');
+    }
+    return res.json();
+}
+
+export async function adminUpdatePromotion(token: string, id: number, payload: any) {
+    const res = await fetch(`${BASE_URL}/admin/promotions/${id}`, {
+        method: 'PUT',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to update promotion');
+    return res.json();
+}
+
+export async function adminDeactivatePromotion(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/promotions/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to deactivate promotion');
+    return res.json();
+}
+
+export async function adminGetPromotionProducts(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/promotions/${id}/products`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load promotion products');
+    return res.json();
+}
+
+export async function adminAssignProducts(token: string, id: number, product_ids: number[]) {
+    const res = await fetch(`${BASE_URL}/admin/promotions/${id}/products`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_ids }),
+    });
+    if (!res.ok) throw new Error('Failed to assign products');
+    return res.json();
+}
+
+export async function adminRemoveProductFromPromotion(token: string, promotionId: number, productId: number) {
+    const res = await fetch(`${BASE_URL}/admin/promotions/${promotionId}/products/${productId}`, {
+        method: 'DELETE',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to remove product from promotion');
+    return res.json();
+}
+
+export async function adminDrawPromotion(token: string, promotionId: number) {
+    const res = await fetch(`${BASE_URL}/admin/promotions/${promotionId}/draw`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to draw promotion');
+    }
     return res.json();
 }

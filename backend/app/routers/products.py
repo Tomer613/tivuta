@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
@@ -31,8 +32,10 @@ def _product_read(product: models.Product) -> schemas.ProductRead:
 def list_products(
     vertical: Optional[str] = None,
     sort: Optional[str] = None,  # 'price_asc' | 'price_desc' | 'newest'
+    promotion_type: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    now = datetime.utcnow()
     query = (
         db.query(models.Product)
         .filter(models.Product.is_active == True)
@@ -40,6 +43,18 @@ def list_products(
     )
     if vertical:
         query = query.filter(models.Product.vertical == vertical)
+    if promotion_type:
+        promo_product_ids = (
+            db.query(models.product_promotions_table.c.product_id)
+            .join(models.Promotion, models.Promotion.id == models.product_promotions_table.c.promotion_id)
+            .filter(
+                models.Promotion.type == promotion_type,
+                models.Promotion.is_active == True,
+                or_(models.Promotion.end_date == None, models.Promotion.end_date > now),
+            )
+            .subquery()
+        )
+        query = query.filter(models.Product.id.in_(promo_product_ids))
     if sort == "price_asc":
         query = query.order_by(models.Product.price.asc())
     elif sort == "price_desc":

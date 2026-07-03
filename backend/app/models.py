@@ -166,6 +166,22 @@ class Promotion(Base):
     products = relationship("Product", secondary=product_promotions_table, back_populates="promotions")
 
 
+class PromotionEntry(Base):
+    __tablename__ = "promotion_entries"
+    __table_args__ = (UniqueConstraint("user_id", "promotion_id", name="uq_user_promotion_entry"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    promotion_id = Column(Integer, ForeignKey("promotions.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    entered_at = Column(DateTime, default=datetime.utcnow)
+    is_winner = Column(Boolean, default=False)
+
+    user = relationship("User")
+    promotion = relationship("Promotion")
+    product = relationship("Product")
+
+
 class Lead(Base):
     """
     Unifies appointment requests, contact requests and club signups into one table.

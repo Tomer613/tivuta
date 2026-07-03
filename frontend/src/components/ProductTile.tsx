@@ -1,9 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarCheck, MessageCircle, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
 import { createLead } from '@/lib/api';
+
+export interface PromotionBrief {
+    id: number;
+    name_he: string;
+    type: string;
+    channel: string;
+    config: Record<string, any>;
+    end_date?: string | null;
+}
 
 export interface Product {
     id: number;
@@ -18,6 +28,19 @@ export interface Product {
     description_yi?: string | null;
     image_url?: string | null;
     price?: number | null;
+    promotions?: PromotionBrief[];
+}
+
+function promotionLabel(promo: PromotionBrief): string {
+    const c = promo.config || {};
+    switch (promo.type) {
+        case 'first_n': return `${c.limit ?? ''} ראשונים`;
+        case 'raffle': return 'הגרלה';
+        case 'percentage_discount': return `${c.percentage ?? ''}% הנחה`;
+        case 'fixed_discount': return `₪${c.amount ?? ''} הנחה`;
+        case 'flash_sale': return 'פלאש סייל';
+        default: return promo.name_he;
+    }
 }
 
 interface T {
@@ -36,10 +59,13 @@ const translations: Record<string, T> = {
     yi: { schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן מיר', requested: 'געשיקט, מיר וועלן זיך פארבינדן', scheduled: 'באגעגעניש איז באשטעטיגט!', price_label: 'פרייז', on_request: 'אויף פארלאנג' },
 };
 
+const INTERACTIVE_TYPES = new Set(['raffle', 'first_n']);
+
 export default function ProductTile({ product, locale, actionType, token }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string }) {
     const [showModal, setShowModal] = useState(false);
     const [status, setStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
     const t = translations[locale] || translations.he;
+    const hasInteractivePromo = product.promotions?.some((p) => INTERACTIVE_TYPES.has(p.type)) ?? false;
 
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const title = product[`title_${localeKey}`] || product.title_he;
@@ -74,6 +100,11 @@ export default function ProductTile({ product, locale, actionType, token }: { pr
             <div className="h-48 w-full bg-[#111a2f] relative overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={imagePath} alt={title} className="w-full h-full object-cover" />
+                {product.promotions && product.promotions.length > 0 && (
+                    <span className="absolute top-3 right-3 bg-[#d4af37] text-[#080d1f] text-[11px] font-black px-2.5 py-1 rounded-full shadow-md tracking-wide">
+                        {promotionLabel(product.promotions[0])}
+                    </span>
+                )}
             </div>
 
             <div className="p-6 flex flex-col flex-grow items-start text-start">
@@ -87,6 +118,16 @@ export default function ProductTile({ product, locale, actionType, token }: { pr
                             {product.price ? `₪${product.price.toLocaleString()}` : t.on_request}
                         </span>
                     </div>
+
+                    {hasInteractivePromo && (
+                        <Link
+                            href={`/${locale}/products/${product.id}`}
+                            className="flex items-center justify-center gap-1.5 text-[#d4af37] text-sm font-bold hover:underline"
+                        >
+                            {locale === 'en' ? 'Details & Join' : locale === 'fr' ? 'Détails & Participer' : locale === 'yi' ? 'פרטים' : 'לפרטים והצטרפות'}
+                            <ArrowLeft size={14} />
+                        </Link>
+                    )}
 
                     {status === 'done' ? (
                         <div className="flex items-center gap-2 text-green-400 font-bold text-sm">

@@ -42,17 +42,18 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [sort, setSort] = useState<SortOption>('newest');
+    const [promotionType, setPromotionType] = useState<string | null>(null);
 
     const t = (COPY[vertical] && COPY[vertical][locale]) || COPY[vertical].he;
 
     useEffect(() => {
         if (!token) return;
         setLoading(true);
-        getProducts(token, vertical, sort)
+        getProducts(token, vertical, sort, promotionType)
             .then(setProducts)
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
-    }, [token, vertical, sort]);
+    }, [token, vertical, sort, promotionType]);
 
     if (authLoading || !token) {
         return (
@@ -72,7 +73,7 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
             </header>
 
             <div className="max-w-7xl mx-auto py-12 px-8 flex flex-col lg:flex-row gap-12">
-                <FilterSortSidebar locale={locale} sort={sort} onSortChange={setSort} />
+                <FilterSortSidebar locale={locale} sort={sort} onSortChange={setSort} promotionType={promotionType} onPromotionTypeChange={setPromotionType} />
 
                 <div className="flex-grow">
                     {loading ? (

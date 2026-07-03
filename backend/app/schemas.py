@@ -111,6 +111,7 @@ class PromotionBrief(BaseModel):
     type: str
     channel: str
     config: dict = {}
+    start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
 
     class Config:
@@ -119,7 +120,7 @@ class PromotionBrief(BaseModel):
 
 class ProductRead(ProductBase):
     id: int
-    promotions: List["PromotionBrief"] = []
+    promotions: List[PromotionBrief] = []
 
     class Config:
         from_attributes = True
@@ -158,6 +159,30 @@ class PromotionRead(PromotionBase):
 
 class ProductAssignRequest(BaseModel):
     product_ids: List[int]
+
+# Promotion Entry Schemas
+class PromotionEntryRead(BaseModel):
+    id: int
+    promotion_id: int
+    product_id: int
+    entered_at: datetime
+    is_winner: bool
+
+    class Config:
+        from_attributes = True
+
+class PromotionStatusRead(BaseModel):
+    promotion_id: int
+    type: str
+    name_he: str
+    participants_count: int
+    limit: Optional[int] = None       # first_n: max allowed
+    remaining: Optional[int] = None   # first_n: spots left
+    is_full: bool = False
+    is_closed: bool = False            # raffle: drawn and done
+    end_date: Optional[datetime] = None
+    winner_name: Optional[str] = None  # winner first_name + last_name
+    has_entered: bool = False
 
 # Lead Schemas
 class LeadCreate(BaseModel):
