@@ -6,8 +6,9 @@ import { useAuth } from '@/context/AuthContext';
 import { updateUserProfile, getMyActivity } from '@/lib/api';
 import {
     LogOut, Settings, Mail, Phone, MapPin, Calendar, User2,
-    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList,
+    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown,
 } from 'lucide-react';
+import SavingsCalculator from '@/components/SavingsCalculator';
 
 // ─── Translations ────────────────────────────────────────────────────────────
 const tr: Record<string, Record<string, string>> = {
@@ -156,6 +157,7 @@ export default function ProfilePage() {
     const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [activity, setActivity] = useState<any[]>([]);
     const [activityLoading, setActivityLoading] = useState(true);
+    const [showCalculator, setShowCalculator] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -430,6 +432,28 @@ export default function ProfilePage() {
                         </div>
                     </button>
                 )}
+
+                {/* Savings calculator */}
+                <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-2xl overflow-hidden">
+                    <button
+                        onClick={() => setShowCalculator((v) => !v)}
+                        className="w-full flex items-center justify-between gap-3 px-6 py-5 hover:bg-[#111a2f] transition-colors group"
+                    >
+                        <div className="text-start">
+                            <p className="font-black text-[#d4af37] text-base">בדקו כמה תוכלו לחסוך איתנו</p>
+                            <p className="text-xs text-[#f0e6d3]/40 mt-0.5">הדמיית חיסכון והטבות על בסיס נתוני ההוצאה וההכנסה שלכם</p>
+                        </div>
+                        <ChevronDown
+                            size={20}
+                            className={`text-[#d4af37] shrink-0 transition-transform duration-300 ${showCalculator ? 'rotate-180' : ''}`}
+                        />
+                    </button>
+                    {showCalculator && (
+                        <div className="px-4 pb-5">
+                            <SavingsCalculator />
+                        </div>
+                    )}
+                </div>
 
                 {/* Logout */}
                 <button onClick={handleLogout}
