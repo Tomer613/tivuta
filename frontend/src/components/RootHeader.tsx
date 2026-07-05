@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Globe, UserCircle2 } from 'lucide-react';
+import { Globe, UserCircle2, LayoutDashboard } from 'lucide-react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/context/AuthContext';
@@ -38,6 +38,15 @@ export default function RootHeader() {
                 </Link>
 
                 <div className="flex items-center gap-2">
+                    {user?.role === 'admin' && (
+                        <Link
+                            href={`/${locale}/admin/products`}
+                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3]/70 hover:text-[#d4af37] rounded-full transition-all duration-300 hover:scale-110 hover:shadow-[0_0_16px_rgba(212,175,55,0.4)] hover:bg-[#d4af37]/10"
+                            aria-label="בק-אופיס"
+                        >
+                            <LayoutDashboard size={22} />
+                        </Link>
+                    )}
                     {user && (
                         <Link
                             href={`/${locale}/profile`}

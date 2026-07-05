@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { updateUserProfile, getMyActivity } from '@/lib/api';
 import {
-    LogOut, Settings, Mail, Phone, MapPin, Calendar, User2,
+    LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
@@ -566,22 +566,6 @@ export default function ProfileClient() {
                         </div>
                     )}
                 </div>
-
-                {/* ── Admin card ── */}
-                {user?.role === 'admin' && (
-                    <button onClick={() => router.push(`/${locale}/admin/products`)}
-                        className="w-full bg-[#d4af37]/10 border border-[#d4af37]/40 hover:border-[#d4af37] hover:bg-[#d4af37]/20 transition-all rounded-2xl p-5 text-start group">
-                        <div className="flex items-center gap-4">
-                            <div className="w-11 h-11 rounded-xl bg-[#d4af37]/20 flex items-center justify-center group-hover:bg-[#d4af37]/30 transition-colors">
-                                <Settings size={20} className="text-[#d4af37]" />
-                            </div>
-                            <div>
-                                <p className="font-black text-[#d4af37] text-sm">{t.backoffice}</p>
-                                <p className="text-xs text-[#f0e6d3]/40 mt-0.5">{t.backoffice_sub}</p>
-                            </div>
-                        </div>
-                    </button>
-                )}
 
                 {/* ── Savings calculator ── */}
                 <div className="rounded-2xl overflow-hidden" style={{ boxShadow: '0 4px 32px rgba(212,175,55,0.18)' }}>
