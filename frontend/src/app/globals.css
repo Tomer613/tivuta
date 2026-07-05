@@ -272,6 +272,62 @@ html[data-a11y-stop-animations="true"] *::after {
     @apply bg-[#0e1628] border border-[#d4af37]/20 rounded-[2.5rem] shadow-sm hover:shadow-[0_24px_60px_rgba(212,175,55,0.18)] hover:border-[#d4af37]/50 hover:-translate-y-2 transition-all duration-500 cursor-pointer w-full;
 }
 
+/* Savings Simulator Slider */
+.sim-slider {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    outline: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.sim-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sim-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #d4af37;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+    margin-top: -9px;
+}
+
+.sim-slider::-moz-range-track {
+    height: 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.sim-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #d4af37;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+    border: none;
+}
+
+.sim-slider-sm::-webkit-slider-thumb {
+    width: 16px;
+    height: 16px;
+    margin-top: -6px;
+}
+
+.sim-slider-sm::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;

@@ -22,7 +22,7 @@ const translations: Record<string, HomeTranslation> = {
     he: {
         greeting_male: 'ברוך הבא',
         greeting_female: 'ברוכה הבאה',
-        greeting_neutral: 'שלום',
+        greeting_neutral: 'ברוכים הבאים',
         subtitle: 'ברוכים הבאים לטיבותא — שלושת העולמות שלנו, מובחרים בשבילך.',
         diamonds: 'עולם היהלומים', diamonds_sub: 'תכשיטים ויהלומים נבחרים, עם פגישת התרשמות אישית.',
         cars: 'עולם הרכב', cars_sub: 'דילים ברכבים חדשים ומשומשים, בתנאים מיוחדים לחברים.',
@@ -49,7 +49,7 @@ const translations: Record<string, HomeTranslation> = {
     yi: {
         greeting_male: 'ברוך הבא',
         greeting_female: 'ברוכה הבאה',
-        greeting_neutral: 'שלום',
+        greeting_neutral: 'ברוכים הבאים',
         subtitle: 'ברוכים הבאים לטיבותא — אונדזערע דריי וועלטן, אויסגעקליבן פאר אייך.',
         diamonds: 'דימענט וועלט', diamonds_sub: 'אויסגעקליבענע שמוק און דימענטן, מיט א פערזענליכע באגעגעניש.',
         cars: 'אויטא וועלט', cars_sub: 'דילס אויף נייע און געניצטע אויטאס, מיט ספעציעלע טערמינען.',

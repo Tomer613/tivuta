@@ -14,7 +14,7 @@ import SavingsCalculator from '@/components/SavingsCalculator';
 const tr: Record<string, Record<string, string>> = {
     he: {
         title: 'האזור האישי',
-        greeting_male: 'ברוך הבא', greeting_female: 'ברוכה הבאה', greeting_neutral: 'שלום',
+        greeting_male: 'ברוך הבא', greeting_female: 'ברוכה הבאה', greeting_neutral: 'ברוכים הבאים',
         role_member: 'חבר מועדון', role_admin: 'מנהל מערכת',
         profile_completion: 'השלמת פרופיל',
         complete_profile: 'השלם את הפרופיל שלך',
@@ -83,7 +83,7 @@ const tr: Record<string, Record<string, string>> = {
     },
     yi: {
         title: 'מיין פּרופֿיל',
-        greeting_male: 'ברוך הבא', greeting_female: 'ברוכה הבאה', greeting_neutral: 'שלום',
+        greeting_male: 'ברוך הבא', greeting_female: 'ברוכה הבאה', greeting_neutral: 'ברוכים הבאים',
         role_member: 'קלוב מיטגליד', role_admin: 'סיסטעם פאַרוואַלטער',
         profile_completion: 'פּרופֿיל פֿאַרענדיקונג',
         complete_profile: 'פֿאַרענדיקט דעם פּרופֿיל',
