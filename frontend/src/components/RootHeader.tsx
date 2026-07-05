@@ -41,7 +41,7 @@ export default function RootHeader() {
                     {user && (
                         <Link
                             href={`/${locale}/profile`}
-                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3]/70 hover:text-[#d4af37] transition-colors rounded-full"
+                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3]/70 hover:text-[#d4af37] rounded-full transition-all duration-300 hover:scale-110 hover:shadow-[0_0_16px_rgba(212,175,55,0.4)] hover:bg-[#d4af37]/10"
                             aria-label="אזור אישי"
                         >
                             <UserCircle2 size={26} />
@@ -51,7 +51,7 @@ export default function RootHeader() {
                         <button
                             onClick={() => setShowLangMenu(!showLangMenu)}
                             aria-label="Language"
-                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-[#0e1628]/10 rounded-full transition-all"
+                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] rounded-full transition-all duration-300 hover:text-[#d4af37] hover:bg-[#d4af37]/10 hover:scale-110 hover:rotate-12"
                         >
                             <Globe size={22} />
                         </button>

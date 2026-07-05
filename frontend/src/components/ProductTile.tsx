@@ -96,12 +96,26 @@ export default function ProductTile({ product, locale, actionType, token }: { pr
     };
 
     return (
-        <div className="flex flex-col h-full bg-[#0e1628] rounded-2xl border border-[#d4af37]/20 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 text-start">
+        <div className="group flex flex-col h-full bg-[#0e1628] rounded-2xl border border-[#d4af37]/20 overflow-hidden shadow-sm text-start"
+            style={{ transition: 'transform 0.45s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.4s ease, border-color 0.3s ease' }}
+            onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-8px)';
+                (e.currentTarget as HTMLDivElement).style.boxShadow = '0 24px 60px rgba(212,175,55,0.2), 0 4px 16px rgba(0,0,0,0.4)';
+                (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(212,175,55,0.55)';
+            }}
+            onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.transform = '';
+                (e.currentTarget as HTMLDivElement).style.boxShadow = '';
+                (e.currentTarget as HTMLDivElement).style.borderColor = '';
+            }}
+        >
             <div className="h-48 w-full bg-[#111a2f] relative overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePath} alt={title} className="w-full h-full object-cover" />
+                <img src={imagePath} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#080d1f]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 {product.promotions && product.promotions.length > 0 && (
-                    <span className="absolute top-3 right-3 bg-[#d4af37] text-[#080d1f] text-[11px] font-black px-2.5 py-1 rounded-full shadow-md tracking-wide">
+                    <span className="absolute top-3 right-3 bg-[#d4af37] text-[#080d1f] text-[11px] font-black px-2.5 py-1 rounded-full shadow-md tracking-wide animate-badge-float">
                         {promotionLabel(product.promotions[0])}
                     </span>
                 )}
