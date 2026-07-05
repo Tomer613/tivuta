@@ -1,7 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
@@ -64,6 +64,32 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
 @router.get("/leads/me", response_model=List[schemas.LeadRead])
 def my_leads(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return db.query(models.Lead).filter(models.Lead.user_id == current_user.id).order_by(models.Lead.created_at.desc()).all()
+
+
+@router.get("/users/me/activity", response_model=List[schemas.LeadHistoryRead])
+def my_activity(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    leads = (
+        db.query(models.Lead)
+        .options(selectinload(models.Lead.product))
+        .filter(models.Lead.user_id == current_user.id)
+        .order_by(models.Lead.created_at.desc())
+        .all()
+    )
+    result = []
+    for lead in leads:
+        result.append(schemas.LeadHistoryRead(
+            id=lead.id,
+            lead_type=lead.lead_type,
+            scheduled_at=lead.scheduled_at,
+            status=lead.status,
+            created_at=lead.created_at,
+            product_id=lead.product_id,
+            product_title_he=lead.product.title_he if lead.product else None,
+            product_vertical=lead.product.vertical if lead.product else None,
+            product_image_url=lead.product.image_url if lead.product else None,
+            product_price=lead.product.price if lead.product else None,
+        ))
+    return result
 
 
 @router.get("/admin/leads", response_model=List[schemas.LeadRead], dependencies=[Depends(get_current_admin)])

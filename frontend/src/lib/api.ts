@@ -234,13 +234,19 @@ export async function voteSurvey(token: string, surveyId: number, surveyOptionId
     return res.json();
 }
 
-export async function updateUserProfile(token: string, payload: { phone?: string; gender?: string; city?: string; birth_year?: number }) {
+export async function updateUserProfile(token: string, payload: { phone?: string; gender?: string; city?: string; birth_year?: number; id_number?: string; club_affiliation?: string; membership_track?: string }) {
     const res = await fetch(`${BASE_URL}/users/me`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Failed to update profile');
+    return res.json();
+}
+
+export async function getMyActivity(token: string) {
+    const res = await fetch(`${BASE_URL}/users/me/activity`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
     return res.json();
 }
 

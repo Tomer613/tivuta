@@ -14,6 +14,9 @@ interface User {
     gender?: 'male' | 'female' | null;
     city?: string | null;
     birth_year?: number | null;
+    id_number?: string | null;
+    club_affiliation?: string | null;
+    membership_track?: string | null;
 }
 
 interface AuthContextType {

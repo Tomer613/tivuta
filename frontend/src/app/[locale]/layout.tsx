@@ -1,6 +1,7 @@
 import "../globals.css";
 import localFont from 'next/font/local';
 import RootHeader from "@/components/RootHeader";
+import SiteFooter from "@/components/SiteFooter";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
 import { AuthProvider } from "@/context/AuthContext";
 import { AccessibilityProvider } from "@/context/AccessibilityContext";
@@ -55,6 +56,7 @@ export default async function RootLayout({
                         <div className="flex-grow">
                             {children}
                         </div>
+                        <SiteFooter />
                     </AuthProvider>
                     <AccessibilityWidget />
                 </AccessibilityProvider>

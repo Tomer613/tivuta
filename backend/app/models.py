@@ -95,6 +95,9 @@ class User(Base):
     gender = Column(String(10), nullable=True)   # "male" | "female"
     city = Column(String(100), nullable=True)
     birth_year = Column(Integer, nullable=True)
+    id_number = Column(String(20), nullable=True)
+    club_affiliation = Column(String(100), nullable=True)
+    membership_track = Column(String(100), nullable=True)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="member", nullable=False)  # "member" | "admin"
     reset_token = Column(String(255), nullable=True)

@@ -65,6 +65,9 @@ class UserRead(UserBase):
     gender: Optional[str] = None
     city: Optional[str] = None
     birth_year: Optional[int] = None
+    id_number: Optional[str] = None
+    club_affiliation: Optional[str] = None
+    membership_track: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -74,6 +77,9 @@ class UserProfileUpdate(BaseModel):
     gender: Optional[str] = None   # "male" | "female"
     city: Optional[str] = None
     birth_year: Optional[int] = None
+    id_number: Optional[str] = None
+    club_affiliation: Optional[str] = None
+    membership_track: Optional[str] = None
 
 class UserRoleUpdate(BaseModel):
     role: str  # "member" | "admin"
@@ -229,6 +235,18 @@ class LeadRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+class LeadHistoryRead(BaseModel):
+    id: int
+    lead_type: str
+    scheduled_at: Optional[datetime] = None
+    status: str
+    created_at: datetime
+    product_id: Optional[int] = None
+    product_title_he: Optional[str] = None
+    product_vertical: Optional[str] = None
+    product_image_url: Optional[str] = None
+    product_price: Optional[float] = None
 
 # Survey Schemas
 class SurveyOptionCreate(BaseModel):
