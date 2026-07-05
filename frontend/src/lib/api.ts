@@ -234,6 +234,16 @@ export async function voteSurvey(token: string, surveyId: number, surveyOptionId
     return res.json();
 }
 
+export async function updateUserProfile(token: string, payload: { phone?: string; gender?: string; city?: string; birth_year?: number }) {
+    const res = await fetch(`${BASE_URL}/users/me`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to update profile');
+    return res.json();
+}
+
 /** Admin endpoints */
 
 export async function adminListUsers(token: string) {

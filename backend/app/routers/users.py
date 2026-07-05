@@ -15,6 +15,19 @@ def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@router.patch("/users/me", response_model=schemas.UserRead)
+def update_users_me(
+    payload: schemas.UserProfileUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    for field, value in payload.model_dump(exclude_none=True).items():
+        setattr(current_user, field, value)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 @router.get("/users/dashboard", response_model=schemas.DashboardData)
 def get_user_dashboard(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """

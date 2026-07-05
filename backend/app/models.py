@@ -92,6 +92,9 @@ class User(Base):
     last_name = Column(String(100), nullable=False)
     email = Column(String(150), unique=True, index=True, nullable=False)
     phone = Column(String(20), nullable=True)
+    gender = Column(String(10), nullable=True)   # "male" | "female"
+    city = Column(String(100), nullable=True)
+    birth_year = Column(Integer, nullable=True)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="member", nullable=False)  # "member" | "admin"
     reset_token = Column(String(255), nullable=True)

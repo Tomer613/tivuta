@@ -11,6 +11,9 @@ interface User {
     last_name: string;
     phone?: string;
     role?: 'member' | 'admin';
+    gender?: 'male' | 'female' | null;
+    city?: string | null;
+    birth_year?: number | null;
 }
 
 interface AuthContextType {

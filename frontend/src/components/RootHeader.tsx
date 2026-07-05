@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Globe } from 'lucide-react';
+import { Globe, UserCircle2 } from 'lucide-react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
+import { useAuth } from '@/context/AuthContext';
 
 const languages = [
     { code: 'he', label: 'עברית' },
@@ -19,6 +20,7 @@ export default function RootHeader() {
     const params = useParams();
     const pathname = usePathname();
     const locale = (params?.locale as string) || 'he';
+    const { user } = useAuth();
 
     const changeLanguage = (newLocale: string) => {
         // pathname looks like /{locale}/... — locale is segment index 1
@@ -35,27 +37,38 @@ export default function RootHeader() {
                     <Logo light className="group-hover:scale-105" />
                 </Link>
 
-                <div className="relative">
-                    <button
-                        onClick={() => setShowLangMenu(!showLangMenu)}
-                        aria-label="Language"
-                        className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-[#0e1628]/10 rounded-full transition-all"
-                    >
-                        <Globe size={22} />
-                    </button>
-                    {showLangMenu && (
-                        <div className="absolute top-12 end-0 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl shadow-xl py-3 w-32 overflow-hidden z-50">
-                            {languages.map((lang) => (
-                                <button
-                                    key={lang.code}
-                                    onClick={() => changeLanguage(lang.code)}
-                                    className={`w-full text-start px-4 py-2 text-sm hover:bg-[#111a2f] transition-colors ${locale === lang.code ? 'font-black text-[#d4af37]' : 'text-[#f0e6d3]'}`}
-                                >
-                                    {lang.label}
-                                </button>
-                            ))}
-                        </div>
+                <div className="flex items-center gap-2">
+                    {user && (
+                        <Link
+                            href={`/${locale}/profile`}
+                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3]/70 hover:text-[#d4af37] transition-colors rounded-full"
+                            aria-label="אזור אישי"
+                        >
+                            <UserCircle2 size={26} />
+                        </Link>
                     )}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowLangMenu(!showLangMenu)}
+                            aria-label="Language"
+                            className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] hover:bg-[#0e1628]/10 rounded-full transition-all"
+                        >
+                            <Globe size={22} />
+                        </button>
+                        {showLangMenu && (
+                            <div className="absolute top-12 end-0 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl shadow-xl py-3 w-32 overflow-hidden z-50">
+                                {languages.map((lang) => (
+                                    <button
+                                        key={lang.code}
+                                        onClick={() => changeLanguage(lang.code)}
+                                        className={`w-full text-start px-4 py-2 text-sm hover:bg-[#111a2f] transition-colors ${locale === lang.code ? 'font-black text-[#d4af37]' : 'text-[#f0e6d3]'}`}
+                                    >
+                                        {lang.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </header>

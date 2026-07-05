@@ -62,9 +62,18 @@ class UserCreate(UserBase):
 class UserRead(UserBase):
     id: int
     role: str = "member"
+    gender: Optional[str] = None
+    city: Optional[str] = None
+    birth_year: Optional[int] = None
 
     class Config:
         from_attributes = True
+
+class UserProfileUpdate(BaseModel):
+    phone: Optional[str] = None
+    gender: Optional[str] = None   # "male" | "female"
+    city: Optional[str] = None
+    birth_year: Optional[int] = None
 
 class UserRoleUpdate(BaseModel):
     role: str  # "member" | "admin"
