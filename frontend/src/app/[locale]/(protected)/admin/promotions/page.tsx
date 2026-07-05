@@ -43,6 +43,14 @@ const CHANNEL_LABELS: Record<string, string> = {
     physical: 'פיזי',
 };
 
+const CONFIG_FIELD_LABEL: Record<string, string> = {
+    first_n: 'כמה משתתפים מקסימום?',
+    raffle: 'כמה זוכים בהגרלה?',
+    percentage_discount: 'אחוז הנחה (לדוגמה: 20 = 20%)',
+    fixed_discount: 'סכום הנחה בשקלים (לדוגמה: 50)',
+    flash_sale: 'אחוז הנחה לפלאש סייל',
+};
+
 function emptyConfig(type: string): Record<string, any> {
     switch (type) {
         case 'first_n': return { limit: 500, participants_count: 0 };
@@ -290,81 +298,57 @@ export default function AdminPromotionsPage() {
                             <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
 
-                        <input
-                            required
-                            placeholder="שם המבצע (בעברית)"
-                            value={form.name_he}
-                            onChange={(e) => setForm({ ...form, name_he: e.target.value })}
-                            className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                        />
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">שם המבצע</label>
+                            <input
+                                required
+                                placeholder="שם המבצע (בעברית)"
+                                value={form.name_he}
+                                onChange={(e) => setForm({ ...form, name_he: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                            />
+                        </div>
 
-                        <select
-                            value={form.type}
-                            onChange={(e) => handleTypeChange(e.target.value)}
-                            className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                        >
-                            {PROMOTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">היכן המבצע מתקיים?</label>
+                            <select
+                                value={form.channel}
+                                onChange={(e) => setForm({ ...form, channel: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                            >
+                                {CHANNELS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                            </select>
+                        </div>
 
-                        <select
-                            value={form.channel}
-                            onChange={(e) => setForm({ ...form, channel: e.target.value })}
-                            className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                        >
-                            {CHANNELS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                        </select>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מה סוג המבצע?</label>
+                            <select
+                                value={form.type}
+                                onChange={(e) => handleTypeChange(e.target.value)}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                            >
+                                {PROMOTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </select>
+                        </div>
 
-                        {/* Dynamic config fields */}
-                        {form.type === 'first_n' && (
-                            <input
-                                type="number"
-                                required
-                                placeholder="מגבלת משתתפים (לדוגמה: 500)"
-                                value={form.config.limit ?? ''}
-                                onChange={(e) => handleConfigChange('limit', e.target.value)}
-                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                            />
-                        )}
-                        {form.type === 'raffle' && (
-                            <input
-                                type="number"
-                                required
-                                placeholder="מספר זוכים"
-                                value={form.config.winner_count ?? ''}
-                                onChange={(e) => handleConfigChange('winner_count', e.target.value)}
-                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                            />
-                        )}
-                        {form.type === 'percentage_discount' && (
-                            <input
-                                type="number"
-                                required
-                                placeholder="אחוז הנחה (לדוגמה: 20)"
-                                value={form.config.percentage ?? ''}
-                                onChange={(e) => handleConfigChange('percentage', e.target.value)}
-                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                            />
-                        )}
-                        {form.type === 'fixed_discount' && (
-                            <input
-                                type="number"
-                                required
-                                placeholder="סכום הנחה ₪"
-                                value={form.config.amount ?? ''}
-                                onChange={(e) => handleConfigChange('amount', e.target.value)}
-                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                            />
-                        )}
-                        {form.type === 'flash_sale' && (
-                            <input
-                                type="number"
-                                required
-                                placeholder="אחוז הנחה לפלאש סייל"
-                                value={form.config.discount_percentage ?? ''}
-                                onChange={(e) => handleConfigChange('discount_percentage', e.target.value)}
-                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                            />
-                        )}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">{CONFIG_FIELD_LABEL[form.type]}</label>
+                            {form.type === 'first_n' && (
+                                <input type="number" required value={form.config.limit ?? ''} onChange={(e) => handleConfigChange('limit', e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                            )}
+                            {form.type === 'raffle' && (
+                                <input type="number" required value={form.config.winner_count ?? ''} onChange={(e) => handleConfigChange('winner_count', e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                            )}
+                            {form.type === 'percentage_discount' && (
+                                <input type="number" required value={form.config.percentage ?? ''} onChange={(e) => handleConfigChange('percentage', e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                            )}
+                            {form.type === 'fixed_discount' && (
+                                <input type="number" required value={form.config.amount ?? ''} onChange={(e) => handleConfigChange('amount', e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                            )}
+                            {form.type === 'flash_sale' && (
+                                <input type="number" required value={form.config.discount_percentage ?? ''} onChange={(e) => handleConfigChange('discount_percentage', e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                            )}
+                        </div>
 
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תאריך סיום מבצע (אופציונלי)</label>
