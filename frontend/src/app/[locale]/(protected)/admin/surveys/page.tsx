@@ -101,20 +101,24 @@ export default function AdminSurveysPage() {
                         <input required placeholder="שאלת הסקר" value={question} onChange={(e) => setQuestion(e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
                         <p className="text-xs text-[#f0e6d3]/60">בחר/י לפחות 2 מוצרים כאופציות:</p>
                         <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
-                            {products.map((p) => (
-                                <label key={p.id} className="flex items-center gap-3 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedProductIds.includes(p.id)}
-                                        onChange={(e) => {
-                                            setSelectedProductIds((prev) =>
-                                                e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
-                                            );
-                                        }}
-                                    />
-                                    {p.title_he} ({p.vertical})
-                                </label>
-                            ))}
+                            {products.length === 0 ? (
+                                <p className="text-[#f0e6d3]/40 text-sm text-center py-4">אין מוצרים במלאי — הוסף מוצרים לפני יצירת סקר.</p>
+                            ) : (
+                                products.map((p) => (
+                                    <label key={p.id} className="flex items-center gap-3 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedProductIds.includes(p.id)}
+                                            onChange={(e) => {
+                                                setSelectedProductIds((prev) =>
+                                                    e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                                                );
+                                            }}
+                                        />
+                                        {p.title_he} ({p.vertical})
+                                    </label>
+                                ))
+                            )}
                         </div>
                         <button type="submit" disabled={selectedProductIds.length < 2} className="btn-primary w-full disabled:opacity-50">שמור סקר</button>
                     </form>
