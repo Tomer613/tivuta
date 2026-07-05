@@ -67,7 +67,7 @@ class UserRead(UserBase):
     birth_year: Optional[int] = None
     id_number: Optional[str] = None
     club_affiliation: Optional[str] = None
-    membership_track: Optional[str] = None
+    membership_tracks: Optional[List[str]] = None
 
     class Config:
         from_attributes = True
@@ -79,7 +79,7 @@ class UserProfileUpdate(BaseModel):
     birth_year: Optional[int] = None
     id_number: Optional[str] = None
     club_affiliation: Optional[str] = None
-    membership_track: Optional[str] = None
+    membership_tracks: Optional[List[str]] = None
 
 class UserRoleUpdate(BaseModel):
     role: str  # "member" | "admin"

@@ -16,7 +16,7 @@ interface User {
     birth_year?: number | null;
     id_number?: string | null;
     club_affiliation?: string | null;
-    membership_track?: string | null;
+    membership_tracks?: string[] | null;
 }
 
 interface AuthContextType {

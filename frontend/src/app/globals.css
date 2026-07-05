@@ -68,6 +68,10 @@ body {
     100% { transform: translateX(calc(-1 * var(--copy-width))); }
 }
 
+.input-field {
+    @apply w-full bg-[#111a2f] rounded-xl px-4 py-3 text-sm text-[#f0e6d3] outline-none focus:ring-1 focus:ring-[#d4af37]/40;
+}
+
 @layer components {
     .animate-scroll {
         animation: scroll 60s linear infinite;

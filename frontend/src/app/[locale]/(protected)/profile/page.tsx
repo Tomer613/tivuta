@@ -105,20 +105,20 @@ const tr: Record<string, Record<string, string>> = {
     },
 };
 
-// ─── Options (to be filled in with real values once confirmed) ───────────────
+// ─── Options ─────────────────────────────────────────────────────────────────
 const CLUB_AFFILIATIONS: string[] = [
-    'אגודת ישראל',
-    'דגל התורה',
-    'ש"ס',
-    'עצמאי',
-    'אחר',
+    'לומד/ת במכללה',
+    'חינוך והוראה',
+    'עצמאי/ת במסחר',
+    'תעשייה ובנייה',
+    'היטק',
+    'מקצועות חופשיים (רו"ח, עו"ד וכדו\')',
 ];
 
-const MEMBERSHIP_TRACKS: string[] = [
-    'חינם',
-    'פרמיום',
-    'משפחתי',
-    'VIP',
+const MEMBERSHIP_TRACKS: { value: string; label: string }[] = [
+    { value: 'credit',    label: 'אשמח להצטרף ולקבל את האשראי הישראי החוץ בנקאי שלכם' },
+    { value: 'insurance', label: 'אשמח להצטרף לביטוחים בהנחה אצל חברת הביטוח דרככם' },
+    { value: 'mortgage',  label: 'אשמח לקבל פרטים לגבי משכנתא בהנחה מהבנק המובייל את התכנית' },
 ];
 
 const VERTICAL_ICONS: Record<string, React.ReactNode> = {
@@ -127,10 +127,13 @@ const VERTICAL_ICONS: Record<string, React.ReactNode> = {
     insurance: <ShieldCheck size={15} className="text-[#d4af37]" />,
 };
 
-const COMPLETION_FIELDS = ['phone', 'gender', 'city', 'birth_year', 'id_number', 'club_affiliation', 'membership_track'];
+const COMPLETION_FIELDS = ['phone', 'gender', 'city', 'birth_year', 'id_number', 'club_affiliation', 'membership_tracks'];
 
 function computeCompletion(user: any) {
-    const missing = COMPLETION_FIELDS.filter((f) => !user?.[f]);
+    const missing = COMPLETION_FIELDS.filter((f) => {
+        const v = user?.[f];
+        return !v || (Array.isArray(v) && v.length === 0);
+    });
     const pct = Math.round(((COMPLETION_FIELDS.length - missing.length) / COMPLETION_FIELDS.length) * 100);
     return { pct, missing };
 }
@@ -148,7 +151,7 @@ export default function ProfilePage() {
 
     const [form, setForm] = useState({
         phone: '', gender: '', city: '', birth_year: '',
-        id_number: '', club_affiliation: '', membership_track: '',
+        id_number: '', club_affiliation: '', membership_tracks: [] as string[],
     });
     const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [activity, setActivity] = useState<any[]>([]);
@@ -163,7 +166,7 @@ export default function ProfilePage() {
             birth_year: user.birth_year ? String(user.birth_year) : '',
             id_number: user.id_number || '',
             club_affiliation: user.club_affiliation || '',
-            membership_track: user.membership_track || '',
+            membership_tracks: user.membership_tracks || [],
         });
     }, [user]);
 
@@ -193,7 +196,7 @@ export default function ProfilePage() {
             if (form.birth_year) payload.birth_year = Number(form.birth_year);
             if (form.id_number) payload.id_number = form.id_number;
             if (form.club_affiliation) payload.club_affiliation = form.club_affiliation;
-            if (form.membership_track) payload.membership_track = form.membership_track;
+            if (form.membership_tracks.length > 0) payload.membership_tracks = form.membership_tracks;
             await updateUserProfile(token, payload);
             await login(token);
             setSaveState('saved');
@@ -324,14 +327,42 @@ export default function ProfilePage() {
                         </select>
                     </Field>
 
-                    {/* Membership track */}
-                    <Field label={t.membership_track} icon={<ClipboardList size={12} />}>
-                        <select value={form.membership_track} onChange={(e) => setForm({ ...form, membership_track: e.target.value })}
-                            className="input-field">
-                            <option value="">{t.choose}</option>
-                            {MEMBERSHIP_TRACKS.map((o) => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                    </Field>
+                    {/* Membership tracks — multi-select */}
+                    <div>
+                        <label className="flex items-center gap-1.5 text-xs font-bold text-[#f0e6d3]/50 uppercase tracking-wider mb-3">
+                            <ClipboardList size={12} /> {t.membership_track}
+                            <span className="normal-case text-[#f0e6d3]/30 font-normal">(ניתן לבחור יותר מאחד)</span>
+                        </label>
+                        <div className="space-y-2">
+                            {MEMBERSHIP_TRACKS.map((track) => {
+                                const checked = form.membership_tracks.includes(track.value);
+                                return (
+                                    <button
+                                        key={track.value}
+                                        type="button"
+                                        onClick={() => {
+                                            const next = checked
+                                                ? form.membership_tracks.filter((v) => v !== track.value)
+                                                : [...form.membership_tracks, track.value];
+                                            setForm({ ...form, membership_tracks: next });
+                                        }}
+                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-start transition-all ${
+                                            checked
+                                                ? 'bg-[#d4af37]/15 border border-[#d4af37]/50 text-[#f0e6d3]'
+                                                : 'bg-[#111a2f] border border-transparent text-[#f0e6d3]/60 hover:bg-[#1a2540]'
+                                        }`}
+                                    >
+                                        <span className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-all ${
+                                            checked ? 'bg-[#d4af37] border-[#d4af37]' : 'border-[#f0e6d3]/30'
+                                        }`}>
+                                            {checked && <span className="text-[#080d1f] text-[10px] font-black">✓</span>}
+                                        </span>
+                                        {track.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     <button onClick={handleSave} disabled={saveState === 'saving'}
                         className={`w-full py-3 rounded-xl font-black text-sm transition-all ${
