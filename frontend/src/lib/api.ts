@@ -39,7 +39,8 @@ export async function getTrendingItems() {
     try {
         const res = await fetch(`${BASE_URL}/trending`, { signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } });
         if (!res.ok) return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
-        return await res.json();
+        const data = await res.json();
+        return data.length > 0 ? data : MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
     } catch (e) {
         console.warn("Backend unreachable during build, using mock items.");
         return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
