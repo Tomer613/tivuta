@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { LogIn, Loader2, ShieldCheck } from 'lucide-react';
+import { LogIn, Loader2, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
@@ -76,6 +76,7 @@ export default function LoginPage() {
     const [error, setError] = useState<string | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const t = translations[locale] || translations.he;
 
@@ -156,14 +157,25 @@ export default function LoginPage() {
                             <label className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest">{t.password}</label>
                             <Link href={`/${locale}/forgot-password`} className="text-xs font-bold text-[#1e3a8a] hover:underline">{t.forgot}</Link>
                         </div>
-                        <input
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-[#111a2f] border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] transition-all"
-                            placeholder="••••••••"
-                        />
+                        <div className="relative w-full">
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-[#111a2f] border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-[#1e3a8a] transition-all"
+                                placeholder="••••••••"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(v => !v)}
+                                className="absolute inset-y-0 left-4 flex items-center text-[#f0e6d3]/40 hover:text-[#f0e6d3]/70 transition-colors"
+                                tabIndex={-1}
+                                aria-label={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
                     </div>
 
                     <button
