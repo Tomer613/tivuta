@@ -37,7 +37,7 @@ const MOCK_ITEMS = [
 
 export async function getTrendingItems() {
     try {
-        const res = await fetch(`${BASE_URL}/trending`, { next: { revalidate: 3600 } });
+        const res = await fetch(`${BASE_URL}/trending`, { signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } });
         if (!res.ok) return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
         return await res.json();
     } catch (e) {
@@ -48,7 +48,7 @@ export async function getTrendingItems() {
 
 export async function getMonthlyItems() {
     try {
-        const res = await fetch(`${BASE_URL}/items`, { next: { revalidate: 0 } });
+        const res = await fetch(`${BASE_URL}/items`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
         if (!res.ok) return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 })).filter(i => i.is_monthly);
         const all = await res.json();
         return all.filter((i: any) => i.is_monthly);
@@ -60,7 +60,7 @@ export async function getMonthlyItems() {
 
 export async function getAllItems() {
     try {
-        const res = await fetch(`${BASE_URL}/items`, { next: { revalidate: 0 } });
+        const res = await fetch(`${BASE_URL}/items`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
         if (!res.ok) return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 }));
         return await res.json();
     } catch (e) {
@@ -71,7 +71,7 @@ export async function getAllItems() {
 
 export async function getCategories() {
     try {
-        const res = await fetch(`${BASE_URL}/categories`, { next: { revalidate: 3600 } });
+        const res = await fetch(`${BASE_URL}/categories`, { signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } });
         if (!res.ok) return MOCK_CATEGORIES;
         return await res.json();
     } catch (e) {
@@ -82,7 +82,7 @@ export async function getCategories() {
 
 export async function getCategoryBySlug(slug: string) {
     try {
-        const res = await fetch(`${BASE_URL}/categories/${slug}`, { next: { revalidate: 3600 } });
+        const res = await fetch(`${BASE_URL}/categories/${slug}`, { signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } });
         if (!res.ok) return MOCK_CATEGORIES.find(c => c.slug === slug) || null;
         return await res.json();
     } catch (e) {
@@ -92,7 +92,7 @@ export async function getCategoryBySlug(slug: string) {
 
 export async function getCategoryItems(slug: string) {
     try {
-        const res = await fetch(`${BASE_URL}/categories/${slug}/items`, { next: { revalidate: 3600 } });
+        const res = await fetch(`${BASE_URL}/categories/${slug}/items`, { signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } });
         if (!res.ok) return MOCK_ITEMS;
         return await res.json();
     } catch (e) {
@@ -130,7 +130,7 @@ export async function getProduct(token: MaybeToken, id: number) {
 
 export async function getAllProductIds(): Promise<{ id: number }[]> {
     try {
-        const res = await fetch(`${BASE_URL}/products`, { next: { revalidate: 0 } });
+        const res = await fetch(`${BASE_URL}/products`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
         if (!res.ok) return [{ id: 1 }];
         const data = await res.json();
         return data.length > 0 ? data.map((p: any) => ({ id: p.id })) : [{ id: 1 }];
@@ -164,7 +164,7 @@ const FALLBACK_SURVEY_IDS = [{ id: 1 }];
 
 export async function getAllSurveysStatic() {
     try {
-        const res = await fetch(`${BASE_URL}/surveys`, { next: { revalidate: 0 } });
+        const res = await fetch(`${BASE_URL}/surveys`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
         if (!res.ok) return FALLBACK_SURVEY_IDS;
         const data = await res.json();
         return data.length > 0 ? data : FALLBACK_SURVEY_IDS;
