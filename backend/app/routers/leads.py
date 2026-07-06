@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,12 +10,31 @@ from ..services import get_email_sender
 
 router = APIRouter(tags=["leads"])
 
+# ── Change this env-var in production to redirect admin notifications ──────────
+ADMIN_NOTIFICATION_EMAIL = os.environ.get("ADMIN_NOTIFICATION_EMAIL", "support@tivuta.co.il")
+
 CONFIRMATION_SUBJECT = {
     "he": "אישור פנייה - TIVUTA",
     "en": "Request confirmation - TIVUTA",
     "fr": "Confirmation de demande - TIVUTA",
     "yi": "באשטעטיגונג - TIVUTA",
 }
+
+
+def _admin_notification_body(user: models.User, product_title: str, lead_type: str, scheduled_at) -> str:
+    type_label = "פגישה" if lead_type == "appointment" else "פנייה"
+    scheduled_line = f"<p><strong>מועד פגישה:</strong> {scheduled_at}</p>" if scheduled_at else ""
+    return f"""
+    <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
+      <h2 style="color:#b8860b;">פנייה חדשה ב-TIVUTA 🔔</h2>
+      <p><strong>סוג:</strong> {type_label}</p>
+      <p><strong>מוצר:</strong> {product_title}</p>
+      <hr/>
+      <p><strong>שם:</strong> {user.first_name} {user.last_name}</p>
+      <p><strong>מייל:</strong> <a href="mailto:{user.email}">{user.email}</a></p>
+      <p><strong>טלפון:</strong> {user.phone or '—'}</p>
+      {scheduled_line}
+    </div>"""
 
 
 def _confirmation_body(locale: str, product_title: str, scheduled_at):
@@ -51,11 +71,23 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
     db.refresh(new_lead)
 
     product_title = getattr(product, f"title_{locale}", None) or product.title_he
-    get_email_sender().send(
+    email_sender = get_email_sender()
+
+    # Confirmation to the user
+    email_sender.send(
         to=current_user.email,
         subject=CONFIRMATION_SUBJECT.get(locale, CONFIRMATION_SUBJECT["he"]),
         html_body=_confirmation_body(locale, product_title, payload.scheduled_at),
         locale=locale,
+    )
+
+    # Notification to admin
+    lead_type_label = "appointment" if (product.vertical == "diamonds" and payload.scheduled_at) else "contact_request"
+    email_sender.send(
+        to=ADMIN_NOTIFICATION_EMAIL,
+        subject=f"פנייה חדשה: {product_title} — {current_user.first_name} {current_user.last_name}",
+        html_body=_admin_notification_body(current_user, product_title, lead_type_label, payload.scheduled_at),
+        locale="he",
     )
 
     return new_lead

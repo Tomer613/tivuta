@@ -2,18 +2,30 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct } from '@/lib/api';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy } from 'lucide-react';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct } from '@/lib/api';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages } from 'lucide-react';
 
 const VERTICALS = [
     { value: 'diamonds', label: 'יהלומים' },
     { value: 'cars',     label: 'רכב' },
     { value: 'insurance', label: 'ביטוח' },
 ];
-
 const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
 
-const EMPTY_FORM = { vertical: 'diamonds', title_he: '', description_he: '', price: '', image_url: '' };
+const LANGS = [
+    { key: 'he', label: 'עברית', dir: 'rtl' as const },
+    { key: 'en', label: 'English', dir: 'ltr' as const },
+    { key: 'fr', label: 'Français', dir: 'ltr' as const },
+    { key: 'yi', label: 'ייִדיש', dir: 'rtl' as const },
+];
+
+const EMPTY_FORM = {
+    vertical: 'diamonds',
+    title_he: '', title_en: '', title_fr: '', title_yi: '',
+    description_he: '', description_en: '', description_fr: '', description_yi: '',
+    price: '',
+    image_url: '',
+};
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -43,6 +55,8 @@ export default function AdminProductsPage() {
     const [batchJson, setBatchJson] = useState('');
     const [batchError, setBatchError] = useState<string | null>(null);
     const [form, setForm] = useState(EMPTY_FORM);
+    const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
+    const [translating, setTranslating] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,7 +113,14 @@ export default function AdminProductsPage() {
 
     const openEditForm = (p: any) => {
         setEditProduct(p);
-        setForm({ vertical: p.vertical, title_he: p.title_he, description_he: p.description_he, price: p.price ? String(p.price) : '', image_url: p.image_url || '' });
+        setForm({
+            vertical: p.vertical,
+            title_he: p.title_he || '', title_en: p.title_en || '', title_fr: p.title_fr || '', title_yi: p.title_yi || '',
+            description_he: p.description_he || '', description_en: p.description_en || '', description_fr: p.description_fr || '', description_yi: p.description_yi || '',
+            price: p.price ? String(p.price) : '',
+            image_url: p.image_url || '',
+        });
+        setLangTab('he');
         setShowForm(true);
     };
 
@@ -107,13 +128,35 @@ export default function AdminProductsPage() {
         setShowForm(false);
         setEditProduct(null);
         setForm(EMPTY_FORM);
+        setLangTab('he');
         if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleTranslate = async () => {
+        if (!token || !form.title_he.trim()) return;
+        setTranslating(true);
+        try {
+            const result = await adminTranslateProduct(token, form.title_he, form.description_he);
+            setForm((f) => ({ ...f, ...result }));
+            showToast('התרגום הושלם ✓');
+        } catch {
+            showToast('שגיאה בתרגום — ודא שמפתח ANTHROPIC_API_KEY מוגדר', 'error');
+        } finally {
+            setTranslating(false);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
-        const payload = { vertical: form.vertical, title_he: form.title_he, description_he: form.description_he, price: form.price ? Number(form.price) : null, image_url: form.image_url || null, is_active: true };
+        const payload = {
+            vertical: form.vertical,
+            title_he: form.title_he, title_en: form.title_en || null, title_fr: form.title_fr || null, title_yi: form.title_yi || null,
+            description_he: form.description_he, description_en: form.description_en || null, description_fr: form.description_fr || null, description_yi: form.description_yi || null,
+            price: form.price ? Number(form.price) : null,
+            image_url: form.image_url || null,
+            is_active: true,
+        };
         try {
             if (editProduct) {
                 await adminUpdateProduct(token, editProduct.id, payload);
@@ -162,6 +205,9 @@ export default function AdminProductsPage() {
         }
     };
 
+    const activeLang = LANGS.find((l) => l.key === langTab)!;
+    const hasTranslations = form.title_en || form.title_fr || form.title_yi;
+
     return (
         <div>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -172,7 +218,7 @@ export default function AdminProductsPage() {
                     <button onClick={() => setShowBatchForm(true)} className="btn-secondary flex items-center gap-2 !text-sm">
                         <Plus size={16} /> הוסף מקבץ מוצרים
                     </button>
-                    <button onClick={() => { setEditProduct(null); setForm(EMPTY_FORM); setShowForm(true); }} className="btn-primary flex items-center gap-2 !text-sm">
+                    <button onClick={() => { setEditProduct(null); setForm(EMPTY_FORM); setLangTab('he'); setShowForm(true); }} className="btn-primary flex items-center gap-2 !text-sm">
                         <Plus size={16} /> הוסף מוצר
                     </button>
                 </div>
@@ -212,6 +258,7 @@ export default function AdminProductsPage() {
                                 <th className="p-3 w-14"></th>
                                 <th className="p-4 text-start">עולם</th>
                                 <th className="p-4 text-start">כותרת</th>
+                                <th className="p-4 text-start">שפות</th>
                                 <th className="p-4 text-start">מחיר</th>
                                 <th className="p-4 text-start">סטטוס</th>
                                 <th className="p-4 text-start"></th>
@@ -219,56 +266,65 @@ export default function AdminProductsPage() {
                         </thead>
                         <tbody>
                             {filtered.length === 0 && (
-                                <tr><td colSpan={6} className="p-8 text-center text-[#f0e6d3]/40">אין מוצרים עדיין</td></tr>
+                                <tr><td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין מוצרים עדיין</td></tr>
                             )}
-                            {filtered.map((p) => (
-                                <tr key={p.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
-                                    <td className="p-3">
-                                        {p.image_url ? (
-                                            <img src={`/images/products/${p.image_url}`} alt="" className="w-10 h-10 rounded-lg object-cover bg-[#111a2f]" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-lg bg-[#111a2f] flex items-center justify-center">
-                                                <ImagePlus size={13} className="text-[#f0e6d3]/20" />
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-sm">{VERTICAL_LABEL[p.vertical] ?? p.vertical}</td>
-                                    <td className="p-4 font-semibold">{p.title_he}</td>
-                                    <td className="p-4 text-sm">{p.price ? `₪${Number(p.price).toLocaleString()}` : '-'}</td>
-                                    <td className="p-4">
-                                        <button
-                                            onClick={() => handleToggleActive(p)}
-                                            disabled={togglingId === p.id}
-                                            title={p.is_active ? 'הסתר מוצר' : 'הצג מוצר'}
-                                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${p.is_active ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-[#111a2f] text-[#f0e6d3]/40 hover:bg-[#1a2540]'}`}
-                                        >
-                                            {togglingId === p.id ? <Loader2 size={12} className="animate-spin" /> : p.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
-                                            {p.is_active ? 'פעיל' : 'מוסתר'}
-                                        </button>
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex items-center gap-3">
-                                            <button onClick={() => openEditForm(p)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="עריכה">
-                                                <Pencil size={15} />
-                                            </button>
-                                            <button onClick={() => handleDuplicate(p)} className="text-[#f0e6d3]/25 hover:text-[#f0e6d3]/60 transition-colors" title="שכפל מוצר">
-                                                <Copy size={15} />
-                                            </button>
-                                            {deletingId === p.id ? (
-                                                <div className="flex items-center gap-2 text-xs">
-                                                    <span className="text-[#f0e6d3]/50">בטוח?</span>
-                                                    <button onClick={() => handleDelete(p.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
-                                                    <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
-                                                </div>
+                            {filtered.map((p) => {
+                                const translatedCount = ['en', 'fr', 'yi'].filter((l) => p[`title_${l}`]).length;
+                                return (
+                                    <tr key={p.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
+                                        <td className="p-3">
+                                            {p.image_url ? (
+                                                <img src={`/images/products/${p.image_url}`} alt="" className="w-10 h-10 rounded-lg object-cover bg-[#111a2f]" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                             ) : (
-                                                <button onClick={() => setDeletingId(p.id)} className="text-red-400/40 hover:text-red-400 transition-colors" title="מחיקה">
-                                                    <Trash2 size={15} />
-                                                </button>
+                                                <div className="w-10 h-10 rounded-lg bg-[#111a2f] flex items-center justify-center">
+                                                    <ImagePlus size={13} className="text-[#f0e6d3]/20" />
+                                                </div>
                                             )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                        </td>
+                                        <td className="p-4 text-sm">{VERTICAL_LABEL[p.vertical] ?? p.vertical}</td>
+                                        <td className="p-4 font-semibold">{p.title_he}</td>
+                                        <td className="p-4">
+                                            <span className={`text-xs font-bold flex items-center gap-1 ${translatedCount === 3 ? 'text-green-400' : translatedCount > 0 ? 'text-[#d4af37]/70' : 'text-[#f0e6d3]/20'}`}>
+                                                <Languages size={12} />
+                                                {translatedCount}/3
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-sm">{p.price ? `₪${Number(p.price).toLocaleString()}` : '-'}</td>
+                                        <td className="p-4">
+                                            <button
+                                                onClick={() => handleToggleActive(p)}
+                                                disabled={togglingId === p.id}
+                                                title={p.is_active ? 'הסתר מוצר' : 'הצג מוצר'}
+                                                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${p.is_active ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-[#111a2f] text-[#f0e6d3]/40 hover:bg-[#1a2540]'}`}
+                                            >
+                                                {togglingId === p.id ? <Loader2 size={12} className="animate-spin" /> : p.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                                                {p.is_active ? 'פעיל' : 'מוסתר'}
+                                            </button>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-3">
+                                                <button onClick={() => openEditForm(p)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="עריכה">
+                                                    <Pencil size={15} />
+                                                </button>
+                                                <button onClick={() => handleDuplicate(p)} className="text-[#f0e6d3]/25 hover:text-[#f0e6d3]/60 transition-colors" title="שכפל מוצר">
+                                                    <Copy size={15} />
+                                                </button>
+                                                {deletingId === p.id ? (
+                                                    <div className="flex items-center gap-2 text-xs">
+                                                        <span className="text-[#f0e6d3]/50">בטוח?</span>
+                                                        <button onClick={() => handleDelete(p.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
+                                                        <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => setDeletingId(p.id)} className="text-red-400/40 hover:text-red-400 transition-colors" title="מחיקה">
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -277,12 +333,13 @@ export default function AdminProductsPage() {
             {/* Add / Edit Modal */}
             {showForm && (
                 <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={closeForm}>
-                    <form onSubmit={handleSubmit} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                    <form onSubmit={handleSubmit} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-lg space-y-4 max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-xl font-black text-[#f0e6d3]">{editProduct ? 'עריכת מוצר' : 'הוסף מוצר'}</h2>
                             <button type="button" onClick={closeForm}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
 
+                        {/* Vertical */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">עולם המוצר</label>
                             <select value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
@@ -290,21 +347,81 @@ export default function AdminProductsPage() {
                             </select>
                         </div>
 
+                        {/* Language tabs */}
                         <div>
-                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">כותרת המוצר (עברית)</label>
-                            <input required placeholder="לדוגמה: יהלום 1 קרט" value={form.title_he} onChange={(e) => setForm({ ...form, title_he: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs text-[#f0e6d3]/50">תוכן המוצר</label>
+                                <button
+                                    type="button"
+                                    onClick={handleTranslate}
+                                    disabled={translating || !form.title_he.trim()}
+                                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-[#d4af37]/10 text-[#d4af37] hover:bg-[#d4af37]/20 disabled:opacity-40 transition-colors"
+                                    title="תרגם אוטומטית לאנגלית, צרפתית וייִדיש"
+                                >
+                                    {translating ? <Loader2 size={13} className="animate-spin" /> : <Languages size={13} />}
+                                    {translating ? 'מתרגם...' : 'תרגם אוטומטית'}
+                                </button>
+                            </div>
+
+                            {/* Tab selector */}
+                            <div className="flex gap-1 bg-[#111a2f] rounded-xl p-1 mb-3">
+                                {LANGS.map((l) => {
+                                    const filled = l.key === 'he' ? !!form.title_he : !!(form as any)[`title_${l.key}`];
+                                    return (
+                                        <button
+                                            key={l.key}
+                                            type="button"
+                                            onClick={() => setLangTab(l.key as any)}
+                                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all relative ${langTab === l.key ? 'bg-[#d4af37] text-[#080d1f]' : 'text-[#f0e6d3]/50 hover:text-[#f0e6d3]'}`}
+                                        >
+                                            {l.label}
+                                            {filled && l.key !== 'he' && (
+                                                <span className={`absolute top-0.5 left-1 w-1.5 h-1.5 rounded-full ${langTab === l.key ? 'bg-[#080d1f]/40' : 'bg-[#d4af37]'}`} />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Title + description for active tab */}
+                            <div className="space-y-3" dir={activeLang.dir}>
+                                <div>
+                                    <label className="text-xs text-[#f0e6d3]/50 mb-1 block">כותרת {langTab === 'he' && <span className="text-red-400">*</span>}</label>
+                                    <input
+                                        required={langTab === 'he'}
+                                        placeholder={langTab === 'he' ? 'לדוגמה: יהלום 1 קרט' : ''}
+                                        value={(form as any)[`title_${langTab}`]}
+                                        onChange={(e) => setForm({ ...form, [`title_${langTab}`]: e.target.value })}
+                                        className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תיאור {langTab === 'he' && <span className="text-red-400">*</span>}</label>
+                                    <textarea
+                                        required={langTab === 'he'}
+                                        placeholder={langTab === 'he' ? 'תיאור קצר של המוצר...' : ''}
+                                        value={(form as any)[`description_${langTab}`]}
+                                        onChange={(e) => setForm({ ...form, [`description_${langTab}`]: e.target.value })}
+                                        rows={3}
+                                        className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {hasTranslations && (
+                                <p className="text-xs text-green-400/60 mt-2 flex items-center gap-1">
+                                    <CheckCircle2 size={11} /> תרגומים זמינים — בדוק ועדן לפי הצורך
+                                </p>
+                            )}
                         </div>
 
-                        <div>
-                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תיאור (עברית)</label>
-                            <textarea required placeholder="תיאור קצר של המוצר..." value={form.description_he} onChange={(e) => setForm({ ...form, description_he: e.target.value })} rows={3} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] resize-none" />
-                        </div>
-
+                        {/* Price */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מחיר (₪)</label>
                             <input type="number" min={0} placeholder="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
                         </div>
 
+                        {/* Image */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תמונת מוצר</label>
                             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) setForm({ ...form, image_url: file.name }); }} />

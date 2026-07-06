@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import auth, catalog, distributions, leads, products, promotions, surveys, users
+from .routers import auth, catalog, distributions, leads, products, promotions, surveys, translate, users
 
 app = FastAPI(title="Tivuta - The Working Haredi Ecosystem")
 
@@ -42,3 +42,4 @@ app.include_router(promotions.router)
 app.include_router(leads.router)
 app.include_router(surveys.router)
 app.include_router(distributions.router)
+app.include_router(translate.router)

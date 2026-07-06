@@ -468,6 +468,16 @@ export async function adminUpdateLeadStatus(token: string, leadId: number, statu
     return res.json();
 }
 
+export async function adminTranslateProduct(token: string, title_he: string, description_he: string) {
+    const res = await fetch(`${BASE_URL}/admin/translate`, {
+        method: 'POST',
+        headers: authHeaders(token),
+        body: JSON.stringify({ title_he, description_he }),
+    });
+    if (!res.ok) throw new Error('Translation failed');
+    return res.json() as Promise<{ title_en: string; description_en: string; title_fr: string; description_fr: string; title_yi: string; description_yi: string }>;
+}
+
 export async function adminDeleteUser(token: string, userId: number) {
     const res = await fetch(`${BASE_URL}/admin/users/${userId}`, { method: 'DELETE', headers: authHeaders(token) });
     if (!res.ok) {
