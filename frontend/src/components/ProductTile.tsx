@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft, X, Info, Heart, Share2 } from 'lucide-react';
+import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft, X, Info, Heart, Share2, Star, Clock } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
-import { createLead, addFavorite, removeFavorite } from '@/lib/api';
+import { createLead, addFavorite, removeFavorite, getProductReviews, submitReview } from '@/lib/api';
 
 export interface PromotionBrief {
     id: number;
@@ -81,6 +81,54 @@ const translations: Record<string, T> = {
 
 const INTERACTIVE_TYPES = new Set(['raffle', 'first_n']);
 
+function useCountdown(endDate: string | null | undefined) {
+    const calc = useCallback(() => {
+        if (!endDate) return null;
+        const diff = new Date(endDate).getTime() - Date.now();
+        if (diff <= 0) return null;
+        return {
+            d: Math.floor(diff / 86400000),
+            h: Math.floor((diff % 86400000) / 3600000),
+            m: Math.floor((diff % 3600000) / 60000),
+            s: Math.floor((diff % 60000) / 1000),
+        };
+    }, [endDate]);
+    const [remaining, setRemaining] = useState(calc);
+    useEffect(() => {
+        if (!endDate) return;
+        const id = setInterval(() => setRemaining(calc()), 1000);
+        return () => clearInterval(id);
+    }, [endDate, calc]);
+    return remaining;
+}
+
+function FlashCountdown({ endDate, locale }: { endDate: string; locale: string }) {
+    const r = useCountdown(endDate);
+    if (!r) return <span className="text-xs text-red-400 font-bold">המבצע הסתיים</span>;
+    const label = locale === 'en' ? 'ends in' : locale === 'fr' ? 'se termine dans' : 'נגמר בעוד';
+    return (
+        <div className="flex items-center gap-1.5 mt-1">
+            <Clock size={11} className="text-[#d4af37]" />
+            <span className="text-[10px] text-[#f0e6d3]/50">{label}</span>
+            <span className="text-[11px] font-black text-[#d4af37] tabular-nums">
+                {r.d > 0 && `${r.d}י `}{String(r.h).padStart(2,'0')}:{String(r.m).padStart(2,'0')}:{String(r.s).padStart(2,'0')}
+            </span>
+        </div>
+    );
+}
+
+function StarRating({ rating, onChange }: { rating: number; onChange?: (v: number) => void }) {
+    return (
+        <div className="flex gap-0.5">
+            {[1,2,3,4,5].map(i => (
+                <button key={i} type="button" onClick={() => onChange?.(i)} className={onChange ? 'cursor-pointer' : 'cursor-default'}>
+                    <Star size={16} fill={i <= rating ? '#d4af37' : 'none'} className={i <= rating ? 'text-[#d4af37]' : 'text-[#f0e6d3]/20'} />
+                </button>
+            ))}
+        </div>
+    );
+}
+
 const DETAIL_LABELS: Record<string, { details: string; close: string }> = {
     he: { details: 'פרטים נוספים', close: 'סגור' },
     en: { details: 'More Details', close: 'Close' },
@@ -94,17 +142,30 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
     const [status, setStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
     const [fav, setFav] = useState(isFav);
     const [favLoading, setFavLoading] = useState(false);
+    const [reviews, setReviews] = useState<any[]>([]);
+    const [myRating, setMyRating] = useState(0);
+    const [myComment, setMyComment] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [reviewDone, setReviewDone] = useState(false);
     const t = translations[locale] || translations.he;
     const dl = DETAIL_LABELS[locale] || DETAIL_LABELS.he;
     const hasInteractivePromo = product.promotions?.some((p) => INTERACTIVE_TYPES.has(p.type)) ?? false;
+    const flashPromo = product.promotions?.find((p) => p.type === 'flash_sale' && p.end_date);
 
-    // Track recently viewed in localStorage
+    // Load reviews when detail opens
+    useEffect(() => {
+        if (!showDetail) return;
+        getProductReviews(product.id).then(setReviews).catch(() => {});
+    }, [showDetail, product.id]);
+
+    // Track recently viewed in localStorage (store snapshot for profile display)
     useEffect(() => {
         try {
-            const key = 'tivuta_recent';
+            const key = 'tivuta_recent_v2';
             const raw = localStorage.getItem(key);
-            const recent: number[] = raw ? JSON.parse(raw) : [];
-            const updated = [product.id, ...recent.filter((id) => id !== product.id)].slice(0, 8);
+            const recent: any[] = raw ? JSON.parse(raw) : [];
+            const snap = { id: product.id, title_he: product.title_he, image_url: product.image_url, price: product.price, vertical: product.vertical };
+            const updated = [snap, ...recent.filter((s) => s.id !== product.id)].slice(0, 8);
             localStorage.setItem(key, JSON.stringify(updated));
         } catch { /* ignore */ }
     }, [product.id]);
@@ -181,9 +242,16 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                 {/* Hover overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-[#080d1f]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 {product.promotions && product.promotions.length > 0 && (
-                    <span className="absolute top-3 right-3 bg-[#d4af37] text-[#080d1f] text-[11px] font-black px-2.5 py-1 rounded-full shadow-md tracking-wide animate-badge-float">
-                        {promotionLabel(product.promotions[0])}
-                    </span>
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                        <span className="bg-[#d4af37] text-[#080d1f] text-[11px] font-black px-2.5 py-1 rounded-full shadow-md tracking-wide animate-badge-float">
+                            {promotionLabel(product.promotions[0])}
+                        </span>
+                        {flashPromo && flashPromo.end_date && (
+                            <div className="bg-[#080d1f]/85 backdrop-blur-sm rounded-full px-2 py-0.5">
+                                <FlashCountdown endDate={flashPromo.end_date} locale={locale} />
+                            </div>
+                        )}
+                    </div>
                 )}
                 {/* Action buttons — top left */}
                 <div className="absolute top-2 left-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -348,6 +416,65 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                                     <MessageCircle size={18} />
                                     {t.contact}
                                 </button>
+                            )}
+
+                            {/* Reviews Section */}
+                            {reviews.length > 0 && (
+                                <div className="mt-6 pt-5 border-t border-[#d4af37]/15">
+                                    <h4 className="text-xs font-black text-[#f0e6d3]/50 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <Star size={11} className="text-[#d4af37]" />
+                                        {locale === 'en' ? 'Reviews' : locale === 'fr' ? 'Avis' : 'ביקורות'}
+                                        <span className="text-[#d4af37]">({reviews.length})</span>
+                                    </h4>
+                                    <div className="space-y-3">
+                                        {reviews.slice(0, 3).map((r: any) => (
+                                            <div key={r.id} className="bg-[#111a2f] rounded-xl p-3">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-xs font-bold text-[#f0e6d3]/70">{r.user_name || 'משתמש'}</span>
+                                                    <StarRating rating={r.rating} />
+                                                </div>
+                                                {r.comment && <p className="text-xs text-[#f0e6d3]/50 leading-relaxed">{r.comment}</p>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Submit Review */}
+                            {token && !reviewDone && (
+                                <div className="mt-4 pt-4 border-t border-[#d4af37]/10">
+                                    <p className="text-xs font-bold text-[#f0e6d3]/40 mb-2">
+                                        {locale === 'en' ? 'Rate this product' : locale === 'fr' ? 'Évaluez ce produit' : 'דרגו את המוצר'}
+                                    </p>
+                                    <StarRating rating={myRating} onChange={setMyRating} />
+                                    {myRating > 0 && (
+                                        <div className="mt-2 space-y-2">
+                                            <textarea
+                                                value={myComment}
+                                                onChange={e => setMyComment(e.target.value)}
+                                                placeholder={locale === 'en' ? 'Comment (optional)' : 'הערה (אופציונלי)'}
+                                                rows={2}
+                                                className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-2 text-xs text-[#f0e6d3] outline-none resize-none focus:border-[#d4af37]/50"
+                                            />
+                                            <button
+                                                disabled={reviewSubmitting}
+                                                onClick={async () => {
+                                                    setReviewSubmitting(true);
+                                                    try {
+                                                        const r = await submitReview(token, product.id, myRating, myComment);
+                                                        setReviews(prev => [r, ...prev]);
+                                                        setReviewDone(true);
+                                                    } catch { /* ignore */ }
+                                                    setReviewSubmitting(false);
+                                                }}
+                                                className="btn-primary !py-2 !px-4 !text-xs"
+                                            >
+                                                {locale === 'en' ? 'Submit' : locale === 'fr' ? 'Envoyer' : 'שלח דירוג'}
+                                            </button>
+                                        </div>
+                                    )}
+                                    {reviewDone && <p className="text-xs text-green-400 font-bold mt-2">תודה על הדירוג!</p>}
+                                </div>
                             )}
                         </div>
                     </div>

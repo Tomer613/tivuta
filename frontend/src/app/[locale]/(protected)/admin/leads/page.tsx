@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { adminListLeads, adminUpdateLeadStatus, adminUpdateLeadNotes, adminAssignLead, adminSendAppointmentReminder, adminGetAdminUsers } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Check, X, LayoutList, CalendarRange, Bell } from 'lucide-react';
+import { adminListLeads, adminUpdateLeadStatus, adminUpdateLeadNotes, adminAssignLead, adminSendAppointmentReminder, adminGetAdminUsers, adminBulkLeadAction } from '@/lib/api';
+import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Check, X, LayoutList, CalendarRange, Bell, History, Square, CheckSquare } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
@@ -118,6 +118,11 @@ export default function AdminLeadsPage() {
     const [view, setView] = useState<'table' | 'calendar'>('table');
     const [adminUsers, setAdminUsers] = useState<{ id: number; first_name: string; last_name: string }[]>([]);
     const [sendingReminderId, setSendingReminderIds] = useState<Set<number>>(new Set());
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [bulkAction, setBulkAction] = useState('');
+    const [bulkValue, setBulkValue] = useState('');
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
     const resetPage = () => setPage(1);
@@ -233,6 +238,28 @@ export default function AdminLeadsPage() {
 
     const statusInfo = (val: string) => STATUSES.find((s) => s.value === val) ?? STATUSES[0];
 
+    const toggleSelect = (id: number) => setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+    const toggleSelectAll = () => setSelectedIds(prev => prev.size === paginated.length ? new Set() : new Set(paginated.map((l: any) => l.id)));
+
+    const handleBulkAction = async () => {
+        if (!token || !bulkAction || selectedIds.size === 0) return;
+        setBulkLoading(true);
+        try {
+            await adminBulkLeadAction(token, Array.from(selectedIds), bulkAction, bulkValue || undefined);
+            // Refresh leads
+            const updated = await adminListLeads(token);
+            setLeads(updated);
+            setSelectedIds(new Set());
+            setBulkAction('');
+            setBulkValue('');
+            showToast(`${selectedIds.size} פניות עודכנו ✓`);
+        } catch {
+            showToast('שגיאה בפעולה מרוכזת', 'error');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
     const startEditNote = (lead: any) => { setEditingNoteId(lead.id); setNoteValue(lead.notes || ''); };
     const cancelEditNote = () => { setEditingNoteId(null); setNoteValue(''); };
     const saveNote = async (leadId: number) => {
@@ -279,6 +306,34 @@ export default function AdminLeadsPage() {
                 </div>
             </div>
 
+            {/* Bulk Actions Toolbar */}
+            {selectedIds.size > 0 && (
+                <div className="flex flex-wrap items-center gap-3 mb-4 bg-[#0e1628] border border-[#d4af37]/30 rounded-2xl px-5 py-3">
+                    <span className="text-sm font-bold text-[#d4af37]">{selectedIds.size} נבחרו</span>
+                    <select value={bulkAction} onChange={e => setBulkAction(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
+                        <option value="">בחר פעולה...</option>
+                        <option value="set_status">שינוי סטטוס</option>
+                        <option value="assign">הקצאה לנציג</option>
+                    </select>
+                    {bulkAction === 'set_status' && (
+                        <select value={bulkValue} onChange={e => setBulkValue(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
+                            <option value="">בחר סטטוס</option>
+                            {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                    )}
+                    {bulkAction === 'assign' && (
+                        <select value={bulkValue} onChange={e => setBulkValue(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
+                            <option value="">ללא נציג</option>
+                            {adminUsers.map(u => <option key={u.id} value={String(u.id)}>{u.first_name} {u.last_name}</option>)}
+                        </select>
+                    )}
+                    <button onClick={handleBulkAction} disabled={bulkLoading || !bulkAction} className="bg-[#d4af37] text-[#080d1f] px-4 py-1.5 rounded-xl text-xs font-black disabled:opacity-50 flex items-center gap-1.5">
+                        {bulkLoading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} בצע
+                    </button>
+                    <button onClick={() => setSelectedIds(new Set())} className="text-xs text-[#f0e6d3]/40 hover:text-[#f0e6d3]"><X size={14} /></button>
+                </div>
+            )}
+
             {/* Filters */}
             <div className="flex flex-wrap gap-3 mb-6">
                 <input
@@ -308,6 +363,11 @@ export default function AdminLeadsPage() {
                     <table className="w-full text-start">
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
+                                <th className="p-4 text-start w-8">
+                                    <button onClick={toggleSelectAll} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
+                                        {selectedIds.size === paginated.length && paginated.length > 0 ? <CheckSquare size={14} /> : <Square size={14} />}
+                                    </button>
+                                </th>
                                 <th className="p-4 text-start">פונה</th>
                                 <th className="p-4 text-start">מוצר</th>
                                 <th className="p-4 text-start">סוג</th>
@@ -317,16 +377,27 @@ export default function AdminLeadsPage() {
                                 <th className="p-4 text-start">הערות</th>
                                 <th className="p-4 text-start">הקצאה</th>
                                 <th className="p-4 text-start">סטטוס</th>
+                                <th className="p-4 w-8"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {paginated.length === 0 && (
-                                <tr><td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין פניות התואמות את הסינון.</td></tr>
+                                <tr><td colSpan={9} className="p-8 text-center text-[#f0e6d3]/40">אין פניות התואמות את הסינון.</td></tr>
                             )}
                             {paginated.map((lead) => {
                                 const si = statusInfo(lead.status);
+                                const isSelected = selectedIds.has(lead.id);
+                                const historyExpanded = expandedHistoryId === lead.id;
                                 return (
-                                    <tr key={lead.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/50 transition-colors">
+                                    <Fragment key={lead.id}>
+                                    <tr className={`border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/50 transition-colors ${isSelected ? 'bg-[#d4af37]/5' : ''}`}>
+                                        {/* Checkbox */}
+                                        <td className="p-4">
+                                            <button onClick={() => toggleSelect(lead.id)} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
+                                                {isSelected ? <CheckSquare size={14} className="text-[#d4af37]" /> : <Square size={14} />}
+                                            </button>
+                                        </td>
+
                                         {/* User */}
                                         <td className="p-4">
                                             <p className="font-semibold text-sm">{lead.user_name || '—'}</p>
@@ -456,7 +527,38 @@ export default function AdminLeadsPage() {
                                                 )}
                                             </div>
                                         </td>
+
+                                        {/* History toggle */}
+                                        <td className="p-4">
+                                            {lead.history && lead.history.length > 0 && (
+                                                <button
+                                                    onClick={() => setExpandedHistoryId(historyExpanded ? null : lead.id)}
+                                                    className="text-[#f0e6d3]/20 hover:text-[#d4af37] transition-colors"
+                                                    title="היסטוריה"
+                                                >
+                                                    <History size={13} />
+                                                </button>
+                                            )}
+                                        </td>
                                     </tr>
+                                    {historyExpanded && lead.history && (
+                                        <tr key={`hist-${lead.id}`} className="bg-[#0a1020]">
+                                            <td colSpan={9} className="px-8 py-3">
+                                                <p className="text-[10px] font-black text-[#f0e6d3]/30 uppercase tracking-widest mb-2">היסטוריית שינויים</p>
+                                                <div className="space-y-1">
+                                                    {lead.history.map((h: any, idx: number) => (
+                                                        <div key={idx} className="flex items-center gap-3 text-xs text-[#f0e6d3]/50">
+                                                            <span className="text-[#f0e6d3]/25 tabular-nums">{new Date(h.ts).toLocaleString('he-IL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</span>
+                                                            <span className="text-[#d4af37]/60">{h.action === 'status_change' || h.action === 'bulk_status_change' ? 'סטטוס' : h.action === 'assigned' || h.action === 'bulk_assign' ? 'הקצאה' : h.action}</span>
+                                                            {h.from_val && <span>{h.from_val} → {h.to_val}</span>}
+                                                            {!h.from_val && h.to_val && <span>→ {h.to_val}</span>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </Fragment>
                                 );
                             })}
                         </tbody>

@@ -676,3 +676,39 @@ export async function adminGetAdminUsers(token: string) {
     const users = await res.json();
     return users.filter((u: any) => u.role === 'admin');
 }
+
+// Reviews
+export async function getProductReviews(productId: number) {
+    const res = await fetch(`${BASE_URL}/products/${productId}/reviews`);
+    if (!res.ok) return [];
+    return res.json();
+}
+
+export async function submitReview(token: string, productId: number, rating: number, comment?: string) {
+    const res = await fetch(`${BASE_URL}/reviews/${productId}`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating, comment: comment || null }),
+    });
+    if (!res.ok) throw new Error('Failed to submit review');
+    return res.json();
+}
+
+// Admin leads bulk action
+export async function adminBulkLeadAction(token: string, lead_ids: number[], action: string, value?: string) {
+    const res = await fetch(`${BASE_URL}/admin/leads/bulk`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_ids, action, value }),
+    });
+    if (!res.ok) throw new Error('Bulk action failed');
+    return res.json();
+}
+
+// My appointments
+export async function getMyAppointments(token: string) {
+    const res = await fetch(`${BASE_URL}/leads/me`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    const leads = await res.json();
+    return leads.filter((l: any) => l.lead_type === 'appointment' && l.scheduled_at);
+}

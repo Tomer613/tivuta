@@ -204,6 +204,7 @@ class Lead(Base):
     channel = Column(String(20), default="web")
     notes = Column(Text, nullable=True)
     locale = Column(String(5), nullable=True)
+    history = Column(JSON, nullable=True, default=list)  # audit trail [{ts, actor, action, from, to}]
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id])
@@ -293,11 +294,30 @@ class Distribution(Base):
     status = Column(String(20), default="draft")  # draft | sending | sent | failed
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    scheduled_at = Column(DateTime, nullable=True)  # if set, send at this time
     sent_at = Column(DateTime, nullable=True)
 
     survey = relationship("Survey")
     product = relationship("Product")
     send_logs = relationship("DistributionSendLog", back_populates="distribution", cascade="all, delete-orphan")
+
+
+class Review(Base):
+    """User rating + comment submitted after a lead is closed."""
+    __tablename__ = "reviews"
+    __table_args__ = (UniqueConstraint("user_id", "product_id", name="uq_user_product_review"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="SET NULL"), nullable=True)
+    rating = Column(Integer, nullable=False)  # 1–5
+    comment = Column(Text, nullable=True)
+    is_approved = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+    product = relationship("Product")
 
 
 class DistributionSendLog(Base):

@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite } from '@/lib/api';
+import { updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments } from '@/lib/api';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
-    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X,
+    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 
@@ -235,6 +235,8 @@ export default function ProfileClient() {
     const [activityLoading, setActivityLoading] = useState(true);
     const [favorites, setFavorites] = useState<any[]>([]);
     const [removingFavId, setRemovingFavId] = useState<number | null>(null);
+    const [appointments, setAppointments] = useState<any[]>([]);
+    const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
     const [showCalculator, setShowCalculator] = useState(false);
     const [showPasswordForm, setShowPasswordForm] = useState(false);
     const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
@@ -260,6 +262,11 @@ export default function ProfileClient() {
         if (!token) return;
         getMyActivity(token).then(setActivity).finally(() => setActivityLoading(false));
         getFavorites(token).then(setFavorites).catch(() => {});
+        getMyAppointments(token).then(setAppointments).catch(() => {});
+        try {
+            const raw = localStorage.getItem('tivuta_recent_v2');
+            if (raw) setRecentlyViewed(JSON.parse(raw));
+        } catch { /* ignore */ }
     }, [token]);
 
     const handleRemoveFav = async (productId: number) => {
@@ -630,6 +637,63 @@ export default function ProfileClient() {
                                             <X size={14} />
                                         </button>
                                     </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── My Appointments ── */}
+                {appointments.length > 0 && (
+                    <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">
+                        <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
+                            <Calendar size={14} className="text-[#d4af37]" />
+                            {locale === 'he' ? 'פגישות קרובות' : locale === 'fr' ? 'Prochains rendez-vous' : 'Upcoming Appointments'}
+                        </h2>
+                        <div className="space-y-2">
+                            {appointments.map((appt: any) => (
+                                <div key={appt.id} className="bg-[#111a2f] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-[#f0e6d3] truncate">
+                                            {locale === 'he' ? 'פגישת התרשמות' : 'Viewing Appointment'}
+                                        </p>
+                                        <p className="text-xs text-[#d4af37] mt-0.5 flex items-center gap-1">
+                                            <Clock size={10} />
+                                            {new Date(appt.scheduled_at).toLocaleDateString('he-IL', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                    <span className={`text-xs font-bold shrink-0 px-2 py-0.5 rounded-full ${
+                                        appt.status === 'confirmed' ? 'bg-green-400/10 text-green-400' : 'bg-[#d4af37]/10 text-[#d4af37]'
+                                    }`}>
+                                        {appt.status === 'confirmed' ? (locale === 'he' ? 'מאושר' : 'Confirmed') : (locale === 'he' ? 'ממתין' : 'Pending')}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Recently Viewed ── */}
+                {recentlyViewed.length > 0 && (
+                    <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">
+                        <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
+                            <History size={14} className="text-[#d4af37]" />
+                            {locale === 'he' ? 'נצפו לאחרונה' : locale === 'fr' ? 'Récemment vus' : 'Recently Viewed'}
+                        </h2>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {recentlyViewed.slice(0, 8).map((p: any) => {
+                                const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+                                const imgSrc = p.image_url ? `${basePath}/images/products/${p.image_url}` : `${basePath}/images/products/placeholder.jpg`;
+                                const href = `/${locale}/${p.vertical}`;
+                                return (
+                                    <a key={p.id} href={href} className="group bg-[#111a2f] rounded-xl overflow-hidden hover:ring-1 hover:ring-[#d4af37]/40 transition-all">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={imgSrc} alt={p.title_he} className="w-full h-20 object-cover group-hover:scale-105 transition-transform duration-300" />
+                                        <div className="px-2 py-1.5">
+                                            <p className="text-xs font-semibold text-[#f0e6d3] truncate">{p.title_he}</p>
+                                            {p.price && <p className="text-[10px] text-[#d4af37]">₪{p.price.toLocaleString()}</p>}
+                                        </div>
+                                    </a>
                                 );
                             })}
                         </div>

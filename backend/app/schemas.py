@@ -237,6 +237,14 @@ class LeadRead(BaseModel):
     class Config:
         from_attributes = True
 
+class LeadHistoryEntry(BaseModel):
+    ts: str
+    actor: Optional[str] = None
+    action: str
+    from_val: Optional[str] = None
+    to_val: Optional[str] = None
+
+
 class AdminLeadRead(BaseModel):
     id: int
     lead_type: str
@@ -246,6 +254,7 @@ class AdminLeadRead(BaseModel):
     notes: Optional[str] = None
     assigned_to: Optional[int] = None
     assigned_to_name: Optional[str] = None
+    history: Optional[List[dict]] = []
     created_at: datetime
     user_id: Optional[int] = None
     user_name: Optional[str] = None
@@ -265,6 +274,12 @@ class LeadNotesUpdate(BaseModel):
 
 class LeadAssignUpdate(BaseModel):
     assigned_to: Optional[int] = None
+
+
+class LeadBulkAction(BaseModel):
+    lead_ids: List[int]
+    action: str          # 'set_status' | 'assign' | 'delete'
+    value: Optional[str] = None   # status string or user_id string
 
 
 class PasswordChangeRequest(BaseModel):
@@ -363,6 +378,7 @@ class DistributionCreate(BaseModel):
     title_he: Optional[str] = None
     message_he: Optional[str] = None
     channels: List[str]
+    scheduled_at: Optional[datetime] = None
 
 class DistributionRead(BaseModel):
     id: int
@@ -375,11 +391,32 @@ class DistributionRead(BaseModel):
     message_he: Optional[str] = None
     channels: List[str]
     status: str
+    scheduled_at: Optional[datetime] = None
     created_at: datetime
     sent_at: Optional[datetime] = None
     sent_count: int = 0
     failed_count: int = 0
     skipped_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+# Review Schemas
+class ReviewCreate(BaseModel):
+    rating: int           # 1–5
+    comment: Optional[str] = None
+
+class ReviewRead(BaseModel):
+    id: int
+    user_id: int
+    product_id: int
+    lead_id: Optional[int] = None
+    rating: int
+    comment: Optional[str] = None
+    is_approved: bool
+    created_at: datetime
+    user_name: Optional[str] = None
 
     class Config:
         from_attributes = True

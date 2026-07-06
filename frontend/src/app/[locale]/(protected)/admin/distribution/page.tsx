@@ -11,7 +11,7 @@ import {
     adminListSurveys,
     adminListProducts,
 } from '@/lib/api';
-import { Plus, Loader2, X, Send, Mail, MessageCircle, RefreshCw, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
+import { Plus, Loader2, X, Send, Mail, MessageCircle, RefreshCw, CheckCircle2, AlertCircle, Trash2, Calendar } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -51,6 +51,7 @@ export default function AdminDistributionPage() {
         title_he: '',
         message_he: '',
         channels: ['email'] as string[],
+        scheduled_at: '',
     });
 
     const load = async () => {
@@ -114,9 +115,10 @@ export default function AdminDistributionPage() {
                 title_he: form.title_he,
                 message_he: form.message_he || null,
                 channels: form.channels,
+                scheduled_at: form.scheduled_at || null,
             });
             setShowForm(false);
-            setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: ['email'] });
+            setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: ['email'], scheduled_at: '' });
             showToast('ההפצה נוצרה — תוכל לשלוח אותה מהרשימה ✓');
             load();
         } catch {
@@ -190,6 +192,7 @@ export default function AdminDistributionPage() {
                                 <th className="p-4 text-start">יעד</th>
                                 <th className="p-4 text-start">ערוצים</th>
                                 <th className="p-4 text-start">סטטוס</th>
+                                <th className="p-4 text-start">תזמון</th>
                                 <th className="p-4 text-start">תוצאות</th>
                                 <th className="p-4 text-start"></th>
                             </tr>
@@ -223,6 +226,18 @@ export default function AdminDistributionPage() {
                                             <p className="text-[10px] text-[#f0e6d3]/30 mt-1">
                                                 {new Date(d.sent_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                             </p>
+                                        )}
+                                    </td>
+                                    <td className="p-4">
+                                        {d.scheduled_at ? (
+                                            <div className="flex items-center gap-1.5 text-[#d4af37]/80">
+                                                <Calendar size={13} />
+                                                <span className="text-xs">
+                                                    {new Date(d.scheduled_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-[#f0e6d3]/20 text-xs">—</span>
                                         )}
                                     </td>
                                     <td className="p-4">
@@ -271,7 +286,7 @@ export default function AdminDistributionPage() {
                                 </tr>
                             ))}
                             {distributions.length === 0 && (
-                                <tr><td colSpan={6} className="p-8 text-center text-[#f0e6d3]/60">אין הפצות עדיין.</td></tr>
+                                <tr><td colSpan={7} className="p-8 text-center text-[#f0e6d3]/60">אין הפצות עדיין.</td></tr>
                             )}
                         </tbody>
                     </table>
@@ -391,12 +406,28 @@ export default function AdminDistributionPage() {
                             )}
                         </div>
 
+                        {/* Scheduling */}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block flex items-center gap-1.5">
+                                <Calendar size={13} /> תזמון שליחה (אופציונלי)
+                            </label>
+                            <input
+                                type="datetime-local"
+                                value={form.scheduled_at}
+                                onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] [color-scheme:dark]"
+                            />
+                            <p className="text-[#f0e6d3]/30 text-xs mt-1">
+                                {form.scheduled_at ? 'ההפצה תישלח אוטומטית במועד שנקבע.' : 'השאר ריק לשמירה כטיוטה ידנית.'}
+                            </p>
+                        </div>
+
                         <button
                             type="submit"
                             disabled={form.channels.length === 0}
                             className="btn-primary w-full disabled:opacity-50"
                         >
-                            צור הפצה
+                            {form.scheduled_at ? 'צור ותזמן הפצה' : 'צור הפצה'}
                         </button>
                     </form>
                 </div>

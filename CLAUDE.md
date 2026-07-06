@@ -228,8 +228,10 @@ npm run build  # static export to /out
 - No backend needed — pure client-side `window.open`
 
 ### Recently Viewed
-- Tracked in `localStorage` key `tivuta_recent` (last 8 product IDs)
-- Written on `ProductTile` mount via `useEffect`; no backend needed
+- Tracked in `localStorage` key `tivuta_recent_v2` (last 8 **full product snapshots** — id, title_he, image_url, price, vertical)
+- Written on `ProductTile` modal open via `useEffect`; no backend needed
+- Profile page reads this key and renders a 2×4 thumbnail grid with links to the vertical page
+- Key `tivuta_recent` (old, IDs only) is deprecated — ignore it
 
 ### Notification Bell
 - `NotificationBell` component on home page top bar; receives `token` as prop
@@ -237,6 +239,22 @@ npm run build  # static export to /out
 - Dropdown shows last 50 notifications; type emoji map: `lead_status→📋`, `appointment_reminder→📅`, `system→🔔`, `followup→⏰`
 - Gold badge when `unread > 0`; supports mark-one and mark-all-read
 - Notifications are created server-side (in `leads.py`) when lead status changes to `confirmed` or `contacted`
+
+### Flash Sale Countdown Timer
+- `useCountdown(endDate)` custom hook in `ProductTile.tsx` uses `setInterval` (1s) to compute `d:h:m:s` remaining
+- `FlashCountdown` component renders inside the promotion badge when `type === 'flash_sale'` and `end_date` exists
+- No backend changes needed — `end_date` already exists on `Promotion`
+
+### Rating & Review System
+- `Review` model: `users` × `products` unique constraint (`uq_user_product_review`); rating 1–5, optional comment
+- `POST /reviews/{product_id}` — upsert (idempotent); `GET /products/{product_id}/reviews` — approved reviews
+- Admin endpoints: `GET /admin/reviews`, `PATCH /admin/reviews/{id}/approve`
+- Reviews section appears inside `ProductTile` detail modal: display `StarRating` + submit form
+- `StarRating` component is interactive when `onChange` provided, display-only otherwise
+
+### My Appointments in Profile
+- Reads `GET /leads/me` (filtered for `lead_type=appointment`) and displays upcoming with date + status badge
+- No new backend endpoint — reuses existing `/leads/me`
 
 ---
 
@@ -280,6 +298,21 @@ npm run build  # static export to /out
 - Stats cards → 14-day SVG bar chart (`LeadsChart`) → `ConversionPanel` → quick-links grid
 - All data fetched in parallel via `Promise.all([adminGetStats, adminGetLeadStats, adminGetConversionStats])`
 
+### Bulk Actions on Leads
+- `PATCH /admin/leads/bulk` — body: `{lead_ids: [...], action: "set_status"|"assign", value?: "..."}`
+- Checkbox column added to leads table; bulk toolbar appears when any row is selected
+- Bulk status change + agent assignment; history entry appended for each affected lead
+
+### Audit Trail on Leads
+- `history: JSON` column on `Lead` model — array of `{ts, action, from_val, to_val}` entries
+- Appended on every status change (`admin_update_lead_status`) and assignment (`admin_assign_lead`)
+- Leads page shows history toggle button per row; expands inline expansion row with timeline
+
+### Distribution Scheduling
+- `scheduled_at: DateTime` nullable column on `Distribution` model
+- UI: datetime-local picker in create form; `scheduled_at` column in distributions table
+- Note: automatic sending at scheduled time requires a cron job / background task (not yet implemented — field is stored, manual send still required)
+
 ---
 
 ## Key Design Decisions
@@ -292,4 +325,36 @@ npm run build  # static export to /out
 - **Many-to-many via Table object**: `product_promotions_table` is defined as a SQLAlchemy `Table` (not a mapped class) to enable clean `secondary=` relationships on both `Product` and `Promotion`. Direct junction row management uses `promotion.products.append/remove`.
 - **Favorites IDs endpoint**: Separate `GET /favorites/ids` returns only IDs (not full products) — used by listing pages to efficiently mark favorited tiles without loading full product objects twice.
 - **Notifications created server-side**: `leads.py` creates `Notification` rows when lead status changes, so the polling bell picks them up without any extra client work.
-- **Recently viewed in localStorage**: No backend needed; 8-item LRU list keyed `tivuta_recent`; written on `ProductTile` mount.
+- **Recently viewed in localStorage**: No backend needed; 8-item LRU list keyed `tivuta_recent_v2` (full snapshots); written on `ProductTile` modal open.
+- **Review upsert**: `POST /reviews/{product_id}` checks `(user_id, product_id)` unique constraint — updates existing if present, creates otherwise. Single endpoint for add/edit.
+- **Audit history as JSON array**: Lead `history` field is an append-only JSON array on the model; no separate table needed. Trade-off: cannot query history fields with SQL, but history is only ever displayed per-lead, never queried across leads.
+- **Distribution scheduling is storage-only**: `scheduled_at` is stored on the `Distribution` row. Actual auto-send at the scheduled time requires an external cron job / background worker (not yet built). Admin still sends manually; the field is UI infrastructure for when scheduling is wired up.
+
+---
+
+## Haredi (Ultra-Orthodox) Internet Filter Compatibility
+
+The primary audience uses internet access through community-approved **kosher filters** (e.g. Rimon, Netspark, Genigram). These filters have specific technical characteristics that affect web development decisions.
+
+### What kosher filters do
+
+| Filter type | Behavior |
+|---|---|
+| **Text/dynamic content filter** | Scans page text and URLs; may block specific words or patterns |
+| **Image filter** | Blocks inline images (not page background CSS). Some filters block all `<img>` tags on certain domains |
+| **CDN blocking** | May block external CDN domains (Google, jsDelivr, cdnjs, fonts.googleapis.com, etc.) |
+| **Heavy media** | Video, WebRTC, WebSockets may be blocked or rate-limited on stricter filter profiles |
+
+### Architecture decisions made for filter compatibility
+
+1. **Self-hosted fonts** — Heebo TTF is served from `/public/fonts/` (not Google Fonts CDN). `globals.css` uses local `@font-face`. **Do not introduce external font CDN links.**
+2. **No external CDN scripts** — All JS/CSS comes from the Next.js bundle. `next.config.ts` has no `externals` pointing to CDNs. Keep it this way.
+3. **Image fallback CSS** — `globals.css` includes a `.product-img-wrap` gradient background so product tiles degrade gracefully when `<img>` tags are blocked. The gold/navy gradient matches the site theme.
+4. **No heavy animations in core flows** — Login, register, and checkout-equivalent forms avoid CSS animations/keyframes that might trigger filter heuristics.
+5. **Local image storage** — Product images live in `/public/images/products/` (served from same domain). Do not link to external image hosts.
+
+### The balance principle
+> "אל תסרס את האתר רק בגלל המסננים. בא נמצא את דרך המלך."
+> — Don't mutilate the site for the filters; find the right path.
+
+The design, fonts, animations, and UX remain fully intact. Filter compatibility is achieved through **infrastructure choices** (where assets are hosted), not visual compromises. Only add a compatibility workaround when there is a concrete reason to believe a specific feature is blocked — not preemptively.

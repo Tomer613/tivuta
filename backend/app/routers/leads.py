@@ -1,5 +1,6 @@
 import os
-from typing import List
+from datetime import datetime
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, selectinload
@@ -168,6 +169,7 @@ def admin_list_leads(db: Session = Depends(get_db)):
             notes=lead.notes,
             assigned_to=lead.assigned_to,
             assigned_to_name=f"{assignee.first_name} {assignee.last_name}".strip() if assignee else None,
+            history=lead.history or [],
             created_at=lead.created_at,
             user_id=lead.user_id,
             user_name=f"{user.first_name} {user.last_name}".strip() if user else None,
@@ -192,7 +194,38 @@ def admin_assign_lead(lead_id: int, payload: schemas.LeadAssignUpdate, db: Sessi
     lead.assigned_to = payload.assigned_to
     db.commit()
     db.refresh(lead)
+    history = list(lead.history or [])
+    history.append({"ts": datetime.utcnow().isoformat(), "action": "assigned", "to_val": str(payload.assigned_to) if payload.assigned_to else None})
+    lead.history = history
+    db.commit()
+    db.refresh(lead)
     return lead
+
+
+@router.patch("/admin/leads/bulk", dependencies=[Depends(get_current_admin)])
+def admin_bulk_action(payload: schemas.LeadBulkAction, db: Session = Depends(get_db)):
+    leads = db.query(models.Lead).filter(models.Lead.id.in_(payload.lead_ids)).all()
+    if not leads:
+        raise HTTPException(status_code=404, detail="No leads found")
+    ts = datetime.utcnow().isoformat()
+    updated = 0
+    for lead in leads:
+        history = list(lead.history or [])
+        if payload.action == "set_status":
+            valid = {"new", "confirmed", "contacted", "closed", "cancelled"}
+            if payload.value not in valid:
+                raise HTTPException(status_code=400, detail=f"Invalid status: {payload.value}")
+            old = lead.status
+            lead.status = payload.value
+            history.append({"ts": ts, "action": "bulk_status_change", "from_val": old, "to_val": payload.value})
+        elif payload.action == "assign":
+            uid = int(payload.value) if payload.value else None
+            lead.assigned_to = uid
+            history.append({"ts": ts, "action": "bulk_assign", "to_val": payload.value})
+        lead.history = history
+        updated += 1
+    db.commit()
+    return {"updated": updated}
 
 
 @router.get("/admin/leads/conversion", dependencies=[Depends(get_current_admin)])
@@ -332,6 +365,9 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail="Lead not found")
     old_status = lead.status
     lead.status = status
+    history = list(lead.history or [])
+    history.append({"ts": datetime.utcnow().isoformat(), "action": "status_change", "from_val": old_status, "to_val": status})
+    lead.history = history
     db.commit()
     db.refresh(lead)
 

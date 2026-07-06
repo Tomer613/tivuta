@@ -420,6 +420,34 @@ html[data-a11y-stop-animations="true"] *::after {
     height: 16px;
 }
 
+/* ===== Kosher-filter compatibility ===== */
+/* When an image is blocked by a content filter, show a styled placeholder */
+img {
+    /* solid bg so layout doesn't collapse when src is blocked */
+    background-color: #0e1628;
+}
+
+img[src=""], img:not([src]), img[src$=".jpg"]:not([alt=""]) {
+    /* keep dimensions, show subtle border */
+    min-height: 40px;
+}
+
+/* broken-image fallback: keep the card layout intact */
+img::after {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #0e1628 0%, #111a2f 100%);
+    border-radius: inherit;
+}
+
+/* Product images — always have a local fallback bg so card doesn't look broken */
+.product-img-wrap {
+    background: linear-gradient(135deg, #0e1628 0%, #111a2f 100%);
+    position: relative;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
     width: 8px;
