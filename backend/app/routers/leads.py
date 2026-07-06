@@ -160,6 +160,7 @@ def admin_list_leads(db: Session = Depends(get_db)):
             scheduled_at=lead.scheduled_at,
             status=lead.status,
             channel=lead.channel,
+            notes=lead.notes,
             created_at=lead.created_at,
             user_id=lead.user_id,
             user_name=f"{user.first_name} {user.last_name}".strip() if user else None,
@@ -170,6 +171,33 @@ def admin_list_leads(db: Session = Depends(get_db)):
             product_vertical=product.vertical if product else None,
         ))
     return result
+
+
+@router.patch("/admin/leads/{lead_id}/notes", response_model=schemas.LeadRead, dependencies=[Depends(get_current_admin)])
+def admin_update_lead_notes(lead_id: int, payload: schemas.LeadNotesUpdate, db: Session = Depends(get_db)):
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead.notes = payload.notes
+    db.commit()
+    db.refresh(lead)
+    return lead
+
+
+@router.get("/admin/leads/stats", dependencies=[Depends(get_current_admin)])
+def admin_lead_stats(days: int = 14, db: Session = Depends(get_db)):
+    from datetime import timedelta
+    since = datetime.utcnow() - timedelta(days=days)
+    leads = db.query(models.Lead).filter(models.Lead.created_at >= since).all()
+    counts: dict = {}
+    for i in range(days):
+        d = (datetime.utcnow() - timedelta(days=days - 1 - i)).strftime("%Y-%m-%d")
+        counts[d] = 0
+    for lead in leads:
+        d = lead.created_at.strftime("%Y-%m-%d")
+        if d in counts:
+            counts[d] += 1
+    return [{"date": k, "count": v} for k, v in sorted(counts.items())]
 
 
 @router.patch("/admin/leads/{lead_id}/status", response_model=schemas.LeadRead, dependencies=[Depends(get_current_admin)])

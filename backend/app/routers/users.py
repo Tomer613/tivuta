@@ -117,6 +117,21 @@ def admin_member_count(db: Session = Depends(get_db)):
     return {"count": count}
 
 
+@router.patch("/users/me/password")
+def change_my_password(
+    payload: schemas.PasswordChangeRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="הסיסמה הנוכחית שגויה")
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="הסיסמה החדשה חייבת להכיל לפחות 6 תווים")
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    db.commit()
+    return {"message": "ok"}
+
+
 @router.get("/admin/stats", dependencies=[Depends(get_current_admin)])
 def admin_stats(db: Session = Depends(get_db)):
     return {

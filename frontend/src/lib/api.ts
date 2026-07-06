@@ -510,6 +510,35 @@ export async function adminDuplicateProduct(token: string, id: number) {
     return r2.json();
 }
 
+export async function changePassword(token: string, current_password: string, new_password: string) {
+    const res = await fetch(`${BASE_URL}/users/me/password`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password, new_password }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to change password');
+    }
+    return res.json();
+}
+
+export async function adminUpdateLeadNotes(token: string, leadId: number, notes: string) {
+    const res = await fetch(`${BASE_URL}/admin/leads/${leadId}/notes`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+    });
+    if (!res.ok) throw new Error('Failed to update notes');
+    return res.json();
+}
+
+export async function adminGetLeadStats(token: string, days = 14): Promise<{ date: string; count: number }[]> {
+    const res = await fetch(`${BASE_URL}/admin/leads/stats?days=${days}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load lead stats');
+    return res.json();
+}
+
 export async function adminGetStats(token: string): Promise<{
     open_leads: number;
     active_products: number;

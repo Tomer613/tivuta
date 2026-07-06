@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { adminGetStats } from '@/lib/api';
+import { adminGetStats, adminGetLeadStats } from '@/lib/api';
 
 const STAT_CARDS = [
     { key: 'open_leads',         label: 'פניות פתוחות',     href: 'leads',        color: 'text-blue-400',   ring: 'ring-blue-500/20',   bg: 'bg-blue-500/10' },
@@ -23,16 +23,60 @@ const ICONS: Record<string, React.FC<{ size: number; className?: string }>> = {
     draft_distributions: Send,
 };
 
+function LeadsChart({ chartData }: { chartData: { date: string; count: number }[] }) {
+    if (!chartData.length) return null;
+    const max = Math.max(...chartData.map((d) => d.count), 1);
+    return (
+        <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-6 mt-8">
+            <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <TrendingUp size={13} className="text-[#d4af37]" /> פניות — 14 ימים אחרונים
+            </h3>
+            <div className="flex items-end gap-1.5 h-28">
+                {chartData.map((d) => {
+                    const pct = (d.count / max) * 100;
+                    const dayLabel = new Date(d.date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
+                    return (
+                        <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group" title={`${dayLabel}: ${d.count} פניות`}>
+                            <div className="text-[9px] text-[#f0e6d3]/0 group-hover:text-[#d4af37] transition-colors font-bold whitespace-nowrap">
+                                {d.count > 0 ? d.count : ''}
+                            </div>
+                            <div className="w-full flex items-end h-20">
+                                <div
+                                    className="w-full rounded-t-md transition-all duration-500 group-hover:opacity-80"
+                                    style={{
+                                        height: `${Math.max(pct, d.count > 0 ? 8 : 2)}%`,
+                                        background: d.count > 0
+                                            ? 'linear-gradient(to top, #b8860b, #d4af37)'
+                                            : 'rgba(212,175,55,0.08)',
+                                    }}
+                                />
+                            </div>
+                            <div className="text-[9px] text-[#f0e6d3]/30 whitespace-nowrap">{dayLabel}</div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export default function AdminDashboardPage() {
     const { token } = useAuth();
     const params = useParams();
     const locale = (params?.locale as string) || 'he';
     const [stats, setStats] = useState<Record<string, number> | null>(null);
+    const [chartData, setChartData] = useState<{ date: string; count: number }[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         if (!token) return;
-        adminGetStats(token).then(setStats).catch(() => setStats(null)).finally(() => setLoading(false));
+        Promise.all([
+            adminGetStats(token).catch(() => null),
+            adminGetLeadStats(token, 14).catch(() => []),
+        ]).then(([s, c]) => {
+            setStats(s);
+            setChartData(c);
+        }).finally(() => setLoading(false));
     }, [token]);
 
     return (
@@ -70,6 +114,8 @@ export default function AdminDashboardPage() {
                     })}
                 </div>
             )}
+
+            {!loading && <LeadsChart chartData={chartData} />}
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Link href={`/${locale}/admin/leads`} className="bg-[#0e1628] border border-[#d4af37]/10 rounded-2xl p-5 hover:border-[#d4af37]/30 transition-colors group">

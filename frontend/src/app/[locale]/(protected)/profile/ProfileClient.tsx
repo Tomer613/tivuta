@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { updateUserProfile, getMyActivity } from '@/lib/api';
+import { updateUserProfile, getMyActivity, changePassword } from '@/lib/api';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
-    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown,
+    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 
@@ -234,6 +234,12 @@ export default function ProfileClient() {
     const [activity, setActivity] = useState<any[]>([]);
     const [activityLoading, setActivityLoading] = useState(true);
     const [showCalculator, setShowCalculator] = useState(false);
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
+    const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+    const [pwState, setPwState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [pwError, setPwError] = useState('');
+    const [showCurrent, setShowCurrent] = useState(false);
+    const [showNext, setShowNext] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -293,6 +299,23 @@ export default function ProfileClient() {
     };
 
     const handleLogout = () => { logout(); router.push(`/${locale}/login`); };
+
+    const handlePasswordChange = async () => {
+        if (!token) return;
+        setPwError('');
+        if (pwForm.next !== pwForm.confirm) { setPwError(locale === 'he' ? 'הסיסמאות אינן תואמות' : 'Passwords do not match'); return; }
+        if (pwForm.next.length < 6) { setPwError(locale === 'he' ? 'לפחות 6 תווים' : 'At least 6 characters'); return; }
+        setPwState('saving');
+        try {
+            await changePassword(token, pwForm.current, pwForm.next);
+            setPwState('saved');
+            setPwForm({ current: '', next: '', confirm: '' });
+            setTimeout(() => { setPwState('idle'); setShowPasswordForm(false); }, 2000);
+        } catch (e: any) {
+            setPwError(e.message || 'שגיאה');
+            setPwState('error');
+        }
+    };
 
     const barColor = pct === 100 ? 'bg-green-400' : pct >= 60 ? 'bg-[#d4af37]' : 'bg-orange-400';
 
@@ -563,6 +586,60 @@ export default function ProfileClient() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Password change ── */}
+                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                    <button
+                        onClick={() => setShowPasswordForm((v) => !v)}
+                        className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-[#111a2f] transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <KeyRound size={16} className="text-[#d4af37]/60" />
+                            <span className="text-sm font-bold text-[#f0e6d3]">{locale === 'he' ? 'שינוי סיסמה' : 'Change Password'}</span>
+                        </div>
+                        <ChevronDown size={16} className={`text-[#f0e6d3]/40 transition-transform ${showPasswordForm ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showPasswordForm && (
+                        <div className="px-5 pb-5 space-y-3 border-t border-[#d4af37]/10 pt-4">
+                            {pwState === 'saved' && (
+                                <div className="flex items-center gap-2 text-green-400 text-sm font-bold">
+                                    <CheckCircle2 size={15} /> {locale === 'he' ? 'הסיסמה שונתה בהצלחה!' : 'Password changed!'}
+                                </div>
+                            )}
+                            {pwError && <p className="text-red-400 text-sm">{pwError}</p>}
+                            {[
+                                { key: 'current', label: locale === 'he' ? 'סיסמה נוכחית' : 'Current password', show: showCurrent, toggle: () => setShowCurrent((v) => !v) },
+                                { key: 'next', label: locale === 'he' ? 'סיסמה חדשה' : 'New password', show: showNext, toggle: () => setShowNext((v) => !v) },
+                                { key: 'confirm', label: locale === 'he' ? 'אימות סיסמה חדשה' : 'Confirm new password', show: showNext, toggle: () => {} },
+                            ].map(({ key, label, show, toggle }) => (
+                                <div key={key} className="relative">
+                                    <label className="text-[11px] text-[#f0e6d3]/40 font-bold uppercase tracking-wider mb-1 block">{label}</label>
+                                    <div className="relative">
+                                        <input
+                                            type={show ? 'text' : 'password'}
+                                            value={(pwForm as any)[key]}
+                                            onChange={(e) => setPwForm((f) => ({ ...f, [key]: e.target.value }))}
+                                            className="w-full bg-[#111a2f] rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3] pe-10"
+                                            dir="ltr"
+                                        />
+                                        {key !== 'confirm' && (
+                                            <button type="button" onClick={toggle} className="absolute end-3 top-1/2 -translate-y-1/2 text-[#f0e6d3]/30 hover:text-[#f0e6d3]/60">
+                                                {show ? <EyeOff size={14} /> : <Eye size={14} />}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            <button
+                                onClick={handlePasswordChange}
+                                disabled={pwState === 'saving' || !pwForm.current || !pwForm.next || !pwForm.confirm}
+                                className="w-full py-2.5 rounded-xl font-bold text-sm bg-[#d4af37] text-[#080d1f] hover:bg-[#c9a227] disabled:opacity-50 transition-all"
+                            >
+                                {pwState === 'saving' ? '...' : locale === 'he' ? 'שמור סיסמה חדשה' : 'Save new password'}
+                            </button>
                         </div>
                     )}
                 </div>

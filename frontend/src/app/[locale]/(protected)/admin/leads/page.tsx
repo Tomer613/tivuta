@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { adminListLeads, adminUpdateLeadStatus } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { adminListLeads, adminUpdateLeadStatus, adminUpdateLeadNotes } from '@/lib/api';
+import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Check, X } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
@@ -49,6 +49,9 @@ export default function AdminLeadsPage() {
     const [sortKey, setSortKey] = useState<'created_at' | 'scheduled_at'>('created_at');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [page, setPage] = useState(1);
+    const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+    const [noteValue, setNoteValue] = useState('');
+    const [savingNoteId, setSavingNoteId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
@@ -139,6 +142,23 @@ export default function AdminLeadsPage() {
 
     const statusInfo = (val: string) => STATUSES.find((s) => s.value === val) ?? STATUSES[0];
 
+    const startEditNote = (lead: any) => { setEditingNoteId(lead.id); setNoteValue(lead.notes || ''); };
+    const cancelEditNote = () => { setEditingNoteId(null); setNoteValue(''); };
+    const saveNote = async (leadId: number) => {
+        if (!token) return;
+        setSavingNoteId(leadId);
+        try {
+            await adminUpdateLeadNotes(token, leadId, noteValue);
+            setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, notes: noteValue } : l));
+            setEditingNoteId(null);
+            showToast('ההערה נשמרה ✓');
+        } catch {
+            showToast('שגיאה בשמירת הערה', 'error');
+        } finally {
+            setSavingNoteId(null);
+        }
+    };
+
     return (
         <div>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -191,12 +211,13 @@ export default function AdminLeadsPage() {
                                 <th className="p-4 text-start cursor-pointer select-none hover:text-[#d4af37]" onClick={() => toggleSort('created_at')}>
                                     <span className="flex items-center gap-1">תאריך <SortIcon col="created_at" /></span>
                                 </th>
+                                <th className="p-4 text-start">הערות</th>
                                 <th className="p-4 text-start">סטטוס</th>
                             </tr>
                         </thead>
                         <tbody>
                             {paginated.length === 0 && (
-                                <tr><td colSpan={5} className="p-8 text-center text-[#f0e6d3]/40">אין פניות התואמות את הסינון.</td></tr>
+                                <tr><td colSpan={6} className="p-8 text-center text-[#f0e6d3]/40">אין פניות התואמות את הסינון.</td></tr>
                             )}
                             {paginated.map((lead) => {
                                 const si = statusInfo(lead.status);
@@ -254,6 +275,38 @@ export default function AdminLeadsPage() {
                                         {/* Date */}
                                         <td className="p-4 text-xs text-[#f0e6d3]/50">
                                             {new Date(lead.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                        </td>
+
+                                        {/* Notes */}
+                                        <td className="p-4 max-w-[160px]">
+                                            {editingNoteId === lead.id ? (
+                                                <div className="flex items-start gap-1">
+                                                    <textarea
+                                                        value={noteValue}
+                                                        onChange={(e) => setNoteValue(e.target.value)}
+                                                        rows={2}
+                                                        className="flex-1 bg-[#111a2f] rounded-lg px-2 py-1 text-xs text-[#f0e6d3] resize-none w-24"
+                                                        autoFocus
+                                                    />
+                                                    <div className="flex flex-col gap-1">
+                                                        <button onClick={() => saveNote(lead.id)} disabled={savingNoteId === lead.id} className="text-green-400 hover:text-green-300">
+                                                            {savingNoteId === lead.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                                        </button>
+                                                        <button onClick={cancelEditNote} className="text-[#f0e6d3]/30 hover:text-[#f0e6d3]"><X size={12} /></button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => startEditNote(lead)}
+                                                    className="flex items-start gap-1.5 text-start group/note w-full"
+                                                    title="הוסף הערה"
+                                                >
+                                                    <MessageSquare size={12} className={`mt-0.5 shrink-0 ${lead.notes ? 'text-[#d4af37]/60' : 'text-[#f0e6d3]/15 group-hover/note:text-[#f0e6d3]/40'}`} />
+                                                    <span className="text-xs text-[#f0e6d3]/50 group-hover/note:text-[#f0e6d3]/80 line-clamp-2 leading-tight">
+                                                        {lead.notes || <span className="text-[#f0e6d3]/15">הוסף הערה...</span>}
+                                                    </span>
+                                                </button>
+                                            )}
                                         </td>
 
                                         {/* Status selector */}

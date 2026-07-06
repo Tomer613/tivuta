@@ -243,6 +243,7 @@ class AdminLeadRead(BaseModel):
     scheduled_at: Optional[datetime] = None
     status: str
     channel: str
+    notes: Optional[str] = None
     created_at: datetime
     user_id: Optional[int] = None
     user_name: Optional[str] = None
@@ -254,6 +255,15 @@ class AdminLeadRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class LeadNotesUpdate(BaseModel):
+    notes: str
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 class LeadHistoryRead(BaseModel):
     id: int

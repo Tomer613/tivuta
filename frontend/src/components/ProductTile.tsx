@@ -28,8 +28,28 @@ export interface Product {
     description_yi?: string | null;
     image_url?: string | null;
     price?: number | null;
+    attributes?: Record<string, any> | null;
     promotions?: PromotionBrief[];
 }
+
+const ATTR_LABELS: Record<string, Record<string, string>> = {
+    carat:           { he: 'קרט',              en: 'Carat'        },
+    cut:             { he: 'חיתוך',            en: 'Cut'          },
+    color:           { he: 'צבע',              en: 'Color'        },
+    clarity:         { he: 'ניקיון',           en: 'Clarity'      },
+    shape:           { he: 'צורה',             en: 'Shape'        },
+    brand:           { he: 'יצרן',             en: 'Brand'        },
+    model:           { he: 'דגם',              en: 'Model'        },
+    year:            { he: 'שנה',              en: 'Year'         },
+    mileage:         { he: "ק\"מ",             en: 'Mileage'      },
+    condition:       { he: 'מצב',              en: 'Condition'    },
+    fuel:            { he: 'דלק',              en: 'Fuel'         },
+    transmission:    { he: 'תיבת הילוכים',     en: 'Transmission' },
+    insurance_type:  { he: 'סוג ביטוח',        en: 'Type'         },
+    coverage:        { he: 'כיסוי',            en: 'Coverage'     },
+    deductible:      { he: 'השתתפות עצמית',    en: 'Deductible'   },
+    monthly_premium: { he: 'פרמיה חודשית',     en: 'Monthly'      },
+};
 
 function promotionLabel(promo: PromotionBrief): string {
     const c = promo.config || {};
@@ -226,7 +246,22 @@ export default function ProductTile({ product, locale, actionType, token }: { pr
 
                         <div className="p-6">
                             <h2 className="text-2xl font-black text-[#f0e6d3] mb-3">{title}</h2>
-                            <p className="text-[#f0e6d3]/70 text-sm leading-relaxed mb-6">{description}</p>
+                            <p className="text-[#f0e6d3]/70 text-sm leading-relaxed mb-4">{description}</p>
+
+                            {product.attributes && Object.keys(product.attributes).length > 0 && (
+                                <div className="grid grid-cols-2 gap-2 mb-5">
+                                    {Object.entries(product.attributes).map(([k, v]) => {
+                                        if (v == null || v === '') return null;
+                                        const label = ATTR_LABELS[k]?.[locale === 'en' ? 'en' : 'he'] || k;
+                                        return (
+                                            <div key={k} className="bg-[#111a2f] rounded-xl px-3 py-2">
+                                                <p className="text-[10px] text-[#f0e6d3]/40 font-bold uppercase tracking-wider mb-0.5">{label}</p>
+                                                <p className="text-sm font-semibold text-[#f0e6d3]">{String(v)}</p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
 
                             <div className="border-t border-[#d4af37]/15 pt-4 mb-6">
                                 <span className="text-[10px] font-black text-[#f0e6d3]/40 uppercase tracking-widest block mb-1">{t.price_label}</span>

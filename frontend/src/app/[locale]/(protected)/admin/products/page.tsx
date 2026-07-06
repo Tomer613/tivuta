@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage } from '@/lib/api';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages } from 'lucide-react';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download } from 'lucide-react';
 
 const VERTICALS = [
     { value: 'diamonds', label: 'יהלומים' },
@@ -19,12 +19,40 @@ const LANGS = [
     { key: 'yi', label: 'ייִדיש', dir: 'rtl' as const },
 ];
 
+type AttrField = { key: string; label: string; type: 'text' | 'number' | 'select'; placeholder?: string; options?: string[] };
+
+const VERTICAL_ATTRS: Record<string, AttrField[]> = {
+    diamonds: [
+        { key: 'carat',   label: 'קרט',     type: 'number', placeholder: '1.00' },
+        { key: 'cut',     label: 'חיתוך',   type: 'select', options: ['מעולה', 'טוב מאוד', 'טוב', 'סביר', 'בינוני'] },
+        { key: 'color',   label: 'צבע',     type: 'select', options: ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'] },
+        { key: 'clarity', label: 'ניקיון',  type: 'select', options: ['IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2', 'I1'] },
+        { key: 'shape',   label: 'צורה',    type: 'select', options: ['עגול', 'נסיכה', 'אמרלד', 'אובל', 'ביתניה', 'קושן', 'מרקיז'] },
+    ],
+    cars: [
+        { key: 'brand',        label: 'יצרן',           type: 'text',   placeholder: 'טויוטה' },
+        { key: 'model',        label: 'דגם',            type: 'text',   placeholder: 'קאמרי' },
+        { key: 'year',         label: 'שנת ייצור',     type: 'number', placeholder: '2024' },
+        { key: 'mileage',      label: "ק\"מ",           type: 'number', placeholder: '0' },
+        { key: 'condition',    label: 'מצב',            type: 'select', options: ['חדש', 'יד שנייה', 'לימוזינה'] },
+        { key: 'fuel',         label: 'דלק',            type: 'select', options: ['בנזין', 'דיזל', 'היברידי', 'חשמלי'] },
+        { key: 'transmission', label: 'תיבת הילוכים',  type: 'select', options: ['אוטומטי', 'ידני'] },
+    ],
+    insurance: [
+        { key: 'insurance_type',  label: 'סוג ביטוח',          type: 'select', options: ['רכב', 'בריאות', 'דירה', 'חיים', 'עסק'] },
+        { key: 'coverage',        label: 'רמת כיסוי',          type: 'select', options: ['בסיסי', 'מורחב', 'מקיף'] },
+        { key: 'deductible',      label: 'השתתפות עצמית (₪)', type: 'number', placeholder: '2000' },
+        { key: 'monthly_premium', label: 'פרמיה חודשית (₪)',  type: 'number', placeholder: '150' },
+    ],
+};
+
 const EMPTY_FORM = {
     vertical: 'diamonds',
     title_he: '', title_en: '', title_fr: '', title_yi: '',
     description_he: '', description_en: '', description_fr: '', description_yi: '',
     price: '',
     image_url: '',
+    attributes: {} as Record<string, string>,
 };
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -114,12 +142,17 @@ export default function AdminProductsPage() {
 
     const openEditForm = (p: any) => {
         setEditProduct(p);
+        const attrs: Record<string, string> = {};
+        if (p.attributes) {
+            Object.entries(p.attributes).forEach(([k, v]) => { attrs[k] = String(v ?? ''); });
+        }
         setForm({
             vertical: p.vertical,
             title_he: p.title_he || '', title_en: p.title_en || '', title_fr: p.title_fr || '', title_yi: p.title_yi || '',
             description_he: p.description_he || '', description_en: p.description_en || '', description_fr: p.description_fr || '', description_yi: p.description_yi || '',
             price: p.price ? String(p.price) : '',
             image_url: p.image_url || '',
+            attributes: attrs,
         });
         setLangTab('he');
         setShowForm(true);
@@ -150,12 +183,20 @@ export default function AdminProductsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
+        const cleanAttrs: Record<string, any> = {};
+        Object.entries(form.attributes).forEach(([k, v]) => {
+            if (v !== '' && v != null) {
+                const field = VERTICAL_ATTRS[form.vertical]?.find((f) => f.key === k);
+                cleanAttrs[k] = field?.type === 'number' ? Number(v) : v;
+            }
+        });
         const payload = {
             vertical: form.vertical,
             title_he: form.title_he, title_en: form.title_en || null, title_fr: form.title_fr || null, title_yi: form.title_yi || null,
             description_he: form.description_he, description_en: form.description_en || null, description_fr: form.description_fr || null, description_yi: form.description_yi || null,
             price: form.price ? Number(form.price) : null,
             image_url: form.image_url || null,
+            attributes: Object.keys(cleanAttrs).length > 0 ? cleanAttrs : null,
             is_active: true,
         };
         try {
@@ -208,6 +249,21 @@ export default function AdminProductsPage() {
 
     const activeLang = LANGS.find((l) => l.key === langTab)!;
     const hasTranslations = form.title_en || form.title_fr || form.title_yi;
+    const verticalAttrs = VERTICAL_ATTRS[form.vertical] || [];
+
+    const exportCsv = () => {
+        const header = ['עולם', 'כותרת עברית', 'כותרת EN', 'כותרת FR', 'כותרת YI', 'תיאור עברית', 'מחיר', 'תמונה', 'פעיל'];
+        const rows = filtered.map((p) => [
+            p.vertical, p.title_he, p.title_en || '', p.title_fr || '', p.title_yi || '',
+            p.description_he, p.price ?? '', p.image_url || '', p.is_active ? 'כן' : 'לא',
+        ]);
+        const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `products-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click(); URL.revokeObjectURL(url);
+    };
 
     return (
         <div>
@@ -215,7 +271,10 @@ export default function AdminProductsPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <h1 className="text-3xl font-black text-[#f0e6d3]">מוצרים</h1>
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
+                    <button onClick={exportCsv} disabled={filtered.length === 0} className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/30 text-[#d4af37] rounded-xl px-4 py-2 text-sm font-bold hover:bg-[#111a2f] disabled:opacity-40 transition-colors">
+                        <Download size={15} /> CSV ({filtered.length})
+                    </button>
                     <button onClick={() => setShowBatchForm(true)} className="btn-secondary flex items-center gap-2 !text-sm">
                         <Plus size={16} /> הוסף מקבץ מוצרים
                     </button>
@@ -421,6 +480,39 @@ export default function AdminProductsPage() {
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מחיר (₪)</label>
                             <input type="number" min={0} placeholder="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
                         </div>
+
+                        {/* Vertical-specific attributes */}
+                        {verticalAttrs.length > 0 && (
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-3 block font-bold uppercase tracking-wider">מאפיינים ({VERTICAL_LABEL[form.vertical]})</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {verticalAttrs.map((field) => (
+                                        <div key={field.key}>
+                                            <label className="text-[11px] text-[#f0e6d3]/40 mb-1 block">{field.label}</label>
+                                            {field.type === 'select' ? (
+                                                <select
+                                                    value={form.attributes[field.key] || ''}
+                                                    onChange={(e) => setForm({ ...form, attributes: { ...form.attributes, [field.key]: e.target.value } })}
+                                                    className="w-full bg-[#111a2f] rounded-xl px-3 py-2 text-sm text-[#f0e6d3]"
+                                                >
+                                                    <option value="">—</option>
+                                                    {field.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+                                                </select>
+                                            ) : (
+                                                <input
+                                                    type={field.type}
+                                                    placeholder={field.placeholder}
+                                                    value={form.attributes[field.key] || ''}
+                                                    onChange={(e) => setForm({ ...form, attributes: { ...form.attributes, [field.key]: e.target.value } })}
+                                                    className="w-full bg-[#111a2f] rounded-xl px-3 py-2 text-sm text-[#f0e6d3]"
+                                                    dir="ltr"
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Image */}
                         <div>
