@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv } from '@/lib/api';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload } from 'lucide-react';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics } from '@/lib/api';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3 } from 'lucide-react';
 
 const VERTICALS = [
     { value: 'diamonds', label: 'יהלומים' },
@@ -90,6 +90,10 @@ export default function AdminProductsPage() {
     const [showCsvModal, setShowCsvModal] = useState(false);
     const [importingCsv, setImportingCsv] = useState(false);
     const [csvFile, setCsvFile] = useState<File | null>(null);
+    const [showAnalytics, setShowAnalytics] = useState(false);
+    const [analytics, setAnalytics] = useState<any[]>([]);
+    const [analyticsLoading, setAnalyticsLoading] = useState(false);
+    const [analyticsSortKey, setAnalyticsSortKey] = useState<'view_count' | 'favorite_count' | 'review_count' | 'lead_count'>('view_count');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const csvInputRef = useRef<HTMLInputElement>(null);
 
@@ -251,6 +255,26 @@ export default function AdminProductsPage() {
         }
     };
 
+    const loadAnalytics = async () => {
+        if (!token) return;
+        setAnalyticsLoading(true);
+        try {
+            const data = await adminGetProductAnalytics(token);
+            setAnalytics(data);
+        } catch {
+            showToast('שגיאה בטעינת אנליטיקס', 'error');
+        } finally {
+            setAnalyticsLoading(false);
+        }
+    };
+
+    const toggleAnalytics = () => {
+        if (!showAnalytics && analytics.length === 0) loadAnalytics();
+        setShowAnalytics((v) => !v);
+    };
+
+    const sortedAnalytics = [...analytics].sort((a, b) => (b[analyticsSortKey] ?? 0) - (a[analyticsSortKey] ?? 0));
+
     const activeLang = LANGS.find((l) => l.key === langTab)!;
     const hasTranslations = form.title_en || form.title_fr || form.title_yi;
     const verticalAttrs = VERTICAL_ATTRS[form.vertical] || [];
@@ -303,11 +327,82 @@ export default function AdminProductsPage() {
                     <button onClick={() => setShowBatchForm(true)} className="btn-secondary flex items-center gap-2 !text-sm">
                         <Plus size={16} /> הוסף מקבץ מוצרים
                     </button>
+                    <button onClick={toggleAnalytics} className={`flex items-center gap-2 border rounded-xl px-4 py-2 text-sm font-bold transition-colors ${showAnalytics ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37]' : 'bg-[#0e1628] border-[#d4af37]/30 text-[#d4af37] hover:bg-[#111a2f]'}`}>
+                        <BarChart3 size={15} /> אנליטיקס
+                    </button>
                     <button onClick={() => { setEditProduct(null); setForm(EMPTY_FORM); setLangTab('he'); setShowForm(true); }} className="btn-primary flex items-center gap-2 !text-sm">
                         <Plus size={16} /> הוסף מוצר
                     </button>
                 </div>
             </div>
+
+            {showAnalytics && (
+                <div className="mb-8 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                    <div className="flex items-center justify-between p-4 border-b border-[#d4af37]/10">
+                        <h2 className="text-[#d4af37] font-bold flex items-center gap-2"><BarChart3 size={16} /> ביצועי מוצרים</h2>
+                        <div className="flex gap-2">
+                            {(['view_count', 'favorite_count', 'review_count', 'lead_count'] as const).map((key) => {
+                                const labels: Record<string, string> = { view_count: 'צפיות', favorite_count: 'מועדפים', review_count: 'ביקורות', lead_count: 'פניות' };
+                                return (
+                                    <button key={key} onClick={() => setAnalyticsSortKey(key)} className={`text-xs font-bold px-3 py-1 rounded-full border transition-colors ${analyticsSortKey === key ? 'bg-[#d4af37]/20 border-[#d4af37]/50 text-[#d4af37]' : 'border-[#d4af37]/10 text-[#f0e6d3]/40 hover:text-[#f0e6d3]/70'}`}>
+                                        {labels[key]}
+                                    </button>
+                                );
+                            })}
+                            <button onClick={loadAnalytics} disabled={analyticsLoading} className="text-xs text-[#f0e6d3]/40 hover:text-[#f0e6d3]/70 px-2">
+                                {analyticsLoading ? <Loader2 size={12} className="animate-spin" /> : '↻'}
+                            </button>
+                        </div>
+                    </div>
+                    {analyticsLoading ? (
+                        <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-[#d4af37]" size={24} /></div>
+                    ) : (
+                        <table className="w-full text-start">
+                            <thead className="bg-[#111a2f] text-[#f0e6d3]/50 text-xs uppercase">
+                                <tr>
+                                    <th className="p-3 text-start">מוצר</th>
+                                    <th className="p-3 text-start">עולם</th>
+                                    <th className="p-3 text-center">צפיות</th>
+                                    <th className="p-3 text-center">מועדפים</th>
+                                    <th className="p-3 text-center">ביקורות</th>
+                                    <th className="p-3 text-center">דירוג</th>
+                                    <th className="p-3 text-center">פניות</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedAnalytics.length === 0 && (
+                                    <tr><td colSpan={7} className="p-6 text-center text-[#f0e6d3]/30 text-sm">אין נתונים</td></tr>
+                                )}
+                                {sortedAnalytics.map((row) => (
+                                    <tr key={row.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3] text-sm hover:bg-[#111a2f]/50 transition-colors">
+                                        <td className="p-3 font-semibold max-w-[200px] truncate">{row.title_he}</td>
+                                        <td className="p-3 text-[#f0e6d3]/60">{VERTICAL_LABEL[row.vertical] ?? row.vertical}</td>
+                                        <td className="p-3 text-center">
+                                            <span className={`font-bold ${row.view_count > 0 ? 'text-blue-400' : 'text-[#f0e6d3]/20'}`}>{row.view_count ?? 0}</span>
+                                        </td>
+                                        <td className="p-3 text-center">
+                                            <span className={`font-bold ${row.favorite_count > 0 ? 'text-red-400' : 'text-[#f0e6d3]/20'}`}>{row.favorite_count ?? 0}</span>
+                                        </td>
+                                        <td className="p-3 text-center">
+                                            <span className={`font-bold ${row.review_count > 0 ? 'text-green-400' : 'text-[#f0e6d3]/20'}`}>{row.review_count ?? 0}</span>
+                                        </td>
+                                        <td className="p-3 text-center">
+                                            {row.avg_rating ? (
+                                                <span className="text-[#d4af37] font-bold">{row.avg_rating} ★</span>
+                                            ) : (
+                                                <span className="text-[#f0e6d3]/20">-</span>
+                                            )}
+                                        </td>
+                                        <td className="p-3 text-center">
+                                            <span className={`font-bold ${row.lead_count > 0 ? 'text-[#d4af37]' : 'text-[#f0e6d3]/20'}`}>{row.lead_count ?? 0}</span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-3 mb-6">
                 <div className="relative">

@@ -98,6 +98,7 @@ class User(Base):
     id_number = Column(String(20), nullable=True)
     club_affiliation = Column(String(100), nullable=True)
     membership_tracks = Column(JSON, nullable=True)  # list of selected track keys
+    notification_prefs = Column(JSON, nullable=True)  # {"lead_status": true, "appointment_reminder": true, "system": true, "promotions": true}
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="member", nullable=False)  # "member" | "admin"
     reset_token = Column(String(255), nullable=True)
@@ -148,9 +149,11 @@ class Product(Base):
     price = Column(Float, nullable=True)
     attributes = Column(JSON, nullable=True)  # vertical-specific facets, e.g. {"carat": 1.2, "clarity": "VS1"}
     is_active = Column(Boolean, default=True)
+    view_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     promotions = relationship("Promotion", secondary=product_promotions_table, back_populates="products")
+    reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan")
 
 
 class Promotion(Base):
@@ -296,6 +299,8 @@ class Distribution(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     scheduled_at = Column(DateTime, nullable=True)  # if set, send at this time
     sent_at = Column(DateTime, nullable=True)
+    filter_membership_track = Column(String(100), nullable=True)  # if set, send only to users with this track
+    filter_city = Column(String(100), nullable=True)  # if set, send only to users in this city
 
     survey = relationship("Survey")
     product = relationship("Product")
@@ -317,7 +322,7 @@ class Review(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")
-    product = relationship("Product")
+    product = relationship("Product", back_populates="reviews")
 
 
 class DistributionSendLog(Base):

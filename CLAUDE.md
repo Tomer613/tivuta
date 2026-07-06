@@ -256,9 +256,40 @@ npm run build  # static export to /out
 - Reads `GET /leads/me` (filtered for `lead_type=appointment`) and displays upcoming with date + status badge
 - No new backend endpoint — reuses existing `/leads/me`
 
+### Global Search
+- `GlobalSearch` component (full-screen modal) in home page top bar
+- `GET /search?q=<term>` — searches `title_he`, `title_en`, `description_he` with ILIKE; min 2 chars, max 20 results
+- Debounced 300ms; each result shows thumbnail, title, vertical icon, price, avg_rating
+- Clicking a result navigates to `/${locale}/${vertical}?product=${id}` (opens product modal directly)
+
+### Shareable Product URL
+- `?product=ID` query param on vertical listing pages (e.g. `/he/diamonds?product=42`)
+- `VerticalListingClient` reads `useSearchParams().get('product')` and passes `autoOpen={true}` to matching `ProductTile`
+- `ProductTile` initializes `showDetail` from `autoOpen` prop — no `generateStaticParams` needed (works with static export)
+- WhatsApp share button now includes the shareable URL in the message text
+
+### Average Rating on Product Cards
+- `avg_rating` and `review_count` computed in `_product_read()` from already-loaded `product.reviews` (no extra query)
+- Star display + numeric rating below product description on `ProductTile` card (only when `avg_rating` is set)
+
+### View Count Tracking
+- `view_count` column on `products` table; incremented by `POST /products/{id}/view` (no auth required)
+- Called fire-and-forget via `trackProductView(id)` in `ProductTile` modal open `useEffect`
+- Exposed in admin product analytics
+
+### Order Tracking in Profile
+- `GET /orders/me` — returns user's orders from `orders` table, ordered by date desc
+- Profile "My Orders" section shows title, amount (₪), date, and color-coded status badge
+
+### Notification Preferences
+- `notification_prefs: JSON` column on `users` table (nullable, merged on PATCH)
+- `PATCH /users/me/notification-prefs` — partial update; merges into existing prefs dict
+- Profile "Notification Preferences" collapsible section — 4 toggles: lead_status, appointment_reminder, system, promotions
+- `AuthContext.User` interface includes `notification_prefs?: Record<string, boolean> | null`
+
 ---
 
-## Admin Features (session 2026-07-05)
+## Admin Features (session 2026-07-05 – 2026-07-06)
 
 ### Duplicate Product
 - `POST /admin/products/{id}/duplicate` clones all fields; appends " (עותק)" to `title_he`, sets `is_active=False`
@@ -313,6 +344,28 @@ npm run build  # static export to /out
 - UI: datetime-local picker in create form; `scheduled_at` column in distributions table
 - Note: automatic sending at scheduled time requires a cron job / background task (not yet implemented — field is stored, manual send still required)
 
+### Audience Segmentation for Distributions
+- `filter_membership_track: String(100)` and `filter_city: String(100)` nullable columns on `Distribution` model
+- Backend `_send_distribution` applies: SQL WHERE on `city`; Python in-memory filter on `membership_tracks` JSON array
+- UI: collapsible "פילוח קהל" section in distribution create form with city + membership track text inputs
+- Shows "ההפצה תישלח רק לחברים המתאימים לסינון" hint when either filter is set
+
+### Email Preview Modal
+- `GET /admin/distributions/{id}/preview` — returns `{html: str, subject: str, recipient_count: int}`
+- Eye icon button on every distribution row opens a full-screen modal with the rendered HTML in a sandboxed iframe
+- Shows subject line and recipient count in modal header
+
+### Product Performance Analytics
+- `GET /admin/products/analytics` — per-product stats: view_count, favorite_count (from favorites table), review_count, avg_rating, lead_count
+- "אנליטיקס" toggle button in admin products page header; panel shows above the product table when active
+- Sortable by: views / favorites / reviews / leads; refresh button to re-fetch on demand
+
+### Kanban Board for Leads
+- Third view mode in admin leads page (alongside Table and Calendar)
+- 4 columns matching lead statuses; cards are HTML5 draggable — drop triggers `handleStatusChange`
+- SLA breach: `lead.status === 'new' && age > 24h` → red left border + "ממתין מעל 24 שעות" label
+- SLA also highlighted in table view as a red-left-border on the row
+
 ---
 
 ## Key Design Decisions
@@ -329,6 +382,10 @@ npm run build  # static export to /out
 - **Review upsert**: `POST /reviews/{product_id}` checks `(user_id, product_id)` unique constraint — updates existing if present, creates otherwise. Single endpoint for add/edit.
 - **Audit history as JSON array**: Lead `history` field is an append-only JSON array on the model; no separate table needed. Trade-off: cannot query history fields with SQL, but history is only ever displayed per-lead, never queried across leads.
 - **Distribution scheduling is storage-only**: `scheduled_at` is stored on the `Distribution` row. Actual auto-send at the scheduled time requires an external cron job / background worker (not yet built). Admin still sends manually; the field is UI infrastructure for when scheduling is wired up.
+- **Shareable URL via query param**: `?product=ID` on vertical pages auto-opens the product modal. Cannot use `/[vertical]/[id]` dynamic routes because `output: 'export'` requires `generateStaticParams` to enumerate all possible IDs at build time — not feasible for a dynamic database.
+- **View count fire-and-forget**: `POST /products/{id}/view` is called with `fetch().catch(() => {})` — no auth, no await. A failed view-count increment should never block the user.
+- **Distribution segmentation mix**: `filter_city` uses a SQL WHERE clause (efficient); `filter_membership_track` uses Python in-memory filtering since `membership_tracks` is a JSON array column (not indexable with simple SQL). Trade-off accepted: segment sizes are small.
+- **Email preview in iframe**: HTML is rendered in a sandboxed `<iframe srcdoc>` in the admin preview modal. `sandbox="allow-same-origin"` prevents script execution while allowing CSS rendering.
 
 ---
 

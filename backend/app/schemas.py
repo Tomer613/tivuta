@@ -68,6 +68,25 @@ class UserRead(UserBase):
     id_number: Optional[str] = None
     club_affiliation: Optional[str] = None
     membership_tracks: Optional[List[str]] = None
+    notification_prefs: Optional[dict] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationPrefsUpdate(BaseModel):
+    lead_status: Optional[bool] = None
+    appointment_reminder: Optional[bool] = None
+    system: Optional[bool] = None
+    promotions: Optional[bool] = None
+
+
+class OrderRead(BaseModel):
+    id: int
+    title_he: str
+    amount: float
+    status: str
+    date: datetime
 
     class Config:
         from_attributes = True
@@ -150,7 +169,24 @@ class PromotionBrief(BaseModel):
 
 class ProductRead(ProductBase):
     id: int
+    view_count: int = 0
+    avg_rating: Optional[float] = None
+    review_count: int = 0
     promotions: List[PromotionBrief] = []
+
+    class Config:
+        from_attributes = True
+
+
+class ProductAnalyticsRead(BaseModel):
+    id: int
+    vertical: str
+    title_he: str
+    view_count: int
+    favorite_count: int
+    review_count: int
+    avg_rating: Optional[float]
+    lead_count: int
 
     class Config:
         from_attributes = True
@@ -379,6 +415,8 @@ class DistributionCreate(BaseModel):
     message_he: Optional[str] = None
     channels: List[str]
     scheduled_at: Optional[datetime] = None
+    filter_membership_track: Optional[str] = None
+    filter_city: Optional[str] = None
 
 class DistributionRead(BaseModel):
     id: int
@@ -392,6 +430,8 @@ class DistributionRead(BaseModel):
     channels: List[str]
     status: str
     scheduled_at: Optional[datetime] = None
+    filter_membership_track: Optional[str] = None
+    filter_city: Optional[str] = None
     created_at: datetime
     sent_at: Optional[datetime] = None
     sent_count: int = 0

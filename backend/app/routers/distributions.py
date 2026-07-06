@@ -146,8 +146,14 @@ def _send_distribution(distribution_id: int) -> None:
         if not email_html:
             email_html = _build_fallback_email(subject, message)
 
-        # Only send to member users (not admins)
-        users = db.query(models.User).filter(models.User.role == "member").all()
+        # Only send to member users (not admins); apply segmentation filters
+        user_query = db.query(models.User).filter(models.User.role == "member")
+        if distribution.filter_city:
+            user_query = user_query.filter(models.User.city == distribution.filter_city)
+        users = user_query.all()
+        if distribution.filter_membership_track:
+            track = distribution.filter_membership_track
+            users = [u for u in users if u.membership_tracks and track in u.membership_tracks]
         email_sender = get_email_sender()
         whatsapp_sender = get_whatsapp_sender()
 
@@ -256,6 +262,9 @@ def admin_create_distribution(
         title_he=payload.title_he,
         message_he=payload.message_he,
         channels=payload.channels,
+        scheduled_at=payload.scheduled_at,
+        filter_membership_track=payload.filter_membership_track,
+        filter_city=payload.filter_city,
         created_by=current_user.id,
     )
     db.add(distribution)
@@ -273,6 +282,52 @@ def admin_send_distribution(distribution_id: int, background_tasks: BackgroundTa
         raise HTTPException(status_code=400, detail="ניתן לשלוח רק הפצות במצב טיוטה")
     background_tasks.add_task(_send_distribution, distribution_id)
     return {"message": "Distribution send started"}
+
+
+@router.get("/admin/distributions/{distribution_id}/preview", dependencies=[Depends(get_current_admin)])
+def admin_preview_distribution(distribution_id: int, db: Session = Depends(get_db)):
+    distribution = (
+        db.query(models.Distribution)
+        .options(selectinload(models.Distribution.survey), selectinload(models.Distribution.product))
+        .filter(models.Distribution.id == distribution_id)
+        .first()
+    )
+    if not distribution:
+        raise HTTPException(status_code=404, detail="Distribution not found")
+
+    subject = distribution.title_he or "TIVUTA"
+    message = distribution.message_he or ""
+    html = None
+
+    if distribution.distribution_type == "survey" and distribution.survey_id and distribution.survey:
+        survey = distribution.survey
+        survey_url = f"{APP_BASE_URL}/he/survey/{survey.id}"
+        product_image_url: Optional[str] = None
+        for opt in survey.options:
+            if opt.product_id:
+                p = db.query(models.Product).filter(models.Product.id == opt.product_id).first()
+                if p and p.image_url:
+                    product_image_url = f"{APP_BASE_URL}/images/products/{p.image_url}"
+                    break
+        html = _build_survey_email(survey, survey_url, product_image_url)
+    elif distribution.distribution_type == "daily_deal" and distribution.product_id and distribution.product:
+        product = distribution.product
+        product_url = f"{APP_BASE_URL}/he/{product.vertical}?product={product.id}"
+        html = _build_deal_email(product, product_url)
+
+    if not html:
+        html = _build_fallback_email(subject, message)
+
+    # Count target audience
+    user_query = db.query(models.User).filter(models.User.role == "member")
+    if distribution.filter_city:
+        user_query = user_query.filter(models.User.city == distribution.filter_city)
+    users = user_query.all()
+    if distribution.filter_membership_track:
+        track = distribution.filter_membership_track
+        users = [u for u in users if u.membership_tracks and track in u.membership_tracks]
+
+    return {"html": html, "subject": subject, "recipient_count": len(users)}
 
 
 @router.delete("/admin/distributions/{distribution_id}", dependencies=[Depends(get_current_admin)])

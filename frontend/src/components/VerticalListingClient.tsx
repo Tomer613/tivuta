@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Loader2, PackageOpen, GitCompareArrows } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getProducts, getFavoriteIds } from '@/lib/api';
@@ -39,7 +39,9 @@ const COPY: Record<string, Record<string, T>> = {
 
 export default function VerticalListingClient({ vertical, actionType }: { vertical: 'diamonds' | 'cars' | 'insurance'; actionType: 'appointment' | 'contact' }) {
     const params = useParams();
+    const searchParams = useSearchParams();
     const locale = (params?.locale as string) || 'he';
+    const autoOpenProductId = searchParams ? Number(searchParams.get('product')) || null : null;
     const { token, isLoading: authLoading } = useAuth();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
@@ -141,7 +143,7 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                             {filtered.map((p) => (
                                 <div key={p.id} className="relative">
-                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} />
+                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} autoOpen={autoOpenProductId === p.id} />
                                     {/* Compare checkbox */}
                                     <button
                                         type="button"

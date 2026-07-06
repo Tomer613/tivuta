@@ -6,11 +6,11 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
-from ..security import get_current_admin, get_db
+from ..security import get_current_admin, get_current_user, get_db
 
 # ── Change IMAGES_DIR in production to point to your static-file host ─────────
 IMAGES_DIR = os.environ.get("IMAGES_DIR", os.path.join(os.path.dirname(__file__), "../../../../frontend/public/images/products"))
@@ -32,6 +32,9 @@ def _active_promotions(product: models.Product) -> List[schemas.PromotionBrief]:
 def _product_read(product: models.Product) -> schemas.ProductRead:
     result = schemas.ProductRead.model_validate(product)
     result.promotions = _active_promotions(product)
+    approved = [r for r in product.reviews if r.is_approved]
+    result.review_count = len(approved)
+    result.avg_rating = round(sum(r.rating for r in approved) / len(approved), 1) if approved else None
     return result
 
 
@@ -46,7 +49,7 @@ def list_products(
     query = (
         db.query(models.Product)
         .filter(models.Product.is_active == True)
-        .options(selectinload(models.Product.promotions))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews))
     )
     if vertical:
         query = query.filter(models.Product.vertical == vertical)
@@ -77,12 +80,43 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     product = (
         db.query(models.Product)
         .filter(models.Product.id == product_id)
-        .options(selectinload(models.Product.promotions))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews))
         .first()
     )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return _product_read(product)
+
+
+@router.post("/products/{product_id}/view")
+def increment_product_view(product_id: int, db: Session = Depends(get_db)):
+    db.query(models.Product).filter(models.Product.id == product_id).update(
+        {"view_count": models.Product.view_count + 1}
+    )
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/search", response_model=List[schemas.ProductRead])
+def search_products(q: str = "", db: Session = Depends(get_db)):
+    if not q or len(q.strip()) < 2:
+        return []
+    term = f"%{q.strip()}%"
+    products = (
+        db.query(models.Product)
+        .filter(
+            models.Product.is_active == True,
+            or_(
+                models.Product.title_he.ilike(term),
+                models.Product.title_en.ilike(term),
+                models.Product.description_he.ilike(term),
+            ),
+        )
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews))
+        .limit(20)
+        .all()
+    )
+    return [_product_read(p) for p in products]
 
 
 def _validate_vertical(vertical: str):
@@ -139,11 +173,46 @@ def admin_list_all_products(db: Session = Depends(get_db)):
     """Returns all products including inactive ones — for admin management."""
     products = (
         db.query(models.Product)
-        .options(selectinload(models.Product.promotions))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews))
         .order_by(models.Product.created_at.desc())
         .all()
     )
     return [_product_read(p) for p in products]
+
+
+@router.get("/admin/products/analytics", dependencies=[Depends(get_current_admin)])
+def admin_product_analytics(db: Session = Depends(get_db)):
+    products = (
+        db.query(models.Product)
+        .options(selectinload(models.Product.reviews))
+        .order_by(models.Product.view_count.desc())
+        .all()
+    )
+    fav_counts = dict(
+        db.query(models.Favorite.product_id, func.count(models.Favorite.id))
+        .group_by(models.Favorite.product_id)
+        .all()
+    )
+    lead_counts = dict(
+        db.query(models.Lead.product_id, func.count(models.Lead.id))
+        .filter(models.Lead.product_id != None)
+        .group_by(models.Lead.product_id)
+        .all()
+    )
+    result = []
+    for p in products:
+        approved = [r for r in p.reviews if r.is_approved]
+        result.append({
+            "id": p.id,
+            "vertical": p.vertical,
+            "title_he": p.title_he,
+            "view_count": p.view_count,
+            "favorite_count": fav_counts.get(p.id, 0),
+            "review_count": len(approved),
+            "avg_rating": round(sum(r.rating for r in approved) / len(approved), 1) if approved else None,
+            "lead_count": lead_counts.get(p.id, 0),
+        })
+    return result
 
 
 @router.post("/admin/upload-image", dependencies=[Depends(get_current_admin)])

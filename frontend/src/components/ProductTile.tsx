@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft, X, Info, Heart, Share2, Star, Clock } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
-import { createLead, addFavorite, removeFavorite, getProductReviews, submitReview } from '@/lib/api';
+import { createLead, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView } from '@/lib/api';
 
 export interface PromotionBrief {
     id: number;
@@ -30,6 +30,9 @@ export interface Product {
     price?: number | null;
     attributes?: Record<string, any> | null;
     promotions?: PromotionBrief[];
+    avg_rating?: number | null;
+    review_count?: number;
+    view_count?: number;
 }
 
 const ATTR_LABELS: Record<string, Record<string, string>> = {
@@ -136,9 +139,9 @@ const DETAIL_LABELS: Record<string, { details: string; close: string }> = {
     yi: { details: 'מער פרטים', close: 'שליסן' },
 };
 
-export default function ProductTile({ product, locale, actionType, token, isFav = false }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string; isFav?: boolean }) {
+export default function ProductTile({ product, locale, actionType, token, isFav = false, autoOpen = false }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string; isFav?: boolean; autoOpen?: boolean }) {
     const [showModal, setShowModal] = useState(false);
-    const [showDetail, setShowDetail] = useState(false);
+    const [showDetail, setShowDetail] = useState(autoOpen);
     const [status, setStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
     const [fav, setFav] = useState(isFav);
     const [favLoading, setFavLoading] = useState(false);
@@ -152,10 +155,11 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
     const hasInteractivePromo = product.promotions?.some((p) => INTERACTIVE_TYPES.has(p.type)) ?? false;
     const flashPromo = product.promotions?.find((p) => p.type === 'flash_sale' && p.end_date);
 
-    // Load reviews when detail opens
+    // Load reviews + track view when detail opens
     useEffect(() => {
         if (!showDetail) return;
         getProductReviews(product.id).then(setReviews).catch(() => {});
+        trackProductView(product.id);
     }, [showDetail, product.id]);
 
     // Track recently viewed in localStorage (store snapshot for profile display)
@@ -188,9 +192,10 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
 
     const shareWhatsApp = (e: React.MouseEvent) => {
         e.stopPropagation();
-        const title = product[`title_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || product.title_he;
+        const titleText = product[`title_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || product.title_he;
         const price = product.price ? `₪${product.price.toLocaleString()}` : '';
-        const text = encodeURIComponent(`${title}${price ? ' — ' + price : ''}\nTIVUTA`);
+        const productUrl = `https://tivuta.co.il/${locale}/${product.vertical}?product=${product.id}`;
+        const text = encodeURIComponent(`${titleText}${price ? ' — ' + price : ''}\n${productUrl}`);
         window.open(`https://wa.me/?text=${text}`, '_blank');
     };
 
@@ -277,6 +282,19 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
             <div className="p-6 flex flex-col flex-grow items-start text-start">
                 <h3 className="text-xl font-bold text-[#f0e6d3] mb-2 line-clamp-1 w-full">{title}</h3>
                 <p className="text-[#f0e6d3]/60 text-sm line-clamp-2 mb-2 leading-relaxed w-full font-light">{description}</p>
+                {product.avg_rating && (
+                    <div className="flex items-center gap-1.5 mb-2">
+                        <div className="flex gap-0.5">
+                            {[1,2,3,4,5].map(i => (
+                                <Star key={i} size={12} fill={i <= Math.round(product.avg_rating!) ? '#d4af37' : 'none'} className={i <= Math.round(product.avg_rating!) ? 'text-[#d4af37]' : 'text-[#f0e6d3]/20'} />
+                            ))}
+                        </div>
+                        <span className="text-[#d4af37] text-xs font-bold">{product.avg_rating}</span>
+                        {product.review_count != null && product.review_count > 0 && (
+                            <span className="text-[#f0e6d3]/30 text-xs">({product.review_count})</span>
+                        )}
+                    </div>
+                )}
                 <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setShowDetail(true); }}

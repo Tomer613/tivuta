@@ -712,3 +712,48 @@ export async function getMyAppointments(token: string) {
     const leads = await res.json();
     return leads.filter((l: any) => l.lead_type === 'appointment' && l.scheduled_at);
 }
+
+// Global search
+export async function searchProducts(q: string) {
+    if (!q || q.trim().length < 2) return [];
+    const res = await fetch(`${BASE_URL}/search?q=${encodeURIComponent(q.trim())}`);
+    if (!res.ok) return [];
+    return res.json();
+}
+
+// Product view tracking
+export async function trackProductView(productId: number) {
+    fetch(`${BASE_URL}/products/${productId}/view`, { method: 'POST' }).catch(() => {});
+}
+
+// My orders
+export async function getMyOrders(token: string) {
+    const res = await fetch(`${BASE_URL}/orders/me`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+// Notification preferences
+export async function updateNotificationPrefs(token: string, prefs: Record<string, boolean>) {
+    const res = await fetch(`${BASE_URL}/users/me/notification-prefs`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefs),
+    });
+    if (!res.ok) throw new Error('Failed to update preferences');
+    return res.json();
+}
+
+// Admin: product analytics
+export async function adminGetProductAnalytics(token: string) {
+    const res = await fetch(`${BASE_URL}/admin/products/analytics`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+// Admin: distribution email preview
+export async function adminPreviewDistribution(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/preview`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Preview failed');
+    return res.json() as Promise<{ html: string; subject: string; recipient_count: number }>;
+}

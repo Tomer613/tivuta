@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -61,6 +61,31 @@ def get_user_dashboard(current_user: models.User = Depends(get_current_user), db
         "monthly_expenses": 4500.0,
         "recent_orders": orders,
     }
+
+
+@router.get("/orders/me", response_model=List[schemas.OrderRead])
+def get_my_orders(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return (
+        db.query(models.Order)
+        .filter(models.Order.user_id == current_user.id)
+        .order_by(models.Order.date.desc())
+        .all()
+    )
+
+
+@router.patch("/users/me/notification-prefs", response_model=schemas.UserRead)
+def update_notification_prefs(
+    payload: schemas.NotificationPrefsUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_prefs = dict(current_user.notification_prefs or {})
+    updates = payload.model_dump(exclude_none=True)
+    current_prefs.update(updates)
+    current_user.notification_prefs = current_prefs
+    db.commit()
+    db.refresh(current_user)
+    return current_user
 
 
 # Admin: user management

@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments } from '@/lib/api';
+import { updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, updateNotificationPrefs } from '@/lib/api';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
-    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History,
+    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 
@@ -237,6 +237,10 @@ export default function ProfileClient() {
     const [removingFavId, setRemovingFavId] = useState<number | null>(null);
     const [appointments, setAppointments] = useState<any[]>([]);
     const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
+    const [orders, setOrders] = useState<any[]>([]);
+    const [showNotifPrefs, setShowNotifPrefs] = useState(false);
+    const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({ lead_status: true, appointment_reminder: true, system: true, promotions: true });
+    const [notifSaving, setNotifSaving] = useState(false);
     const [showCalculator, setShowCalculator] = useState(false);
     const [showPasswordForm, setShowPasswordForm] = useState(false);
     const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
@@ -263,11 +267,16 @@ export default function ProfileClient() {
         getMyActivity(token).then(setActivity).finally(() => setActivityLoading(false));
         getFavorites(token).then(setFavorites).catch(() => {});
         getMyAppointments(token).then(setAppointments).catch(() => {});
+        getMyOrders(token).then(setOrders).catch(() => {});
         try {
             const raw = localStorage.getItem('tivuta_recent_v2');
             if (raw) setRecentlyViewed(JSON.parse(raw));
         } catch { /* ignore */ }
     }, [token]);
+
+    useEffect(() => {
+        if (user?.notification_prefs) setNotifPrefs({ lead_status: true, appointment_reminder: true, system: true, promotions: true, ...user.notification_prefs });
+    }, [user]);
 
     const handleRemoveFav = async (productId: number) => {
         if (!token) return;
@@ -673,6 +682,40 @@ export default function ProfileClient() {
                     </div>
                 )}
 
+                {/* ── My Orders ── */}
+                {orders.length > 0 && (
+                    <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">
+                        <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
+                            <ShoppingBag size={14} className="text-[#d4af37]" />
+                            {locale === 'he' ? 'ההזמנות שלי' : locale === 'fr' ? 'Mes commandes' : 'My Orders'}
+                        </h2>
+                        <div className="space-y-2">
+                            {orders.map((order: any) => (
+                                <div key={order.id} className="bg-[#111a2f] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-[#f0e6d3] truncate">{order.title_he}</p>
+                                        <p className="text-xs text-[#f0e6d3]/40 mt-0.5">
+                                            {new Date(order.date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                        </p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <p className="text-sm font-black text-[#d4af37]">₪{order.amount.toLocaleString()}</p>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                            order.status === 'completed' ? 'bg-green-400/10 text-green-400' :
+                                            order.status === 'pending' ? 'bg-yellow-400/10 text-yellow-400' :
+                                            'bg-red-400/10 text-red-400'
+                                        }`}>
+                                            {order.status === 'completed' ? (locale === 'he' ? 'הושלם' : 'Completed') :
+                                             order.status === 'pending' ? (locale === 'he' ? 'ממתין' : 'Pending') :
+                                             (locale === 'he' ? 'בוטל' : 'Cancelled')}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* ── Recently Viewed ── */}
                 {recentlyViewed.length > 0 && (
                     <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">
@@ -749,6 +792,53 @@ export default function ProfileClient() {
                                 className="w-full py-2.5 rounded-xl font-bold text-sm bg-[#d4af37] text-[#080d1f] hover:bg-[#c9a227] disabled:opacity-50 transition-all"
                             >
                                 {pwState === 'saving' ? '...' : locale === 'he' ? 'שמור סיסמה חדשה' : 'Save new password'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* ── Notification preferences ── */}
+                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                    <button
+                        onClick={() => setShowNotifPrefs((v) => !v)}
+                        className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-[#111a2f] transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <Bell size={16} className="text-[#d4af37]/60" />
+                            <span className="text-sm font-bold text-[#f0e6d3]">
+                                {locale === 'he' ? 'העדפות התראות' : locale === 'fr' ? 'Préférences de notifications' : 'Notification Preferences'}
+                            </span>
+                        </div>
+                        <ChevronDown size={16} className={`text-[#f0e6d3]/40 transition-transform ${showNotifPrefs ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showNotifPrefs && (
+                        <div className="px-5 pb-5 space-y-3 border-t border-[#d4af37]/10 pt-4">
+                            {[
+                                { key: 'lead_status', label: locale === 'he' ? 'עדכוני סטטוס פנייה' : 'Lead status updates' },
+                                { key: 'appointment_reminder', label: locale === 'he' ? 'תזכורות פגישה' : 'Appointment reminders' },
+                                { key: 'system', label: locale === 'he' ? 'הודעות מערכת' : 'System messages' },
+                                { key: 'promotions', label: locale === 'he' ? 'מבצעים והטבות' : 'Promotions & offers' },
+                            ].map(({ key, label }) => (
+                                <label key={key} className="flex items-center justify-between gap-3 cursor-pointer">
+                                    <span className="text-sm text-[#f0e6d3]/80">{label}</span>
+                                    <div
+                                        onClick={() => setNotifPrefs((p) => ({ ...p, [key]: !p[key] }))}
+                                        className={`relative w-10 h-5 rounded-full transition-colors ${notifPrefs[key] ? 'bg-[#d4af37]' : 'bg-[#111a2f]'}`}
+                                    >
+                                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${notifPrefs[key] ? 'right-0.5' : 'left-0.5'}`} />
+                                    </div>
+                                </label>
+                            ))}
+                            <button
+                                onClick={async () => {
+                                    if (!token) return;
+                                    setNotifSaving(true);
+                                    try { await updateNotificationPrefs(token, notifPrefs); } finally { setNotifSaving(false); }
+                                }}
+                                disabled={notifSaving}
+                                className="w-full py-2.5 rounded-xl font-bold text-sm bg-[#d4af37] text-[#080d1f] hover:bg-[#c9a227] disabled:opacity-50 transition-all"
+                            >
+                                {notifSaving ? '...' : locale === 'he' ? 'שמור העדפות' : 'Save preferences'}
                             </button>
                         </div>
                     )}

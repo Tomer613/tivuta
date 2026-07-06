@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminListLeads, adminUpdateLeadStatus, adminUpdateLeadNotes, adminAssignLead, adminSendAppointmentReminder, adminGetAdminUsers, adminBulkLeadAction } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Check, X, LayoutList, CalendarRange, Bell, History, Square, CheckSquare } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Check, X, LayoutList, CalendarRange, Bell, History, Square, CheckSquare, Kanban } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
@@ -98,6 +98,65 @@ function CalendarView({ leads, onSendReminder, sendingIds }: { leads: any[]; onS
     );
 }
 
+function KanbanView({ leads, onStatusChange, updatingId }: { leads: any[]; onStatusChange: (lead: any, status: string) => void; updatingId: number | null }) {
+    const [dragging, setDragging] = useState<number | null>(null);
+
+    const handleDrop = (status: string) => {
+        if (dragging === null) return;
+        const lead = leads.find((l) => l.id === dragging);
+        if (lead && lead.status !== status) onStatusChange(lead, status);
+        setDragging(null);
+    };
+
+    return (
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            {STATUSES.map((col) => {
+                const colLeads = leads.filter((l) => l.status === col.value);
+                return (
+                    <div
+                        key={col.value}
+                        className="bg-[#0e1628] border border-[#d4af37]/15 rounded-2xl flex flex-col min-h-[300px]"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => handleDrop(col.value)}
+                    >
+                        <div className={`px-4 py-3 rounded-t-2xl flex items-center justify-between ${col.color} bg-opacity-10 border-b border-[#d4af37]/10`}>
+                            <span className="text-xs font-black uppercase tracking-wider">{col.label}</span>
+                            <span className="text-xs font-bold bg-[#111a2f] px-2 py-0.5 rounded-full text-[#f0e6d3]/60">{colLeads.length}</span>
+                        </div>
+                        <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[600px]">
+                            {colLeads.map((lead) => {
+                                const sla = lead.status === 'new' && (Date.now() - new Date(lead.created_at).getTime()) > 86_400_000;
+                                return (
+                                    <div
+                                        key={lead.id}
+                                        draggable
+                                        onDragStart={() => setDragging(lead.id)}
+                                        onDragEnd={() => setDragging(null)}
+                                        className={`bg-[#111a2f] rounded-xl p-3 cursor-grab active:cursor-grabbing border transition-all ${
+                                            dragging === lead.id ? 'opacity-50 scale-95' : ''
+                                        } ${sla ? 'border-red-500/40' : 'border-transparent hover:border-[#d4af37]/20'}`}
+                                    >
+                                        {sla && <div className="text-[9px] text-red-400 font-bold mb-1.5 flex items-center gap-1">⏰ ממתין מעל 24 שעות</div>}
+                                        <p className="text-sm font-bold text-[#f0e6d3] truncate">{lead.user_name || '—'}</p>
+                                        <p className="text-xs text-[#f0e6d3]/40 truncate">{lead.product_title_he || '—'}</p>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            {lead.product_vertical && <VerticalIcon v={lead.product_vertical} />}
+                                            <span className="text-[10px] text-[#f0e6d3]/30">
+                                                {new Date(lead.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        {updatingId === lead.id && <Loader2 size={10} className="animate-spin text-[#d4af37] mt-1" />}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 export default function AdminLeadsPage() {
     const { token } = useAuth();
     const params = useParams();
@@ -115,7 +174,7 @@ export default function AdminLeadsPage() {
     const [noteValue, setNoteValue] = useState('');
     const [savingNoteId, setSavingNoteId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-    const [view, setView] = useState<'table' | 'calendar'>('table');
+    const [view, setView] = useState<'table' | 'calendar' | 'kanban'>('table');
     const [adminUsers, setAdminUsers] = useState<{ id: number; first_name: string; last_name: string }[]>([]);
     const [sendingReminderId, setSendingReminderIds] = useState<Set<number>>(new Set());
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -291,6 +350,9 @@ export default function AdminLeadsPage() {
                         <button onClick={() => setView('calendar')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-colors ${view === 'calendar' ? 'bg-[#d4af37]/15 text-[#d4af37]' : 'text-[#f0e6d3]/40 hover:text-[#f0e6d3]/70'}`}>
                             <CalendarRange size={13} /> לוח שנה
                         </button>
+                        <button onClick={() => setView('kanban')} className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold transition-colors ${view === 'kanban' ? 'bg-[#d4af37]/15 text-[#d4af37]' : 'text-[#f0e6d3]/40 hover:text-[#f0e6d3]/70'}`}>
+                            <Kanban size={13} /> קנבן
+                        </button>
                     </div>
                 </div>
                 <button onClick={exportCsv} disabled={filtered.length === 0} className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/30 text-[#d4af37] rounded-xl px-4 py-2 text-sm font-bold hover:bg-[#111a2f] disabled:opacity-40 transition-colors">
@@ -358,6 +420,8 @@ export default function AdminLeadsPage() {
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={32} />
             ) : view === 'calendar' ? (
                 <CalendarView leads={leads.filter((l) => l.lead_type === 'appointment' && l.scheduled_at)} onSendReminder={handleSendReminder} sendingIds={sendingReminderId} />
+            ) : view === 'kanban' ? (
+                <KanbanView leads={filtered} onStatusChange={handleStatusChange} updatingId={updatingId} />
             ) : (
                 <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
                     <table className="w-full text-start">
@@ -388,9 +452,10 @@ export default function AdminLeadsPage() {
                                 const si = statusInfo(lead.status);
                                 const isSelected = selectedIds.has(lead.id);
                                 const historyExpanded = expandedHistoryId === lead.id;
+                                const isSlaBreached = lead.status === 'new' && (Date.now() - new Date(lead.created_at).getTime()) > 86_400_000;
                                 return (
                                     <Fragment key={lead.id}>
-                                    <tr className={`border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/50 transition-colors ${isSelected ? 'bg-[#d4af37]/5' : ''}`}>
+                                    <tr className={`border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/50 transition-colors ${isSelected ? 'bg-[#d4af37]/5' : ''} ${isSlaBreached ? 'border-l-2 border-l-red-500/60' : ''}`}>
                                         {/* Checkbox */}
                                         <td className="p-4">
                                             <button onClick={() => toggleSelect(lead.id)} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
