@@ -107,3 +107,13 @@ def admin_set_survey_active(survey_id: int, is_active: bool, db: Session = Depen
     db.commit()
     db.refresh(survey)
     return _serialize_survey(survey, db)
+
+
+@router.delete("/admin/surveys/{survey_id}", dependencies=[Depends(get_current_admin)])
+def admin_delete_survey(survey_id: int, db: Session = Depends(get_db)):
+    survey = db.query(models.Survey).filter(models.Survey.id == survey_id).first()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+    db.delete(survey)
+    db.commit()
+    return {"message": "deleted"}

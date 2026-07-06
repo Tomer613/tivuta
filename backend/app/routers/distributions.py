@@ -273,3 +273,15 @@ def admin_send_distribution(distribution_id: int, background_tasks: BackgroundTa
         raise HTTPException(status_code=400, detail="ניתן לשלוח רק הפצות במצב טיוטה")
     background_tasks.add_task(_send_distribution, distribution_id)
     return {"message": "Distribution send started"}
+
+
+@router.delete("/admin/distributions/{distribution_id}", dependencies=[Depends(get_current_admin)])
+def admin_delete_distribution(distribution_id: int, db: Session = Depends(get_db)):
+    distribution = db.query(models.Distribution).filter(models.Distribution.id == distribution_id).first()
+    if not distribution:
+        raise HTTPException(status_code=404, detail="Distribution not found")
+    if distribution.status != "draft":
+        raise HTTPException(status_code=400, detail="ניתן למחוק רק טיוטות")
+    db.delete(distribution)
+    db.commit()
+    return {"message": "deleted"}

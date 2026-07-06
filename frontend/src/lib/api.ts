@@ -447,6 +447,27 @@ export async function adminRemoveProductFromPromotion(token: string, promotionId
     return res.json();
 }
 
+export async function adminDeleteSurvey(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/surveys/${id}`, { method: 'DELETE', headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to delete survey');
+    return res.json();
+}
+
+export async function adminDeleteDistribution(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/distributions/${id}`, { method: 'DELETE', headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to delete distribution');
+    return res.json();
+}
+
+export async function adminUpdateLeadStatus(token: string, leadId: number, status: string) {
+    const res = await fetch(`${BASE_URL}/admin/leads/${leadId}/status?status=${status}`, {
+        method: 'PATCH',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to update lead status');
+    return res.json();
+}
+
 export async function adminDrawPromotion(token: string, promotionId: number) {
     const res = await fetch(`${BASE_URL}/admin/promotions/${promotionId}/draw`, {
         method: 'POST',

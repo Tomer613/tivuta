@@ -6,10 +6,11 @@ import {
     adminListDistributions,
     adminCreateDistribution,
     adminSendDistribution,
+    adminDeleteDistribution,
     adminListSurveys,
     adminListProducts,
 } from '@/lib/api';
-import { Plus, Loader2, X, Send, Mail, MessageCircle, Eye, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Loader2, X, Send, Mail, MessageCircle, RefreshCw, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -35,6 +36,7 @@ export default function AdminDistributionPage() {
     const [showPreview, setShowPreview] = useState(false);
     const [sendingId, setSendingId] = useState<number | null>(null);
     const [confirmSendId, setConfirmSendId] = useState<number | null>(null);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -133,6 +135,18 @@ export default function AdminDistributionPage() {
         }
     };
 
+    const handleDelete = async (id: number) => {
+        if (!token) return;
+        try {
+            await adminDeleteDistribution(token, id);
+            setDeletingId(null);
+            showToast('הטיוטה נמחקה');
+            load();
+        } catch {
+            showToast('שגיאה במחיקה', 'error');
+        }
+    };
+
     const selectedSurvey = surveys.find((s) => s.id === Number(form.survey_id));
     const surveyUrl = selectedSurvey ? `https://tivuta.co.il/he/survey/${selectedSurvey.id}` : null;
 
@@ -218,21 +232,34 @@ export default function AdminDistributionPage() {
                                     </td>
                                     <td className="p-4">
                                         {d.status === 'draft' && (
-                                            confirmSendId === d.id ? (
-                                                <div className="flex items-center gap-2 text-xs">
-                                                    <span className="text-[#f0e6d3]/60">שלח לכולם?</span>
-                                                    <button onClick={() => handleSend(d.id)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
-                                                    <button onClick={() => setConfirmSendId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => setConfirmSendId(d.id)}
-                                                    disabled={sendingId === d.id}
-                                                    className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
-                                                >
-                                                    <Send size={14} /> שלח
-                                                </button>
-                                            )
+                                            <div className="flex items-center gap-3">
+                                                {confirmSendId === d.id ? (
+                                                    <div className="flex items-center gap-2 text-xs">
+                                                        <span className="text-[#f0e6d3]/60">שלח לכולם?</span>
+                                                        <button onClick={() => handleSend(d.id)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
+                                                        <button onClick={() => setConfirmSendId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => setConfirmSendId(d.id)}
+                                                        disabled={sendingId === d.id}
+                                                        className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
+                                                    >
+                                                        <Send size={14} /> שלח
+                                                    </button>
+                                                )}
+                                                {deletingId === d.id ? (
+                                                    <div className="flex items-center gap-1 text-xs">
+                                                        <button onClick={() => handleDelete(d.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
+                                                        <span className="text-[#f0e6d3]/30">/</span>
+                                                        <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => setDeletingId(d.id)} className="text-red-400/40 hover:text-red-400 transition-colors" title="מחק טיוטה">
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
                                     </td>
                                 </tr>

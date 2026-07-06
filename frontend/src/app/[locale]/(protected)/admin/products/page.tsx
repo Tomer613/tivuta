@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct } from '@/lib/api';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search } from 'lucide-react';
 
 const VERTICALS = [
     { value: 'diamonds', label: 'יהלומים' },
@@ -32,6 +32,8 @@ export default function AdminProductsPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterVertical, setFilterVertical] = useState('');
+    const [search, setSearch] = useState('');
+    const [togglingId, setTogglingId] = useState<number | null>(null);
     const [sortKey, setSortKey] = useState<'title_he' | 'price' | 'vertical'>('vertical');
     const [showForm, setShowForm] = useState(false);
     const [editProduct, setEditProduct] = useState<any | null>(null);
@@ -55,12 +57,30 @@ export default function AdminProductsPage() {
 
     const filtered = useMemo(() => {
         let list = filterVertical ? products.filter((p) => p.vertical === filterVertical) : products;
+        if (search) {
+            const q = search.toLowerCase();
+            list = list.filter((p) => p.title_he?.toLowerCase().includes(q) || p.description_he?.toLowerCase().includes(q));
+        }
         list = [...list].sort((a, b) => {
             if (sortKey === 'price') return (a.price || 0) - (b.price || 0);
             return String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''));
         });
         return list;
-    }, [products, filterVertical, sortKey]);
+    }, [products, filterVertical, search, sortKey]);
+
+    const handleToggleActive = async (p: any) => {
+        if (!token) return;
+        setTogglingId(p.id);
+        try {
+            await adminUpdateProduct(token, p.id, { is_active: !p.is_active });
+            setProducts((prev) => prev.map((x) => x.id === p.id ? { ...x, is_active: !p.is_active } : x));
+            showToast(p.is_active ? 'המוצר הוסתר' : 'המוצר הוצג ✓');
+        } catch {
+            showToast('שגיאה בעדכון', 'error');
+        } finally {
+            setTogglingId(null);
+        }
+    };
 
     const openEditForm = (p: any) => {
         setEditProduct(p);
@@ -144,6 +164,15 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 mb-6">
+                <div className="relative">
+                    <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#f0e6d3]/30" />
+                    <input
+                        placeholder="חיפוש מוצר..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl pr-9 pl-4 py-2 text-sm text-[#f0e6d3] w-52"
+                    />
+                </div>
                 <select value={filterVertical} onChange={(e) => setFilterVertical(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל העולמות</option>
                     {VERTICALS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
@@ -187,9 +216,15 @@ export default function AdminProductsPage() {
                                     <td className="p-4 font-semibold">{p.title_he}</td>
                                     <td className="p-4 text-sm">{p.price ? `₪${Number(p.price).toLocaleString()}` : '-'}</td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${p.is_active ? 'bg-green-500/20 text-green-400' : 'bg-[#111a2f] text-[#f0e6d3]/40'}`}>
+                                        <button
+                                            onClick={() => handleToggleActive(p)}
+                                            disabled={togglingId === p.id}
+                                            title={p.is_active ? 'הסתר מוצר' : 'הצג מוצר'}
+                                            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold transition-colors ${p.is_active ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-[#111a2f] text-[#f0e6d3]/40 hover:bg-[#1a2540]'}`}
+                                        >
+                                            {togglingId === p.id ? <Loader2 size={12} className="animate-spin" /> : p.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
                                             {p.is_active ? 'פעיל' : 'מוסתר'}
-                                        </span>
+                                        </button>
                                     </td>
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">

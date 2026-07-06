@@ -2,8 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateSurvey, adminListSurveys, adminSetSurveyActive } from '@/lib/api';
-import { Plus, Loader2, X, ToggleLeft, ToggleRight } from 'lucide-react';
+import { adminListProducts, adminCreateSurvey, adminListSurveys, adminSetSurveyActive, adminDeleteSurvey } from '@/lib/api';
+import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+    useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+    return (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold whitespace-nowrap ${
+            type === 'success' ? 'bg-[#0e1628] border border-green-500/50 text-green-400' : 'bg-[#0e1628] border border-red-500/50 text-red-400'
+        }`}>
+            {type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            {message}
+        </div>
+    );
+}
 
 export default function AdminSurveysPage() {
     const { token } = useAuth();
@@ -13,6 +25,10 @@ export default function AdminSurveysPage() {
     const [showForm, setShowForm] = useState(false);
     const [question, setQuestion] = useState('');
     const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
     const load = () => {
         if (!token) return;
@@ -27,20 +43,39 @@ export default function AdminSurveysPage() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token || selectedProductIds.length < 2) return;
-        await adminCreateSurvey(token, {
-            question_he: question,
-            options: selectedProductIds.map((id) => ({ product_id: id })),
-        });
-        setQuestion('');
-        setSelectedProductIds([]);
-        setShowForm(false);
-        load();
+        try {
+            await adminCreateSurvey(token, {
+                question_he: question,
+                options: selectedProductIds.map((id) => ({ product_id: id })),
+            });
+            setQuestion('');
+            setSelectedProductIds([]);
+            setShowForm(false);
+            showToast('הסקר נוצר בהצלחה ✓');
+            load();
+        } catch {
+            showToast('שגיאה ביצירת סקר', 'error');
+        }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!token) return;
+        try {
+            await adminDeleteSurvey(token, id);
+            setDeletingId(null);
+            showToast('הסקר נמחק');
+            load();
+        } catch {
+            showToast('שגיאה במחיקה', 'error');
+        }
     };
 
     const productTitle = (id: number) => products.find((p) => p.id === id)?.title_he || `#${id}`;
 
     return (
         <div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <h1 className="text-3xl font-black text-[#f0e6d3]">סקרים</h1>
                 <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 !text-sm">
@@ -58,17 +93,30 @@ export default function AdminSurveysPage() {
                             <div key={s.id} className={`bg-[#0e1628] border rounded-3xl p-6 ${s.is_active ? 'border-[#d4af37]/20' : 'border-red-500/20 opacity-60'}`}>
                                 <div className="flex items-start justify-between mb-5 gap-4">
                                     <h2 className="text-xl font-bold text-[#f0e6d3]">{s.question_he}</h2>
-                                    <button
-                                        onClick={async () => {
-                                            if (!token) return;
-                                            await adminSetSurveyActive(token, s.id, !s.is_active);
-                                            load();
-                                        }}
-                                        className={`flex items-center gap-1.5 text-sm font-bold flex-shrink-0 ${s.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
-                                    >
-                                        {s.is_active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                                        {s.is_active ? 'השבת' : 'הפעל'}
-                                    </button>
+                                    <div className="flex items-center gap-3 flex-shrink-0">
+                                        <button
+                                            onClick={async () => {
+                                                if (!token) return;
+                                                await adminSetSurveyActive(token, s.id, !s.is_active);
+                                                load();
+                                            }}
+                                            className={`flex items-center gap-1.5 text-sm font-bold ${s.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
+                                        >
+                                            {s.is_active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                                            {s.is_active ? 'השבת' : 'הפעל'}
+                                        </button>
+                                        {deletingId === s.id ? (
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-[#f0e6d3]/50">בטוח?</span>
+                                                <button onClick={() => handleDelete(s.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
+                                                <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setDeletingId(s.id)} className="text-red-400/40 hover:text-red-400 transition-colors" title="מחק סקר">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex flex-col gap-3">
                                     {s.options.map((opt: any) => {

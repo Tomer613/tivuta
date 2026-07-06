@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Package, Users, BarChart3, Send, Tag, ExternalLink } from 'lucide-react';
+import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 
 interface T {
@@ -11,13 +11,14 @@ interface T {
     surveys: string;
     distribution: string;
     promotions: string;
+    leads: string;
 }
 
 const translations: Record<string, T> = {
-    he: { products: 'מוצרים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים' },
-    en: { products: 'Products', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions' },
-    fr: { products: 'Produits', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions' },
-    yi: { products: 'פראדוקטן', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים' },
+    he: { products: 'מוצרים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', leads: 'פניות' },
+    en: { products: 'Products', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', leads: 'Leads' },
+    fr: { products: 'Produits', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', leads: 'Contacts' },
+    yi: { products: 'פראדוקטן', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', leads: 'פנייות' },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -32,6 +33,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: `/${locale}/admin/surveys`, label: t.surveys, icon: <BarChart3 size={18} /> },
         { href: `/${locale}/admin/distribution`, label: t.distribution, icon: <Send size={18} /> },
         { href: `/${locale}/admin/promotions`, label: t.promotions, icon: <Tag size={18} /> },
+        { href: `/${locale}/admin/leads`, label: t.leads, icon: <Inbox size={18} /> },
     ];
 
     return (

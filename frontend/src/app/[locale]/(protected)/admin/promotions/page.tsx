@@ -13,7 +13,7 @@ import {
     adminRemoveProductFromPromotion,
     adminDrawPromotion,
 } from '@/lib/api';
-import { Plus, X, Loader2, Tag, Users, Shuffle, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, X, Loader2, Tag, Users, Shuffle, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -92,6 +92,7 @@ export default function AdminPromotionsPage() {
     const [drawingId, setDrawingId] = useState<number | null>(null);
     const [drawResult, setDrawResult] = useState<Record<number, string>>({});
     const [drawError, setDrawError] = useState<string | null>(null);
+    const [editPromo, setEditPromo] = useState<any | null>(null);
     const [confirmToggleId, setConfirmToggleId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -138,24 +139,47 @@ export default function AdminPromotionsPage() {
         setConfirmToggleId(null);
     };
 
+    const openEditForm = (promo: any) => {
+        setEditPromo(promo);
+        setForm({
+            name_he: promo.name_he,
+            type: promo.type,
+            channel: promo.channel,
+            end_date: promo.end_date ? promo.end_date.split('T')[0] : '',
+            config: { ...promo.config },
+        });
+        setShowForm(true);
+    };
+
+    const closeForm = () => {
+        setShowForm(false);
+        setEditPromo(null);
+        setForm({ name_he: '', type: 'first_n', channel: 'both', end_date: '', config: emptyConfig('first_n') });
+    };
+
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
+        const payload = {
+            name_he: form.name_he,
+            type: form.type,
+            channel: form.channel,
+            config: form.config,
+            end_date: form.end_date || null,
+            is_active: true,
+        };
         try {
-            await adminCreatePromotion(token, {
-                name_he: form.name_he,
-                type: form.type,
-                channel: form.channel,
-                config: form.config,
-                end_date: form.end_date || null,
-                is_active: true,
-            });
-            showToast('המבצע נוצר בהצלחה ✓');
-            setShowForm(false);
-            setForm({ name_he: '', type: 'first_n', channel: 'both', end_date: '', config: emptyConfig('first_n') });
+            if (editPromo) {
+                await adminUpdatePromotion(token, editPromo.id, payload);
+                showToast('המבצע עודכן בהצלחה ✓');
+            } else {
+                await adminCreatePromotion(token, payload);
+                showToast('המבצע נוצר בהצלחה ✓');
+            }
+            closeForm();
             load();
         } catch {
-            showToast('שגיאה ביצירת המבצע', 'error');
+            showToast(editPromo ? 'שגיאה בעדכון המבצע' : 'שגיאה ביצירת המבצע', 'error');
         }
     };
 
@@ -227,7 +251,7 @@ export default function AdminPromotionsPage() {
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <h1 className="text-3xl font-black text-[#f0e6d3]">מבצעים</h1>
-                <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 !text-sm">
+                <button onClick={() => { setEditPromo(null); setShowForm(true); }} className="btn-primary flex items-center gap-2 !text-sm">
                     <Plus size={16} /> צור מבצע
                 </button>
             </div>
@@ -281,7 +305,14 @@ export default function AdminPromotionsPage() {
                                     </td>
                                     <td className="p-4">{formatDate(promo.end_date)}</td>
                                     <td className="p-4">
-                                        <div className="flex flex-wrap items-center gap-3">
+                                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button
+                                                onClick={() => openEditForm(promo)}
+                                                className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors"
+                                                title="עריכה"
+                                            >
+                                                <Pencil size={15} />
+                                            </button>
                                             <button
                                                 onClick={() => openAssign(promo)}
                                                 className="flex items-center gap-1 text-[#d4af37] hover:text-[#f0c94a] text-sm font-semibold"
@@ -334,11 +365,13 @@ export default function AdminPromotionsPage() {
 
             {/* Create Promotion Modal */}
             {showForm && (
-                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={() => setShowForm(false)}>
+                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={closeForm}>
                     <form onSubmit={handleCreate} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-2">
-                            <h2 className="text-xl font-black text-[#f0e6d3] flex items-center gap-2"><Tag size={20} /> צור מבצע</h2>
-                            <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
+                            <h2 className="text-xl font-black text-[#f0e6d3] flex items-center gap-2">
+                                <Tag size={20} /> {editPromo ? 'עריכת מבצע' : 'צור מבצע'}
+                            </h2>
+                            <button type="button" onClick={closeForm}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
 
                         <div>
@@ -417,7 +450,7 @@ export default function AdminPromotionsPage() {
                             />
                         </div>
 
-                        <button type="submit" className="btn-primary w-full">שמור מבצע</button>
+                        <button type="submit" className="btn-primary w-full">{editPromo ? 'שמור שינויים' : 'שמור מבצע'}</button>
                     </form>
                 </div>
             )}

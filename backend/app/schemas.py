@@ -236,6 +236,24 @@ class LeadRead(BaseModel):
     class Config:
         from_attributes = True
 
+class AdminLeadRead(BaseModel):
+    id: int
+    lead_type: str
+    scheduled_at: Optional[datetime] = None
+    status: str
+    channel: str
+    created_at: datetime
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    user_phone: Optional[str] = None
+    product_id: Optional[int] = None
+    product_title_he: Optional[str] = None
+    product_vertical: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 class LeadHistoryRead(BaseModel):
     id: int
     lead_type: str

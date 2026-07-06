@@ -92,6 +92,45 @@ def my_activity(db: Session = Depends(get_db), current_user: models.User = Depen
     return result
 
 
-@router.get("/admin/leads", response_model=List[schemas.LeadRead], dependencies=[Depends(get_current_admin)])
+@router.get("/admin/leads", response_model=List[schemas.AdminLeadRead], dependencies=[Depends(get_current_admin)])
 def admin_list_leads(db: Session = Depends(get_db)):
-    return db.query(models.Lead).order_by(models.Lead.created_at.desc()).all()
+    leads = (
+        db.query(models.Lead)
+        .options(selectinload(models.Lead.product), selectinload(models.Lead.user))
+        .order_by(models.Lead.created_at.desc())
+        .all()
+    )
+    result = []
+    for lead in leads:
+        user = lead.user
+        product = lead.product
+        result.append(schemas.AdminLeadRead(
+            id=lead.id,
+            lead_type=lead.lead_type,
+            scheduled_at=lead.scheduled_at,
+            status=lead.status,
+            channel=lead.channel,
+            created_at=lead.created_at,
+            user_id=lead.user_id,
+            user_name=f"{user.first_name} {user.last_name}".strip() if user else None,
+            user_email=user.email if user else None,
+            user_phone=user.phone if user else None,
+            product_id=lead.product_id,
+            product_title_he=product.title_he if product else None,
+            product_vertical=product.vertical if product else None,
+        ))
+    return result
+
+
+@router.patch("/admin/leads/{lead_id}/status", response_model=schemas.LeadRead, dependencies=[Depends(get_current_admin)])
+def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(get_db)):
+    valid = {"new", "confirmed", "contacted", "closed"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Status must be one of {valid}")
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead.status = status
+    db.commit()
+    db.refresh(lead)
+    return lead
