@@ -7,6 +7,7 @@ import {
     adminCreateDistribution,
     adminSendDistribution,
     adminDeleteDistribution,
+    adminGetMemberCount,
     adminListSurveys,
     adminListProducts,
 } from '@/lib/api';
@@ -37,6 +38,7 @@ export default function AdminDistributionPage() {
     const [sendingId, setSendingId] = useState<number | null>(null);
     const [confirmSendId, setConfirmSendId] = useState<number | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [memberCount, setMemberCount] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -55,14 +57,16 @@ export default function AdminDistributionPage() {
         if (!token) return;
         setLoading(true);
         try {
-            const [d, s, p] = await Promise.all([
+            const [d, s, p, count] = await Promise.all([
                 adminListDistributions(token),
                 adminListSurveys(token),
                 adminListProducts(token),
+                adminGetMemberCount(token),
             ]);
             setDistributions(d);
             setSurveys(s);
             setProducts(p);
+            setMemberCount(count);
         } finally {
             setLoading(false);
         }
@@ -235,7 +239,9 @@ export default function AdminDistributionPage() {
                                             <div className="flex items-center gap-3">
                                                 {confirmSendId === d.id ? (
                                                     <div className="flex items-center gap-2 text-xs">
-                                                        <span className="text-[#f0e6d3]/60">שלח לכולם?</span>
+                                                        <span className="text-[#f0e6d3]/60">
+                                                            שלח ל-{memberCount !== null ? memberCount : '...'} חברים?
+                                                        </span>
                                                         <button onClick={() => handleSend(d.id)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
                                                         <button onClick={() => setConfirmSendId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
                                                     </div>

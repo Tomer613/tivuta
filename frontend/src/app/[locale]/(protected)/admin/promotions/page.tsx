@@ -7,13 +7,14 @@ import {
     adminCreatePromotion,
     adminUpdatePromotion,
     adminDeactivatePromotion,
+    adminDeletePromotion,
     adminListProducts,
     adminGetPromotionProducts,
     adminAssignProducts,
     adminRemoveProductFromPromotion,
     adminDrawPromotion,
 } from '@/lib/api';
-import { Plus, X, Loader2, Tag, Users, Shuffle, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
+import { Plus, X, Loader2, Tag, Users, Shuffle, CheckCircle2, AlertCircle, Pencil, Trash2, Package } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -93,6 +94,7 @@ export default function AdminPromotionsPage() {
     const [drawResult, setDrawResult] = useState<Record<number, string>>({});
     const [drawError, setDrawError] = useState<string | null>(null);
     const [editPromo, setEditPromo] = useState<any | null>(null);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
     const [confirmToggleId, setConfirmToggleId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -183,6 +185,18 @@ export default function AdminPromotionsPage() {
         }
     };
 
+    const handleDelete = async (id: number) => {
+        if (!token) return;
+        try {
+            await adminDeletePromotion(token, id);
+            setDeletingId(null);
+            showToast('המבצע נמחק');
+            load();
+        } catch {
+            showToast('שגיאה במחיקה', 'error');
+        }
+    };
+
     const openAssign = async (promo: any) => {
         if (!token) return;
         setAssignPromo(promo);
@@ -266,6 +280,7 @@ export default function AdminPromotionsPage() {
                                 <th className="p-4 text-start">שם מבצע</th>
                                 <th className="p-4 text-start">סוג</th>
                                 <th className="p-4 text-start">ערוץ</th>
+                                <th className="p-4 text-start">מוצרים</th>
                                 <th className="p-4 text-start">משתתפים</th>
                                 <th className="p-4 text-start">סטטוס</th>
                                 <th className="p-4 text-start">תאריך סיום</th>
@@ -275,7 +290,7 @@ export default function AdminPromotionsPage() {
                         <tbody>
                             {promotions.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין מבצעים עדיין</td>
+                                    <td colSpan={8} className="p-8 text-center text-[#f0e6d3]/40">אין מבצעים עדיין</td>
                                 </tr>
                             )}
                             {promotions.map((promo) => (
@@ -285,6 +300,12 @@ export default function AdminPromotionsPage() {
                                         <span className="text-sm">{TYPE_LABELS[promo.type] ?? promo.type}</span>
                                     </td>
                                     <td className="p-4">{CHANNEL_LABELS[promo.channel] ?? promo.channel}</td>
+                                    <td className="p-4">
+                                        <span className={`flex items-center gap-1 text-sm font-bold ${promo.product_count > 0 ? 'text-[#d4af37]' : 'text-[#f0e6d3]/25'}`}>
+                                            <Package size={13} />
+                                            {promo.product_count ?? 0}
+                                        </span>
+                                    </td>
                                     <td className="p-4">
                                         {(promo.type === 'raffle' || promo.type === 'first_n') ? (
                                             <div className="flex items-center gap-1.5">
@@ -346,6 +367,17 @@ export default function AdminPromotionsPage() {
                                                         בצע הגרלה
                                                     </button>
                                                 )
+                                            )}
+                                            {deletingId === promo.id ? (
+                                                <div className="flex items-center gap-1 text-xs">
+                                                    <span className="text-[#f0e6d3]/50">בטוח?</span>
+                                                    <button onClick={() => handleDelete(promo.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
+                                                    <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => setDeletingId(promo.id)} className="text-red-400/30 hover:text-red-400 transition-colors" title="מחק מבצע">
+                                                    <Trash2 size={14} />
+                                                </button>
                                             )}
                                         </div>
                                     </td>

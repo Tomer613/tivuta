@@ -97,3 +97,21 @@ def admin_set_user_role(user_id: int, payload: schemas.UserRoleUpdate, db: Sessi
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.delete("/admin/users/{user_id}", dependencies=[Depends(get_current_admin)])
+def admin_delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "admin":
+        raise HTTPException(status_code=400, detail="Cannot delete admin users")
+    db.delete(user)
+    db.commit()
+    return {"message": "deleted"}
+
+
+@router.get("/admin/users/member-count", dependencies=[Depends(get_current_admin)])
+def admin_member_count(db: Session = Depends(get_db)):
+    count = db.query(models.User).filter(models.User.role == "member").count()
+    return {"count": count}

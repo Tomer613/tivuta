@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListLeads, adminUpdateLeadStatus } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 const STATUSES = [
     { value: 'new',       label: 'חדשה',    color: 'bg-blue-500/20 text-blue-400' },
@@ -41,6 +41,8 @@ export default function AdminLeadsPage() {
     const [filterVertical, setFilterVertical] = useState('');
     const [search, setSearch] = useState('');
     const [updatingId, setUpdatingId] = useState<number | null>(null);
+    const [sortKey, setSortKey] = useState<'created_at' | 'scheduled_at'>('created_at');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
@@ -54,7 +56,7 @@ export default function AdminLeadsPage() {
     useEffect(load, [token]);
 
     const filtered = useMemo(() => {
-        return leads.filter((l) => {
+        let list = leads.filter((l) => {
             if (filterStatus && l.status !== filterStatus) return false;
             if (filterVertical && l.product_vertical !== filterVertical) return false;
             if (search) {
@@ -64,7 +66,44 @@ export default function AdminLeadsPage() {
             }
             return true;
         });
-    }, [leads, filterStatus, filterVertical, search]);
+        list = [...list].sort((a, b) => {
+            const av = a[sortKey] ? new Date(a[sortKey]).getTime() : 0;
+            const bv = b[sortKey] ? new Date(b[sortKey]).getTime() : 0;
+            return sortDir === 'desc' ? bv - av : av - bv;
+        });
+        return list;
+    }, [leads, filterStatus, filterVertical, search, sortKey, sortDir]);
+
+    const toggleSort = (key: 'created_at' | 'scheduled_at') => {
+        if (sortKey === key) setSortDir((d) => d === 'desc' ? 'asc' : 'desc');
+        else { setSortKey(key); setSortDir('desc'); }
+    };
+
+    const SortIcon = ({ col }: { col: 'created_at' | 'scheduled_at' }) => {
+        if (sortKey !== col) return <ArrowUpDown size={12} className="opacity-30" />;
+        return sortDir === 'desc' ? <ArrowDown size={12} className="text-[#d4af37]" /> : <ArrowUp size={12} className="text-[#d4af37]" />;
+    };
+
+    const exportCsv = () => {
+        const header = ['שם', 'מייל', 'טלפון', 'מוצר', 'עולם', 'סוג', 'סטטוס', 'תאריך פגישה', 'תאריך יצירה'];
+        const rows = filtered.map((l) => [
+            l.user_name ?? '',
+            l.user_email ?? '',
+            l.user_phone ?? '',
+            l.product_title_he ?? '',
+            VERTICAL_LABEL[l.product_vertical] ?? l.product_vertical ?? '',
+            TYPE_LABEL[l.lead_type] ?? l.lead_type,
+            STATUSES.find((s) => s.value === l.status)?.label ?? l.status,
+            l.scheduled_at ? new Date(l.scheduled_at).toLocaleDateString('he-IL') : '',
+            new Date(l.created_at).toLocaleDateString('he-IL'),
+        ]);
+        const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `leads-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click(); URL.revokeObjectURL(url);
+    };
 
     const counts = useMemo(() => {
         const c: Record<string, number> = { new: 0, confirmed: 0, contacted: 0, closed: 0 };
@@ -94,6 +133,9 @@ export default function AdminLeadsPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <h1 className="text-3xl font-black text-[#f0e6d3]">פניות</h1>
+                <button onClick={exportCsv} disabled={filtered.length === 0} className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/30 text-[#d4af37] rounded-xl px-4 py-2 text-sm font-bold hover:bg-[#111a2f] disabled:opacity-40 transition-colors">
+                    <Download size={15} /> ייצוא CSV ({filtered.length})
+                </button>
                 <div className="flex gap-4 flex-wrap">
                     {STATUSES.map((s) => (
                         <div key={s.value} className="text-center">
@@ -134,7 +176,9 @@ export default function AdminLeadsPage() {
                                 <th className="p-4 text-start">פונה</th>
                                 <th className="p-4 text-start">מוצר</th>
                                 <th className="p-4 text-start">סוג</th>
-                                <th className="p-4 text-start">תאריך</th>
+                                <th className="p-4 text-start cursor-pointer select-none hover:text-[#d4af37]" onClick={() => toggleSort('created_at')}>
+                                    <span className="flex items-center gap-1">תאריך <SortIcon col="created_at" /></span>
+                                </th>
                                 <th className="p-4 text-start">סטטוס</th>
                             </tr>
                         </thead>

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListUsers, adminCreateUser, adminSetUserRole } from '@/lib/api';
-import { Plus, Loader2, X, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { adminListUsers, adminCreateUser, adminSetUserRole, adminDeleteUser } from '@/lib/api';
+import { Plus, Loader2, X, ShieldCheck, ShieldOff, Trash2, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -22,9 +22,11 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [filterRole, setFilterRole] = useState('');
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', password: '' });
     const [confirmRoleId, setConfirmRoleId] = useState<number | null>(null);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
@@ -38,10 +40,21 @@ export default function AdminUsersPage() {
     useEffect(load, [token]);
 
     const filtered = useMemo(() => {
-        if (!search) return users;
-        const q = search.toLowerCase();
-        return users.filter((u) => `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(q));
-    }, [users, search]);
+        return users.filter((u) => {
+            if (filterRole && u.role !== filterRole) return false;
+            if (search) {
+                const q = search.toLowerCase();
+                if (!`${u.first_name} ${u.last_name} ${u.email} ${u.phone ?? ''}`.toLowerCase().includes(q)) return false;
+            }
+            return true;
+        });
+    }, [users, search, filterRole]);
+
+    const counts = useMemo(() => ({
+        total: users.length,
+        admin: users.filter((u) => u.role === 'admin').length,
+        member: users.filter((u) => u.role === 'member').length,
+    }), [users]);
 
     const toggleRole = async (u: any) => {
         if (!token) return;
@@ -54,6 +67,18 @@ export default function AdminUsersPage() {
             showToast('שגיאה בשינוי הרשאה', 'error');
         }
         setConfirmRoleId(null);
+    };
+
+    const handleDelete = async (u: any) => {
+        if (!token) return;
+        try {
+            await adminDeleteUser(token, u.id);
+            setDeletingId(null);
+            showToast(`${u.first_name} נמחק`);
+            load();
+        } catch (err: any) {
+            showToast(err.message || 'שגיאה במחיקה', 'error');
+        }
     };
 
     const handleCreate = async (e: React.FormEvent) => {
@@ -73,19 +98,47 @@ export default function AdminUsersPage() {
     return (
         <div>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                <h1 className="text-3xl font-black text-[#f0e6d3]">משתמשים</h1>
+                <div className="flex items-center gap-6">
+                    <h1 className="text-3xl font-black text-[#f0e6d3]">משתמשים</h1>
+                    <div className="flex gap-4">
+                        <div className="text-center">
+                            <div className="text-2xl font-black text-[#f0e6d3]">{counts.total}</div>
+                            <div className="text-xs text-[#f0e6d3]/40">סה"כ</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-2xl font-black text-[#d4af37]">{counts.admin}</div>
+                            <div className="text-xs text-[#f0e6d3]/40">מנהלים</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="text-2xl font-black text-[#f0e6d3]">{counts.member}</div>
+                            <div className="text-xs text-[#f0e6d3]/40">חברים</div>
+                        </div>
+                    </div>
+                </div>
                 <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 !text-sm">
                     <Plus size={16} /> הוסף משתמש
                 </button>
             </div>
 
-            <input
-                placeholder="חיפוש משתמש..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3] mb-6 w-full max-w-sm"
-            />
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+                <div className="relative">
+                    <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#f0e6d3]/30" />
+                    <input
+                        placeholder="חיפוש שם / מייל / טלפון..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl pr-9 pl-4 py-2 text-sm text-[#f0e6d3] w-60"
+                    />
+                </div>
+                <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
+                    <option value="">כל התפקידים</option>
+                    <option value="member">חברים בלבד</option>
+                    <option value="admin">מנהלים בלבד</option>
+                </select>
+            </div>
 
             {loading ? (
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={32} />
@@ -102,29 +155,49 @@ export default function AdminUsersPage() {
                             </tr>
                         </thead>
                         <tbody>
+                            {filtered.length === 0 && (
+                                <tr><td colSpan={5} className="p-8 text-center text-[#f0e6d3]/40">אין משתמשים התואמים את הסינון.</td></tr>
+                            )}
                             {filtered.map((u) => (
-                                <tr key={u.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
-                                    <td className="p-4">{u.first_name} {u.last_name}</td>
-                                    <td className="p-4">{u.email}</td>
-                                    <td className="p-4">{u.phone || '-'}</td>
+                                <tr key={u.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/40 transition-colors">
+                                    <td className="p-4 font-semibold">{u.first_name} {u.last_name}</td>
+                                    <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{u.email}</td>
+                                    <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{u.phone || '—'}</td>
                                     <td className="p-4">
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${u.role === 'admin' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]/60'}`}>
-                                            {u.role}
+                                            {u.role === 'admin' ? 'מנהל' : 'חבר'}
                                         </span>
                                     </td>
                                     <td className="p-4">
-                                        {confirmRoleId === u.id ? (
-                                            <div className="flex items-center gap-2 text-xs">
-                                                <span className="text-[#f0e6d3]/60">{u.role === 'admin' ? 'להסיר הרשאה?' : 'להפוך למנהל?'}</span>
-                                                <button onClick={() => toggleRole(u)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
-                                                <button onClick={() => setConfirmRoleId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
-                                            </div>
-                                        ) : (
-                                            <button onClick={() => setConfirmRoleId(u.id)} className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline">
-                                                <ShieldCheck size={14} />
-                                                {u.role === 'admin' ? 'הסר הרשאת אדמין' : 'הפוך למנהל'}
-                                            </button>
-                                        )}
+                                        <div className="flex items-center gap-4">
+                                            {/* Role toggle */}
+                                            {confirmRoleId === u.id ? (
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className="text-[#f0e6d3]/60">{u.role === 'admin' ? 'להסיר הרשאה?' : 'להפוך למנהל?'}</span>
+                                                    <button onClick={() => toggleRole(u)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
+                                                    <button onClick={() => setConfirmRoleId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => setConfirmRoleId(u.id)} className="flex items-center gap-1 text-xs font-bold text-[#d4af37]/60 hover:text-[#d4af37] transition-colors" title={u.role === 'admin' ? 'הסר הרשאת מנהל' : 'הפוך למנהל'}>
+                                                    {u.role === 'admin' ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
+                                                    {u.role === 'admin' ? 'הסר הרשאה' : 'הפוך למנהל'}
+                                                </button>
+                                            )}
+                                            {/* Delete — only for members */}
+                                            {u.role !== 'admin' && (
+                                                deletingId === u.id ? (
+                                                    <div className="flex items-center gap-1 text-xs">
+                                                        <span className="text-[#f0e6d3]/50">בטוח?</span>
+                                                        <button onClick={() => handleDelete(u)} className="text-red-400 font-bold hover:text-red-300">כן</button>
+                                                        <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => setDeletingId(u.id)} className="text-red-400/30 hover:text-red-400 transition-colors" title="מחק משתמש">
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

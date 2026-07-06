@@ -468,6 +468,38 @@ export async function adminUpdateLeadStatus(token: string, leadId: number, statu
     return res.json();
 }
 
+export async function adminDeleteUser(token: string, userId: number) {
+    const res = await fetch(`${BASE_URL}/admin/users/${userId}`, { method: 'DELETE', headers: authHeaders(token) });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to delete user');
+    }
+    return res.json();
+}
+
+export async function adminGetMemberCount(token: string): Promise<number> {
+    const res = await fetch(`${BASE_URL}/admin/users/member-count`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to get member count');
+    const data = await res.json();
+    return data.count;
+}
+
+export async function adminDeletePromotion(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/promotions/${id}`, { method: 'DELETE', headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to delete promotion');
+    return res.json();
+}
+
+export async function adminDuplicateProduct(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/products/${id}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to fetch product');
+    const p = await res.json();
+    const payload = { vertical: p.vertical, title_he: `${p.title_he} (עותק)`, description_he: p.description_he, price: p.price, image_url: p.image_url, is_active: false };
+    const r2 = await fetch(`${BASE_URL}/admin/products`, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payload) });
+    if (!r2.ok) throw new Error('Failed to duplicate product');
+    return r2.json();
+}
+
 export async function adminDrawPromotion(token: string, promotionId: number) {
     const res = await fetch(`${BASE_URL}/admin/promotions/${promotionId}/draw`, {
         method: 'POST',

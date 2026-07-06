@@ -42,15 +42,24 @@ def list_promotions(
     promos = query.order_by(models.Promotion.created_at.desc()).all()
 
     entry_counts: dict = {}
+    product_counts: dict = {}
     if promos:
         entry_counts = dict(
             db.query(models.PromotionEntry.promotion_id, func.count(models.PromotionEntry.id))
             .group_by(models.PromotionEntry.promotion_id)
             .all()
         )
+        product_counts = dict(
+            db.query(models.product_promotions_table.c.promotion_id, func.count(models.product_promotions_table.c.product_id))
+            .group_by(models.product_promotions_table.c.promotion_id)
+            .all()
+        )
 
     return [
-        schemas.PromotionRead.model_validate(p).model_copy(update={"entry_count": entry_counts.get(p.id, 0)})
+        schemas.PromotionRead.model_validate(p).model_copy(update={
+            "entry_count": entry_counts.get(p.id, 0),
+            "product_count": product_counts.get(p.id, 0),
+        })
         for p in promos
     ]
 

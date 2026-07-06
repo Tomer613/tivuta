@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct } from '@/lib/api';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search } from 'lucide-react';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct } from '@/lib/api';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy } from 'lucide-react';
 
 const VERTICALS = [
     { value: 'diamonds', label: 'יהלומים' },
@@ -32,6 +32,7 @@ export default function AdminProductsPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterVertical, setFilterVertical] = useState('');
+    const [filterActive, setFilterActive] = useState('');
     const [search, setSearch] = useState('');
     const [togglingId, setTogglingId] = useState<number | null>(null);
     const [sortKey, setSortKey] = useState<'title_he' | 'price' | 'vertical'>('vertical');
@@ -56,7 +57,10 @@ export default function AdminProductsPage() {
     useEffect(load, [token]);
 
     const filtered = useMemo(() => {
-        let list = filterVertical ? products.filter((p) => p.vertical === filterVertical) : products;
+        let list = products;
+        if (filterVertical) list = list.filter((p) => p.vertical === filterVertical);
+        if (filterActive === 'active') list = list.filter((p) => p.is_active);
+        if (filterActive === 'hidden') list = list.filter((p) => !p.is_active);
         if (search) {
             const q = search.toLowerCase();
             list = list.filter((p) => p.title_he?.toLowerCase().includes(q) || p.description_he?.toLowerCase().includes(q));
@@ -66,7 +70,18 @@ export default function AdminProductsPage() {
             return String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''));
         });
         return list;
-    }, [products, filterVertical, search, sortKey]);
+    }, [products, filterVertical, filterActive, search, sortKey]);
+
+    const handleDuplicate = async (p: any) => {
+        if (!token) return;
+        try {
+            await adminDuplicateProduct(token, p.id);
+            showToast(`"${p.title_he}" שוכפל (מוסתר) ✓`);
+            load();
+        } catch {
+            showToast('שגיאה בשכפול', 'error');
+        }
+    };
 
     const handleToggleActive = async (p: any) => {
         if (!token) return;
@@ -177,6 +192,11 @@ export default function AdminProductsPage() {
                     <option value="">כל העולמות</option>
                     {VERTICALS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
                 </select>
+                <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
+                    <option value="">כל הסטטוסים</option>
+                    <option value="active">פעילים בלבד</option>
+                    <option value="hidden">מוסתרים בלבד</option>
+                </select>
                 <button onClick={() => setSortKey(sortKey === 'price' ? 'title_he' : 'price')} className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <ArrowUpDown size={14} /> מיין לפי {sortKey === 'price' ? 'מחיר' : 'שם'}
                 </button>
@@ -230,6 +250,9 @@ export default function AdminProductsPage() {
                                         <div className="flex items-center gap-3">
                                             <button onClick={() => openEditForm(p)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="עריכה">
                                                 <Pencil size={15} />
+                                            </button>
+                                            <button onClick={() => handleDuplicate(p)} className="text-[#f0e6d3]/25 hover:text-[#f0e6d3]/60 transition-colors" title="שכפל מוצר">
+                                                <Copy size={15} />
                                             </button>
                                             {deletingId === p.id ? (
                                                 <div className="flex items-center gap-2 text-xs">

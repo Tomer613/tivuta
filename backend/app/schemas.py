@@ -184,6 +184,7 @@ class PromotionRead(PromotionBase):
     id: int
     created_at: datetime
     entry_count: int = 0
+    product_count: int = 0
 
     class Config:
         from_attributes = True
