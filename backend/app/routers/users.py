@@ -115,3 +115,14 @@ def admin_delete_user(user_id: int, db: Session = Depends(get_db)):
 def admin_member_count(db: Session = Depends(get_db)):
     count = db.query(models.User).filter(models.User.role == "member").count()
     return {"count": count}
+
+
+@router.get("/admin/stats", dependencies=[Depends(get_current_admin)])
+def admin_stats(db: Session = Depends(get_db)):
+    return {
+        "open_leads": db.query(models.Lead).filter(models.Lead.status == "new").count(),
+        "active_products": db.query(models.Product).filter(models.Product.is_active == True).count(),
+        "member_count": db.query(models.User).filter(models.User.role == "member").count(),
+        "active_promotions": db.query(models.Promotion).filter(models.Promotion.is_active == True).count(),
+        "draft_distributions": db.query(models.Distribution).filter(models.Distribution.status == "draft").count(),
+    }

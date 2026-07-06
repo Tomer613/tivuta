@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminListLeads, adminUpdateLeadStatus } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const PAGE_SIZE = 50;
 
 const STATUSES = [
     { value: 'new',       label: 'חדשה',    color: 'bg-blue-500/20 text-blue-400' },
@@ -35,6 +38,8 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 export default function AdminLeadsPage() {
     const { token } = useAuth();
+    const params = useParams();
+    const locale = (params?.locale as string) || 'he';
     const [leads, setLeads] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('');
@@ -43,9 +48,11 @@ export default function AdminLeadsPage() {
     const [updatingId, setUpdatingId] = useState<number | null>(null);
     const [sortKey, setSortKey] = useState<'created_at' | 'scheduled_at'>('created_at');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+    const [page, setPage] = useState(1);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
+    const resetPage = () => setPage(1);
 
     const load = () => {
         if (!token) return;
@@ -73,6 +80,11 @@ export default function AdminLeadsPage() {
         });
         return list;
     }, [leads, filterStatus, filterVertical, search, sortKey, sortDir]);
+
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+    const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages)));
 
     const toggleSort = (key: 'created_at' | 'scheduled_at') => {
         if (sortKey === key) setSortDir((d) => d === 'desc' ? 'asc' : 'desc');
@@ -151,14 +163,14 @@ export default function AdminLeadsPage() {
                 <input
                     placeholder="חיפוש שם / מייל / מוצר..."
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={(e) => { setSearch(e.target.value); resetPage(); }}
                     className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3] w-56"
                 />
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
+                <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); resetPage(); }} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל הסטטוסים</option>
                     {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
-                <select value={filterVertical} onChange={(e) => setFilterVertical(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
+                <select value={filterVertical} onChange={(e) => { setFilterVertical(e.target.value); resetPage(); }} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל העולמות</option>
                     <option value="diamonds">יהלומים</option>
                     <option value="cars">רכב</option>
@@ -183,10 +195,10 @@ export default function AdminLeadsPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.length === 0 && (
+                            {paginated.length === 0 && (
                                 <tr><td colSpan={5} className="p-8 text-center text-[#f0e6d3]/40">אין פניות התואמות את הסינון.</td></tr>
                             )}
-                            {filtered.map((lead) => {
+                            {paginated.map((lead) => {
                                 const si = statusInfo(lead.status);
                                 return (
                                     <tr key={lead.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/50 transition-colors">
@@ -209,7 +221,15 @@ export default function AdminLeadsPage() {
                                         <td className="p-4">
                                             {lead.product_title_he ? (
                                                 <div>
-                                                    <p className="text-sm font-semibold">{lead.product_title_he}</p>
+                                                    <a
+                                                        href={`/${locale}/${lead.product_vertical || 'diamonds'}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-sm font-semibold hover:text-[#d4af37] transition-colors flex items-center gap-1 group/link"
+                                                    >
+                                                        {lead.product_title_he}
+                                                        <ExternalLink size={11} className="opacity-0 group-hover/link:opacity-60 transition-opacity" />
+                                                    </a>
                                                     {lead.product_vertical && (
                                                         <span className="flex items-center gap-1 text-xs text-[#f0e6d3]/40 mt-0.5">
                                                             <VerticalIcon v={lead.product_vertical} />
@@ -258,6 +278,23 @@ export default function AdminLeadsPage() {
                             })}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 text-sm text-[#f0e6d3]/50">
+                    <span>{filtered.length} פניות · עמוד {page} מתוך {totalPages}</span>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => goToPage(page - 1)} disabled={page === 1} className="p-1.5 rounded-lg hover:bg-[#0e1628] disabled:opacity-30 transition-colors">
+                            <ChevronRight size={16} />
+                        </button>
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).filter(p => Math.abs(p - page) <= 2).map(p => (
+                            <button key={p} onClick={() => goToPage(p)} className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${p === page ? 'bg-[#d4af37] text-[#080d1f]' : 'hover:bg-[#0e1628]'}`}>{p}</button>
+                        ))}
+                        <button onClick={() => goToPage(page + 1)} disabled={page === totalPages} className="p-1.5 rounded-lg hover:bg-[#0e1628] disabled:opacity-30 transition-colors">
+                            <ChevronLeft size={16} />
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

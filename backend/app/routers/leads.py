@@ -37,6 +37,24 @@ def _admin_notification_body(user: models.User, product_title: str, lead_type: s
     </div>"""
 
 
+STATUS_EMAIL_SUBJECT: dict[str, dict[str, str]] = {
+    "confirmed": {"he": "הפנייה שלך אושרה — TIVUTA", "en": "Your request confirmed — TIVUTA", "fr": "Votre demande confirmée — TIVUTA", "yi": "אייער פנייה איז באשטעטיגט — TIVUTA"},
+    "contacted": {"he": "הפנייה שלך טופלה — TIVUTA", "en": "Your request handled — TIVUTA", "fr": "Votre demande traitée — TIVUTA", "yi": "אייער פנייה איז באהאנדלט — TIVUTA"},
+}
+
+
+def _status_update_body(locale: str, product_title: str, status: str) -> str:
+    if status == "confirmed":
+        if locale == "he":
+            return f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>שמחים לבשר שהפנייה שלך לגבי <strong>{product_title}</strong> אושרה.</p><p>נציג שלנו ייצור איתך קשר בקרוב לתיאום הפרטים.</p></div>'
+        return f"<p>Your request regarding <strong>{product_title}</strong> has been confirmed. Our representative will contact you soon.</p>"
+    if status == "contacted":
+        if locale == "he":
+            return f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>הפנייה שלך לגבי <strong>{product_title}</strong> טופלה.</p><p>אנו מקווים שהשירות עמד בציפיותיך. לשאלות נוספות, פנה אלינו בכל עת.</p></div>'
+        return f"<p>Your request regarding <strong>{product_title}</strong> has been handled. We hope the service met your expectations.</p>"
+    return ""
+
+
 def _confirmation_body(locale: str, product_title: str, scheduled_at):
     if scheduled_at:
         if locale == "he":
@@ -162,7 +180,23 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
     lead = db.query(models.Lead).filter(models.Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+    old_status = lead.status
     lead.status = status
     db.commit()
     db.refresh(lead)
+
+    if status in ("confirmed", "contacted") and old_status != status:
+        user = db.query(models.User).filter(models.User.id == lead.user_id).first()
+        product = db.query(models.Product).filter(models.Product.id == lead.product_id).first()
+        if user and product:
+            locale = lead.locale or "he"
+            product_title = getattr(product, f"title_{locale}", None) or product.title_he
+            body = _status_update_body(locale, product_title, status)
+            if body:
+                subject = STATUS_EMAIL_SUBJECT[status].get(locale, STATUS_EMAIL_SUBJECT[status]["he"])
+                try:
+                    get_email_sender().send(to=user.email, subject=subject, html_body=body, locale=locale)
+                except Exception:
+                    pass  # don't fail the status update if email fails
+
     return lead

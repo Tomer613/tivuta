@@ -1,12 +1,17 @@
+import os
+import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_db
+
+# ── Change IMAGES_DIR in production to point to your static-file host ─────────
+IMAGES_DIR = os.environ.get("IMAGES_DIR", os.path.join(os.path.dirname(__file__), "../../../../frontend/public/images/products"))
 
 router = APIRouter(tags=["products"])
 
@@ -137,6 +142,17 @@ def admin_list_all_products(db: Session = Depends(get_db)):
         .all()
     )
     return [_product_read(p) for p in products]
+
+
+@router.post("/admin/upload-image", dependencies=[Depends(get_current_admin)])
+async def upload_product_image(file: UploadFile = File(...)):
+    os.makedirs(IMAGES_DIR, exist_ok=True)
+    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dest = os.path.join(IMAGES_DIR, filename)
+    with open(dest, "wb") as f:
+        f.write(await file.read())
+    return {"filename": filename}
 
 
 @router.delete("/admin/products/{product_id}", dependencies=[Depends(get_current_admin)])

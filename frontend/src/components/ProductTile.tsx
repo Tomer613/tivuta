@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft, X, Info } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
 import { createLead } from '@/lib/api';
 
@@ -61,10 +61,19 @@ const translations: Record<string, T> = {
 
 const INTERACTIVE_TYPES = new Set(['raffle', 'first_n']);
 
+const DETAIL_LABELS: Record<string, { details: string; close: string }> = {
+    he: { details: 'פרטים נוספים', close: 'סגור' },
+    en: { details: 'More Details', close: 'Close' },
+    fr: { details: 'Plus de détails', close: 'Fermer' },
+    yi: { details: 'מער פרטים', close: 'שליסן' },
+};
+
 export default function ProductTile({ product, locale, actionType, token }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string }) {
     const [showModal, setShowModal] = useState(false);
+    const [showDetail, setShowDetail] = useState(false);
     const [status, setStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
     const t = translations[locale] || translations.he;
+    const dl = DETAIL_LABELS[locale] || DETAIL_LABELS.he;
     const hasInteractivePromo = product.promotions?.some((p) => INTERACTIVE_TYPES.has(p.type)) ?? false;
 
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
@@ -123,7 +132,14 @@ export default function ProductTile({ product, locale, actionType, token }: { pr
 
             <div className="p-6 flex flex-col flex-grow items-start text-start">
                 <h3 className="text-xl font-bold text-[#f0e6d3] mb-2 line-clamp-1 w-full">{title}</h3>
-                <p className="text-[#f0e6d3]/60 text-sm line-clamp-2 mb-6 leading-relaxed w-full font-light">{description}</p>
+                <p className="text-[#f0e6d3]/60 text-sm line-clamp-2 mb-2 leading-relaxed w-full font-light">{description}</p>
+                <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowDetail(true); }}
+                    className="flex items-center gap-1 text-[11px] text-[#d4af37]/60 hover:text-[#d4af37] transition-colors mb-4 font-semibold"
+                >
+                    <Info size={11} /> {dl.details}
+                </button>
 
                 <div className="mt-auto flex flex-col gap-4 w-full pt-4 border-t border-[#d4af37]/20">
                     <div className="flex flex-col items-start">
@@ -177,6 +193,74 @@ export default function ProductTile({ product, locale, actionType, token }: { pr
                     onClose={() => setShowModal(false)}
                     onConfirm={handleScheduled}
                 />
+            )}
+
+            {showDetail && (
+                <div
+                    className="fixed inset-0 bg-black/75 z-[200] flex items-center justify-center p-4"
+                    onClick={() => setShowDetail(false)}
+                >
+                    <div
+                        className="bg-[#0e1628] border border-[#d4af37]/25 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="h-64 w-full bg-[#111a2f] relative overflow-hidden rounded-t-3xl">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={imagePath} alt={title} className="w-full h-full object-cover" />
+                            {product.promotions && product.promotions.length > 0 && (
+                                <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+                                    {product.promotions.map((promo) => (
+                                        <span key={promo.id} className="bg-[#d4af37] text-[#080d1f] text-[11px] font-black px-2.5 py-1 rounded-full shadow-md">
+                                            {promotionLabel(promo)}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <button
+                                onClick={() => setShowDetail(false)}
+                                className="absolute top-3 left-3 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                            >
+                                <X size={16} className="text-white" />
+                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            <h2 className="text-2xl font-black text-[#f0e6d3] mb-3">{title}</h2>
+                            <p className="text-[#f0e6d3]/70 text-sm leading-relaxed mb-6">{description}</p>
+
+                            <div className="border-t border-[#d4af37]/15 pt-4 mb-6">
+                                <span className="text-[10px] font-black text-[#f0e6d3]/40 uppercase tracking-widest block mb-1">{t.price_label}</span>
+                                <span className="text-3xl font-black text-[#d4af37]">
+                                    {product.price ? `₪${product.price.toLocaleString()}` : t.on_request}
+                                </span>
+                            </div>
+
+                            {status === 'done' ? (
+                                <div className="flex items-center gap-2 text-green-400 font-bold text-sm">
+                                    <CheckCircle2 size={18} />
+                                    {actionType === 'appointment' ? t.scheduled : t.requested}
+                                </div>
+                            ) : actionType === 'appointment' ? (
+                                <button
+                                    onClick={() => { setShowDetail(false); setShowModal(true); }}
+                                    className="btn-primary w-full flex items-center justify-center gap-2 !text-sm"
+                                >
+                                    <CalendarCheck size={18} />
+                                    {t.schedule}
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => { handleContact(); setShowDetail(false); }}
+                                    disabled={status === 'submitting'}
+                                    className="btn-primary w-full flex items-center justify-center gap-2 !text-sm disabled:opacity-60"
+                                >
+                                    <MessageCircle size={18} />
+                                    {t.contact}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

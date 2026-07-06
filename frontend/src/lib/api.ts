@@ -510,6 +510,30 @@ export async function adminDuplicateProduct(token: string, id: number) {
     return r2.json();
 }
 
+export async function adminGetStats(token: string): Promise<{
+    open_leads: number;
+    active_products: number;
+    member_count: number;
+    active_promotions: number;
+    draft_distributions: number;
+}> {
+    const res = await fetch(`${BASE_URL}/admin/stats`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load stats');
+    return res.json();
+}
+
+export async function adminUploadImage(token: string, file: File): Promise<{ filename: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${BASE_URL}/admin/upload-image`, {
+        method: 'POST',
+        headers: authHeaders(token),
+        body: form,
+    });
+    if (!res.ok) throw new Error('Upload failed');
+    return res.json();
+}
+
 export async function adminDrawPromotion(token: string, promotionId: number) {
     const res = await fetch(`${BASE_URL}/admin/promotions/${promotionId}/draw`, {
         method: 'POST',

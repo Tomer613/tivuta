@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct } from '@/lib/api';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage } from '@/lib/api';
 import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages } from 'lucide-react';
 
 const VERTICALS = [
@@ -57,6 +57,7 @@ export default function AdminProductsPage() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
     const [translating, setTranslating] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -424,12 +425,36 @@ export default function AdminProductsPage() {
                         {/* Image */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תמונת מוצר</label>
-                            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) setForm({ ...form, image_url: file.name }); }} />
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-start flex items-center gap-3 hover:bg-[#1a2540] transition-colors">
-                                <ImagePlus size={18} className="text-[#d4af37]/60 shrink-0" />
-                                <span className={form.image_url ? 'text-[#f0e6d3]' : 'text-[#f0e6d3]/30'}>{form.image_url || 'לחץ לבחירת תמונה...'}</span>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file || !token) return;
+                                    setUploadingImage(true);
+                                    try {
+                                        const { filename } = await adminUploadImage(token, file);
+                                        setForm((f) => ({ ...f, image_url: filename }));
+                                        showToast('התמונה הועלתה בהצלחה ✓');
+                                    } catch {
+                                        showToast('שגיאה בהעלאת תמונה', 'error');
+                                    } finally {
+                                        setUploadingImage(false);
+                                        if (fileInputRef.current) fileInputRef.current.value = '';
+                                    }
+                                }}
+                            />
+                            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-start flex items-center gap-3 hover:bg-[#1a2540] disabled:opacity-60 transition-colors">
+                                {uploadingImage ? <Loader2 size={18} className="text-[#d4af37]/60 shrink-0 animate-spin" /> : <ImagePlus size={18} className="text-[#d4af37]/60 shrink-0" />}
+                                <span className={form.image_url ? 'text-[#f0e6d3]' : 'text-[#f0e6d3]/30'}>
+                                    {uploadingImage ? 'מעלה...' : form.image_url || 'לחץ לבחירת תמונה...'}
+                                </span>
                             </button>
-                            <p className="text-[#f0e6d3]/25 text-xs mt-1">יש להעתיק את הקובץ לתיקייה: frontend/public/images/products/</p>
+                            {form.image_url && (
+                                <p className="text-green-400/60 text-xs mt-1">התמונה הועלתה: {form.image_url}</p>
+                            )}
                         </div>
 
                         <button type="submit" className="btn-primary w-full">{editProduct ? 'שמור שינויים' : 'שמור'}</button>
