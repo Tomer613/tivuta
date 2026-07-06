@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { updateUserProfile, getMyActivity, changePassword } from '@/lib/api';
+import { updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite } from '@/lib/api';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
-    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff,
+    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 
@@ -233,6 +233,8 @@ export default function ProfileClient() {
     const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
     const [activity, setActivity] = useState<any[]>([]);
     const [activityLoading, setActivityLoading] = useState(true);
+    const [favorites, setFavorites] = useState<any[]>([]);
+    const [removingFavId, setRemovingFavId] = useState<number | null>(null);
     const [showCalculator, setShowCalculator] = useState(false);
     const [showPasswordForm, setShowPasswordForm] = useState(false);
     const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
@@ -257,7 +259,16 @@ export default function ProfileClient() {
     useEffect(() => {
         if (!token) return;
         getMyActivity(token).then(setActivity).finally(() => setActivityLoading(false));
+        getFavorites(token).then(setFavorites).catch(() => {});
     }, [token]);
+
+    const handleRemoveFav = async (productId: number) => {
+        if (!token) return;
+        setRemovingFavId(productId);
+        await removeFavorite(token, productId);
+        setFavorites((prev) => prev.filter((f) => f.product_id !== productId));
+        setRemovingFavId(null);
+    };
 
     const { pct } = computeCompletion(user);
 
@@ -589,6 +600,41 @@ export default function ProfileClient() {
                         </div>
                     )}
                 </div>
+
+                {/* ── Favorites / Wishlist ── */}
+                {favorites.length > 0 && (
+                    <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">
+                        <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
+                            <Heart size={14} className="text-red-400" fill="currentColor" />
+                            {locale === 'he' ? 'מוצרים שמורים' : 'Saved Products'}
+                        </h2>
+                        <div className="space-y-2">
+                            {favorites.map((fav: any) => {
+                                const p = fav.product;
+                                if (!p) return null;
+                                const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+                                const imgSrc = p.image_url ? `${basePath}/images/products/${p.image_url}` : `${basePath}/images/products/placeholder.jpg`;
+                                return (
+                                    <div key={fav.id} className="flex items-center gap-3 bg-[#111a2f] rounded-xl px-3 py-2">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={imgSrc} alt={p.title_he} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-[#f0e6d3] truncate">{p.title_he}</p>
+                                            {p.price && <p className="text-xs text-[#d4af37]">₪{p.price.toLocaleString()}</p>}
+                                        </div>
+                                        <button
+                                            onClick={() => handleRemoveFav(fav.product_id)}
+                                            disabled={removingFavId === fav.product_id}
+                                            className="text-[#f0e6d3]/20 hover:text-red-400 transition-colors"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Password change ── */}
                 <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">

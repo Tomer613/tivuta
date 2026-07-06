@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp } from 'lucide-react';
+import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp, Gem, Car, ShieldCheck, Bell, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { adminGetStats, adminGetLeadStats } from '@/lib/api';
+import { adminGetStats, adminGetLeadStats, adminGetConversionStats, adminSendFollowupReminders } from '@/lib/api';
 
 const STAT_CARDS = [
     { key: 'open_leads',         label: 'פניות פתוחות',     href: 'leads',        color: 'text-blue-400',   ring: 'ring-blue-500/20',   bg: 'bg-blue-500/10' },
@@ -22,6 +22,14 @@ const ICONS: Record<string, React.FC<{ size: number; className?: string }>> = {
     active_promotions:   Tag,
     draft_distributions: Send,
 };
+
+const VERTICAL_ICONS: Record<string, React.FC<{ size: number; className?: string }>> = {
+    diamonds: Gem,
+    cars: Car,
+    insurance: ShieldCheck,
+};
+
+const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
 
 function LeadsChart({ chartData }: { chartData: { date: string; count: number }[] }) {
     if (!chartData.length) return null;
@@ -60,30 +68,102 @@ function LeadsChart({ chartData }: { chartData: { date: string; count: number }[
     );
 }
 
+function ConversionPanel({ data }: { data: { vertical: string; total: number; confirmed: number; contacted: number; closed: number; conversion_rate: number }[] }) {
+    if (!data.length) return null;
+    return (
+        <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-6 mt-8">
+            <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <TrendingUp size={13} className="text-[#d4af37]" /> קונברסיה לפי ורטיקל
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {data.map((d) => {
+                    const Icon = VERTICAL_ICONS[d.vertical] || Package;
+                    return (
+                        <div key={d.vertical} className="bg-[#111a2f] rounded-xl p-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Icon size={16} className="text-[#d4af37]" />
+                                <span className="text-sm font-bold text-[#f0e6d3]">{VERTICAL_LABEL[d.vertical] || d.vertical}</span>
+                            </div>
+                            <div className="text-3xl font-black text-[#d4af37] mb-1">{d.conversion_rate}%</div>
+                            <div className="text-[10px] text-[#f0e6d3]/40 mb-3">קונברסיה ({d.confirmed + d.contacted + d.closed}/{d.total} פניות)</div>
+                            <div className="h-2 bg-[#0e1628] rounded-full overflow-hidden">
+                                <div
+                                    className="h-full rounded-full"
+                                    style={{
+                                        width: `${Math.min(d.conversion_rate, 100)}%`,
+                                        background: 'linear-gradient(to right, #b8860b, #d4af37)',
+                                    }}
+                                />
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 mt-3 text-center">
+                                <div><div className="text-xs font-black text-green-400">{d.confirmed}</div><div className="text-[9px] text-[#f0e6d3]/30">מאושר</div></div>
+                                <div><div className="text-xs font-black text-[#d4af37]">{d.contacted}</div><div className="text-[9px] text-[#f0e6d3]/30">טופל</div></div>
+                                <div><div className="text-xs font-black text-[#f0e6d3]/40">{d.closed}</div><div className="text-[9px] text-[#f0e6d3]/30">סגור</div></div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 export default function AdminDashboardPage() {
     const { token } = useAuth();
     const params = useParams();
     const locale = (params?.locale as string) || 'he';
     const [stats, setStats] = useState<Record<string, number> | null>(null);
     const [chartData, setChartData] = useState<{ date: string; count: number }[]>([]);
+    const [conversionData, setConversionData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [sendingFollowup, setSendingFollowup] = useState(false);
+    const [followupResult, setFollowupResult] = useState<{ sent: number; total_stale: number } | null>(null);
 
     useEffect(() => {
         if (!token) return;
         Promise.all([
             adminGetStats(token).catch(() => null),
             adminGetLeadStats(token, 14).catch(() => []),
-        ]).then(([s, c]) => {
+            adminGetConversionStats(token).catch(() => []),
+        ]).then(([s, c, conv]) => {
             setStats(s);
             setChartData(c);
+            setConversionData(conv);
         }).finally(() => setLoading(false));
     }, [token]);
 
+    const handleFollowup = async () => {
+        if (!token) return;
+        setSendingFollowup(true);
+        try {
+            const result = await adminSendFollowupReminders(token, 3);
+            setFollowupResult(result);
+        } catch {
+            setFollowupResult(null);
+        } finally {
+            setSendingFollowup(false);
+        }
+    };
+
     return (
         <div>
-            <div className="flex items-center gap-3 mb-2">
-                <TrendingUp size={28} className="text-[#d4af37]" />
-                <h1 className="text-3xl font-black text-[#f0e6d3]">לוח בקרה</h1>
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                    <TrendingUp size={28} className="text-[#d4af37]" />
+                    <h1 className="text-3xl font-black text-[#f0e6d3]">לוח בקרה</h1>
+                </div>
+                {/* Follow-up reminder trigger */}
+                <button
+                    onClick={handleFollowup}
+                    disabled={sendingFollowup || loading}
+                    className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/20 text-[#f0e6d3]/60 hover:text-[#d4af37] hover:border-[#d4af37]/40 rounded-xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-40"
+                    title="שלח תזכורות follow-up לפניות ממתינות 3+ ימים"
+                >
+                    {sendingFollowup ? <Loader2 size={13} className="animate-spin" /> : <Bell size={13} />}
+                    {followupResult
+                        ? <span className="flex items-center gap-1 text-green-400"><CheckCircle2 size={11} /> {followupResult.sent} תזכורות נשלחו</span>
+                        : 'שלח תזכורות follow-up'}
+                </button>
             </div>
             <p className="text-[#f0e6d3]/40 text-sm mb-10">סקירת מצב כללית — לחץ על כרטיס לניהול</p>
 
@@ -116,6 +196,7 @@ export default function AdminDashboardPage() {
             )}
 
             {!loading && <LeadsChart chartData={chartData} />}
+            {!loading && <ConversionPanel data={conversionData} />}
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Link href={`/${locale}/admin/leads`} className="bg-[#0e1628] border border-[#d4af37]/10 rounded-2xl p-5 hover:border-[#d4af37]/30 transition-colors group">

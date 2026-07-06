@@ -244,6 +244,8 @@ class AdminLeadRead(BaseModel):
     status: str
     channel: str
     notes: Optional[str] = None
+    assigned_to: Optional[int] = None
+    assigned_to_name: Optional[str] = None
     created_at: datetime
     user_id: Optional[int] = None
     user_name: Optional[str] = None
@@ -261,9 +263,48 @@ class LeadNotesUpdate(BaseModel):
     notes: str
 
 
+class LeadAssignUpdate(BaseModel):
+    assigned_to: Optional[int] = None
+
+
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+# Favorite Schemas
+class FavoriteRead(BaseModel):
+    id: int
+    product_id: int
+    created_at: datetime
+    product: Optional["ProductRead"] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Notification Schemas
+class NotificationRead(BaseModel):
+    id: int
+    type: str
+    title_he: str
+    message_he: Optional[str] = None
+    is_read: bool
+    link: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Conversion Stats
+class ConversionStats(BaseModel):
+    vertical: str
+    total: int
+    confirmed: int
+    contacted: int
+    closed: int
+    conversion_rate: float
 
 class LeadHistoryRead(BaseModel):
     id: int

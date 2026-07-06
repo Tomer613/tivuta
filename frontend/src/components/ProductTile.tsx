@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft, X, Info } from 'lucide-react';
+import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft, X, Info, Heart, Share2 } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
-import { createLead } from '@/lib/api';
+import { createLead, addFavorite, removeFavorite } from '@/lib/api';
 
 export interface PromotionBrief {
     id: number;
@@ -88,13 +88,50 @@ const DETAIL_LABELS: Record<string, { details: string; close: string }> = {
     yi: { details: 'מער פרטים', close: 'שליסן' },
 };
 
-export default function ProductTile({ product, locale, actionType, token }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string }) {
+export default function ProductTile({ product, locale, actionType, token, isFav = false }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string; isFav?: boolean }) {
     const [showModal, setShowModal] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [status, setStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
+    const [fav, setFav] = useState(isFav);
+    const [favLoading, setFavLoading] = useState(false);
     const t = translations[locale] || translations.he;
     const dl = DETAIL_LABELS[locale] || DETAIL_LABELS.he;
     const hasInteractivePromo = product.promotions?.some((p) => INTERACTIVE_TYPES.has(p.type)) ?? false;
+
+    // Track recently viewed in localStorage
+    useEffect(() => {
+        try {
+            const key = 'tivuta_recent';
+            const raw = localStorage.getItem(key);
+            const recent: number[] = raw ? JSON.parse(raw) : [];
+            const updated = [product.id, ...recent.filter((id) => id !== product.id)].slice(0, 8);
+            localStorage.setItem(key, JSON.stringify(updated));
+        } catch { /* ignore */ }
+    }, [product.id]);
+
+    const toggleFav = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (favLoading) return;
+        setFavLoading(true);
+        try {
+            if (fav) {
+                await removeFavorite(token, product.id);
+                setFav(false);
+            } else {
+                await addFavorite(token, product.id);
+                setFav(true);
+            }
+        } catch { /* ignore */ }
+        setFavLoading(false);
+    };
+
+    const shareWhatsApp = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const title = product[`title_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || product.title_he;
+        const price = product.price ? `₪${product.price.toLocaleString()}` : '';
+        const text = encodeURIComponent(`${title}${price ? ' — ' + price : ''}\nTIVUTA`);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+    };
 
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const title = product[`title_${localeKey}`] || product.title_he;
@@ -148,6 +185,25 @@ export default function ProductTile({ product, locale, actionType, token }: { pr
                         {promotionLabel(product.promotions[0])}
                     </span>
                 )}
+                {/* Action buttons — top left */}
+                <div className="absolute top-2 left-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <button
+                        type="button"
+                        onClick={toggleFav}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-colors ${fav ? 'bg-red-500 text-white' : 'bg-black/60 text-white hover:bg-red-500'}`}
+                        title={fav ? 'הסר מהמועדפים' : 'הוסף למועדפים'}
+                    >
+                        <Heart size={14} fill={fav ? 'currentColor' : 'none'} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={shareWhatsApp}
+                        className="w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center shadow-md hover:bg-green-600 transition-colors"
+                        title="שתף בווצאפ"
+                    >
+                        <Share2 size={14} />
+                    </button>
+                </div>
             </div>
 
             <div className="p-6 flex flex-col flex-grow items-start text-start">

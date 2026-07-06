@@ -146,7 +146,11 @@ def my_activity(db: Session = Depends(get_db), current_user: models.User = Depen
 def admin_list_leads(db: Session = Depends(get_db)):
     leads = (
         db.query(models.Lead)
-        .options(selectinload(models.Lead.product), selectinload(models.Lead.user))
+        .options(
+            selectinload(models.Lead.product),
+            selectinload(models.Lead.user),
+            selectinload(models.Lead.assignee),
+        )
         .order_by(models.Lead.created_at.desc())
         .all()
     )
@@ -154,6 +158,7 @@ def admin_list_leads(db: Session = Depends(get_db)):
     for lead in leads:
         user = lead.user
         product = lead.product
+        assignee = lead.assignee
         result.append(schemas.AdminLeadRead(
             id=lead.id,
             lead_type=lead.lead_type,
@@ -161,6 +166,8 @@ def admin_list_leads(db: Session = Depends(get_db)):
             status=lead.status,
             channel=lead.channel,
             notes=lead.notes,
+            assigned_to=lead.assigned_to,
+            assigned_to_name=f"{assignee.first_name} {assignee.last_name}".strip() if assignee else None,
             created_at=lead.created_at,
             user_id=lead.user_id,
             user_name=f"{user.first_name} {user.last_name}".strip() if user else None,
@@ -171,6 +178,121 @@ def admin_list_leads(db: Session = Depends(get_db)):
             product_vertical=product.vertical if product else None,
         ))
     return result
+
+
+@router.patch("/admin/leads/{lead_id}/assign", response_model=schemas.LeadRead, dependencies=[Depends(get_current_admin)])
+def admin_assign_lead(lead_id: int, payload: schemas.LeadAssignUpdate, db: Session = Depends(get_db)):
+    lead = db.query(models.Lead).filter(models.Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    if payload.assigned_to is not None:
+        user = db.query(models.User).filter(models.User.id == payload.assigned_to).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+    lead.assigned_to = payload.assigned_to
+    db.commit()
+    db.refresh(lead)
+    return lead
+
+
+@router.get("/admin/leads/conversion", dependencies=[Depends(get_current_admin)])
+def admin_lead_conversion(db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    verticals = ["diamonds", "cars", "insurance"]
+    result = []
+    for vertical in verticals:
+        product_ids = [
+            r[0] for r in db.query(models.Product.id).filter(models.Product.vertical == vertical).all()
+        ]
+        if not product_ids:
+            continue
+        total = db.query(models.Lead).filter(models.Lead.product_id.in_(product_ids)).count()
+        if total == 0:
+            continue
+        confirmed = db.query(models.Lead).filter(models.Lead.product_id.in_(product_ids), models.Lead.status == "confirmed").count()
+        contacted = db.query(models.Lead).filter(models.Lead.product_id.in_(product_ids), models.Lead.status == "contacted").count()
+        closed = db.query(models.Lead).filter(models.Lead.product_id.in_(product_ids), models.Lead.status == "closed").count()
+        result.append({
+            "vertical": vertical,
+            "total": total,
+            "confirmed": confirmed,
+            "contacted": contacted,
+            "closed": closed,
+            "conversion_rate": round((confirmed + contacted + closed) / total * 100, 1),
+        })
+    return result
+
+
+@router.post("/admin/leads/send-followup-reminders", dependencies=[Depends(get_current_admin)])
+def send_followup_reminders(stale_days: int = 3, db: Session = Depends(get_db)):
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(days=stale_days)
+    stale_leads = (
+        db.query(models.Lead)
+        .options(selectinload(models.Lead.user), selectinload(models.Lead.product))
+        .filter(models.Lead.status == "new", models.Lead.created_at <= cutoff)
+        .all()
+    )
+    email_sender = get_email_sender()
+    sent = 0
+    for lead in stale_leads:
+        if not lead.user:
+            continue
+        product_title = lead.product.title_he if lead.product else "מוצר"
+        try:
+            email_sender.send(
+                to=ADMIN_NOTIFICATION_EMAIL,
+                subject=f"⏰ תזכורת: פנייה ממתינה {stale_days}+ ימים — {lead.user.first_name} {lead.user.last_name}",
+                html_body=f"""
+                <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
+                  <h2 style="color:#b8860b;">פנייה ממתינה לטיפול 🔔</h2>
+                  <p>הפנייה הבאה ממתינה כבר <strong>{stale_days}+ ימים</strong> ועדיין בסטטוס "חדש":</p>
+                  <p><strong>לקוח:</strong> {lead.user.first_name} {lead.user.last_name} ({lead.user.email})</p>
+                  <p><strong>מוצר:</strong> {product_title}</p>
+                  <p><strong>תאריך פנייה:</strong> {lead.created_at.strftime("%d/%m/%Y")}</p>
+                </div>""",
+                locale="he",
+            )
+            sent += 1
+        except Exception:
+            pass
+    return {"sent": sent, "total_stale": len(stale_leads)}
+
+
+@router.post("/admin/leads/{lead_id}/send-appointment-reminder", dependencies=[Depends(get_current_admin)])
+def send_appointment_reminder(lead_id: int, db: Session = Depends(get_db)):
+    lead = (
+        db.query(models.Lead)
+        .options(selectinload(models.Lead.user), selectinload(models.Lead.product))
+        .filter(models.Lead.id == lead_id, models.Lead.lead_type == "appointment")
+        .first()
+    )
+    if not lead:
+        raise HTTPException(status_code=404, detail="Appointment lead not found")
+    if not lead.user or not lead.scheduled_at:
+        raise HTTPException(status_code=400, detail="Lead has no user or scheduled date")
+    locale = lead.locale or "he"
+    product_title = getattr(lead.product, f"title_{locale}", None) or (lead.product.title_he if lead.product else "מוצר")
+    scheduled_str = lead.scheduled_at.strftime("%d/%m/%Y %H:%M")
+    if locale == "he":
+        body = f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><h2 style="color:#b8860b;">תזכורת לפגישה — TIVUTA</h2><p>שלום {lead.user.first_name},</p><p>זוהי תזכורת ידידותית לגבי הפגישה שלך עבור <strong>{product_title}</strong>.</p><p><strong>מועד:</strong> {scheduled_str}</p><p>לשאלות, צור איתנו קשר.</p></div>'
+        subject = f"תזכורת לפגישה — {product_title}"
+    else:
+        body = f"<p>Hi {lead.user.first_name}, this is a reminder about your appointment for <strong>{product_title}</strong> on {scheduled_str}.</p>"
+        subject = f"Appointment reminder — {product_title}"
+    get_email_sender().send(to=lead.user.email, subject=subject, html_body=body, locale=locale)
+
+    # Create in-app notification for the user
+    notif = models.Notification(
+        user_id=lead.user_id,
+        type="appointment_reminder",
+        title_he=f"תזכורת לפגישה: {product_title}",
+        message_he=f"הפגישה שלך נקבעה ל-{scheduled_str}",
+        link=f"/profile",
+    )
+    db.add(notif)
+    db.commit()
+    return {"sent": True}
 
 
 @router.patch("/admin/leads/{lead_id}/notes", response_model=schemas.LeadRead, dependencies=[Depends(get_current_admin)])
@@ -225,6 +347,20 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
                 try:
                     get_email_sender().send(to=user.email, subject=subject, html_body=body, locale=locale)
                 except Exception:
-                    pass  # don't fail the status update if email fails
+                    pass
+            # In-app notification
+            title_map = {
+                "confirmed": f"הפנייה שלך אושרה — {product_title}",
+                "contacted": f"הפנייה שלך טופלה — {product_title}",
+            }
+            notif = models.Notification(
+                user_id=lead.user_id,
+                type="lead_status",
+                title_he=title_map.get(status, "עדכון סטטוס פנייה"),
+                message_he=f"הפנייה שלך לגבי {product_title} עודכנה לסטטוס: {status}",
+                link="/profile",
+            )
+            db.add(notif)
+            db.commit()
 
     return lead

@@ -28,21 +28,28 @@ tivuta/
 │   │   ├── security.py       JWT auth, get_current_user, get_current_admin, get_db
 │   │   ├── routers/
 │   │   │   ├── auth.py          Login, register, forgot/reset password
-│   │   │   ├── users.py         User CRUD, role management
+│   │   │   ├── users.py         User CRUD, role management, password change, admin stats
 │   │   │   ├── catalog.py       Legacy benefits: categories, items, trending
-│   │   │   ├── products.py      Multi-vertical product CRUD + listing with promotions
+│   │   │   ├── products.py      Multi-vertical product CRUD + listing + duplicate + CSV import
 │   │   │   ├── promotions.py    Promotion CRUD + product assignment
-│   │   │   ├── leads.py         Appointment / contact-request tracking
+│   │   │   ├── leads.py         Leads + assignment + conversion stats + follow-up reminders + appointment reminders
 │   │   │   ├── surveys.py       Poll creation, voting, admin
-│   │   │   └── distributions.py Email/WhatsApp campaign creation & sending
+│   │   │   ├── distributions.py Email/WhatsApp campaign creation & sending
+│   │   │   ├── favorites.py     User favorites (wishlist) — GET/POST/DELETE
+│   │   │   └── notifications.py In-app notifications — list, unread-count, mark-read
 │   │   └── services/
 │   │       ├── email_resend.py    Resend.com email provider
 │   │       ├── whatsapp_meta.py   Meta WhatsApp Business API
 │   │       └── notifications.py   Generic dispatcher
 │   ├── alembic/           Migrations (Alembic)
 │   │   └── versions/
-│   │       ├── 1fcde320168b_initial_schema.py   All base tables
-│   │       └── d71018332029_add_promotions_tables.py  promotions + product_promotions
+│   │       ├── 1fcde320168b_initial_schema.py
+│   │       ├── d71018332029_add_promotions_tables.py
+│   │       ├── 13b4eb6e945d_add_promotion_entries.py
+│   │       ├── b0ede4d6750e_add_user_profile_fields.py
+│   │       ├── 94565c01c960_add_id_number_club_membership.py
+│   │       ├── 99977981cac4_membership_tracks_json.py
+│   │       └── a3f1c2d8e9b0_add_favorites_notifications_lead_assign.py  ← newest
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │
@@ -53,21 +60,27 @@ tivuta/
     │   │   └── [locale]/
     │   │       ├── (public)/        login, register, forgot/reset password
     │   │       └── (protected)/
-    │   │           ├── page.tsx         Home/dashboard
-    │   │           ├── diamonds/        Vertical listing
+    │   │           ├── page.tsx         Home/dashboard (has NotificationBell + SurveyWidget)
+    │   │           ├── profile/         User profile, activity history, favorites, password change
+    │   │           ├── diamonds/        Vertical listing (comparison bar, wishlist)
     │   │           ├── cars/
     │   │           ├── insurance/
     │   │           ├── survey/[id]/     Survey voting
     │   │           └── admin/
-    │   │               ├── layout.tsx   Nav tabs (Products, Users, Surveys, Distribution, Promotions)
-    │   │               ├── products/    Product CRUD
+    │   │               ├── layout.tsx   Nav tabs (Dashboard, Products, Users, Surveys, Distribution, Promotions)
+    │   │               ├── page.tsx     Dashboard: stats, 14-day leads chart, conversion panel, follow-up trigger
+    │   │               ├── products/    Product CRUD + duplicate + CSV import
     │   │               ├── users/       User + role management
     │   │               ├── surveys/     Survey creation + vote stats
+    │   │               ├── leads/       Leads table (notes, assignment, appointment reminder) + calendar view
     │   │               ├── distribution/ Email/WhatsApp campaigns
     │   │               └── promotions/  Promotion CRUD + product assignment
     │   ├── components/
-    │   │   ├── ProductTile.tsx          Product card (shows promotion badge if active)
-    │   │   ├── VerticalListingClient.tsx Product grid with sort sidebar
+    │   │   ├── ProductTile.tsx          Product card (promotion badge, wishlist heart, WhatsApp share, detail modal)
+    │   │   ├── VerticalListingClient.tsx Product grid with filter sidebar + comparison bar
+    │   │   ├── ComparisonBar.tsx        Fixed bottom bar comparing up to 3 products side-by-side
+    │   │   ├── NotificationBell.tsx     Dropdown bell — polls /notifications every 60s, mark-read support
+    │   │   ├── FilterSortSidebar.tsx    Search + price range + sort + promotion filter
     │   │   ├── AppointmentModal.tsx     Date picker for appointments
     │   │   ├── AdminGuard.tsx           Blocks non-admin users
     │   │   └── AuthGate.tsx             Blocks unauthenticated users
@@ -95,12 +108,14 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `products` | Multi-vertical catalog (diamonds/cars/insurance); has `attributes JSON` for vertical-specific fields |
 | `promotions` | Promotion definitions: type, channel, config JSON, dates |
 | `product_promotions` | Junction table linking products ↔ promotions (many-to-many) |
-| `leads` | Appointment requests and contact requests from product pages |
+| `leads` | Appointment/contact requests; `assigned_to FK→users.id` for admin assignment |
 | `surveys` | Polls shown to users |
 | `survey_options` | Options within a survey (each links to a product) |
 | `survey_votes` | One vote per user per survey |
 | `distributions` | Broadcast campaigns (survey or daily_deal); channels: email, whatsapp |
 | `distribution_send_logs` | Per-user send status for each campaign |
+| `favorites` | User wishlist; `UniqueConstraint(user_id, product_id)`; CASCADE deletes |
+| `notifications` | In-app notifications per user; `type`: `lead_status` \| `appointment_reminder` \| `system` \| `followup`; `is_read`, `link` fields |
 
 ---
 
@@ -194,6 +209,79 @@ npm run build  # static export to /out
 
 ---
 
+## User-Facing Features (session 2026-07-05)
+
+### Wishlist (Favorites)
+- Heart button on `ProductTile` — toggled per-product, stored server-side in `favorites` table
+- `GET /favorites/ids` returns just IDs (used by listing page for efficient state init)
+- `POST /favorites/{product_id}` — idempotent add; `DELETE /favorites/{product_id}` — 204 remove
+- Profile page shows full wishlist with image, title, price, remove button
+- `VerticalListingClient` pre-fetches `getFavoriteIds` alongside products via `Promise.all`
+
+### Product Comparison
+- `ComparisonBar` — fixed bottom bar, up to 3 products side-by-side with attribute rows
+- Compare toggle per `ProductTile` in `VerticalListingClient`
+- `ATTR_LABELS` map provides Hebrew/English labels for JSON attribute keys
+
+### WhatsApp Share
+- Share button on `ProductTile` opens `wa.me` with pre-filled product title + price message
+- No backend needed — pure client-side `window.open`
+
+### Recently Viewed
+- Tracked in `localStorage` key `tivuta_recent` (last 8 product IDs)
+- Written on `ProductTile` mount via `useEffect`; no backend needed
+
+### Notification Bell
+- `NotificationBell` component on home page top bar; receives `token` as prop
+- Polls `GET /notifications/unread-count` every 60 seconds
+- Dropdown shows last 50 notifications; type emoji map: `lead_status→📋`, `appointment_reminder→📅`, `system→🔔`, `followup→⏰`
+- Gold badge when `unread > 0`; supports mark-one and mark-all-read
+- Notifications are created server-side (in `leads.py`) when lead status changes to `confirmed` or `contacted`
+
+---
+
+## Admin Features (session 2026-07-05)
+
+### Duplicate Product
+- `POST /admin/products/{id}/duplicate` clones all fields; appends " (עותק)" to `title_he`, sets `is_active=False`
+- Button in products table row
+
+### Lead Assignment
+- `assigned_to` column added to `leads` table (FK → `users.id`)
+- `PATCH /admin/leads/{id}/assign` — body `{assigned_to: userId | null}`
+- Admin leads page loads all admin-role users once; shows `<select>` per row
+
+### Calendar View for Appointments
+- Toggle in leads page: Table view | Calendar view
+- Month navigation with Hebrew weekday labels `['א','ב','ג','ד','ה','ו','ש']`
+- Groups leads by `appointment_date` day in current month
+- Hover on lead card reveals appointment reminder button
+
+### Appointment Reminders
+- `POST /admin/leads/{id}/send-appointment-reminder` — sends email to user, creates in-app `Notification`
+- Bell icon button per lead row / calendar card
+
+### CSV Import
+- `POST /admin/products/import-csv` — multipart upload; handles `utf-8-sig` and `windows-1255` encodings
+- Required columns: `vertical`, `title_he`; optional: all other product fields + `attributes` as JSON string
+- "ייבוא CSV" button in products page header opens modal with column spec + file picker
+- Export CSV produces importable format (matching column names)
+
+### Conversion Panel
+- `GET /admin/leads/conversion` — per-vertical stats: `total`, `confirmed`, `contacted`, `closed`, `conversion_rate %`
+- Rendered as `ConversionPanel` in admin dashboard below the leads chart
+- Progress bar + breakdown counts per vertical
+
+### Follow-up Reminders
+- `POST /admin/leads/send-followup-reminders?stale_days=3` — finds `status=new` leads older than N days, sends admin email per lead
+- Trigger button in admin dashboard header; shows result count inline
+
+### Admin Dashboard
+- Stats cards → 14-day SVG bar chart (`LeadsChart`) → `ConversionPanel` → quick-links grid
+- All data fetched in parallel via `Promise.all([adminGetStats, adminGetLeadStats, adminGetConversionStats])`
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -202,3 +290,6 @@ npm run build  # static export to /out
 - **Static export constraint**: `output: 'export'` means no server-side rendering, no API routes, no dynamic server features. All data fetching is client-side after hydration.
 - **Promotions JSON config**: Chosen over fixed columns for flexibility — new promotion types require zero schema changes.
 - **Many-to-many via Table object**: `product_promotions_table` is defined as a SQLAlchemy `Table` (not a mapped class) to enable clean `secondary=` relationships on both `Product` and `Promotion`. Direct junction row management uses `promotion.products.append/remove`.
+- **Favorites IDs endpoint**: Separate `GET /favorites/ids` returns only IDs (not full products) — used by listing pages to efficiently mark favorited tiles without loading full product objects twice.
+- **Notifications created server-side**: `leads.py` creates `Notification` rows when lead status changes, so the polling bell picks them up without any extra client work.
+- **Recently viewed in localStorage**: No backend needed; 8-item LRU list keyed `tivuta_recent`; written on `ProductTile` mount.

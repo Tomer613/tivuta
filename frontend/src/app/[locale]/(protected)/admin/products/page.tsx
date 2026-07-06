@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage } from '@/lib/api';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download } from 'lucide-react';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv } from '@/lib/api';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload } from 'lucide-react';
 
 const VERTICALS = [
     { value: 'diamonds', label: 'יהלומים' },
@@ -87,7 +87,11 @@ export default function AdminProductsPage() {
     const [translating, setTranslating] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [showCsvModal, setShowCsvModal] = useState(false);
+    const [importingCsv, setImportingCsv] = useState(false);
+    const [csvFile, setCsvFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const csvInputRef = useRef<HTMLInputElement>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -252,10 +256,12 @@ export default function AdminProductsPage() {
     const verticalAttrs = VERTICAL_ATTRS[form.vertical] || [];
 
     const exportCsv = () => {
-        const header = ['עולם', 'כותרת עברית', 'כותרת EN', 'כותרת FR', 'כותרת YI', 'תיאור עברית', 'מחיר', 'תמונה', 'פעיל'];
+        const header = ['vertical', 'title_he', 'title_en', 'title_fr', 'title_yi', 'description_he', 'description_en', 'description_fr', 'description_yi', 'price', 'image', 'is_active', 'attributes'];
         const rows = filtered.map((p) => [
             p.vertical, p.title_he, p.title_en || '', p.title_fr || '', p.title_yi || '',
-            p.description_he, p.price ?? '', p.image_url || '', p.is_active ? 'כן' : 'לא',
+            p.description_he, p.description_en || '', p.description_fr || '', p.description_yi || '',
+            p.price ?? '', p.image_url || '', p.is_active ? 'true' : 'false',
+            p.attributes ? JSON.stringify(p.attributes) : '',
         ]);
         const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
         const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -263,6 +269,22 @@ export default function AdminProductsPage() {
         const a = document.createElement('a');
         a.href = url; a.download = `products-${new Date().toISOString().split('T')[0]}.csv`;
         a.click(); URL.revokeObjectURL(url);
+    };
+
+    const handleCsvImport = async () => {
+        if (!token || !csvFile) return;
+        setImportingCsv(true);
+        try {
+            const imported = await adminImportCsv(token, csvFile);
+            setProducts((prev) => [...imported, ...prev]);
+            setShowCsvModal(false);
+            setCsvFile(null);
+            showToast(`יובאו ${imported.length} מוצרים ✓`);
+        } catch (e: any) {
+            showToast(e.message || 'שגיאה בייבוא', 'error');
+        } finally {
+            setImportingCsv(false);
+        }
     };
 
     return (
@@ -274,6 +296,9 @@ export default function AdminProductsPage() {
                 <div className="flex gap-3 flex-wrap">
                     <button onClick={exportCsv} disabled={filtered.length === 0} className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/30 text-[#d4af37] rounded-xl px-4 py-2 text-sm font-bold hover:bg-[#111a2f] disabled:opacity-40 transition-colors">
                         <Download size={15} /> CSV ({filtered.length})
+                    </button>
+                    <button onClick={() => setShowCsvModal(true)} className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/30 text-[#d4af37] rounded-xl px-4 py-2 text-sm font-bold hover:bg-[#111a2f] transition-colors">
+                        <Upload size={15} /> ייבוא CSV
                     </button>
                     <button onClick={() => setShowBatchForm(true)} className="btn-secondary flex items-center gap-2 !text-sm">
                         <Plus size={16} /> הוסף מקבץ מוצרים
@@ -551,6 +576,40 @@ export default function AdminProductsPage() {
 
                         <button type="submit" className="btn-primary w-full">{editProduct ? 'שמור שינויים' : 'שמור'}</button>
                     </form>
+                </div>
+            )}
+
+            {/* CSV Import Modal */}
+            {showCsvModal && (
+                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={() => setShowCsvModal(false)}>
+                    <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-lg space-y-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-2">
+                            <h2 className="text-xl font-black text-[#f0e6d3]">ייבוא מוצרים מ-CSV</h2>
+                            <button onClick={() => setShowCsvModal(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
+                        </div>
+                        <div className="text-xs text-[#f0e6d3]/50 space-y-1">
+                            <p className="font-bold text-[#d4af37]/80 mb-2">עמודות נדרשות:</p>
+                            <p><code className="text-[#f0e6d3]/70">vertical</code> — diamonds | cars | insurance</p>
+                            <p><code className="text-[#f0e6d3]/70">title_he</code> — כותרת בעברית (חובה)</p>
+                            <p><code className="text-[#f0e6d3]/70">description_he</code>, <code className="text-[#f0e6d3]/70">price</code>, <code className="text-[#f0e6d3]/70">image</code>, <code className="text-[#f0e6d3]/70">is_active</code>, <code className="text-[#f0e6d3]/70">attributes</code> (JSON)</p>
+                        </div>
+                        <div
+                            className="border-2 border-dashed border-[#d4af37]/20 rounded-2xl p-8 text-center cursor-pointer hover:border-[#d4af37]/40 transition-colors"
+                            onClick={() => csvInputRef.current?.click()}
+                        >
+                            <Upload size={28} className="mx-auto mb-2 text-[#d4af37]/40" />
+                            <p className="text-sm text-[#f0e6d3]/60">{csvFile ? csvFile.name : 'לחץ לבחירת קובץ CSV'}</p>
+                            <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={(e) => setCsvFile(e.target.files?.[0] || null)} />
+                        </div>
+                        <button
+                            onClick={handleCsvImport}
+                            disabled={!csvFile || importingCsv}
+                            className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {importingCsv ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
+                            {importingCsv ? 'מייבא...' : 'ייבא מוצרים'}
+                        </button>
+                    </div>
                 </div>
             )}
 

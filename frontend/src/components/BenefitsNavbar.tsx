@@ -46,7 +46,7 @@ export default function BenefitsNavbar() {
     const [showLangMenu, setShowLangMenu] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-    const { user, logout } = useAuth();
+    const { user, logout, token } = useAuth();
     const router = useRouter();
     const params = useParams();
     const pathname = usePathname();
@@ -143,7 +143,7 @@ export default function BenefitsNavbar() {
                                     <span className="hidden sm:inline">{ui.dashboard}</span>
                                 </Link>
                                 <div className="absolute -top-3 -start-2 pointer-events-none z-10">
-                                    <NotificationBell />
+                                    {token && <NotificationBell token={token} />}
                                 </div>
                             </div>
 

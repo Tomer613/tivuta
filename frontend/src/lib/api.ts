@@ -501,13 +501,12 @@ export async function adminDeletePromotion(token: string, id: number) {
 }
 
 export async function adminDuplicateProduct(token: string, id: number) {
-    const res = await fetch(`${BASE_URL}/admin/products/${id}`, { headers: authHeaders(token) });
-    if (!res.ok) throw new Error('Failed to fetch product');
-    const p = await res.json();
-    const payload = { vertical: p.vertical, title_he: `${p.title_he} (עותק)`, description_he: p.description_he, price: p.price, image_url: p.image_url, is_active: false };
-    const r2 = await fetch(`${BASE_URL}/admin/products`, { method: 'POST', headers: authHeaders(token), body: JSON.stringify(payload) });
-    if (!r2.ok) throw new Error('Failed to duplicate product');
-    return r2.json();
+    const res = await fetch(`${BASE_URL}/admin/products/${id}/duplicate`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to duplicate product');
+    return res.json();
 }
 
 export async function changePassword(token: string, current_password: string, new_password: string) {
@@ -573,4 +572,107 @@ export async function adminDrawPromotion(token: string, promotionId: number) {
         throw new Error(err.detail || 'Failed to draw promotion');
     }
     return res.json();
+}
+
+// Favorites
+export async function getFavoriteIds(token: string): Promise<number[]> {
+    const res = await fetch(`${BASE_URL}/favorites/ids`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+export async function addFavorite(token: string, productId: number) {
+    const res = await fetch(`${BASE_URL}/favorites/${productId}`, { method: 'POST', headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to add favorite');
+    return res.json();
+}
+
+export async function removeFavorite(token: string, productId: number) {
+    await fetch(`${BASE_URL}/favorites/${productId}`, { method: 'DELETE', headers: authHeaders(token) });
+}
+
+export async function getFavorites(token: string) {
+    const res = await fetch(`${BASE_URL}/favorites`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+// Notifications
+export async function getNotifications(token: string) {
+    const res = await fetch(`${BASE_URL}/notifications`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+export async function getUnreadCount(token: string): Promise<number> {
+    const res = await fetch(`${BASE_URL}/notifications/unread-count`, { headers: authHeaders(token) });
+    if (!res.ok) return 0;
+    const data = await res.json();
+    return data.count;
+}
+
+export async function markNotificationRead(token: string, id: number) {
+    await fetch(`${BASE_URL}/notifications/${id}/read`, { method: 'PATCH', headers: authHeaders(token) });
+}
+
+export async function markAllNotificationsRead(token: string) {
+    await fetch(`${BASE_URL}/notifications/read-all`, { method: 'PATCH', headers: authHeaders(token) });
+}
+
+// Admin leads extras
+export async function adminAssignLead(token: string, leadId: number, assignedTo: number | null) {
+    const res = await fetch(`${BASE_URL}/admin/leads/${leadId}/assign`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_to: assignedTo }),
+    });
+    if (!res.ok) throw new Error('Failed to assign lead');
+    return res.json();
+}
+
+export async function adminGetConversionStats(token: string) {
+    const res = await fetch(`${BASE_URL}/admin/leads/conversion`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+export async function adminSendFollowupReminders(token: string, staleDays = 3) {
+    const res = await fetch(`${BASE_URL}/admin/leads/send-followup-reminders?stale_days=${staleDays}`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to send reminders');
+    return res.json();
+}
+
+export async function adminSendAppointmentReminder(token: string, leadId: number) {
+    const res = await fetch(`${BASE_URL}/admin/leads/${leadId}/send-appointment-reminder`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to send reminder');
+    return res.json();
+}
+
+// Admin products CSV import
+export async function adminImportCsv(token: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${BASE_URL}/admin/products/import-csv`, {
+        method: 'POST',
+        headers: authHeaders(token),
+        body: form,
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Import failed');
+    }
+    return res.json();
+}
+
+export async function adminGetAdminUsers(token: string) {
+    const res = await fetch(`${BASE_URL}/admin/users`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    const users = await res.json();
+    return users.filter((u: any) => u.role === 'admin');
 }

@@ -197,6 +197,7 @@ class Lead(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+    assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     lead_type = Column(String(30), nullable=False)  # 'appointment' | 'contact_request' | 'club_signup'
     scheduled_at = Column(DateTime, nullable=True)
     status = Column(String(20), default="new")  # new | confirmed | contacted | closed | cancelled
@@ -205,8 +206,37 @@ class Lead(Base):
     locale = Column(String(5), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    user = relationship("User", foreign_keys=[user_id])
+    assignee = relationship("User", foreign_keys=[assigned_to])
+    product = relationship("Product")
+
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+    __table_args__ = (UniqueConstraint("user_id", "product_id", name="uq_user_product_favorite"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
     user = relationship("User")
     product = relationship("Product")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    type = Column(String(50), nullable=False)  # lead_status | appointment_reminder | system | followup
+    title_he = Column(String(255), nullable=False)
+    message_he = Column(Text, nullable=True)
+    is_read = Column(Boolean, default=False)
+    link = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
 
 
 class Survey(Base):

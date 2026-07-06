@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Loader2, PackageOpen } from 'lucide-react';
+import { Loader2, PackageOpen, GitCompareArrows } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getProducts } from '@/lib/api';
+import { getProducts, getFavoriteIds } from '@/lib/api';
 import FilterSortSidebar, { SortOption } from '@/components/FilterSortSidebar';
 import ProductTile, { Product } from '@/components/ProductTile';
+import ComparisonBar from '@/components/ComparisonBar';
 
 interface T {
     title: string;
@@ -47,17 +48,35 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
     const [search, setSearch] = useState('');
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
+    const [favIds, setFavIds] = useState<Set<number>>(new Set());
+    const [compareList, setCompareList] = useState<Product[]>([]);
 
     const t = (COPY[vertical] && COPY[vertical][locale]) || COPY[vertical].he;
 
     useEffect(() => {
         if (!token) return;
         setLoading(true);
-        getProducts(token, vertical, sort, promotionType)
-            .then(setProducts)
+        Promise.all([
+            getProducts(token, vertical, sort, promotionType),
+            getFavoriteIds(token),
+        ])
+            .then(([prods, ids]) => {
+                setProducts(prods);
+                setFavIds(new Set(ids));
+            })
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
     }, [token, vertical, sort, promotionType]);
+
+    const toggleCompare = (product: Product) => {
+        setCompareList((prev) => {
+            if (prev.some((p) => p.id === product.id)) return prev.filter((p) => p.id !== product.id);
+            if (prev.length >= 3) return prev;
+            return [...prev, product];
+        });
+    };
+
+    const inCompare = (id: number) => compareList.some((p) => p.id === id);
 
     const filtered = useMemo(() => {
         let list = products;
@@ -86,6 +105,7 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
     }
 
     return (
+        <>
         <main className="min-h-screen bg-[#111a2f]">
             <header className="bg-[#0e1628] border-b border-[#d4af37]/20 py-16 px-8">
                 <div className="max-w-7xl mx-auto text-start">
@@ -120,7 +140,18 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
                     ) : filtered.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                             {filtered.map((p) => (
-                                <ProductTile key={p.id} product={p} locale={locale} actionType={actionType} token={token} />
+                                <div key={p.id} className="relative">
+                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} />
+                                    {/* Compare checkbox */}
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleCompare(p)}
+                                        className={`absolute bottom-3 left-3 flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-full border transition-all ${inCompare(p.id) ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37]' : 'bg-[#0e1628]/80 text-[#f0e6d3]/50 border-[#d4af37]/20 hover:border-[#d4af37]/50'}`}
+                                    >
+                                        <GitCompareArrows size={10} />
+                                        {inCompare(p.id) ? 'משווה' : 'השווה'}
+                                    </button>
+                                </div>
                             ))}
                         </div>
                     ) : (
@@ -132,5 +163,15 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
                 </div>
             </div>
         </main>
+
+        {compareList.length > 0 && (
+            <ComparisonBar
+                products={compareList}
+                locale={locale}
+                onRemove={(id) => setCompareList((prev) => prev.filter((p) => p.id !== id))}
+                onClear={() => setCompareList([])}
+            />
+        )}
+        </>
     );
 }

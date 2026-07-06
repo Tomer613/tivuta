@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 import uuid
 from datetime import datetime
@@ -153,6 +155,92 @@ async def upload_product_image(file: UploadFile = File(...)):
     with open(dest, "wb") as f:
         f.write(await file.read())
     return {"filename": filename}
+
+
+@router.post("/admin/products/{product_id}/duplicate", response_model=schemas.ProductRead, dependencies=[Depends(get_current_admin)])
+def admin_duplicate_product(product_id: int, db: Session = Depends(get_db)):
+    product = (
+        db.query(models.Product)
+        .options(selectinload(models.Product.promotions))
+        .filter(models.Product.id == product_id)
+        .first()
+    )
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    clone = models.Product(
+        vertical=product.vertical,
+        title_he=f"{product.title_he} (עותק)",
+        title_en=product.title_en,
+        title_fr=product.title_fr,
+        title_yi=product.title_yi,
+        description_he=product.description_he,
+        description_en=product.description_en,
+        description_fr=product.description_fr,
+        description_yi=product.description_yi,
+        image_url=product.image_url,
+        price=product.price,
+        attributes=product.attributes,
+        is_active=False,
+    )
+    db.add(clone)
+    db.commit()
+    db.refresh(clone)
+    return clone
+
+
+@router.post("/admin/products/import-csv", response_model=List[schemas.ProductRead], dependencies=[Depends(get_current_admin)])
+async def admin_import_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("windows-1255", errors="replace")
+    reader = csv.DictReader(io.StringIO(text))
+    new_products = []
+    errors = []
+    for i, row in enumerate(reader):
+        vertical = (row.get("vertical") or "").strip()
+        if vertical not in VALID_VERTICALS:
+            errors.append(f"Row {i+2}: invalid vertical '{vertical}'")
+            continue
+        title_he = (row.get("title_he") or "").strip()
+        if not title_he:
+            errors.append(f"Row {i+2}: title_he is required")
+            continue
+        description_he = (row.get("description_he") or title_he).strip()
+        import json as _json
+        attrs_raw = (row.get("attributes") or "").strip()
+        try:
+            attributes = _json.loads(attrs_raw) if attrs_raw else None
+        except Exception:
+            attributes = None
+        price_raw = (row.get("price") or "").strip()
+        price = float(price_raw) if price_raw else None
+        is_active_raw = (row.get("is_active") or "true").strip().lower()
+        is_active = is_active_raw not in ("false", "0", "no")
+        product = models.Product(
+            vertical=vertical,
+            title_he=title_he,
+            title_en=(row.get("title_en") or "").strip() or None,
+            title_fr=(row.get("title_fr") or "").strip() or None,
+            title_yi=(row.get("title_yi") or "").strip() or None,
+            description_he=description_he,
+            description_en=(row.get("description_en") or "").strip() or None,
+            description_fr=(row.get("description_fr") or "").strip() or None,
+            description_yi=(row.get("description_yi") or "").strip() or None,
+            image_url=(row.get("image") or row.get("image_url") or "").strip() or None,
+            price=price,
+            attributes=attributes,
+            is_active=is_active,
+        )
+        db.add(product)
+        new_products.append(product)
+    if not new_products and errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+    db.commit()
+    for p in new_products:
+        db.refresh(p)
+    return new_products
 
 
 @router.delete("/admin/products/{product_id}", dependencies=[Depends(get_current_admin)])
