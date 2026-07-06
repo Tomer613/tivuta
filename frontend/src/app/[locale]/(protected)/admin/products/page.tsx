@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListProducts, adminCreateProduct, adminDeleteProduct } from '@/lib/api';
-import { Plus, Trash2, Loader2, ArrowUpDown, X } from 'lucide-react';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus } from 'lucide-react';
 
-const VERTICALS = ['diamonds', 'cars', 'insurance'];
+const VERTICALS = [
+    { value: 'diamonds', label: 'יהלומים' },
+    { value: 'cars',     label: 'רכב' },
+    { value: 'insurance',label: 'ביטוח' },
+];
 
 export default function AdminProductsPage() {
     const { token } = useAuth();
@@ -18,6 +22,7 @@ export default function AdminProductsPage() {
     const [batchJson, setBatchJson] = useState('');
     const [batchError, setBatchError] = useState<string | null>(null);
     const [form, setForm] = useState({ vertical: 'diamonds', title_he: '', description_he: '', price: '', image_url: '' });
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const load = () => {
         if (!token) return;
@@ -99,7 +104,7 @@ export default function AdminProductsPage() {
                     className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]"
                 >
                     <option value="">כל העולמות</option>
-                    {VERTICALS.map((v) => <option key={v} value={v}>{v}</option>)}
+                    {VERTICALS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
                 </select>
                 <button
                     onClick={() => setSortKey(sortKey === 'price' ? 'title_he' : 'price')}
@@ -148,18 +153,59 @@ export default function AdminProductsPage() {
 
             {showForm && (
                 <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={() => setShowForm(false)}>
-                    <form onSubmit={handleCreate} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <form onSubmit={handleCreate} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-xl font-black text-[#f0e6d3]">הוסף מוצר</h2>
                             <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
-                        <select value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
-                            {VERTICALS.map((v) => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                        <input required placeholder="כותרת" value={form.title_he} onChange={(e) => setForm({ ...form, title_he: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        <textarea required placeholder="תיאור" value={form.description_he} onChange={(e) => setForm({ ...form, description_he: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        <input type="number" placeholder="מחיר" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        <input placeholder="שם קובץ תמונה" value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">עולם המוצר</label>
+                            <select value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
+                                {VERTICALS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">כותרת המוצר (עברית)</label>
+                            <input required placeholder="לדוגמה: יהלום 1 קרט" value={form.title_he} onChange={(e) => setForm({ ...form, title_he: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תיאור (עברית)</label>
+                            <textarea required placeholder="תיאור קצר של המוצר..." value={form.description_he} onChange={(e) => setForm({ ...form, description_he: e.target.value })} rows={3} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] resize-none" />
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מחיר (₪)</label>
+                            <input type="number" min={0} placeholder="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תמונת מוצר</label>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) setForm({ ...form, image_url: file.name });
+                                }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-start flex items-center gap-3 hover:bg-[#1a2540] transition-colors"
+                            >
+                                <ImagePlus size={18} className="text-[#d4af37]/60 shrink-0" />
+                                <span className={form.image_url ? 'text-[#f0e6d3]' : 'text-[#f0e6d3]/30'}>
+                                    {form.image_url || 'לחץ לבחירת תמונה...'}
+                                </span>
+                            </button>
+                            <p className="text-[#f0e6d3]/25 text-xs mt-1">יש להעתיק את הקובץ לתיקייה: frontend/public/images/products/</p>
+                        </div>
+
                         <button type="submit" className="btn-primary w-full">שמור</button>
                     </form>
                 </div>

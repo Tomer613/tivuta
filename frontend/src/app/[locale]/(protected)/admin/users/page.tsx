@@ -104,11 +104,26 @@ export default function AdminUsersPage() {
                             <h2 className="text-xl font-black text-[#f0e6d3]">הוסף משתמש</h2>
                             <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
-                        <input required placeholder="שם פרטי" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        <input required placeholder="שם משפחה" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        <input required type="email" placeholder="אימייל" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        <input placeholder="טלפון" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        <input required type="password" placeholder="סיסמה" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">שם פרטי</label>
+                            <input required placeholder="ישראל" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                        </div>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">שם משפחה</label>
+                            <input required placeholder="ישראלי" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                        </div>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">אימייל</label>
+                            <input required type="email" placeholder="mail@example.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" dir="ltr" />
+                        </div>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">טלפון (אופציונלי)</label>
+                            <input placeholder="050-0000000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" dir="ltr" />
+                        </div>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סיסמה</label>
+                            <input required type="password" placeholder="לפחות 8 תווים" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                        </div>
                         <button type="submit" className="btn-primary w-full">שמור</button>
                     </form>
                 </div>

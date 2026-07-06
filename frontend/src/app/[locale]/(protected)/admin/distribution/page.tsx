@@ -225,43 +225,51 @@ export default function AdminDistributionPage() {
                         </div>
 
                         {/* Type selector */}
-                        <div className="flex gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setForm({ ...form, distribution_type: 'survey', product_id: '' })}
-                                className={`flex-1 py-3 rounded-xl font-bold text-sm ${form.distribution_type === 'survey' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}
-                            >סקר</button>
-                            <button
-                                type="button"
-                                onClick={() => setForm({ ...form, distribution_type: 'daily_deal', survey_id: '' })}
-                                className={`flex-1 py-3 rounded-xl font-bold text-sm ${form.distribution_type === 'daily_deal' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}
-                            >דיל היומי</button>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סוג ההפצה</label>
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setForm({ ...form, distribution_type: 'survey', product_id: '' })}
+                                    className={`flex-1 py-3 rounded-xl font-bold text-sm ${form.distribution_type === 'survey' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}
+                                >סקר</button>
+                                <button
+                                    type="button"
+                                    onClick={() => setForm({ ...form, distribution_type: 'daily_deal', survey_id: '' })}
+                                    className={`flex-1 py-3 rounded-xl font-bold text-sm ${form.distribution_type === 'daily_deal' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}
+                                >דיל היומי</button>
+                            </div>
                         </div>
 
                         {/* Survey / product selector */}
-                        {form.distribution_type === 'survey' ? (
-                            <select
-                                required
-                                value={form.survey_id}
-                                onChange={(e) => setForm({ ...form, survey_id: e.target.value })}
-                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                            >
-                                <option value="">בחר סקר...</option>
-                                {surveys.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.question_he}</option>
-                                ))}
-                            </select>
-                        ) : (
-                            <select
-                                required
-                                value={form.product_id}
-                                onChange={(e) => setForm({ ...form, product_id: e.target.value })}
-                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                            >
-                                <option value="">בחר מוצר...</option>
-                                {products.map((p) => <option key={p.id} value={p.id}>{p.title_he}</option>)}
-                            </select>
-                        )}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">
+                                {form.distribution_type === 'survey' ? 'איזה סקר לשלוח?' : 'איזה מוצר לקדם?'}
+                            </label>
+                            {form.distribution_type === 'survey' ? (
+                                <select
+                                    required
+                                    value={form.survey_id}
+                                    onChange={(e) => setForm({ ...form, survey_id: e.target.value })}
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                >
+                                    <option value="">בחר סקר...</option>
+                                    {surveys.map((s) => (
+                                        <option key={s.id} value={s.id}>{s.question_he}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <select
+                                    required
+                                    value={form.product_id}
+                                    onChange={(e) => setForm({ ...form, product_id: e.target.value })}
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                >
+                                    <option value="">בחר מוצר...</option>
+                                    {products.map((p) => <option key={p.id} value={p.id}>{p.title_he}</option>)}
+                                </select>
+                            )}
+                        </div>
 
                         {/* Survey URL preview */}
                         {surveyUrl && (
@@ -271,16 +279,21 @@ export default function AdminDistributionPage() {
                             </div>
                         )}
 
-                        <input
-                            required
-                            placeholder="כותרת ההודעה"
-                            value={form.title_he}
-                            onChange={(e) => setForm({ ...form, title_he: e.target.value })}
-                            className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
-                        />
                         <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">כותרת ההודעה</label>
+                            <input
+                                required
+                                placeholder="לדוגמה: הצביעו עכשיו!"
+                                value={form.title_he}
+                                onChange={(e) => setForm({ ...form, title_he: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מבוא (אופציונלי)</label>
                             <textarea
-                                placeholder="מבוא אופציונלי (הקישור יתווסף אוטומטית)"
+                                placeholder="טקסט פתיחה שיופיע לפני הקישור..."
                                 value={form.message_he}
                                 onChange={(e) => setForm({ ...form, message_he: e.target.value })}
                                 className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
@@ -294,19 +307,22 @@ export default function AdminDistributionPage() {
                         </div>
 
                         {/* Channel selectors */}
-                        <div className="flex gap-3">
-                            <label className="flex-1 flex items-center gap-2 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
-                                <input type="checkbox" checked={form.channels.includes('email')} onChange={() => toggleChannel('email')} />
-                                <Mail size={16} /> מייל
-                            </label>
-                            <label className="flex-1 flex items-center gap-2 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
-                                <input type="checkbox" checked={form.channels.includes('whatsapp')} onChange={() => toggleChannel('whatsapp')} />
-                                <MessageCircle size={16} /> WhatsApp
-                            </label>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">ערוצי שליחה</label>
+                            <div className="flex gap-3">
+                                <label className="flex-1 flex items-center gap-2 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
+                                    <input type="checkbox" checked={form.channels.includes('email')} onChange={() => toggleChannel('email')} />
+                                    <Mail size={16} /> מייל
+                                </label>
+                                <label className="flex-1 flex items-center gap-2 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
+                                    <input type="checkbox" checked={form.channels.includes('whatsapp')} onChange={() => toggleChannel('whatsapp')} />
+                                    <MessageCircle size={16} /> WhatsApp
+                                </label>
+                            </div>
+                            {form.channels.length === 0 && (
+                                <p className="text-red-400 text-xs mt-1">יש לבחור לפחות ערוץ אחד</p>
+                            )}
                         </div>
-                        {form.channels.length === 0 && (
-                            <p className="text-red-400 text-xs">יש לבחור לפחות ערוץ אחד</p>
-                        )}
 
                         <button
                             type="submit"
