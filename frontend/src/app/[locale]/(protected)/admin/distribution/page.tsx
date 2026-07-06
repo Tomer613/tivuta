@@ -9,7 +9,19 @@ import {
     adminListSurveys,
     adminListProducts,
 } from '@/lib/api';
-import { Plus, Loader2, X, Send, Mail, MessageCircle, Eye, RefreshCw } from 'lucide-react';
+import { Plus, Loader2, X, Send, Mail, MessageCircle, Eye, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+    useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+    return (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold whitespace-nowrap ${
+            type === 'success' ? 'bg-[#0e1628] border border-green-500/50 text-green-400' : 'bg-[#0e1628] border border-red-500/50 text-red-400'
+        }`}>
+            {type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            {message}
+        </div>
+    );
+}
 
 const BASE_SITE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://tivuta.co.il';
 
@@ -22,7 +34,11 @@ export default function AdminDistributionPage() {
     const [showForm, setShowForm] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [sendingId, setSendingId] = useState<number | null>(null);
+    const [confirmSendId, setConfirmSendId] = useState<number | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
     const [form, setForm] = useState({
         distribution_type: 'survey' as 'daily_deal' | 'survey',
@@ -84,25 +100,34 @@ export default function AdminDistributionPage() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token || form.channels.length === 0) return;
-        await adminCreateDistribution(token, {
-            distribution_type: form.distribution_type,
-            survey_id: form.distribution_type === 'survey' ? Number(form.survey_id) : null,
-            product_id: form.distribution_type === 'daily_deal' ? Number(form.product_id) : null,
-            title_he: form.title_he,
-            message_he: form.message_he || null,
-            channels: form.channels,
-        });
-        setShowForm(false);
-        setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: ['email'] });
-        load();
+        try {
+            await adminCreateDistribution(token, {
+                distribution_type: form.distribution_type,
+                survey_id: form.distribution_type === 'survey' ? Number(form.survey_id) : null,
+                product_id: form.distribution_type === 'daily_deal' ? Number(form.product_id) : null,
+                title_he: form.title_he,
+                message_he: form.message_he || null,
+                channels: form.channels,
+            });
+            setShowForm(false);
+            setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: ['email'] });
+            showToast('ההפצה נוצרה — תוכל לשלוח אותה מהרשימה ✓');
+            load();
+        } catch {
+            showToast('שגיאה ביצירת ההפצה', 'error');
+        }
     };
 
     const handleSend = async (id: number) => {
         if (!token) return;
+        setConfirmSendId(null);
         setSendingId(id);
         try {
             await adminSendDistribution(token, id);
+            showToast('ההפצה נשלחה בהצלחה ✓');
             await load();
+        } catch {
+            showToast('שגיאה בשליחה', 'error');
         } finally {
             setSendingId(null);
         }
@@ -128,6 +153,7 @@ export default function AdminDistributionPage() {
 
     return (
         <div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <h1 className="text-3xl font-black text-[#f0e6d3]">הפצה</h1>
                 <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 !text-sm">
@@ -192,13 +218,21 @@ export default function AdminDistributionPage() {
                                     </td>
                                     <td className="p-4">
                                         {d.status === 'draft' && (
-                                            <button
-                                                onClick={() => handleSend(d.id)}
-                                                disabled={sendingId === d.id}
-                                                className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
-                                            >
-                                                <Send size={14} /> שלח
-                                            </button>
+                                            confirmSendId === d.id ? (
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className="text-[#f0e6d3]/60">שלח לכולם?</span>
+                                                    <button onClick={() => handleSend(d.id)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
+                                                    <button onClick={() => setConfirmSendId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setConfirmSendId(d.id)}
+                                                    disabled={sendingId === d.id}
+                                                    className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
+                                                >
+                                                    <Send size={14} /> שלח
+                                                </button>
+                                            )
                                         )}
                                     </td>
                                 </tr>

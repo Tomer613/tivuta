@@ -3,7 +3,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListUsers, adminCreateUser, adminSetUserRole } from '@/lib/api';
-import { Plus, Loader2, X, ShieldCheck } from 'lucide-react';
+import { Plus, Loader2, X, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+    useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+    return (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold whitespace-nowrap ${
+            type === 'success' ? 'bg-[#0e1628] border border-green-500/50 text-green-400' : 'bg-[#0e1628] border border-red-500/50 text-red-400'
+        }`}>
+            {type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            {message}
+        </div>
+    );
+}
 
 export default function AdminUsersPage() {
     const { token } = useAuth();
@@ -12,6 +24,10 @@ export default function AdminUsersPage() {
     const [search, setSearch] = useState('');
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', password: '' });
+    const [confirmRoleId, setConfirmRoleId] = useState<number | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
     const load = () => {
         if (!token) return;
@@ -27,24 +43,36 @@ export default function AdminUsersPage() {
         return users.filter((u) => `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(q));
     }, [users, search]);
 
-    const handleCreate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!token) return;
-        await adminCreateUser(token, form);
-        setForm({ first_name: '', last_name: '', email: '', phone: '', password: '' });
-        setShowForm(false);
-        load();
-    };
-
     const toggleRole = async (u: any) => {
         if (!token) return;
         const nextRole = u.role === 'admin' ? 'member' : 'admin';
-        await adminSetUserRole(token, u.id, nextRole);
-        load();
+        try {
+            await adminSetUserRole(token, u.id, nextRole);
+            showToast(nextRole === 'admin' ? `${u.first_name} הפך למנהל ✓` : `הרשאת מנהל הוסרה מ-${u.first_name}`);
+            load();
+        } catch {
+            showToast('שגיאה בשינוי הרשאה', 'error');
+        }
+        setConfirmRoleId(null);
+    };
+
+    const handleCreate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token) return;
+        try {
+            await adminCreateUser(token, form);
+            setForm({ first_name: '', last_name: '', email: '', phone: '', password: '' });
+            setShowForm(false);
+            showToast('המשתמש נוצר בהצלחה ✓');
+            load();
+        } catch (err: any) {
+            showToast(err.message || 'שגיאה ביצירת המשתמש', 'error');
+        }
     };
 
     return (
         <div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <h1 className="text-3xl font-black text-[#f0e6d3]">משתמשים</h1>
                 <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 !text-sm">
@@ -85,10 +113,18 @@ export default function AdminUsersPage() {
                                         </span>
                                     </td>
                                     <td className="p-4">
-                                        <button onClick={() => toggleRole(u)} className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline">
-                                            <ShieldCheck size={14} />
-                                            {u.role === 'admin' ? 'הסר הרשאת אדמין' : 'הפוך למנהל'}
-                                        </button>
+                                        {confirmRoleId === u.id ? (
+                                            <div className="flex items-center gap-2 text-xs">
+                                                <span className="text-[#f0e6d3]/60">{u.role === 'admin' ? 'להסיר הרשאה?' : 'להפוך למנהל?'}</span>
+                                                <button onClick={() => toggleRole(u)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
+                                                <button onClick={() => setConfirmRoleId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                            </div>
+                                        ) : (
+                                            <button onClick={() => setConfirmRoleId(u.id)} className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline">
+                                                <ShieldCheck size={14} />
+                                                {u.role === 'admin' ? 'הסר הרשאת אדמין' : 'הפוך למנהל'}
+                                            </button>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

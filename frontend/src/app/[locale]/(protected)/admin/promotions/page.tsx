@@ -13,7 +13,25 @@ import {
     adminRemoveProductFromPromotion,
     adminDrawPromotion,
 } from '@/lib/api';
-import { Plus, X, Loader2, Tag, Users, Shuffle } from 'lucide-react';
+import { Plus, X, Loader2, Tag, Users, Shuffle, CheckCircle2, AlertCircle } from 'lucide-react';
+
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+    useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
+    return (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold whitespace-nowrap ${
+            type === 'success' ? 'bg-[#0e1628] border border-green-500/50 text-green-400' : 'bg-[#0e1628] border border-red-500/50 text-red-400'
+        }`}>
+            {type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            {message}
+        </div>
+    );
+}
+
+function addDays(n: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return d.toISOString().split('T')[0];
+}
 
 const PROMOTION_TYPES = [
     { value: 'first_n', label: 'ראשונים (מספר מוגבל)' },
@@ -74,6 +92,10 @@ export default function AdminPromotionsPage() {
     const [drawingId, setDrawingId] = useState<number | null>(null);
     const [drawResult, setDrawResult] = useState<Record<number, string>>({});
     const [drawError, setDrawError] = useState<string | null>(null);
+    const [confirmToggleId, setConfirmToggleId] = useState<number | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
     const [form, setForm] = useState({
         name_he: '',
@@ -99,30 +121,42 @@ export default function AdminPromotionsPage() {
         setForm((f) => ({ ...f, config: { ...f.config, [key]: value === '' ? '' : Number(value) } }));
     };
 
+    const handleToggleActive = async (promo: any) => {
+        if (!token) return;
+        try {
+            if (promo.is_active) {
+                await adminDeactivatePromotion(token, promo.id);
+                showToast('המבצע הושבת');
+            } else {
+                await adminUpdatePromotion(token, promo.id, { is_active: true });
+                showToast('המבצע הופעל ✓');
+            }
+            load();
+        } catch {
+            showToast('שגיאה בעדכון המבצע', 'error');
+        }
+        setConfirmToggleId(null);
+    };
+
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
-        await adminCreatePromotion(token, {
-            name_he: form.name_he,
-            type: form.type,
-            channel: form.channel,
-            config: form.config,
-            end_date: form.end_date || null,
-            is_active: true,
-        });
-        setShowForm(false);
-        setForm({ name_he: '', type: 'first_n', channel: 'both', end_date: '', config: emptyConfig('first_n') });
-        load();
-    };
-
-    const handleToggleActive = async (promo: any) => {
-        if (!token) return;
-        if (promo.is_active) {
-            await adminDeactivatePromotion(token, promo.id);
-        } else {
-            await adminUpdatePromotion(token, promo.id, { is_active: true });
+        try {
+            await adminCreatePromotion(token, {
+                name_he: form.name_he,
+                type: form.type,
+                channel: form.channel,
+                config: form.config,
+                end_date: form.end_date || null,
+                is_active: true,
+            });
+            showToast('המבצע נוצר בהצלחה ✓');
+            setShowForm(false);
+            setForm({ name_he: '', type: 'first_n', channel: 'both', end_date: '', config: emptyConfig('first_n') });
+            load();
+        } catch {
+            showToast('שגיאה ביצירת המבצע', 'error');
         }
-        load();
     };
 
     const openAssign = async (promo: any) => {
@@ -190,6 +224,7 @@ export default function AdminPromotionsPage() {
 
     return (
         <div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <h1 className="text-3xl font-black text-[#f0e6d3]">מבצעים</h1>
                 <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 !text-sm">
@@ -253,12 +288,20 @@ export default function AdminPromotionsPage() {
                                             >
                                                 <Users size={15} /> שיוך מוצרים
                                             </button>
-                                            <button
-                                                onClick={() => handleToggleActive(promo)}
-                                                className={`text-sm font-semibold ${promo.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
-                                            >
-                                                {promo.is_active ? 'השבת' : 'הפעל'}
-                                            </button>
+                                            {confirmToggleId === promo.id ? (
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className="text-[#f0e6d3]/60">{promo.is_active ? 'להשבית?' : 'להפעיל?'}</span>
+                                                    <button onClick={() => handleToggleActive(promo)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
+                                                    <button onClick={() => setConfirmToggleId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setConfirmToggleId(promo.id)}
+                                                    className={`text-sm font-semibold ${promo.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
+                                                >
+                                                    {promo.is_active ? 'השבת' : 'הפעל'}
+                                                </button>
+                                            )}
                                             {isRaffleDrawable(promo) && (
                                                 drawResult[promo.id] ? (
                                                     <span className="text-xs text-green-400 font-bold">🏆 זוכה: {drawResult[promo.id]}</span>
@@ -352,6 +395,20 @@ export default function AdminPromotionsPage() {
 
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תאריך סיום מבצע (אופציונלי)</label>
+                            <div className="flex gap-2 mb-2">
+                                {[7, 14, 30].map((n) => (
+                                    <button key={n} type="button" onClick={() => setForm({ ...form, end_date: addDays(n) })}
+                                        className="flex-1 py-1.5 rounded-lg bg-[#111a2f] text-[#f0e6d3]/60 text-xs hover:bg-[#1a2540] hover:text-[#d4af37] transition-colors">
+                                        +{n} ימים
+                                    </button>
+                                ))}
+                                {form.end_date && (
+                                    <button type="button" onClick={() => setForm({ ...form, end_date: '' })}
+                                        className="px-3 py-1.5 rounded-lg bg-[#111a2f] text-[#f0e6d3]/40 text-xs hover:text-red-400 transition-colors">
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
                             <input
                                 type="date"
                                 value={form.end_date}
