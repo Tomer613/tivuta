@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Gem, Car, ShieldCheck, BarChart3, CheckCircle2, Loader2, User } from 'lucide-react';
-import Link from 'next/link';
+import { Gem, Car, ShieldCheck, BarChart3, CheckCircle2, Loader2 } from 'lucide-react';
 import VerticalTile from '@/components/VerticalTile';
-import NotificationBell from '@/components/NotificationBell';
-import GlobalSearch from '@/components/GlobalSearch';
 import { useAuth } from '@/context/AuthContext';
 import { getSurveys, voteSurvey } from '@/lib/api';
 
@@ -185,16 +182,6 @@ export default function HomePage() {
     return (
         <main className="min-h-screen bg-[#111a2f] py-20 px-6">
             <div className="max-w-5xl mx-auto">
-                {/* Top bar */}
-                <div className="flex items-center justify-between gap-3 mb-12 -mt-8">
-                    <GlobalSearch locale={locale} />
-                    <div className="flex items-center gap-3">
-                        {token && <NotificationBell token={token} />}
-                        <Link href={`/${locale}/profile`} className="w-9 h-9 rounded-full bg-[#111a2f] border border-[#d4af37]/20 flex items-center justify-center hover:border-[#d4af37]/50 transition-colors">
-                            <User size={17} className="text-[#f0e6d3]/70" />
-                        </Link>
-                    </div>
-                </div>
                 <div className="text-center mb-16">
                     <h1 className="text-4xl md:text-5xl font-black text-[#f0e6d3] mb-4">
                         {greeting}{user?.first_name ? `, ${user.first_name}` : ''}

@@ -6,6 +6,8 @@ import { Globe, UserCircle2, LayoutDashboard } from 'lucide-react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/context/AuthContext';
+import NotificationBell from '@/components/NotificationBell';
+import GlobalSearch from '@/components/GlobalSearch';
 
 const languages = [
     { code: 'he', label: 'עברית' },
@@ -20,7 +22,7 @@ export default function RootHeader() {
     const params = useParams();
     const pathname = usePathname();
     const locale = (params?.locale as string) || 'he';
-    const { user } = useAuth();
+    const { user, token } = useAuth();
 
     const changeLanguage = (newLocale: string) => {
         // pathname looks like /{locale}/... — locale is segment index 1
@@ -38,6 +40,8 @@ export default function RootHeader() {
                 </Link>
 
                 <div className="flex items-center gap-2">
+                    {user && <GlobalSearch locale={locale} />}
+                    {token && <NotificationBell token={token} />}
                     {user?.role === 'admin' && (
                         <Link
                             href={`/${locale}/admin/products`}

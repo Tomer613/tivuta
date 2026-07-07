@@ -50,20 +50,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 <span className="text-[#f0e6d3]/35 text-[11px] uppercase tracking-widest font-bold">בק-אופיס</span>
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
-                                {tabs.map((tab) => (
-                                    <Link
-                                        key={tab.href}
-                                        href={tab.href}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
-                                            pathname === tab.href
-                                                ? 'bg-[#d4af37] text-[#080d1f]'
-                                                : 'text-[#f0e6d3] hover:bg-[#111a2f]'
-                                        }`}
-                                    >
-                                        {tab.icon}
-                                        {tab.label}
-                                    </Link>
-                                ))}
+                                {tabs.map((tab) => {
+                                    const isDashboard = tab.href === `/${locale}/admin`;
+                                    const isActive = isDashboard
+                                        ? pathname === tab.href
+                                        : pathname === tab.href || pathname.startsWith(tab.href + '/');
+                                    return (
+                                        <Link
+                                            key={tab.href}
+                                            href={tab.href}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+                                                isActive
+                                                    ? 'bg-[#d4af37] text-[#080d1f]'
+                                                    : 'text-[#f0e6d3]/70 hover:text-[#f0e6d3] hover:bg-[#111a2f]'
+                                            }`}
+                                        >
+                                            {tab.icon}
+                                            {tab.label}
+                                        </Link>
+                                    );
+                                })}
                             </div>
                         </div>
                         <Link
