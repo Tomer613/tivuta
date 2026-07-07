@@ -12,8 +12,10 @@ from sqlalchemy.orm import Session, selectinload
 from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
 
-# ── Change IMAGES_DIR in production to point to your static-file host ─────────
-IMAGES_DIR = os.environ.get("IMAGES_DIR", os.path.join(os.path.dirname(__file__), "../../../../frontend/public/images/products"))
+IMAGES_DIR = os.environ.get(
+    "IMAGES_DIR",
+    os.path.normpath(os.path.join(os.path.dirname(__file__), "../../../frontend/public/images/products")),
+)
 
 router = APIRouter(tags=["products"])
 

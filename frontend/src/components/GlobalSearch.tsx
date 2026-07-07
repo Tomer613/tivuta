@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Search, X, Diamond, Car, Shield } from 'lucide-react';
-import { searchProducts } from '@/lib/api';
+import { searchProducts, productImageUrl } from '@/lib/api';
 import Link from 'next/link';
 
 const VERTICAL_ICON: Record<string, React.ReactNode> = {
@@ -101,7 +101,7 @@ export default function GlobalSearch({ locale }: Props) {
                                     <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#111a2f] shrink-0 product-img-wrap">
                                         {product.image_url && (
                                             <img
-                                                src={`/images/products/${product.image_url}`}
+                                                src={productImageUrl(product.image_url)}
                                                 alt={product.title_he}
                                                 className="w-full h-full object-cover"
                                             />

@@ -386,6 +386,7 @@ npm run build  # static export to /out
 - **View count fire-and-forget**: `POST /products/{id}/view` is called with `fetch().catch(() => {})` — no auth, no await. A failed view-count increment should never block the user.
 - **Distribution segmentation mix**: `filter_city` uses a SQL WHERE clause (efficient); `filter_membership_track` uses Python in-memory filtering since `membership_tracks` is a JSON array column (not indexable with simple SQL). Trade-off accepted: segment sizes are small.
 - **Email preview in iframe**: HTML is rendered in a sandboxed `<iframe srcdoc>` in the admin preview modal. `sandbox="allow-same-origin"` prevents script execution while allowing CSS rendering.
+- **Product image serving via FastAPI StaticFiles**: Images uploaded through the admin are saved to `IMAGES_DIR` and served by FastAPI at `/images/products/`. Frontend uses `productImageUrl(filename)` helper from `api.ts` which prepends `NEXT_PUBLIC_API_URL`. In dev, `IMAGES_DIR` defaults to `frontend/public/images/products/` (same dir Next.js serves). In prod, set `IMAGES_DIR` to any writable path — FastAPI serves it directly. No static rebuild needed after upload.
 
 ---
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, updateNotificationPrefs } from '@/lib/api';
+import { updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, updateNotificationPrefs, productImageUrl } from '@/lib/api';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
@@ -628,8 +628,7 @@ export default function ProfileClient() {
                             {favorites.map((fav: any) => {
                                 const p = fav.product;
                                 if (!p) return null;
-                                const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-                                const imgSrc = p.image_url ? `${basePath}/images/products/${p.image_url}` : `${basePath}/images/products/placeholder.jpg`;
+                                const imgSrc = productImageUrl(p.image_url);
                                 return (
                                     <div key={fav.id} className="flex items-center gap-3 bg-[#111a2f] rounded-xl px-3 py-2">
                                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -725,8 +724,7 @@ export default function ProfileClient() {
                         </h2>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {recentlyViewed.slice(0, 8).map((p: any) => {
-                                const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-                                const imgSrc = p.image_url ? `${basePath}/images/products/${p.image_url}` : `${basePath}/images/products/placeholder.jpg`;
+                                const imgSrc = productImageUrl(p.image_url);
                                 const href = `/${locale}/${p.vertical}`;
                                 return (
                                     <a key={p.id} href={href} className="group bg-[#111a2f] rounded-xl overflow-hidden hover:ring-1 hover:ring-[#d4af37]/40 transition-all">

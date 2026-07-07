@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { getProduct, getPromotionStatus, enterPromotion, createLead } from '@/lib/api';
+import { getProduct, getPromotionStatus, enterPromotion, createLead, productImageUrl } from '@/lib/api';
 import { PromotionBrief } from '@/components/ProductTile';
 import AppointmentModal from '@/components/AppointmentModal';
 import { CalendarCheck, MessageCircle, CheckCircle2, Loader2, Trophy, Users, Tag, ArrowRight } from 'lucide-react';
@@ -284,8 +284,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const locKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const title = product[`title_${locKey}`] || product.title_he;
     const description = product[`description_${locKey}`] || product.description_he;
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-    const imagePath = product.image_url ? `${basePath}/images/products/${product.image_url}` : `${basePath}/images/products/placeholder.jpg`;
+    const imagePath = productImageUrl(product.image_url);
     const actionType = product.vertical === 'diamonds' ? 'appointment' : 'contact';
     const interactivePromos: PromotionBrief[] = (product.promotions || []).filter(
         (p: PromotionBrief) => p.type === 'raffle' || p.type === 'first_n'

@@ -2,10 +2,19 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .routers import auth, catalog, distributions, favorites, leads, notifications, products, promotions, reviews, surveys, translate, users
 
 app = FastAPI(title="Tivuta - The Working Haredi Ecosystem")
+
+# Serve uploaded product images — in prod set IMAGES_DIR env var to the actual upload path
+_IMAGES_DIR = os.environ.get(
+    "IMAGES_DIR",
+    os.path.normpath(os.path.join(os.path.dirname(__file__), "../../frontend/public/images/products")),
+)
+os.makedirs(_IMAGES_DIR, exist_ok=True)
+app.mount("/images/products", StaticFiles(directory=_IMAGES_DIR), name="product-images")
 
 origins = [
     "http://localhost:3000",

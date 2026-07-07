@@ -5,6 +5,14 @@
 
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+const STATIC_BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
+/** Returns the URL for a product image, served from the backend (works in both dev and prod). */
+export function productImageUrl(filename: string | null | undefined): string {
+    if (!filename) return `${STATIC_BASE}/images/products/placeholder.jpg`;
+    return `${BASE_URL}/images/products/${filename}`;
+}
+
 // Fallback data for build-time when backend is unreachable
 const MOCK_CATEGORIES = [
     { id: 1, slug: 'judaism', name_he: 'יהדות', name_en: 'Judaism', name_fr: 'Judaïsme', name_yi: 'יהדות' },

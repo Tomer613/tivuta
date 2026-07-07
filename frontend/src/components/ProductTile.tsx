@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft, X, Info, Heart, Share2, Star, Clock } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
-import { createLead, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView } from '@/lib/api';
+import { createLead, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView, productImageUrl } from '@/lib/api';
 
 export interface PromotionBrief {
     id: number;
@@ -202,8 +202,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const title = product[`title_${localeKey}`] || product.title_he;
     const description = product[`description_${localeKey}`] || product.description_he;
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-    const imagePath = product.image_url ? `${basePath}/images/products/${product.image_url}` : `${basePath}/images/products/placeholder.jpg`;
+    const imagePath = productImageUrl(product.image_url);
 
     const handleContact = async () => {
         setStatus('submitting');

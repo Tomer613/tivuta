@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics } from '@/lib/api';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics, productImageUrl } from '@/lib/api';
 import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3 } from 'lucide-react';
 
 const VERTICALS = [
@@ -454,7 +454,7 @@ export default function AdminProductsPage() {
                                     <tr key={p.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
                                         <td className="p-3">
                                             {p.image_url ? (
-                                                <img src={`/images/products/${p.image_url}`} alt="" className="w-10 h-10 rounded-lg object-cover bg-[#111a2f]" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                <img src={productImageUrl(p.image_url)} alt="" className="w-10 h-10 rounded-lg object-cover bg-[#111a2f]" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                             ) : (
                                                 <div className="w-10 h-10 rounded-lg bg-[#111a2f] flex items-center justify-center">
                                                     <ImagePlus size={13} className="text-[#f0e6d3]/20" />

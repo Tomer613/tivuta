@@ -2,6 +2,7 @@
 
 import { X, GitCompareArrows } from 'lucide-react';
 import { Product } from '@/components/ProductTile';
+import { productImageUrl } from '@/lib/api';
 
 const ATTR_LABELS: Record<string, Record<string, string>> = {
     carat: { he: 'קרט', en: 'Carat' }, cut: { he: 'חיתוך', en: 'Cut' }, color: { he: 'צבע', en: 'Color' },
@@ -27,7 +28,6 @@ export default function ComparisonBar({ products, locale, onRemove, onClear }: P
     const allAttrKeys = Array.from(
         new Set(products.flatMap((p) => Object.keys(p.attributes || {})))
     );
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
     return (
         <div className="fixed bottom-0 left-0 right-0 z-[150] bg-[#080d1f] border-t border-[#d4af37]/30 shadow-2xl" dir="rtl">
@@ -47,7 +47,7 @@ export default function ComparisonBar({ products, locale, onRemove, onClear }: P
                 <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${products.length}, 1fr)` }}>
                     {products.map((p) => {
                         const title = p[`title_${localeKey}`] || p.title_he;
-                        const imgSrc = p.image_url ? `${basePath}/images/products/${p.image_url}` : `${basePath}/images/products/placeholder.jpg`;
+                        const imgSrc = productImageUrl(p.image_url);
                         return (
                             <div key={p.id} className="bg-[#0e1628] rounded-xl border border-[#d4af37]/15 overflow-hidden">
                                 <div className="relative h-20">
