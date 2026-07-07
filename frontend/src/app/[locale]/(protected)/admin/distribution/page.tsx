@@ -135,13 +135,50 @@ export default function AdminDistributionPage() {
         }
     };
 
+    const buildWhatsAppText = (d: any): string => {
+        const intro = d.message_he ? `${d.message_he}\n\n` : '';
+        if (d.distribution_type === 'survey' && d.survey_id) {
+            const survey = surveys.find((s) => s.id === d.survey_id);
+            const question = survey?.question_he || d.survey_title || d.title_he;
+            const url = `https://tivuta.co.il/he/survey/${d.survey_id}`;
+            return `${intro}${d.title_he}\n${question}\n\nלחץ להצביע:\n${url}`.trim();
+        }
+        if (d.distribution_type === 'daily_deal' && d.product_id) {
+            const product = products.find((p) => p.id === d.product_id);
+            const price = product?.price ? `₪${Math.round(product.price).toLocaleString('he-IL')}` : 'לפי בקשה';
+            const title = product?.title_he || d.product_title || d.title_he;
+            const vertical = product?.vertical || 'diamonds';
+            const url = `https://tivuta.co.il/he/${vertical}?product=${d.product_id}`;
+            return `${intro}${title} — ${price}\n\nלפרטים:\n${url}`.trim();
+        }
+        return `${intro}${d.title_he}`.trim();
+    };
+
     const handleSend = async (id: number) => {
         if (!token) return;
+        const dist = distributions.find((d) => d.id === id);
+        if (!dist) return;
+
+        const hasEmail = dist.channels.includes('email');
+        const hasWhatsApp = dist.channels.includes('whatsapp');
+
+        // Open WhatsApp deep link immediately (same event-loop tick as the click, before any awaits)
+        if (hasWhatsApp) {
+            const text = buildWhatsAppText(dist);
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
         setConfirmSendId(null);
         setSendingId(id);
         try {
             await adminSendDistribution(token, id);
-            showToast('ההפצה נשלחה בהצלחה ✓');
+            if (hasEmail && hasWhatsApp) {
+                showToast('האימיילים נשלחו ✓ — WhatsApp נפתח לשליחה ידנית');
+            } else if (hasWhatsApp) {
+                showToast('WhatsApp נפתח — בחר קבוצה ולחץ שלח ✓');
+            } else {
+                showToast('ההפצה נשלחה בהצלחה ✓');
+            }
             await load();
         } catch {
             showToast('שגיאה בשליחה', 'error');
@@ -284,7 +321,11 @@ export default function AdminDistributionPage() {
                                                 {confirmSendId === d.id ? (
                                                     <div className="flex items-center gap-2 text-xs">
                                                         <span className="text-[#f0e6d3]/60">
-                                                            שלח ל-{memberCount !== null ? memberCount : '...'} חברים?
+                                                            {d.channels.includes('whatsapp') && !d.channels.includes('email')
+                                                                ? 'יפתח WhatsApp — בחר קבוצה ושלח?'
+                                                                : d.channels.includes('whatsapp')
+                                                                    ? `${memberCount ?? '...'} מיילים + WhatsApp?`
+                                                                    : `שלח ל-${memberCount ?? '...'} חברים?`}
                                                         </span>
                                                         <button onClick={() => handleSend(d.id)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
                                                         <button onClick={() => setConfirmSendId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
@@ -295,7 +336,9 @@ export default function AdminDistributionPage() {
                                                         disabled={sendingId === d.id}
                                                         className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
                                                     >
-                                                        <Send size={14} /> שלח
+                                                        {d.channels.includes('whatsapp') && !d.channels.includes('email')
+                                                            ? <><MessageCircle size={13} /> פתח WhatsApp</>
+                                                            : <><Send size={14} /> שלח</>}
                                                     </button>
                                                 )}
                                                 {deletingId === d.id ? (
@@ -463,9 +506,12 @@ export default function AdminDistributionPage() {
                                     <input type="checkbox" checked={form.channels.includes('email')} onChange={() => toggleChannel('email')} />
                                     <Mail size={16} /> מייל
                                 </label>
-                                <label className="flex-1 flex items-center gap-2 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
-                                    <input type="checkbox" checked={form.channels.includes('whatsapp')} onChange={() => toggleChannel('whatsapp')} />
-                                    <MessageCircle size={16} /> WhatsApp
+                                <label className="flex-1 flex flex-col gap-1 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
+                                    <span className="flex items-center gap-2">
+                                        <input type="checkbox" checked={form.channels.includes('whatsapp')} onChange={() => toggleChannel('whatsapp')} />
+                                        <MessageCircle size={16} /> WhatsApp
+                                    </span>
+                                    <span className="text-[10px] text-[#f0e6d3]/30 pr-5">פתיחת WhatsApp Web לשליחה ידנית</span>
                                 </label>
                             </div>
                             {form.channels.length === 0 && (

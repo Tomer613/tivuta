@@ -2,13 +2,13 @@ import os
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..database import SessionLocal
 from ..security import get_current_admin, get_db
-from ..services import get_email_sender, get_whatsapp_sender
+from ..services import get_email_sender
 
 router = APIRouter(tags=["distributions"])
 
@@ -103,7 +103,8 @@ def _build_fallback_email(subject: str, message: str) -> str:
 # ─── Background send task ──────────────────────────────────────────────────────
 
 def _send_distribution(distribution_id: int) -> None:
-    """Fans out to every member user on the requested channels. Runs in a background thread."""
+    """Sends email to every member user in the target audience. Runs in a background thread.
+    WhatsApp channel is handled client-side via deep link — skipped here."""
     db = SessionLocal()
     try:
         distribution = db.query(models.Distribution).filter(models.Distribution.id == distribution_id).first()
@@ -116,9 +117,8 @@ def _send_distribution(distribution_id: int) -> None:
         subject = distribution.title_he or "TIVUTA"
         message = distribution.message_he or ""
         email_html: Optional[str] = None
-        whatsapp_text: str = f"{subject}\n{message}".strip() if message else subject
 
-        # Build rich content
+        # Build rich email content
         if distribution.distribution_type == "survey" and distribution.survey_id:
             survey = db.query(models.Survey).filter(models.Survey.id == distribution.survey_id).first()
             if survey:
@@ -131,22 +131,17 @@ def _send_distribution(distribution_id: int) -> None:
                             product_image_url = f"{APP_BASE_URL}/images/products/{p.image_url}"
                             break
                 email_html = _build_survey_email(survey, survey_url, product_image_url)
-                intro = f"{message}\n\n" if message else ""
-                whatsapp_text = f"{intro}{subject}\n{survey.question_he}\n\nלחץ להצביע:\n{survey_url}"
 
         elif distribution.distribution_type == "daily_deal" and distribution.product_id:
             product = db.query(models.Product).filter(models.Product.id == distribution.product_id).first()
             if product:
-                product_url = f"{APP_BASE_URL}/he/products/{product.id}"
+                product_url = f"{APP_BASE_URL}/he/{product.vertical}?product={product.id}"
                 email_html = _build_deal_email(product, product_url)
-                price_text = f'₪{int(product.price):,}' if product.price else 'לפי בקשה'
-                intro = f"{message}\n\n" if message else ""
-                whatsapp_text = f"{intro}{product.title_he} — {price_text}\n\nלפרטים:\n{product_url}"
 
         if not email_html:
             email_html = _build_fallback_email(subject, message)
 
-        # Only send to member users (not admins); apply segmentation filters
+        # Only send to member users; apply segmentation filters
         user_query = db.query(models.User).filter(models.User.role == "member")
         if distribution.filter_city:
             user_query = user_query.filter(models.User.city == distribution.filter_city)
@@ -154,57 +149,36 @@ def _send_distribution(distribution_id: int) -> None:
         if distribution.filter_membership_track:
             track = distribution.filter_membership_track
             users = [u for u in users if u.membership_tracks and track in u.membership_tracks]
-        email_sender = get_email_sender()
-        whatsapp_sender = get_whatsapp_sender()
 
+        email_sender = get_email_sender()
         actual_sends = 0
         actual_failures = 0
 
         for user in users:
-            for channel in distribution.channels:
-                log = models.DistributionSendLog(
-                    distribution_id=distribution.id,
-                    user_id=user.id,
-                    channel=channel,
-                )
-                try:
-                    if channel == "email":
-                        result = email_sender.send(
-                            to=user.email,
-                            subject=subject,
-                            html_body=email_html,
-                            locale="he",
-                        )
-                    elif channel == "whatsapp":
-                        if not user.phone:
-                            log.status = "skipped"
-                            log.error = "No phone number"
-                            db.add(log)
-                            continue
-                        result = whatsapp_sender.send(to_phone=user.phone, text=whatsapp_text)
-                    else:
-                        log.status = "skipped"
-                        db.add(log)
-                        continue
-
-                    if result.success:
-                        log.status = "sent"
-                        log.provider_message_id = result.provider_message_id
-                        log.sent_at = datetime.utcnow()
-                        actual_sends += 1
-                    else:
-                        log.status = "failed"
-                        log.error = result.error
-                        actual_failures += 1
-                except Exception as e:
+            if "email" not in distribution.channels:
+                continue
+            log = models.DistributionSendLog(
+                distribution_id=distribution.id,
+                user_id=user.id,
+                channel="email",
+            )
+            try:
+                result = email_sender.send(to=user.email, subject=subject, html_body=email_html, locale="he")
+                if result.success:
+                    log.status = "sent"
+                    log.provider_message_id = result.provider_message_id
+                    log.sent_at = datetime.utcnow()
+                    actual_sends += 1
+                else:
                     log.status = "failed"
-                    log.error = str(e)
+                    log.error = result.error
                     actual_failures += 1
+            except Exception as e:
+                log.status = "failed"
+                log.error = str(e)
+                actual_failures += 1
+            db.add(log)
 
-                db.add(log)
-
-        # Sent if at least one message went through, or if there was nothing to send.
-        # Failed only when every actual send attempt returned an error.
         distribution.status = "sent" if actual_sends > 0 or actual_failures == 0 else "failed"
         distribution.sent_at = datetime.utcnow()
         db.commit()
@@ -340,3 +314,40 @@ def admin_delete_distribution(distribution_id: int, db: Session = Depends(get_db
     db.delete(distribution)
     db.commit()
     return {"message": "deleted"}
+
+
+@router.post("/api/distributions/process-scheduled")
+def process_scheduled_distributions(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Cron endpoint — called by GitHub Actions every 15 minutes.
+    Finds draft distributions whose scheduled_at has passed and fires them."""
+    cron_secret = os.environ.get("CRON_SECRET", "")
+    if not cron_secret:
+        raise HTTPException(status_code=500, detail="CRON_SECRET is not configured on the server")
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or auth[len("Bearer "):] != cron_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    now = datetime.utcnow()
+    due = (
+        db.query(models.Distribution)
+        .filter(
+            models.Distribution.status == "draft",
+            models.Distribution.scheduled_at.isnot(None),
+            models.Distribution.scheduled_at <= now,
+        )
+        .all()
+    )
+
+    # Mark all as "sending" immediately so an overlapping cron run doesn't double-trigger them
+    for dist in due:
+        dist.status = "sending"
+    db.commit()
+
+    for dist in due:
+        background_tasks.add_task(_send_distribution, dist.id)
+
+    return {"triggered": len(due), "ids": [d.id for d in due]}

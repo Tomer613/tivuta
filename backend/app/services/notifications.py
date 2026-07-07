@@ -10,7 +10,3 @@ class SendResult(BaseModel):
 
 class EmailSender(Protocol):
     def send(self, *, to: str, subject: str, html_body: str, locale: str = "he") -> SendResult: ...
-
-
-class WhatsAppSender(Protocol):
-    def send(self, *, to_phone: str, text: str, locale: str = "he") -> SendResult: ...

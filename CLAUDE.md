@@ -342,7 +342,7 @@ npm run build  # static export to /out
 ### Distribution Scheduling
 - `scheduled_at: DateTime` nullable column on `Distribution` model
 - UI: datetime-local picker in create form; `scheduled_at` column in distributions table
-- Note: automatic sending at scheduled time requires a cron job / background task (not yet implemented — field is stored, manual send still required)
+- Cron endpoint: `POST /api/distributions/process-scheduled` — called by GitHub Actions every 15 min; validates `Authorization: Bearer <CRON_SECRET>`; finds `draft` distributions where `scheduled_at <= now`, pre-marks them `sending` (prevents double-trigger on overlapping runs), then fires `_send_distribution` as a background task for each
 
 ### Audience Segmentation for Distributions
 - `filter_membership_track: String(100)` and `filter_city: String(100)` nullable columns on `Distribution` model
