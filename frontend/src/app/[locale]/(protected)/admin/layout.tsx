@@ -51,10 +51,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 {tabs.map((tab) => {
-                                    const isDashboard = tab.href === `/${locale}/admin`;
+                                    const norm = (p: string) => p.replace(/\/$/, '');
+                                    const isDashboard = norm(tab.href) === norm(`/${locale}/admin`);
                                     const isActive = isDashboard
-                                        ? pathname === tab.href
-                                        : pathname === tab.href || pathname.startsWith(tab.href + '/');
+                                        ? norm(pathname) === norm(tab.href)
+                                        : norm(pathname) === norm(tab.href) || norm(pathname).startsWith(norm(tab.href) + '/');
                                     return (
                                         <Link
                                             key={tab.href}

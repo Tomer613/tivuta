@@ -23,6 +23,12 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* RTL table alignment — cells with dir="ltr" would otherwise align left */
+table th,
+table td {
+    text-align: right;
+}
+
 /* Premium Component Classes */
 .glass-nav {
     @apply sticky top-0 z-50 bg-[#080d1f]/90 backdrop-blur-md border-b border-[#d4af37]/20;
