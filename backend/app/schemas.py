@@ -338,6 +338,17 @@ class LeadCreate(BaseModel):
     notes: Optional[str] = None
     locale: Optional[str] = None
 
+class ShippingAddress(BaseModel):
+    full_name: str = Field(..., max_length=150)
+    street: str = Field(..., max_length=255)
+    city: str = Field(..., max_length=100)
+    zip_code: Optional[str] = Field(None, max_length=20)
+    phone: str = Field(..., max_length=20)
+
+class CardOrderCreate(BaseModel):
+    shipping_address: ShippingAddress
+    locale: Optional[str] = None
+
 class LeadRead(BaseModel):
     id: int
     user_id: Optional[int] = None
@@ -346,6 +357,7 @@ class LeadRead(BaseModel):
     scheduled_at: Optional[datetime] = None
     status: str
     channel: str
+    shipping_address: Optional[dict] = None
     created_at: datetime
 
     class Config:
@@ -377,6 +389,7 @@ class AdminLeadRead(BaseModel):
     product_id: Optional[int] = None
     product_title_he: Optional[str] = None
     product_vertical: Optional[str] = None
+    shipping_address: Optional[dict] = None
 
     class Config:
         from_attributes = True
@@ -502,6 +515,17 @@ class SaleTransactionRead(BaseModel):
     status: str
     reported_at: datetime
     confirmed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class PointsLedgerEntryRead(BaseModel):
+    id: int
+    delta_points: int
+    reason: str
+    balance_after: int
+    vendor_name_he: Optional[str] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True

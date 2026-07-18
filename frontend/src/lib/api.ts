@@ -90,6 +90,38 @@ export async function adminSetVendorPortalAccess(token: string, id: number, logi
     return res.json();
 }
 
+export async function adminListSettlements(token: string, vendorId: number): Promise<CommissionSettlementPeriod[]> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${vendorId}/settlements`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load settlements');
+    return res.json();
+}
+
+export async function adminOpenSettlementPeriod(token: string, vendorId: number, periodStart: string, periodEnd: string): Promise<CommissionSettlementPeriod> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${vendorId}/settlements`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period_start: periodStart, period_end: periodEnd }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to open settlement period');
+    }
+    return res.json();
+}
+
+export async function adminSettlePeriod(token: string, vendorId: number, periodId: number, note?: string): Promise<CommissionSettlementPeriod> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${vendorId}/settlements/${periodId}/settle`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: note || null }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to settle period');
+    }
+    return res.json();
+}
+
 // ── Loyalty program: vendor self-service portal ─────────────────────────────
 
 export interface VendorMe {
@@ -904,6 +936,44 @@ export async function trackProductView(productId: number) {
 export async function getMyOrders(token: string) {
     const res = await fetch(`${BASE_URL}/orders/me`, { headers: authHeaders(token) });
     if (!res.ok) return [];
+    return res.json();
+}
+
+// ── Loyalty program: customer card / points history / physical card request ─
+
+export interface PointsLedgerEntry {
+    id: number;
+    delta_points: number;
+    reason: string;
+    balance_after: number;
+    vendor_name_he?: string | null;
+    created_at: string;
+}
+
+export interface ShippingAddress {
+    full_name: string;
+    street: string;
+    city: string;
+    zip_code?: string | null;
+    phone: string;
+}
+
+export async function getMyPointsHistory(token: string): Promise<PointsLedgerEntry[]> {
+    const res = await fetch(`${BASE_URL}/users/me/points-history`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+export async function createCardOrder(token: string, shippingAddress: ShippingAddress, locale?: string) {
+    const res = await fetch(`${BASE_URL}/leads/card-order`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shipping_address: shippingAddress, locale }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to submit card order');
+    }
     return res.json();
 }
 

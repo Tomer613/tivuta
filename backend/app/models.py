@@ -238,13 +238,14 @@ class Lead(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
-    lead_type = Column(String(30), nullable=False)  # 'appointment' | 'contact_request' | 'club_signup'
+    lead_type = Column(String(30), nullable=False)  # 'appointment' | 'contact_request' | 'club_signup' | 'card_order'
     scheduled_at = Column(DateTime, nullable=True)
     status = Column(String(20), default="new")  # new | confirmed | contacted | closed | cancelled
     channel = Column(String(20), default="web")
     notes = Column(Text, nullable=True)
     locale = Column(String(5), nullable=True)
     history = Column(JSON, nullable=True, default=list)  # audit trail [{ts, actor, action, from, to}]
+    shipping_address = Column(JSON, nullable=True)  # {full_name, street, city, zip_code, phone} — 'card_order' leads only
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id])

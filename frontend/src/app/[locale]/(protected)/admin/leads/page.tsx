@@ -16,7 +16,7 @@ const STATUSES = [
 ];
 
 const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
-const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות' };
+const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס' };
 
 function VerticalIcon({ v }: { v: string }) {
     if (v === 'diamonds') return <Gem size={14} className="text-[#d4af37]" />;
@@ -497,6 +497,12 @@ export default function AdminLeadsPage() {
                                                             {VERTICAL_LABEL[lead.product_vertical] ?? lead.product_vertical}
                                                         </span>
                                                     )}
+                                                </div>
+                                            ) : lead.lead_type === 'card_order' && lead.shipping_address ? (
+                                                <div className="text-xs text-[#f0e6d3]/70 space-y-0.5">
+                                                    <p className="font-semibold text-[#f0e6d3]">{lead.shipping_address.full_name}</p>
+                                                    <p>{lead.shipping_address.street}, {lead.shipping_address.city} {lead.shipping_address.zip_code || ''}</p>
+                                                    <p dir="ltr" className="text-[#d4af37]/70">{lead.shipping_address.phone}</p>
                                                 </div>
                                             ) : <span className="text-[#f0e6d3]/25">—</span>}
                                         </td>

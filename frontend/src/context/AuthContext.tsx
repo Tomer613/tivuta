@@ -18,6 +18,8 @@ interface User {
     club_affiliation?: string | null;
     membership_tracks?: string[] | null;
     notification_prefs?: Record<string, boolean> | null;
+    customer_number?: string | null;
+    points_balance?: number;
 }
 
 interface AuthContextType {

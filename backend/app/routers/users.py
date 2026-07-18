@@ -2,10 +2,10 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
-from ..security import get_current_admin, get_current_user, get_db, get_password_hash
+from ..security import get_current_admin, get_current_user, get_db, get_password_hash, verify_password
 
 router = APIRouter(tags=["users"])
 
@@ -71,6 +71,28 @@ def get_my_orders(current_user: models.User = Depends(get_current_user), db: Ses
         .order_by(models.Order.date.desc())
         .all()
     )
+
+
+@router.get("/users/me/points-history", response_model=List[schemas.PointsLedgerEntryRead])
+def get_my_points_history(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    entries = (
+        db.query(models.PointsLedgerEntry)
+        .options(selectinload(models.PointsLedgerEntry.sale_transaction).selectinload(models.SaleTransaction.vendor))
+        .filter(models.PointsLedgerEntry.user_id == current_user.id)
+        .order_by(models.PointsLedgerEntry.created_at.desc())
+        .all()
+    )
+    return [
+        schemas.PointsLedgerEntryRead(
+            id=e.id,
+            delta_points=e.delta_points,
+            reason=e.reason,
+            balance_after=e.balance_after,
+            vendor_name_he=e.sale_transaction.vendor.name_he if e.sale_transaction and e.sale_transaction.vendor else None,
+            created_at=e.created_at,
+        )
+        for e in entries
+    ]
 
 
 @router.patch("/users/me/notification-prefs", response_model=schemas.UserRead)

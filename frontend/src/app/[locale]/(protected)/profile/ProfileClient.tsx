@@ -3,10 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, updateNotificationPrefs, productImageUrl } from '@/lib/api';
+import {
+    updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, updateNotificationPrefs, productImageUrl,
+    getMyPointsHistory, createCardOrder, PointsLedgerEntry, ShippingAddress,
+} from '@/lib/api';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
+    Copy, Gift, Package, Send, Loader2,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 
@@ -248,6 +252,14 @@ export default function ProfileClient() {
     const [pwError, setPwError] = useState('');
     const [showCurrent, setShowCurrent] = useState(false);
     const [showNext, setShowNext] = useState(false);
+    const [pointsHistory, setPointsHistory] = useState<PointsLedgerEntry[]>([]);
+    const [showPointsHistory, setShowPointsHistory] = useState(false);
+    const [copiedCustomerNumber, setCopiedCustomerNumber] = useState(false);
+    const [showCardOrderForm, setShowCardOrderForm] = useState(false);
+    const [cardOrderForm, setCardOrderForm] = useState<ShippingAddress>({ full_name: '', street: '', city: '', zip_code: '', phone: '' });
+    const [cardOrderState, setCardOrderState] = useState<'idle' | 'submitting' | 'error'>('idle');
+    const [cardOrderError, setCardOrderError] = useState('');
+    const [cardOrderLeadOverride, setCardOrderLeadOverride] = useState<any | null>(null);
 
     useEffect(() => {
         if (!user) return;
@@ -268,11 +280,17 @@ export default function ProfileClient() {
         getFavorites(token).then(setFavorites).catch(() => {});
         getMyAppointments(token).then(setAppointments).catch(() => {});
         getMyOrders(token).then(setOrders).catch(() => {});
+        getMyPointsHistory(token).then(setPointsHistory).catch(() => {});
         try {
             const raw = localStorage.getItem('tivuta_recent_v2');
             if (raw) setRecentlyViewed(JSON.parse(raw));
         } catch { /* ignore */ }
     }, [token]);
+
+    useEffect(() => {
+        if (!user) return;
+        setCardOrderForm((f) => ({ ...f, full_name: f.full_name || `${user.first_name} ${user.last_name}`.trim(), phone: f.phone || user.phone || '' }));
+    }, [user]);
 
     useEffect(() => {
         if (user?.notification_prefs) setNotifPrefs({ lead_status: true, appointment_reminder: true, system: true, promotions: true, ...user.notification_prefs });
@@ -327,6 +345,30 @@ export default function ProfileClient() {
 
     const handleLogout = () => { logout(); router.push(`/${locale}/login`); };
 
+    const handleCopyCustomerNumber = () => {
+        if (!user?.customer_number) return;
+        navigator.clipboard?.writeText(user.customer_number).then(() => {
+            setCopiedCustomerNumber(true);
+            setTimeout(() => setCopiedCustomerNumber(false), 2000);
+        });
+    };
+
+    const handleSubmitCardOrder = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token) return;
+        setCardOrderState('submitting');
+        setCardOrderError('');
+        try {
+            const lead = await createCardOrder(token, cardOrderForm, locale);
+            setCardOrderLeadOverride(lead);
+            setShowCardOrderForm(false);
+            setCardOrderState('idle');
+        } catch (err: any) {
+            setCardOrderError(err.message || (locale === 'he' ? 'שגיאה בשליחת הבקשה' : 'Failed to submit request'));
+            setCardOrderState('error');
+        }
+    };
+
     const handlePasswordChange = async () => {
         if (!token) return;
         setPwError('');
@@ -355,7 +397,10 @@ export default function ProfileClient() {
     const statusColor = (s: string) =>
         ({ new: 'text-[#f0e6d3]/60', confirmed: 'text-green-400', contacted: 'text-blue-400', closed: 'text-[#f0e6d3]/30' }[s] ?? 'text-[#f0e6d3]/60');
 
-    const grouped = activity.reduce((acc: Record<string, any[]>, item: any) => {
+    const marketplaceActivity = activity.filter((item: any) => item.lead_type !== 'card_order');
+    const cardOrderLead = cardOrderLeadOverride || activity.find((item: any) => item.lead_type === 'card_order') || null;
+
+    const grouped = marketplaceActivity.reduce((acc: Record<string, any[]>, item: any) => {
         const v = item.product_vertical || 'other';
         if (!acc[v]) acc[v] = [];
         acc[v].push(item);
@@ -578,12 +623,172 @@ export default function ProfileClient() {
                     {saveState === 'saving' ? t.saving : saveState === 'saved' ? `✓ ${t.saved}` : t.save}
                 </button>
 
+                {/* ── Tivuta Card (loyalty points + customer number) ── */}
+                <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-2xl overflow-hidden">
+                    <div className="p-6" style={{ background: 'linear-gradient(135deg, #1a2540 0%, #111a2f 100%)' }}>
+                        <div className="flex items-center justify-between flex-wrap gap-4">
+                            <div>
+                                <p className="text-[10px] font-bold text-[#d4af37]/60 uppercase tracking-widest mb-1">
+                                    {locale === 'he' ? 'כרטיס טיבותא' : locale === 'fr' ? 'Carte Tivuta' : 'Tivuta Card'}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Gift size={20} className="text-[#d4af37]" />
+                                    <span className="text-3xl font-black text-[#f0e6d3]">{user?.points_balance ?? 0}</span>
+                                    <span className="text-sm text-[#f0e6d3]/50">{locale === 'he' ? 'נקודות' : 'points'}</span>
+                                </div>
+                            </div>
+                            {user?.customer_number && (
+                                <div className="text-start">
+                                    <p className="text-[10px] font-bold text-[#f0e6d3]/40 uppercase tracking-widest mb-1">
+                                        {locale === 'he' ? 'מספר לקוח' : 'Customer Number'}
+                                    </p>
+                                    <button
+                                        onClick={handleCopyCustomerNumber}
+                                        className="flex items-center gap-2 font-mono text-sm font-bold text-[#f0e6d3] bg-[#0e1628] border border-[#d4af37]/20 rounded-lg px-3 py-2 hover:border-[#d4af37]/50 transition-colors"
+                                        dir="ltr"
+                                    >
+                                        {user.customer_number}
+                                        {copiedCustomerNumber ? <CheckCircle2 size={14} className="text-green-400" /> : <Copy size={13} className="text-[#f0e6d3]/40" />}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Points history */}
+                    <button
+                        onClick={() => setShowPointsHistory((v) => !v)}
+                        className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-[#111a2f] transition-colors border-t border-[#d4af37]/10"
+                    >
+                        <span className="text-sm font-bold text-[#f0e6d3]">{locale === 'he' ? 'היסטוריית נקודות' : 'Points History'}</span>
+                        <ChevronDown size={16} className={`text-[#f0e6d3]/40 transition-transform ${showPointsHistory ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showPointsHistory && (
+                        <div className="px-5 pb-5 space-y-2">
+                            {pointsHistory.length === 0 ? (
+                                <p className="text-[#f0e6d3]/40 text-sm text-center py-4">
+                                    {locale === 'he' ? 'עדיין לא נצברו נקודות' : 'No points earned yet'}
+                                </p>
+                            ) : (
+                                pointsHistory.map((entry) => (
+                                    <div key={entry.id} className="flex items-center justify-between bg-[#111a2f] rounded-xl px-4 py-2.5 text-sm">
+                                        <div>
+                                            <p className="text-[#f0e6d3]">
+                                                {entry.vendor_name_he
+                                                    ? (locale === 'he' ? `רכישה ב-${entry.vendor_name_he}` : `Purchase at ${entry.vendor_name_he}`)
+                                                    : (locale === 'he' ? 'עדכון נקודות' : 'Points adjustment')}
+                                            </p>
+                                            <p className="text-[10px] text-[#f0e6d3]/40 mt-0.5">
+                                                {new Date(entry.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                            </p>
+                                        </div>
+                                        <span className={`font-black shrink-0 ${entry.delta_points >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            {entry.delta_points >= 0 ? '+' : ''}{entry.delta_points}
+                                        </span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+
+                    {/* Physical card request */}
+                    <div className="px-5 pb-5 pt-1 border-t border-[#d4af37]/10">
+                        {cardOrderLead ? (
+                            <div className="flex items-center gap-3 bg-[#111a2f] rounded-xl px-4 py-3">
+                                <Package size={18} className="text-[#d4af37] shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-[#f0e6d3]">
+                                        {locale === 'he' ? 'בקשת כרטיס פיזי נשלחה' : 'Physical card request submitted'}
+                                    </p>
+                                    <p className="text-xs text-[#f0e6d3]/40 mt-0.5">
+                                        {locale === 'he' ? 'הצוות שלנו יפיק וישלח את הכרטיס בהקדם' : "We'll produce and mail your card soon"}
+                                    </p>
+                                </div>
+                                <span className={`text-xs font-bold shrink-0 px-2 py-0.5 rounded-full ${
+                                    cardOrderLead.status === 'closed' ? 'bg-green-400/10 text-green-400' : 'bg-[#d4af37]/10 text-[#d4af37]'
+                                }`}>
+                                    {cardOrderLead.status === 'closed'
+                                        ? (locale === 'he' ? 'נשלח' : 'Sent')
+                                        : (locale === 'he' ? 'בטיפול' : 'In progress')}
+                                </span>
+                            </div>
+                        ) : showCardOrderForm ? (
+                            <form onSubmit={handleSubmitCardOrder} className="space-y-3">
+                                {cardOrderError && <p className="text-red-400 text-xs">{cardOrderError}</p>}
+                                <input
+                                    required
+                                    value={cardOrderForm.full_name}
+                                    onChange={(e) => setCardOrderForm({ ...cardOrderForm, full_name: e.target.value })}
+                                    placeholder={locale === 'he' ? 'שם מלא' : 'Full name'}
+                                    className="input-field !py-2.5 !text-sm"
+                                />
+                                <input
+                                    required
+                                    value={cardOrderForm.street}
+                                    onChange={(e) => setCardOrderForm({ ...cardOrderForm, street: e.target.value })}
+                                    placeholder={locale === 'he' ? 'רחוב ומספר בית' : 'Street and number'}
+                                    className="input-field !py-2.5 !text-sm"
+                                />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                        required
+                                        value={cardOrderForm.city}
+                                        onChange={(e) => setCardOrderForm({ ...cardOrderForm, city: e.target.value })}
+                                        placeholder={locale === 'he' ? 'עיר' : 'City'}
+                                        className="input-field !py-2.5 !text-sm"
+                                    />
+                                    <input
+                                        value={cardOrderForm.zip_code || ''}
+                                        onChange={(e) => setCardOrderForm({ ...cardOrderForm, zip_code: e.target.value })}
+                                        placeholder={locale === 'he' ? 'מיקוד' : 'Zip code'}
+                                        className="input-field !py-2.5 !text-sm"
+                                        dir="ltr"
+                                    />
+                                </div>
+                                <input
+                                    required
+                                    value={cardOrderForm.phone}
+                                    onChange={(e) => setCardOrderForm({ ...cardOrderForm, phone: e.target.value })}
+                                    placeholder={locale === 'he' ? 'טלפון' : 'Phone'}
+                                    className="input-field !py-2.5 !text-sm"
+                                    dir="ltr"
+                                />
+                                <div className="flex gap-2">
+                                    <button
+                                        type="submit"
+                                        disabled={cardOrderState === 'submitting'}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm bg-[#d4af37] text-[#080d1f] hover:bg-[#c9a227] disabled:opacity-60 transition-all"
+                                    >
+                                        {cardOrderState === 'submitting' ? <Loader2 className="animate-spin" size={15} /> : <Send size={15} />}
+                                        {locale === 'he' ? 'שלח בקשה' : 'Submit request'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCardOrderForm(false)}
+                                        className="px-4 py-2.5 rounded-xl font-bold text-sm text-[#f0e6d3]/50 hover:text-[#f0e6d3] transition-all"
+                                    >
+                                        {locale === 'he' ? 'ביטול' : 'Cancel'}
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <button
+                                onClick={() => setShowCardOrderForm(true)}
+                                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm border border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10 transition-all"
+                            >
+                                <Package size={16} />
+                                {locale === 'he' ? 'הזמן כרטיס פיזי בדואר' : 'Order a physical card by mail'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+
                 {/* ── Activity history ── */}
                 <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">
                     <h2 className="font-black text-[#f0e6d3] text-sm mb-4">{t.activity_title}</h2>
                     {activityLoading ? (
                         <div className="text-center py-4 text-[#f0e6d3]/40 text-sm">...</div>
-                    ) : activity.length === 0 ? (
+                    ) : marketplaceActivity.length === 0 ? (
                         <p className="text-[#f0e6d3]/40 text-sm">{t.no_activity}</p>
                     ) : (
                         <div className="space-y-6">

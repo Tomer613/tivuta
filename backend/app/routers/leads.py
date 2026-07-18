@@ -117,6 +117,63 @@ def my_leads(db: Session = Depends(get_db), current_user: models.User = Depends(
     return db.query(models.Lead).filter(models.Lead.user_id == current_user.id).order_by(models.Lead.created_at.desc()).all()
 
 
+@router.post("/leads/card-order", response_model=schemas.LeadRead)
+def create_card_order(
+    payload: schemas.CardOrderCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Requests a physical loyalty card. The card itself (QR + printing + mailing) is produced
+    entirely outside the website — this just creates a fulfillable lead in the existing admin
+    queue. Idempotent-ish: a still-open request is returned as-is instead of creating a duplicate,
+    so a customer re-clicking "order card" doesn't spam the admin queue."""
+    existing = (
+        db.query(models.Lead)
+        .filter(
+            models.Lead.user_id == current_user.id,
+            models.Lead.lead_type == "card_order",
+            models.Lead.status.in_(["new", "confirmed", "contacted"]),
+        )
+        .first()
+    )
+    if existing:
+        return existing
+
+    locale = payload.locale or "he"
+    new_lead = models.Lead(
+        user_id=current_user.id,
+        product_id=None,
+        lead_type="card_order",
+        status="new",
+        channel="web",
+        locale=locale,
+        shipping_address=payload.shipping_address.model_dump(),
+    )
+    db.add(new_lead)
+    db.commit()
+    db.refresh(new_lead)
+
+    try:
+        get_email_sender().send(
+            to=ADMIN_NOTIFICATION_EMAIL,
+            subject=f"בקשת כרטיס פיזי — {current_user.first_name} {current_user.last_name}",
+            html_body=f"""
+            <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
+              <h2 style="color:#b8860b;">בקשה חדשה לכרטיס טיבותא פיזי 💳</h2>
+              <p><strong>לקוח:</strong> {current_user.first_name} {current_user.last_name} ({current_user.email})</p>
+              <p><strong>מספר לקוח:</strong> {current_user.customer_number or '—'}</p>
+              <p><strong>שם למשלוח:</strong> {payload.shipping_address.full_name}</p>
+              <p><strong>כתובת:</strong> {payload.shipping_address.street}, {payload.shipping_address.city} {payload.shipping_address.zip_code or ''}</p>
+              <p><strong>טלפון:</strong> {payload.shipping_address.phone}</p>
+            </div>""",
+            locale="he",
+        )
+    except Exception:
+        pass
+
+    return new_lead
+
+
 @router.get("/users/me/activity", response_model=List[schemas.LeadHistoryRead])
 def my_activity(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     leads = (
@@ -178,6 +235,7 @@ def admin_list_leads(db: Session = Depends(get_db)):
             product_id=lead.product_id,
             product_title_he=product.title_he if product else None,
             product_vertical=product.vertical if product else None,
+            shipping_address=lead.shipping_address,
         ))
     return result
 

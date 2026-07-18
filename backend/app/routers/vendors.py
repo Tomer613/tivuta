@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -115,38 +116,39 @@ def admin_list_settlements(vendor_id: int, db: Session = Depends(get_db)):
 def admin_open_settlement_period(
     vendor_id: int, payload: schemas.CommissionSettlementPeriodCreate, db: Session = Depends(get_db)
 ):
-    """Sums unsettled confirmed transactions for the vendor within [period_start, period_end]
-    and links them to a new 'open' period. A transaction can belong to at most one period
-    (settlement_period_id is only ever set once), so overlapping ranges can't double-count."""
+    """Links unsettled confirmed transactions for the vendor within [period_start, period_end]
+    to a new 'open' period, then sums whatever actually got linked. The claim is a single
+    atomic UPDATE re-checking settlement_period_id IS NULL at execution time — two concurrent
+    calls (e.g. an admin double-clicking submit) can't both read the same unclaimed rows and
+    double-count them, since only one UPDATE can actually claim a given row."""
     vendor = db.query(models.Vendor).filter(models.Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
-
-    unsettled = (
-        db.query(models.SaleTransaction)
-        .filter(
-            models.SaleTransaction.vendor_id == vendor_id,
-            models.SaleTransaction.status == "confirmed",
-            models.SaleTransaction.settlement_period_id.is_(None),
-            models.SaleTransaction.confirmed_at >= payload.period_start,
-            models.SaleTransaction.confirmed_at <= payload.period_end,
-        )
-        .all()
-    )
-    total = round(sum(s.commission_owed_ils for s in unsettled), 2)
 
     period = models.CommissionSettlementPeriod(
         vendor_id=vendor_id,
         period_start=payload.period_start,
         period_end=payload.period_end,
-        total_amount_ils=total,
+        total_amount_ils=0.0,
         status="open",
     )
     db.add(period)
-    db.flush()
+    db.flush()  # assign period.id
 
-    for s in unsettled:
-        s.settlement_period_id = period.id
+    db.query(models.SaleTransaction).filter(
+        models.SaleTransaction.vendor_id == vendor_id,
+        models.SaleTransaction.status == "confirmed",
+        models.SaleTransaction.settlement_period_id.is_(None),
+        models.SaleTransaction.confirmed_at >= payload.period_start,
+        models.SaleTransaction.confirmed_at <= payload.period_end,
+    ).update({"settlement_period_id": period.id}, synchronize_session=False)
+
+    total = (
+        db.query(func.coalesce(func.sum(models.SaleTransaction.commission_owed_ils), 0.0))
+        .filter(models.SaleTransaction.settlement_period_id == period.id)
+        .scalar()
+    )
+    period.total_amount_ils = round(total, 2)
 
     db.commit()
     db.refresh(period)

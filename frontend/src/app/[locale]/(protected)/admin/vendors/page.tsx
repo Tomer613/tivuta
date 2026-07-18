@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListVendors, adminCreateVendor, adminUpdateVendor, adminDeleteVendor, adminSetVendorPortalAccess } from '@/lib/api';
-import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound } from 'lucide-react';
+import {
+    adminListVendors, adminCreateVendor, adminUpdateVendor, adminDeleteVendor, adminSetVendorPortalAccess,
+    adminListSettlements, adminOpenSettlementPeriod, adminSettlePeriod, CommissionSettlementPeriod,
+} from '@/lib/api';
+import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet } from 'lucide-react';
 
 const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
 const VERTICALS = ['diamonds', 'cars', 'insurance'];
@@ -55,6 +58,12 @@ export default function AdminVendorsPage() {
     const [portalEmail, setPortalEmail] = useState('');
     const [portalPassword, setPortalPassword] = useState('');
     const [savingPortalAccess, setSavingPortalAccess] = useState(false);
+    const [settlementsVendor, setSettlementsVendor] = useState<any | null>(null);
+    const [settlements, setSettlements] = useState<CommissionSettlementPeriod[]>([]);
+    const [loadingSettlements, setLoadingSettlements] = useState(false);
+    const [newPeriodStart, setNewPeriodStart] = useState('');
+    const [newPeriodEnd, setNewPeriodEnd] = useState('');
+    const [savingSettlement, setSavingSettlement] = useState(false);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -188,6 +197,54 @@ export default function AdminVendorsPage() {
         }
     };
 
+    const loadSettlements = (vendorId: number) => {
+        if (!token) return;
+        setLoadingSettlements(true);
+        adminListSettlements(token, vendorId).then(setSettlements).finally(() => setLoadingSettlements(false));
+    };
+
+    const openSettlementsPanel = (vendor: any) => {
+        setSettlementsVendor(vendor);
+        setNewPeriodStart('');
+        setNewPeriodEnd('');
+        loadSettlements(vendor.id);
+    };
+
+    const closeSettlementsPanel = () => {
+        setSettlementsVendor(null);
+        setSettlements([]);
+    };
+
+    const handleOpenPeriod = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token || !settlementsVendor) return;
+        setSavingSettlement(true);
+        try {
+            await adminOpenSettlementPeriod(token, settlementsVendor.id, newPeriodStart, newPeriodEnd);
+            showToast('תקופת התחשבנות נפתחה ✓');
+            setNewPeriodStart('');
+            setNewPeriodEnd('');
+            loadSettlements(settlementsVendor.id);
+            load();
+        } catch (err: any) {
+            showToast(err.message || 'שגיאה בפתיחת תקופה', 'error');
+        } finally {
+            setSavingSettlement(false);
+        }
+    };
+
+    const handleSettlePeriod = async (periodId: number) => {
+        if (!token || !settlementsVendor) return;
+        try {
+            await adminSettlePeriod(token, settlementsVendor.id, periodId);
+            showToast('התקופה סומנה כשולמה ✓');
+            loadSettlements(settlementsVendor.id);
+            load();
+        } catch (err: any) {
+            showToast(err.message || 'שגיאה בסימון תשלום', 'error');
+        }
+    };
+
     return (
         <div>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -247,6 +304,9 @@ export default function AdminVendorsPage() {
                                             <div className="flex items-center gap-3">
                                                 <button onClick={() => openPortalAccessForm(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title={vendor.login_email ? 'עדכון פרטי כניסה לפורטל' : 'הפעלת פורטל ספק'}>
                                                     <KeyRound size={15} />
+                                                </button>
+                                                <button onClick={() => openSettlementsPanel(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="התחשבנות עמלות">
+                                                    <Wallet size={15} />
                                                 </button>
                                                 <button onClick={() => openEditForm(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="עריכה">
                                                     <Pencil size={15} />
@@ -428,6 +488,80 @@ export default function AdminVendorsPage() {
                             שמור פרטי כניסה
                         </button>
                     </form>
+                </div>
+            )}
+
+            {settlementsVendor && (
+                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6 overflow-y-auto" onClick={closeSettlementsPanel}>
+                    <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-lg space-y-5 my-8" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-xl font-black text-[#f0e6d3] flex items-center gap-2">
+                                <Wallet size={20} /> התחשבנות — {settlementsVendor.name_he}
+                            </h2>
+                            <button type="button" onClick={closeSettlementsPanel}><X size={20} className="text-[#f0e6d3]/60" /></button>
+                        </div>
+                        <div className="text-sm text-[#f0e6d3]/70">
+                            חוב נוכחי: <span className="text-[#d4af37] font-bold">₪{(settlementsVendor.commission_owed_total ?? 0).toLocaleString()}</span>
+                        </div>
+
+                        <form onSubmit={handleOpenPeriod} className="bg-[#111a2f] rounded-2xl p-4 space-y-3">
+                            <label className="text-xs text-[#f0e6d3]/50 font-bold uppercase tracking-wider block">פתיחת תקופת התחשבנות חדשה</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    required
+                                    type="datetime-local"
+                                    value={newPeriodStart}
+                                    onChange={(e) => setNewPeriodStart(e.target.value)}
+                                    style={{ colorScheme: 'dark' }}
+                                    className="bg-[#0e1628] border border-[#d4af37]/20 rounded-lg px-3 py-2 text-sm text-[#f0e6d3]"
+                                />
+                                <input
+                                    required
+                                    type="datetime-local"
+                                    value={newPeriodEnd}
+                                    onChange={(e) => setNewPeriodEnd(e.target.value)}
+                                    style={{ colorScheme: 'dark' }}
+                                    className="bg-[#0e1628] border border-[#d4af37]/20 rounded-lg px-3 py-2 text-sm text-[#f0e6d3]"
+                                />
+                            </div>
+                            <button type="submit" disabled={savingSettlement} className="btn-primary w-full !text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+                                {savingSettlement ? <Loader2 className="animate-spin" size={14} /> : <Wallet size={14} />}
+                                פתח תקופה (יסכם עסקאות שלא שולמו בטווח זה)
+                            </button>
+                        </form>
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 font-bold uppercase tracking-wider mb-2 block">היסטוריית תקופות</label>
+                            {loadingSettlements ? (
+                                <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={20} />
+                            ) : settlements.length === 0 ? (
+                                <p className="text-xs text-[#f0e6d3]/40 text-center py-4">אין תקופות התחשבנות עדיין</p>
+                            ) : (
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                    {settlements.map((p) => (
+                                        <div key={p.id} className="flex items-center justify-between bg-[#111a2f] rounded-xl px-4 py-3 text-sm">
+                                            <div>
+                                                <div className="text-[#f0e6d3]">
+                                                    {new Date(p.period_start).toLocaleDateString('he-IL')} – {new Date(p.period_end).toLocaleDateString('he-IL')}
+                                                </div>
+                                                <div className="text-[#d4af37] font-bold">₪{p.total_amount_ils.toLocaleString()}</div>
+                                            </div>
+                                            {p.status === 'settled' ? (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-500/20 text-green-400">שולם</span>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleSettlePeriod(p.id)}
+                                                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition-colors"
+                                                >
+                                                    סמן כשולם
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
