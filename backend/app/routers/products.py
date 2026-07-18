@@ -264,6 +264,7 @@ def admin_duplicate_product(product_id: int, db: Session = Depends(get_db)):
         image_url=product.image_url,
         price=product.price,
         attributes=product.attributes,
+        vendor_id=product.vendor_id,
         is_active=False,
     )
     db.add(clone)
