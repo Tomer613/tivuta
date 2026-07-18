@@ -23,7 +23,7 @@ interface LoginTranslation {
 const translations: Record<string, LoginTranslation> = {
     he: {
         title: 'ברוכים הבאים ל-TIVUTA',
-        subtitle: 'התחבר כדי לצפות בעולמות היהלומים, הרכב והביטוחים',
+        subtitle: 'המחירים המיוחדים של טיבותא — לחברים בלבד',
         email: 'כתובת אימייל',
         password: 'סיסמה',
         submit: 'התחבר למערכת',
@@ -34,7 +34,7 @@ const translations: Record<string, LoginTranslation> = {
     },
     en: {
         title: 'Welcome to TIVUTA',
-        subtitle: 'Login to browse diamonds, cars and insurance',
+        subtitle: "Tivuta's exclusive prices — members only",
         email: 'Email Address',
         password: 'Password',
         submit: 'Login',
@@ -45,7 +45,7 @@ const translations: Record<string, LoginTranslation> = {
     },
     fr: {
         title: 'Bienvenue chez TIVUTA',
-        subtitle: 'Connectez-vous pour parcourir diamants, voitures et assurances',
+        subtitle: 'Les prix exclusifs de Tivuta — réservés aux membres',
         email: 'E-mail',
         password: 'Mot de passe',
         submit: 'Connexion',
@@ -56,7 +56,7 @@ const translations: Record<string, LoginTranslation> = {
     },
     yi: {
         title: 'ברוכים הבאים TIVUTA',
-        subtitle: 'לאגט זיך אריין צו זען דימענטן, אויטאס און אינשורענס',
+        subtitle: 'די ספעציעלע פרייזן פון טיבותא — נאר פאר מיטגלידער',
         email: 'ע-פאסט',
         password: 'סיסמה',
         submit: 'אריינלאגן',
@@ -155,7 +155,7 @@ export default function LoginPage() {
                     <div className="space-y-2 flex flex-col items-start">
                         <div className="w-full flex justify-between items-center px-2">
                             <label className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest">{t.password}</label>
-                            <Link href={`/${locale}/forgot-password`} className="text-xs font-bold text-[#1e3a8a] hover:underline">{t.forgot}</Link>
+                            <Link href={`/${locale}/forgot-password`} className="text-xs font-bold text-[#d4af37]/70 hover:text-[#d4af37] transition-colors">{t.forgot}</Link>
                         </div>
                         <div className="relative w-full">
                             <input
@@ -169,7 +169,7 @@ export default function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(v => !v)}
-                                className="absolute inset-y-0 left-4 flex items-center text-[#f0e6d3]/40 hover:text-[#f0e6d3]/70 transition-colors"
+                                className="absolute inset-y-0 left-4 flex items-center text-[#f0e6d3]/60 hover:text-[#d4af37] transition-colors"
                                 tabIndex={-1}
                                 aria-label={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
                             >
