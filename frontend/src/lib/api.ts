@@ -33,6 +33,9 @@ export interface Vendor {
     name_yi?: string | null;
     is_active: boolean;
     availability?: VendorAvailability | null;
+    commission_rate_percent?: number;
+    points_rate_percent?: number | null;
+    commission_owed_total?: number;
 }
 
 export async function adminListVendors(token: string, vertical?: string): Promise<Vendor[]> {
@@ -155,6 +158,22 @@ export async function adminListSales(token: string, opts?: { vendorId?: number; 
     const qs = params.toString();
     const res = await fetch(`${BASE_URL}/admin/sales${qs ? `?${qs}` : ''}`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load sales');
+    return res.json();
+}
+
+export async function adminCreateSale(
+    token: string,
+    payload: { vendor_id: number; customer_number: string; amount_ils: number; product_id?: number | null; idempotency_key: string }
+): Promise<SaleTransaction> {
+    const res = await fetch(`${BASE_URL}/admin/sales`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to record sale');
+    }
     return res.json();
 }
 

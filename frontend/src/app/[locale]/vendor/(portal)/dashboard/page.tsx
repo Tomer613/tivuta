@@ -5,6 +5,13 @@ import { Wallet, Percent, Gift, Loader2, ReceiptText } from 'lucide-react';
 import { useVendorAuth } from '@/context/VendorAuthContext';
 import { vendorListSales, SaleTransaction } from '@/lib/api';
 
+const STATUS_LABEL: Record<string, string> = { confirmed: 'אושרה', flagged: 'ממתינה לבדיקה', reversed: 'בוטלה' };
+const STATUS_CLASS: Record<string, string> = {
+    confirmed: 'bg-green-500/15 text-green-400',
+    flagged: 'bg-orange-500/15 text-orange-400',
+    reversed: 'bg-red-500/15 text-red-400',
+};
+
 export default function VendorDashboardPage() {
     const { vendor, token, refresh } = useVendorAuth();
     const [sales, setSales] = useState<SaleTransaction[]>([]);
@@ -62,6 +69,7 @@ export default function VendorDashboardPage() {
                                 <th className="p-4 text-start">סכום</th>
                                 <th className="p-4 text-start">נקודות</th>
                                 <th className="p-4 text-start">עמלה</th>
+                                <th className="p-4 text-start">סטטוס</th>
                                 <th className="p-4 text-start">תאריך</th>
                             </tr>
                         </thead>
@@ -73,6 +81,11 @@ export default function VendorDashboardPage() {
                                     <td className="p-4 font-bold">₪{s.amount_ils.toLocaleString()}</td>
                                     <td className="p-4 text-[#d4af37]">{s.points_awarded}</td>
                                     <td className="p-4 text-[#f0e6d3]/60">₪{s.commission_owed_ils.toLocaleString()}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_CLASS[s.status] || 'bg-[#111a2f] text-[#f0e6d3]/40'}`}>
+                                            {STATUS_LABEL[s.status] || s.status}
+                                        </span>
+                                    </td>
                                     <td className="p-4 text-[#f0e6d3]/40 text-xs">{new Date(s.reported_at).toLocaleString('he-IL')}</td>
                                 </tr>
                             ))}

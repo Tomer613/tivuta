@@ -4,10 +4,15 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import {
     adminListSettings, adminUpdateSettings, SystemSetting,
-    adminListSales, adminReviewSale, SaleTransaction,
+    adminListSales, adminCreateSale, adminReviewSale, SaleTransaction,
     adminListAtRiskVendors, adminCheckUnsettledDeactivation, VendorAtRisk,
+    adminListVendors, Vendor,
 } from '@/lib/api';
-import { ShieldAlert, Loader2, CheckCircle2, AlertCircle, Settings, Flag, Wallet, Check, Undo2 } from 'lucide-react';
+import { ShieldAlert, Loader2, CheckCircle2, AlertCircle, Settings, Flag, Wallet, Check, Undo2, ReceiptText, Send } from 'lucide-react';
+
+function newIdempotencyKey(): string {
+    return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `key-${Date.now()}-${Math.random()}`;
+}
 
 const SETTING_LABELS: Record<string, string> = {
     point_value_ils: 'ערך נקודה (₪)',
@@ -51,6 +56,11 @@ export default function AdminLoyaltyPage() {
     const [atRiskLoading, setAtRiskLoading] = useState(true);
     const [checkingDeactivation, setCheckingDeactivation] = useState(false);
 
+    const [vendors, setVendors] = useState<Vendor[]>([]);
+    const [manualForm, setManualForm] = useState({ vendorId: '', customerNumber: '', amountIls: '', productId: '' });
+    const [manualIdempotencyKey, setManualIdempotencyKey] = useState(newIdempotencyKey);
+    const [submittingManualSale, setSubmittingManualSale] = useState(false);
+
     const loadSettings = () => {
         if (!token) return;
         setSettingsLoading(true);
@@ -71,7 +81,12 @@ export default function AdminLoyaltyPage() {
         adminListAtRiskVendors(token).then(setAtRiskVendors).finally(() => setAtRiskLoading(false));
     };
 
-    useEffect(() => { loadSettings(); loadFlaggedSales(); loadAtRisk(); }, [token]);
+    useEffect(() => {
+        loadSettings();
+        loadFlaggedSales();
+        loadAtRisk();
+        if (token) adminListVendors(token).then(setVendors).catch(() => {});
+    }, [token]);
 
     const handleSaveSettings = async () => {
         if (!token) return;
@@ -100,6 +115,34 @@ export default function AdminLoyaltyPage() {
         }
     };
 
+    const handleSubmitManualSale = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token || !manualForm.vendorId) return;
+        setSubmittingManualSale(true);
+        try {
+            const sale = await adminCreateSale(token, {
+                vendor_id: Number(manualForm.vendorId),
+                customer_number: manualForm.customerNumber.trim(),
+                amount_ils: Number(manualForm.amountIls),
+                product_id: manualForm.productId ? Number(manualForm.productId) : null,
+                idempotency_key: manualIdempotencyKey,
+            });
+            showToast(
+                sale.status === 'flagged'
+                    ? 'העסקה נרשמה אך סומנה לבדיקה (חרגה מהמגבלות) — הנקודות ימתינו לאישור'
+                    : `העסקה נרשמה ואושרה ✓ (${sale.points_awarded} נקודות, עמלה ₪${sale.commission_owed_ils})`
+            );
+            setManualForm({ vendorId: manualForm.vendorId, customerNumber: '', amountIls: '', productId: '' });
+            setManualIdempotencyKey(newIdempotencyKey());
+            loadFlaggedSales();
+            loadAtRisk();
+        } catch (err: any) {
+            showToast(err.message || 'שגיאה ברישום העסקה', 'error');
+        } finally {
+            setSubmittingManualSale(false);
+        }
+    };
+
     const handleCheckDeactivation = async () => {
         if (!token) return;
         setCheckingDeactivation(true);
@@ -125,6 +168,73 @@ export default function AdminLoyaltyPage() {
             <h1 className="text-3xl font-black text-[#f0e6d3] flex items-center gap-2">
                 <ShieldAlert size={26} className="text-[#d4af37]" /> נאמנות והונאות
             </h1>
+
+            {/* ── Manual sale entry (admin-as-vendor-proxy) ── */}
+            <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-6">
+                <h2 className="text-sm font-black text-[#f0e6d3] uppercase tracking-widest mb-1 flex items-center gap-2">
+                    <ReceiptText size={15} className="text-[#d4af37]" /> רישום עסקה ידני
+                </h2>
+                <p className="text-xs text-[#f0e6d3]/40 mb-5">לדיווח עסקה בשם ספק שאין לו עדיין גישה לפורטל הספקים העצמאי</p>
+                <form onSubmit={handleSubmitManualSale} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs text-[#f0e6d3]/50 mb-1 block">ספק</label>
+                        <select
+                            required
+                            value={manualForm.vendorId}
+                            onChange={(e) => setManualForm({ ...manualForm, vendorId: e.target.value })}
+                            className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3]"
+                        >
+                            <option value="">בחר ספק...</option>
+                            {vendors.filter((v) => v.is_active).map((v) => (
+                                <option key={v.id} value={v.id}>{v.name_he}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מספר לקוח סידורי</label>
+                        <input
+                            required
+                            value={manualForm.customerNumber}
+                            onChange={(e) => setManualForm({ ...manualForm, customerNumber: e.target.value })}
+                            placeholder="TVT-XXXXXXXXXX"
+                            className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3]"
+                            dir="ltr"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סכום העסקה (₪)</label>
+                        <input
+                            required
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={manualForm.amountIls}
+                            onChange={(e) => setManualForm({ ...manualForm, amountIls: e.target.value })}
+                            className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3]"
+                            dir="ltr"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מזהה מוצר (אופציונלי)</label>
+                        <input
+                            type="number"
+                            value={manualForm.productId}
+                            onChange={(e) => setManualForm({ ...manualForm, productId: e.target.value })}
+                            placeholder="לא חובה"
+                            className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3]"
+                            dir="ltr"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        disabled={submittingManualSale}
+                        className="btn-primary !text-sm flex items-center justify-center gap-2 disabled:opacity-60 sm:col-span-2"
+                    >
+                        {submittingManualSale ? <Loader2 className="animate-spin" size={14} /> : <Send size={14} />}
+                        רשום עסקה
+                    </button>
+                </form>
+            </div>
 
             {/* ── System settings ── */}
             <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-6">

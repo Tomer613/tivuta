@@ -44,7 +44,10 @@ export default function VendorReportSalePage() {
                 product_id: productId ? Number(productId) : null,
                 idempotency_key: idempotencyKey,
             });
-            setToast({ message: `העסקה דווחה בהצלחה! ${sale.points_awarded} נקודות נצברו ללקוח`, type: 'success' });
+            const message = sale.status === 'flagged'
+                ? 'העסקה דווחה ונשלחה לבדיקת צוות טיבותא — הנקודות יזוכו ללקוח לאחר אישור'
+                : `העסקה דווחה בהצלחה! ${sale.points_awarded} נקודות נצברו ללקוח`;
+            setToast({ message, type: 'success' });
             setCustomerNumber('');
             setAmountIls('');
             setProductId('');
