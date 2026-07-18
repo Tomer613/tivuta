@@ -42,6 +42,8 @@ def admin_update_vendor(vendor_id: int, vendor_in: schemas.VendorUpdate, db: Ses
     update_data = vendor_in.model_dump(exclude_unset=True)
     if "vertical" in update_data:
         _validate_vertical(update_data["vertical"])
+        if update_data["vertical"] != vendor.vertical:
+            raise HTTPException(status_code=400, detail="Vendor vertical cannot be changed after creation")
     for key, value in update_data.items():
         setattr(vendor, key, value)
     db.commit()

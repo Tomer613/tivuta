@@ -89,13 +89,6 @@ export default function AppointmentModal({
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
-    const isDayAvailable = (date: Date) => {
-        if (!availability) return false;
-        if (date < tomorrow) return false;
-        const day = availability.weekly[String(date.getDay())];
-        return !!day?.enabled;
-    };
-
     const slotsForDate = (date: Date): string[] => {
         if (!availability) return [];
         const day = availability.weekly[String(date.getDay())];
@@ -104,10 +97,18 @@ export default function AppointmentModal({
         const startMin = timeToMinutes(day.start);
         const endMin = timeToMinutes(day.end);
         const slots: string[] = [];
-        for (let m = startMin; m < endMin; m += slotMinutes) {
+        for (let m = startMin; m + slotMinutes <= endMin; m += slotMinutes) {
             slots.push(minutesToTime(m));
         }
         return slots;
+    };
+
+    const isDayAvailable = (date: Date) => {
+        if (!availability) return false;
+        if (date < tomorrow) return false;
+        const day = availability.weekly[String(date.getDay())];
+        if (!day?.enabled) return false;
+        return slotsForDate(date).length > 0;
     };
 
     const handleSelectDay = (date: Date) => {

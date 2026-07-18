@@ -107,6 +107,13 @@ export default function AdminVendorsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
+        const invalidDay = Object.values(form.weekly).find(
+            (d) => d.enabled && (!d.start || !d.end || d.start >= d.end)
+        );
+        if (invalidDay) {
+            showToast('עבור כל יום פעיל, יש להזין שעת התחלה מוקדמת משעת הסיום', 'error');
+            return;
+        }
         const payload = {
             vertical: form.vertical,
             name_he: form.name_he,
@@ -231,11 +238,12 @@ export default function AdminVendorsPage() {
                         </div>
 
                         <div>
-                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">עולם</label>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">עולם{editVendor ? ' (לא ניתן לשינוי לאחר יצירה)' : ''}</label>
                             <select
                                 value={form.vertical}
+                                disabled={!!editVendor}
                                 onChange={(e) => setForm({ ...form, vertical: e.target.value })}
-                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] disabled:opacity-50"
                             >
                                 {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABEL[v]}</option>)}
                             </select>

@@ -1,6 +1,10 @@
-from pydantic import BaseModel
+import re
+
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Dict, List, Optional
 from datetime import datetime
+
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 # Schema for SubCategories
 class SubCategorySchema(BaseModel):
@@ -124,6 +128,22 @@ class VendorDayAvailability(BaseModel):
     enabled: bool = False
     start: Optional[str] = None
     end: Optional[str] = None
+
+    @field_validator("start", "end")
+    @classmethod
+    def _validate_time_format(cls, v):
+        if v is not None and not _TIME_RE.match(v):
+            raise ValueError("time must be in HH:MM 24h format")
+        return v
+
+    @model_validator(mode="after")
+    def _validate_enabled_window(self):
+        if self.enabled:
+            if not self.start or not self.end:
+                raise ValueError("start and end are required when enabled is true")
+            if self.start >= self.end:
+                raise ValueError("start must be before end")
+        return self
 
 class VendorAvailability(BaseModel):
     weekly: Dict[str, VendorDayAvailability] = {}
