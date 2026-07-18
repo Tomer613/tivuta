@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store } from 'lucide-react';
+import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store, ShieldAlert } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 
 interface T {
@@ -14,13 +14,14 @@ interface T {
     distribution: string;
     promotions: string;
     leads: string;
+    loyalty: string;
 }
 
 const translations: Record<string, T> = {
-    he: { dashboard: 'בקרה', products: 'מוצרים', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', leads: 'פניות' },
-    en: { dashboard: 'Dashboard', products: 'Products', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', leads: 'Leads' },
-    fr: { dashboard: 'Tableau', products: 'Produits', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', leads: 'Contacts' },
-    yi: { dashboard: 'בקרה', products: 'פראדוקטן', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', leads: 'פנייות' },
+    he: { dashboard: 'בקרה', products: 'מוצרים', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', leads: 'פניות', loyalty: 'נאמנות והונאות' },
+    en: { dashboard: 'Dashboard', products: 'Products', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', leads: 'Leads', loyalty: 'Loyalty & Fraud' },
+    fr: { dashboard: 'Tableau', products: 'Produits', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', leads: 'Contacts', loyalty: 'Fidélité' },
+    yi: { dashboard: 'בקרה', products: 'פראדוקטן', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', leads: 'פנייות', loyalty: 'לויאלטי' },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: `/${locale}/admin/distribution`, label: t.distribution, icon: <Send size={18} /> },
         { href: `/${locale}/admin/promotions`, label: t.promotions, icon: <Tag size={18} /> },
         { href: `/${locale}/admin/leads`, label: t.leads, icon: <Inbox size={18} /> },
+        { href: `/${locale}/admin/loyalty`, label: t.loyalty, icon: <ShieldAlert size={18} /> },
     ];
 
     return (

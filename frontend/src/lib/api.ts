@@ -122,6 +122,78 @@ export async function adminSettlePeriod(token: string, vendorId: number, periodI
     return res.json();
 }
 
+// ── Loyalty program: system settings, sale review, fraud monitoring ─────────
+
+export interface SystemSetting {
+    key: string;
+    value: string;
+}
+
+export async function adminListSettings(token: string): Promise<SystemSetting[]> {
+    const res = await fetch(`${BASE_URL}/admin/settings`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load settings');
+    return res.json();
+}
+
+export async function adminUpdateSettings(token: string, settings: Record<string, string>): Promise<SystemSetting[]> {
+    const res = await fetch(`${BASE_URL}/admin/settings`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update settings');
+    }
+    return res.json();
+}
+
+export async function adminListSales(token: string, opts?: { vendorId?: number; status?: string }): Promise<SaleTransaction[]> {
+    const params = new URLSearchParams();
+    if (opts?.vendorId) params.set('vendor_id', String(opts.vendorId));
+    if (opts?.status) params.set('status', opts.status);
+    const qs = params.toString();
+    const res = await fetch(`${BASE_URL}/admin/sales${qs ? `?${qs}` : ''}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load sales');
+    return res.json();
+}
+
+export async function adminReviewSale(token: string, saleId: number, action: 'confirm' | 'reverse', note?: string): Promise<SaleTransaction> {
+    const res = await fetch(`${BASE_URL}/admin/sales/${saleId}/review`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, note: note || null }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to review sale');
+    }
+    return res.json();
+}
+
+export interface VendorAtRisk {
+    vendor_id: number;
+    name_he: string;
+    commission_owed_total: number;
+    oldest_unsettled_days: number | null;
+    over_threshold: boolean;
+}
+
+export async function adminListAtRiskVendors(token: string): Promise<VendorAtRisk[]> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/at-risk`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load at-risk vendors');
+    return res.json();
+}
+
+export async function adminCheckUnsettledDeactivation(token: string): Promise<{ checked: number; deactivated: { vendor_id: number; name_he: string }[] }> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/check-unsettled-deactivation`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to run deactivation check');
+    return res.json();
+}
+
 // ── Loyalty program: vendor self-service portal ─────────────────────────────
 
 export interface VendorMe {

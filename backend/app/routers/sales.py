@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -49,7 +50,7 @@ def admin_update_settings(
 
 
 @router.get("/admin/sales", response_model=List[schemas.SaleTransactionRead], dependencies=[Depends(get_current_admin)])
-def admin_list_sales(vendor_id: Optional[int] = None, db: Session = Depends(get_db)):
+def admin_list_sales(vendor_id: Optional[int] = None, status: Optional[str] = None, db: Session = Depends(get_db)):
     query = db.query(models.SaleTransaction).options(
         selectinload(models.SaleTransaction.vendor),
         selectinload(models.SaleTransaction.customer),
@@ -57,8 +58,42 @@ def admin_list_sales(vendor_id: Optional[int] = None, db: Session = Depends(get_
     )
     if vendor_id:
         query = query.filter(models.SaleTransaction.vendor_id == vendor_id)
+    if status:
+        query = query.filter(models.SaleTransaction.status == status)
     sales = query.order_by(models.SaleTransaction.reported_at.desc()).all()
     return [_sale_read(s) for s in sales]
+
+
+@router.patch("/admin/sales/{sale_id}/review", response_model=schemas.SaleTransactionRead)
+def admin_review_sale(
+    sale_id: int,
+    payload: schemas.SaleReviewAction,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(get_current_admin),
+):
+    sale = (
+        db.query(models.SaleTransaction)
+        .options(
+            selectinload(models.SaleTransaction.vendor),
+            selectinload(models.SaleTransaction.customer),
+            selectinload(models.SaleTransaction.product),
+        )
+        .filter(models.SaleTransaction.id == sale_id)
+        .first()
+    )
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+
+    if payload.note:
+        history = list(sale.history or [])
+        history.append({"ts": datetime.utcnow().isoformat(), "actor": current_admin.email, "action": "note", "to_val": payload.note})
+        sale.history = history
+
+    loyalty.review_sale(db, sale, payload.action, actor=current_admin.email)
+
+    db.commit()
+    db.refresh(sale)
+    return _sale_read(sale)
 
 
 @router.post("/admin/sales", response_model=schemas.SaleTransactionRead)

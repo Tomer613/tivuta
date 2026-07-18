@@ -500,6 +500,17 @@ class VendorSaleCreate(SaleCreateBase):
     their auth token (get_current_vendor), never from the request body."""
     pass
 
+class SaleReviewAction(BaseModel):
+    action: str  # 'confirm' | 'reverse'
+    note: Optional[str] = None
+
+class VendorAtRiskRead(BaseModel):
+    vendor_id: int
+    name_he: str
+    commission_owed_total: float
+    oldest_unsettled_days: Optional[int] = None
+    over_threshold: bool
+
 class SaleTransactionRead(BaseModel):
     id: int
     vendor_id: int

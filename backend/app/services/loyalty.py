@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
 from fastapi import HTTPException
@@ -17,10 +17,15 @@ DEFAULT_SETTINGS = {
     "default_commission_rate_percent": "10",
     "min_transaction_ils": "5",
     "max_transaction_ils": "50000",
+    # Fraud-resistance (Phase 5) — cheapest-control thresholds, tunable without a code change.
+    "max_vendor_sales_per_hour": "20",
+    "max_customer_vendor_sales_per_day": "5",
+    "max_unsettled_ils_before_deactivate": "5000",
+    "unsettled_grace_days": "14",
 }
 
-# Settings that must parse as a positive float — enforced on write so a bad admin edit
-# (e.g. "point_value_ils": "0") fails fast instead of causing a ZeroDivisionError later,
+# Settings that must parse as a STRICTLY positive float — enforced on write so a bad admin
+# edit (e.g. "point_value_ils": "0") fails fast instead of causing a ZeroDivisionError later,
 # at sale-report time, for every vendor.
 POSITIVE_FLOAT_SETTINGS = {
     "point_value_ils",
@@ -30,15 +35,27 @@ POSITIVE_FLOAT_SETTINGS = {
     "max_transaction_ils",
 }
 
+# Fraud-control thresholds (Phase 5) where 0 is a legitimate, meaningful policy choice — e.g.
+# unsettled_grace_days=0 means "deactivate immediately once over threshold, no grace period" —
+# so these only need to reject negative/non-numeric values, not zero.
+NON_NEGATIVE_FLOAT_SETTINGS = {
+    "max_vendor_sales_per_hour",
+    "max_customer_vendor_sales_per_day",
+    "max_unsettled_ils_before_deactivate",
+    "unsettled_grace_days",
+}
+
 
 def validate_setting_value(key: str, value: str) -> None:
-    if key in POSITIVE_FLOAT_SETTINGS:
+    if key in POSITIVE_FLOAT_SETTINGS or key in NON_NEGATIVE_FLOAT_SETTINGS:
         try:
             parsed = float(value)
         except ValueError:
             raise ValueError(f"{key} must be a number")
-        if parsed <= 0:
+        if key in POSITIVE_FLOAT_SETTINGS and parsed <= 0:
             raise ValueError(f"{key} must be greater than 0")
+        if key in NON_NEGATIVE_FLOAT_SETTINGS and parsed < 0:
+            raise ValueError(f"{key} must be 0 or greater")
 
 
 def generate_customer_number(db: Session) -> str:
@@ -120,58 +137,62 @@ def validate_and_resolve_sale_inputs(
     return customer, product
 
 
-def create_sale_transaction(
-    db: Session,
-    vendor: models.Vendor,
-    customer: models.User,
-    product: Optional[models.Product],
-    amount_ils: float,
-    idempotency_key: str,
-    actor: str,
-) -> models.SaleTransaction:
-    """Writes the ledger rows (sale, atomic balance/popularity increments, points-ledger entry,
-    notification). Raises sqlalchemy.exc.IntegrityError on an idempotency_key race — the caller
-    must roll back and re-resolve via resolve_existing_sale_by_idempotency_key()."""
-    points_awarded, commission_rate_snapshot, commission_owed_ils = compute_sale_economics(db, vendor, amount_ils)
-
+def determine_sale_status(db: Session, vendor: models.Vendor, customer: models.User) -> str:
+    """Cheap velocity checks against the specific abuse patterns this system is exposed to:
+    a vendor script-farming transactions to inflate ranking/points, or a vendor+customer pair
+    fabricating repeat sales. Flags (does not block) — a genuinely busy store shouldn't be
+    punished, but the pattern should land in front of an admin instead of auto-confirming."""
     now = datetime.utcnow()
-    sale = models.SaleTransaction(
-        vendor_id=vendor.id,
-        customer_id=customer.id,
-        product_id=product.id if product else None,
-        amount_ils=amount_ils,
-        idempotency_key=idempotency_key,
-        points_awarded=points_awarded,
-        commission_rate_percent_snapshot=commission_rate_snapshot,
-        commission_owed_ils=commission_owed_ils,
-        status="confirmed",
-        history=[{"ts": now.isoformat(), "actor": actor, "action": "reported_and_confirmed"}],
-        reported_at=now,
-        confirmed_at=now,
-    )
 
-    # Atomic SQL-level increments (same pattern as Product.view_count in routers/products.py) —
-    # avoids a read-modify-write race against concurrent sales for the same vendor/customer/product.
-    db.query(models.Vendor).filter(models.Vendor.id == vendor.id).update(
-        {"commission_owed_total": models.Vendor.commission_owed_total + commission_owed_ils}
+    max_vendor_per_hour = get_setting_float(db, "max_vendor_sales_per_hour")
+    vendor_count_last_hour = (
+        db.query(models.SaleTransaction)
+        .filter(
+            models.SaleTransaction.vendor_id == vendor.id,
+            models.SaleTransaction.reported_at >= now - timedelta(hours=1),
+        )
+        .count()
+    )
+    if vendor_count_last_hour >= max_vendor_per_hour:
+        return "flagged"
+
+    max_pair_per_day = get_setting_float(db, "max_customer_vendor_sales_per_day")
+    pair_count_last_day = (
+        db.query(models.SaleTransaction)
+        .filter(
+            models.SaleTransaction.vendor_id == vendor.id,
+            models.SaleTransaction.customer_id == customer.id,
+            models.SaleTransaction.reported_at >= now - timedelta(days=1),
+        )
+        .count()
+    )
+    if pair_count_last_day >= max_pair_per_day:
+        return "flagged"
+
+    return "confirmed"
+
+
+def _apply_realized_sale_effects(db: Session, sale: models.SaleTransaction, customer: models.User, vendor_id: int, vendor_name_he: str, product_id: Optional[int]) -> None:
+    """The atomic balance/popularity increments + points-ledger entry + notification that a sale
+    actually 'counts' for. Shared by the synchronous-confirm path and the admin flagged-review
+    confirm path, so a transaction realizes its effects exactly once, through one code path."""
+    db.query(models.Vendor).filter(models.Vendor.id == vendor_id).update(
+        {"commission_owed_total": models.Vendor.commission_owed_total + sale.commission_owed_ils}
     )
     db.query(models.User).filter(models.User.id == customer.id).update(
-        {"points_balance": models.User.points_balance + points_awarded}
+        {"points_balance": models.User.points_balance + sale.points_awarded}
     )
-    if product is not None:
-        db.query(models.Product).filter(models.Product.id == product.id).update(
+    if product_id is not None:
+        db.query(models.Product).filter(models.Product.id == product_id).update(
             {"popularity_score": models.Product.popularity_score + 1}
         )
-
-    db.add(sale)
-    db.flush()  # assign sale.id; also surfaces a duplicate idempotency_key race as IntegrityError
-
-    db.refresh(customer)  # pick up the atomic update above for an accurate ledger snapshot
+    db.flush()
+    db.refresh(customer)
     db.add(
         models.PointsLedgerEntry(
             user_id=customer.id,
             sale_transaction_id=sale.id,
-            delta_points=points_awarded,
+            delta_points=sale.points_awarded,
             reason="sale",
             balance_after=customer.points_balance,
         )
@@ -181,7 +202,110 @@ def create_sale_transaction(
             user_id=customer.id,
             type="points_earned",
             title_he="צברת נקודות ב-TIVUTA! 🎁",
-            message_he=f"קיבלת {points_awarded} נקודות על רכישה ב-{vendor.name_he}",
+            message_he=f"קיבלת {sale.points_awarded} נקודות על רכישה ב-{vendor_name_he}",
         )
     )
+
+
+def create_sale_transaction(
+    db: Session,
+    vendor: models.Vendor,
+    customer: models.User,
+    product: Optional[models.Product],
+    amount_ils: float,
+    idempotency_key: str,
+    actor: str,
+) -> models.SaleTransaction:
+    """Writes the sale row. If velocity checks pass, immediately realizes its effects (points,
+    commission, popularity) — same as before Phase 5. If flagged, the row is written with no
+    effects applied yet; an admin must confirm it (via admin_review_sale) before anything is
+    realized, or reverse it (nothing to claw back, since nothing was ever applied).
+    Raises sqlalchemy.exc.IntegrityError on an idempotency_key race — the caller must roll back
+    and re-resolve via resolve_existing_sale_by_idempotency_key()."""
+    points_awarded, commission_rate_snapshot, commission_owed_ils = compute_sale_economics(db, vendor, amount_ils)
+    status = determine_sale_status(db, vendor, customer)
+
+    now = datetime.utcnow()
+    action = "reported_and_confirmed" if status == "confirmed" else "reported_and_flagged"
+    sale = models.SaleTransaction(
+        vendor_id=vendor.id,
+        customer_id=customer.id,
+        product_id=product.id if product else None,
+        amount_ils=amount_ils,
+        idempotency_key=idempotency_key,
+        points_awarded=points_awarded,
+        commission_rate_percent_snapshot=commission_rate_snapshot,
+        commission_owed_ils=commission_owed_ils,
+        status=status,
+        history=[{"ts": now.isoformat(), "actor": actor, "action": action}],
+        reported_at=now,
+        confirmed_at=now if status == "confirmed" else None,
+    )
+
+    db.add(sale)
+    db.flush()  # assign sale.id; also surfaces a duplicate idempotency_key race as IntegrityError
+
+    if status == "confirmed":
+        _apply_realized_sale_effects(db, sale, customer, vendor.id, vendor.name_he, product.id if product else None)
+
+    return sale
+
+
+def review_sale(db: Session, sale: models.SaleTransaction, action: str, actor: str) -> models.SaleTransaction:
+    """Admin decision on a sale — 'confirm' only applies to a flagged sale (releases its
+    deferred points/commission/popularity effects); 'reverse' works on either a flagged sale
+    (nothing to claw back, since a flagged sale never had its effects applied) or an already-
+    confirmed one (full clawback: negative points-ledger entry, popularity decrement, and a
+    commission_owed_total decrement — but only if the sale hasn't already been swept into a
+    settled CommissionSettlementPeriod, since that money has already changed hands outside the
+    app and reversing it here would silently misstate the vendor's real running balance)."""
+    if action not in ("confirm", "reverse"):
+        raise HTTPException(status_code=400, detail="action must be 'confirm' or 'reverse'")
+
+    now = datetime.utcnow()
+    history = list(sale.history or [])
+
+    if action == "confirm":
+        if sale.status != "flagged":
+            raise HTTPException(status_code=400, detail="Only flagged sales can be confirmed")
+        customer = db.query(models.User).filter(models.User.id == sale.customer_id).first()
+        vendor = db.query(models.Vendor).filter(models.Vendor.id == sale.vendor_id).first()
+        sale.status = "confirmed"
+        sale.confirmed_at = now
+        history.append({"ts": now.isoformat(), "actor": actor, "action": "admin_confirmed_flagged"})
+        sale.history = history
+        _apply_realized_sale_effects(db, sale, customer, vendor.id, vendor.name_he, sale.product_id)
+        return sale
+
+    # action == "reverse"
+    if sale.status == "reversed":
+        raise HTTPException(status_code=400, detail="Sale is already reversed")
+    was_realized = sale.status == "confirmed"
+    sale.status = "reversed"
+    history.append({"ts": now.isoformat(), "actor": actor, "action": "admin_reversed"})
+    sale.history = history
+
+    if was_realized:
+        db.query(models.User).filter(models.User.id == sale.customer_id).update(
+            {"points_balance": models.User.points_balance - sale.points_awarded}
+        )
+        if sale.product_id is not None:
+            db.query(models.Product).filter(models.Product.id == sale.product_id).update(
+                {"popularity_score": models.Product.popularity_score - 1}
+            )
+        if sale.settlement_period_id is None:
+            db.query(models.Vendor).filter(models.Vendor.id == sale.vendor_id).update(
+                {"commission_owed_total": models.Vendor.commission_owed_total - sale.commission_owed_ils}
+            )
+        db.flush()
+        customer = db.query(models.User).filter(models.User.id == sale.customer_id).first()
+        db.add(
+            models.PointsLedgerEntry(
+                user_id=sale.customer_id,
+                sale_transaction_id=sale.id,
+                delta_points=-sale.points_awarded,
+                reason="clawback",
+                balance_after=customer.points_balance,
+            )
+        )
     return sale

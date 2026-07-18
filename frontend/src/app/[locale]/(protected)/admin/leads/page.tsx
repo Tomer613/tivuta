@@ -138,7 +138,7 @@ function KanbanView({ leads, onStatusChange, updatingId }: { leads: any[]; onSta
                                     >
                                         {sla && <div className="text-[9px] text-red-400 font-bold mb-1.5 flex items-center gap-1">⏰ ממתין מעל 24 שעות</div>}
                                         <p className="text-sm font-bold text-[#f0e6d3] truncate">{lead.user_name || '—'}</p>
-                                        <p className="text-xs text-[#f0e6d3]/40 truncate">{lead.product_title_he || '—'}</p>
+                                        <p className="text-xs text-[#f0e6d3]/40 truncate">{lead.product_title_he || TYPE_LABEL[lead.lead_type] || '—'}</p>
                                         <div className="flex items-center gap-2 mt-2">
                                             {lead.product_vertical && <VerticalIcon v={lead.product_vertical} />}
                                             <span className="text-[10px] text-[#f0e6d3]/30">

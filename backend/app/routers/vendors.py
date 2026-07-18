@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..security import get_current_admin, get_db, get_password_hash
+from ..services import loyalty
 
 router = APIRouter(tags=["vendors"])
 
@@ -192,3 +193,74 @@ def admin_settle_period(
     db.commit()
     db.refresh(period)
     return period
+
+
+def _oldest_unsettled_transaction(db: Session, vendor_id: int) -> Optional[models.SaleTransaction]:
+    return (
+        db.query(models.SaleTransaction)
+        .filter(
+            models.SaleTransaction.vendor_id == vendor_id,
+            models.SaleTransaction.status == "confirmed",
+            models.SaleTransaction.settlement_period_id.is_(None),
+        )
+        .order_by(models.SaleTransaction.confirmed_at.asc())
+        .first()
+    )
+
+
+@router.get(
+    "/admin/vendors/at-risk",
+    response_model=List[schemas.VendorAtRiskRead],
+    dependencies=[Depends(get_current_admin)],
+)
+def admin_list_at_risk_vendors(db: Session = Depends(get_db)):
+    """Vendors with an outstanding commission balance, surfaced so an admin can see who's
+    overdue before it reaches the auto-deactivation threshold — a lightweight substitute for a
+    full fraud dashboard, proportionate to a v1 rollout with no observed abuse yet."""
+    threshold = loyalty.get_setting_float(db, "max_unsettled_ils_before_deactivate")
+    now = datetime.utcnow()
+    vendors = db.query(models.Vendor).filter(models.Vendor.commission_owed_total > 0).all()
+    result = []
+    for vendor in vendors:
+        oldest = _oldest_unsettled_transaction(db, vendor.id)
+        age_days = (now - oldest.confirmed_at).days if oldest and oldest.confirmed_at else None
+        result.append(
+            schemas.VendorAtRiskRead(
+                vendor_id=vendor.id,
+                name_he=vendor.name_he,
+                commission_owed_total=vendor.commission_owed_total,
+                oldest_unsettled_days=age_days,
+                over_threshold=vendor.commission_owed_total >= threshold,
+            )
+        )
+    result.sort(key=lambda v: v.commission_owed_total, reverse=True)
+    return result
+
+
+@router.post("/admin/vendors/check-unsettled-deactivation", dependencies=[Depends(get_current_admin)])
+def admin_check_unsettled_deactivation(db: Session = Depends(get_db)):
+    """The operational backstop for 'a vendor reports sales but never pays': if a vendor's
+    unsettled commission balance is over threshold AND their oldest unsettled sale is older
+    than the grace period, deactivate them — this immediately stops both further self-service
+    reporting (get_current_vendor checks is_active) and further popularity accrual, without
+    needing a payment gateway. Meant to be triggered manually from the admin UI for now (same
+    pattern as the existing follow-up-reminders trigger); wiring it to a cron like
+    distributions.py's process-scheduled is a drop-in follow-up once this is trusted in prod."""
+    threshold = loyalty.get_setting_float(db, "max_unsettled_ils_before_deactivate")
+    grace_days = int(loyalty.get_setting_float(db, "unsettled_grace_days"))
+    cutoff = datetime.utcnow() - timedelta(days=grace_days)
+
+    candidates = (
+        db.query(models.Vendor)
+        .filter(models.Vendor.is_active == True, models.Vendor.commission_owed_total >= threshold)
+        .all()
+    )
+    deactivated = []
+    for vendor in candidates:
+        oldest = _oldest_unsettled_transaction(db, vendor.id)
+        if oldest and oldest.confirmed_at and oldest.confirmed_at <= cutoff:
+            vendor.is_active = False
+            deactivated.append({"vendor_id": vendor.id, "name_he": vendor.name_he})
+
+    db.commit()
+    return {"checked": len(candidates), "deactivated": deactivated}
