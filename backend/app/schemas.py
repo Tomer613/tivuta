@@ -73,6 +73,8 @@ class UserRead(UserBase):
     club_affiliation: Optional[str] = None
     membership_tracks: Optional[List[str]] = None
     notification_prefs: Optional[dict] = None
+    customer_number: Optional[str] = None
+    points_balance: int = 0
 
     class Config:
         from_attributes = True
@@ -157,6 +159,8 @@ class VendorBase(BaseModel):
     name_yi: Optional[str] = None
     is_active: bool = True
     availability: Optional[VendorAvailability] = None
+    commission_rate_percent: float = 0.0
+    points_rate_percent: Optional[float] = None
 
 class VendorCreate(VendorBase):
     pass
@@ -169,9 +173,12 @@ class VendorUpdate(BaseModel):
     name_yi: Optional[str] = None
     is_active: Optional[bool] = None
     availability: Optional[VendorAvailability] = None
+    commission_rate_percent: Optional[float] = None
+    points_rate_percent: Optional[float] = None
 
 class VendorRead(VendorBase):
     id: int
+    commission_owed_total: float = 0.0
 
     class Config:
         from_attributes = True
@@ -450,6 +457,41 @@ class SurveyCreate(BaseModel):
     question_fr: Optional[str] = None
     question_yi: Optional[str] = None
     options: List[SurveyOptionCreate]
+
+
+# Loyalty program: system settings, sale transactions
+class SystemSettingRead(BaseModel):
+    key: str
+    value: str
+
+class SystemSettingsUpdate(BaseModel):
+    settings: Dict[str, str]
+
+class AdminSaleCreate(BaseModel):
+    vendor_id: int
+    customer_number: str
+    amount_ils: float
+    product_id: Optional[int] = None
+    idempotency_key: str
+
+class SaleTransactionRead(BaseModel):
+    id: int
+    vendor_id: int
+    vendor_name_he: Optional[str] = None
+    customer_id: int
+    customer_name: Optional[str] = None
+    product_id: Optional[int] = None
+    product_title_he: Optional[str] = None
+    amount_ils: float
+    points_awarded: int
+    commission_rate_percent_snapshot: float
+    commission_owed_ils: float
+    status: str
+    reported_at: datetime
+    confirmed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 class SurveyOptionRead(BaseModel):
     id: int

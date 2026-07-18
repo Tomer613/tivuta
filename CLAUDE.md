@@ -36,11 +36,15 @@ tivuta/
 │   │   │   ├── surveys.py       Poll creation, voting, admin
 │   │   │   ├── distributions.py Email/WhatsApp campaign creation & sending
 │   │   │   ├── favorites.py     User favorites (wishlist) — GET/POST/DELETE
-│   │   │   └── notifications.py In-app notifications — list, unread-count, mark-read
+│   │   │   ├── notifications.py In-app notifications — list, unread-count, mark-read
+│   │   │   ├── reviews.py       Product rating & review upsert + admin approval
+│   │   │   ├── vendors.py       Admin CRUD for vendors (physical stores/suppliers per vertical)
+│   │   │   └── sales.py         Loyalty program: admin-manual sale reporting, system settings (Phase 1)
 │   │   └── services/
 │   │       ├── email_resend.py    Resend.com email provider
 │   │       ├── whatsapp_meta.py   Meta WhatsApp Business API
-│   │       └── notifications.py   Generic dispatcher
+│   │       ├── notifications.py   Generic dispatcher
+│   │       └── loyalty.py         Customer-number generation, system-setting lookup, points/commission math
 │   ├── alembic/           Migrations (Alembic)
 │   │   └── versions/
 │   │       ├── 1fcde320168b_initial_schema.py
@@ -49,7 +53,11 @@ tivuta/
 │   │       ├── b0ede4d6750e_add_user_profile_fields.py
 │   │       ├── 94565c01c960_add_id_number_club_membership.py
 │   │       ├── 99977981cac4_membership_tracks_json.py
-│   │       └── a3f1c2d8e9b0_add_favorites_notifications_lead_assign.py  ← newest
+│   │       ├── a3f1c2d8e9b0_add_favorites_notifications_lead_assign.py
+│   │       ├── a4b2c3d1e8f0_add_reviews_lead_history_scheduled_dist.py
+│   │       ├── b5c3d4e2f9a1_add_view_count_notif_prefs_dist_filters.py
+│   │       ├── c6d4e5f3a0b2_add_vendors.py
+│   │       └── 15f5ddaec4a5_add_loyalty_points_system.py  ← newest
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │
@@ -115,7 +123,13 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `distributions` | Broadcast campaigns (survey or daily_deal); channels: email, whatsapp |
 | `distribution_send_logs` | Per-user send status for each campaign |
 | `favorites` | User wishlist; `UniqueConstraint(user_id, product_id)`; CASCADE deletes |
-| `notifications` | In-app notifications per user; `type`: `lead_status` \| `appointment_reminder` \| `system` \| `followup`; `is_read`, `link` fields |
+| `notifications` | In-app notifications per user; `type`: `lead_status` \| `appointment_reminder` \| `system` \| `followup` \| `points_earned`; `is_read`, `link` fields |
+| `reviews` | Product rating (1–5) + comment; `UniqueConstraint(user_id, product_id)` — upsert semantics |
+| `vendors` | Physical store/supplier per vertical; products optionally belong to one via `Product.vendor_id`; also carries loyalty-program fields (see below) |
+| `system_settings` | Flat key/value config (e.g. `point_value_ils`) — see Loyalty Program section |
+| `sale_transactions` | Ledger of in-store sales reported for a vendor+customer(+product); drives points + commission |
+| `points_ledger_entries` | Append-only per-user points history (accrual/redemption/adjustment/clawback) |
+| `commission_settlement_periods` | Admin-driven periodic reconciliation of vendor commission owed |
 
 ---
 
@@ -368,6 +382,38 @@ npm run build  # static export to /out
 
 ---
 
+## Loyalty & Vendor Commission Program (Phase 1 — session 2026-07-18)
+
+Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming-puffin" plan — this section documents what's actually **built** so far (Phase 1 of a 5-phase rollout).
+
+**Goal**: reward a member with points when they buy at a physical store referred by Tivuta, reward the store with higher **per-product** popularity ranking the more it reports, and Tivuta earns a commission on every reported sale. Full design (data model rationale, fraud-resistance reasoning, phased rollout) lives in the plan this was built from — ask the user if you need the original brainstorm/rationale reproduced.
+
+### What Phase 1 built
+- **`User.customer_number`** — unique, non-sequential ~50-bit random serial (`TVT-XXXXXXXXXX`, format in `services/loyalty.py`). Generated at signup (`routers/auth.py`); backfilled for pre-existing users in the `15f5ddaec4a5` migration. This is the loyalty-card identifier — no QR/physical card yet (that's Phase 4).
+- **`User.points_balance`** — denormalized running total, kept in sync transactionally with `PointsLedgerEntry` inserts (never updated independently).
+- **`Vendor.commission_rate_percent` / `points_rate_percent` / `commission_owed_total`** — per-vendor loyalty config, editable via the existing `PATCH /admin/vendors/{id}` (schema already extended). `points_rate_percent` falls back to the global `SystemSetting` default when null. `Vendor.login_email`/`hashed_password` columns exist for the future vendor self-service portal (Phase 3) but are unused/nullable for now.
+- **`SystemSetting`** (`system_settings` table) — flat key/value config for `point_value_ils`, `default_points_rate_percent`, `default_commission_rate_percent`, `min_transaction_ils`, `max_transaction_ils`. `services/loyalty.py`'s `get_setting()`/`get_setting_float()` fall back to in-code `DEFAULT_SETTINGS` if a row doesn't exist yet — so the feature works even before an admin ever visits `GET/PATCH /admin/settings`.
+- **`SaleTransaction`** (`sale_transactions` table) — the ledger record. Phase 1 only supports **admin-manual entry** (`POST /admin/sales` in `routers/sales.py`) as a stand-in for real vendor self-reporting, to validate the pipeline before building a second auth system (Phase 3). Sales are auto-confirmed synchronously (`status="confirmed"` immediately) — no `reported`→`confirmed` waiting window yet.
+- **`PointsLedgerEntry`** — one row created per confirmed sale (`reason="sale"`), with `balance_after` snapshotted.
+- **`CommissionSettlementPeriod`** — table exists; no endpoints/UI to open or close a period yet (Phase 3+).
+- **Idempotency**: `SaleTransaction.idempotency_key` is unique; `POST /admin/sales` returns the existing row on a duplicate key instead of erroring or double-counting — verified end-to-end.
+- **Amount plausibility bounds**: `min_transaction_ils`/`max_transaction_ils` settings reject out-of-range `amount_ils` at the API level (400).
+- A `Notification` (`type="points_earned"`) is created for the customer on every confirmed sale, surfaced via the existing `NotificationBell`.
+
+### Explicitly NOT built yet (later phases per the plan)
+- `Product.popularity_score` and `sort=popularity` on `GET /products` (Phase 2) — sales do **not** yet affect listing order.
+- Vendor self-service portal/login, `/vendor-auth/login`, `get_current_vendor` (Phase 3).
+- Customer-facing profile card section (serial number display, points history) and the `card_order` Lead type + `shipping_address` for ordering a physical card (Phase 4) — physical card production/QR printing is explicitly **out of scope for the website**, handled by Tivuta externally.
+- Rate/velocity limits, `flagged` status usage, auto-deactivation on unpaid commission, admin fraud-audit dashboard (Phase 5). `SaleTransaction.status` already supports `flagged`/`reversed` values in the schema, but nothing sets them yet.
+
+### Key files
+- `backend/app/models.py` — `SystemSetting`, `SaleTransaction`, `PointsLedgerEntry`, `CommissionSettlementPeriod`; loyalty columns on `User`/`Vendor`
+- `backend/app/services/loyalty.py` — customer-number generation, setting lookup w/ fallback, points/commission computation (`compute_sale_economics`)
+- `backend/app/routers/sales.py` — `GET/PATCH /admin/settings`, `GET/POST /admin/sales`
+- `backend/alembic/versions/15f5ddaec4a5_add_loyalty_points_system.py` — schema + customer_number backfill
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -387,6 +433,9 @@ npm run build  # static export to /out
 - **Distribution segmentation mix**: `filter_city` uses a SQL WHERE clause (efficient); `filter_membership_track` uses Python in-memory filtering since `membership_tracks` is a JSON array column (not indexable with simple SQL). Trade-off accepted: segment sizes are small.
 - **Email preview in iframe**: HTML is rendered in a sandboxed `<iframe srcdoc>` in the admin preview modal. `sandbox="allow-same-origin"` prevents script execution while allowing CSS rendering.
 - **Product image serving via FastAPI StaticFiles**: Images uploaded through the admin are saved to `IMAGES_DIR` and served by FastAPI at `/images/products/`. Frontend uses `productImageUrl(filename)` helper from `api.ts` which prepends `NEXT_PUBLIC_API_URL`. In dev, `IMAGES_DIR` defaults to `frontend/public/images/products/` (same dir Next.js serves). In prod, set `IMAGES_DIR` to any writable path — FastAPI serves it directly. No static rebuild needed after upload.
+- **Loyalty points auto-confirm, not settlement-gated**: `SaleTransaction.status` goes straight to `"confirmed"` on report (no payment gateway in v1 anyway) rather than waiting for the vendor to actually pay Tivuta's commission. Points/ranking benefit is the trust hook that makes the *customer* want the vendor to report — delaying it by weeks (until manual settlement) would break that loop. Non-paying vendors are handled by deactivating them (Phase 5), not by holding customer points hostage.
+- **Loyalty rate snapshotting**: `SaleTransaction.commission_rate_percent_snapshot` and `points_awarded` are computed and stored at report time, not recomputed from the vendor's *current* rate later — a vendor's rate can change going forward without silently repricing historical transactions.
+- **Customer number is a plain (not signed/rotating) token**: `services/loyalty.py`'s `generate_customer_number()` produces a random ~50-bit serial with no cryptographic signing. The vendor is a semi-trusted, identified counterparty (has its own commission ledger), not an anonymous adversary — a signed/rotating QR token was judged disproportionate complexity for that threat model. Revisit only if manual-entry fraud is actually observed.
 
 ---
 

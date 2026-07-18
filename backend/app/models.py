@@ -99,6 +99,8 @@ class User(Base):
     club_affiliation = Column(String(100), nullable=True)
     membership_tracks = Column(JSON, nullable=True)  # list of selected track keys
     notification_prefs = Column(JSON, nullable=True)  # {"lead_status": true, "appointment_reminder": true, "system": true, "promotions": true}
+    customer_number = Column(String(24), unique=True, index=True, nullable=True)  # loyalty card serial, e.g. "TVT-XXXXXXXXXX"
+    points_balance = Column(Integer, default=0, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="member", nullable=False)  # "member" | "admin"
     reset_token = Column(String(255), nullable=True)
@@ -144,6 +146,14 @@ class Vendor(Base):
     # {"weekly": {"0": {"enabled": true, "start": "10:00", "end": "14:00"}, ... "6": {...}}, "slot_minutes": 30}
     # weekly keys "0".."6" = Sunday..Saturday (JS Date.getDay() convention)
     availability = Column(JSON, nullable=True, default=dict)
+
+    # Loyalty program: vendor portal login (separate principal from `users`/role, a vendor is a store, not a person)
+    login_email = Column(String(150), unique=True, index=True, nullable=True)
+    hashed_password = Column(String(255), nullable=True)
+    commission_rate_percent = Column(Float, default=0.0, nullable=False)  # % of each sale owed to Tivuta
+    points_rate_percent = Column(Float, nullable=True)  # per-vendor override; falls back to SystemSetting default if null
+    commission_owed_total = Column(Float, default=0.0, nullable=False)  # running balance owed, decremented on settlement
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     products = relationship("Product", back_populates="vendor")
@@ -364,3 +374,80 @@ class DistributionSendLog(Base):
     sent_at = Column(DateTime, nullable=True)
 
     distribution = relationship("Distribution", back_populates="send_logs")
+
+
+class SystemSetting(Base):
+    """Flat key/value config, e.g. point_value_ils — values that must be tunable without a code change."""
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, index=True, nullable=False)
+    value = Column(String(255), nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
+class SaleTransaction(Base):
+    """
+    Source of truth for an in-store sale reported by a vendor on behalf of a Tivuta member.
+    Drives both the customer's points ledger and the vendor's commission-owed ledger.
+    """
+    __tablename__ = "sale_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    customer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
+
+    amount_ils = Column(Float, nullable=False)
+    idempotency_key = Column(String(64), unique=True, index=True, nullable=False)
+
+    points_awarded = Column(Integer, nullable=False, default=0)
+    commission_rate_percent_snapshot = Column(Float, nullable=False)  # vendor's rate AT TIME OF SALE
+    commission_owed_ils = Column(Float, nullable=False)
+
+    status = Column(String(20), nullable=False, default="reported")  # reported | confirmed | flagged | reversed
+    settlement_period_id = Column(Integer, ForeignKey("commission_settlement_periods.id"), nullable=True)
+    history = Column(JSON, nullable=True, default=list)  # audit trail [{ts, actor, action, note}]
+
+    reported_at = Column(DateTime, default=datetime.utcnow)
+    confirmed_at = Column(DateTime, nullable=True)
+
+    vendor = relationship("Vendor")
+    customer = relationship("User", foreign_keys=[customer_id])
+    product = relationship("Product")
+    settlement_period = relationship("CommissionSettlementPeriod", back_populates="transactions")
+
+
+class PointsLedgerEntry(Base):
+    """Append-only per-user points history — accruals, redemptions, admin adjustments, clawbacks."""
+    __tablename__ = "points_ledger_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    sale_transaction_id = Column(Integer, ForeignKey("sale_transactions.id"), nullable=True)
+    delta_points = Column(Integer, nullable=False)  # positive = accrual, negative = redemption/clawback
+    reason = Column(String(30), nullable=False)  # sale | redemption | admin_adjustment | clawback
+    balance_after = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", foreign_keys=[user_id])
+    sale_transaction = relationship("SaleTransaction")
+
+
+class CommissionSettlementPeriod(Base):
+    """A period of confirmed vendor transactions manually reconciled/paid out-of-band (v1: no payment gateway)."""
+    __tablename__ = "commission_settlement_periods"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False)
+    period_start = Column(DateTime, nullable=False)
+    period_end = Column(DateTime, nullable=False)
+    total_amount_ils = Column(Float, nullable=False, default=0.0)
+    status = Column(String(20), nullable=False, default="open")  # open | settled
+    settled_at = Column(DateTime, nullable=True)
+    settled_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    note = Column(Text, nullable=True)
+
+    vendor = relationship("Vendor")
+    transactions = relationship("SaleTransaction", back_populates="settlement_period")

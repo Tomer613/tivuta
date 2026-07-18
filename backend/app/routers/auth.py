@@ -15,6 +15,7 @@ from ..security import (
     verify_password,
 )
 from ..services import get_email_sender
+from ..services import loyalty
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -34,6 +35,7 @@ def signup(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
         last_name=user_in.last_name,
         phone=user_in.phone,
         hashed_password=hashed_pw,
+        customer_number=loyalty.generate_customer_number(db),
     )
     db.add(new_user)
     db.commit()
