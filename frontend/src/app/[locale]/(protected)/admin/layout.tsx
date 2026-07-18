@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard } from 'lucide-react';
+import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 
 interface T {
     dashboard: string;
     products: string;
+    vendors: string;
     users: string;
     surveys: string;
     distribution: string;
@@ -16,10 +17,10 @@ interface T {
 }
 
 const translations: Record<string, T> = {
-    he: { dashboard: 'בקרה', products: 'מוצרים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', leads: 'פניות' },
-    en: { dashboard: 'Dashboard', products: 'Products', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', leads: 'Leads' },
-    fr: { dashboard: 'Tableau', products: 'Produits', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', leads: 'Contacts' },
-    yi: { dashboard: 'בקרה', products: 'פראדוקטן', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', leads: 'פנייות' },
+    he: { dashboard: 'בקרה', products: 'מוצרים', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', leads: 'פניות' },
+    en: { dashboard: 'Dashboard', products: 'Products', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', leads: 'Leads' },
+    fr: { dashboard: 'Tableau', products: 'Produits', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', leads: 'Contacts' },
+    yi: { dashboard: 'בקרה', products: 'פראדוקטן', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', leads: 'פנייות' },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -31,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const tabs = [
         { href: `/${locale}/admin`, label: t.dashboard, icon: <LayoutDashboard size={18} /> },
         { href: `/${locale}/admin/products`, label: t.products, icon: <Package size={18} /> },
+        { href: `/${locale}/admin/vendors`, label: t.vendors, icon: <Store size={18} /> },
         { href: `/${locale}/admin/users`, label: t.users, icon: <Users size={18} /> },
         { href: `/${locale}/admin/surveys`, label: t.surveys, icon: <BarChart3 size={18} /> },
         { href: `/${locale}/admin/distribution`, label: t.distribution, icon: <Send size={18} /> },

@@ -367,6 +367,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
                 <AppointmentModal
                     locale={locale}
                     productTitle={title}
+                    vendor={product.vendor ?? null}
                     onClose={() => setShowModal(false)}
                     onConfirm={handleScheduled}
                 />

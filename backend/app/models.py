@@ -125,6 +125,30 @@ class Order(Base):
     user = relationship("User", back_populates="orders")
 
 
+class Vendor(Base):
+    """
+    A store/supplier for a single vertical (diamonds / cars / insurance).
+    Defines the weekly appointment availability that products of that vendor inherit.
+    """
+    __tablename__ = "vendors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vertical = Column(String(20), nullable=False, index=True)  # 'diamonds' | 'cars' | 'insurance'
+
+    name_he = Column(String(255), nullable=False)
+    name_en = Column(String(255), nullable=True)
+    name_fr = Column(String(255), nullable=True)
+    name_yi = Column(String(255), nullable=True)
+
+    is_active = Column(Boolean, default=True, nullable=False)
+    # {"weekly": {"0": {"enabled": true, "start": "10:00", "end": "14:00"}, ... "6": {...}}, "slot_minutes": 30}
+    # weekly keys "0".."6" = Sunday..Saturday (JS Date.getDay() convention)
+    availability = Column(JSON, nullable=True, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    products = relationship("Product", back_populates="vendor")
+
+
 class Product(Base):
     """
     A catalog item for the new multi-vertical site (diamonds / cars / insurance).
@@ -150,10 +174,12 @@ class Product(Base):
     attributes = Column(JSON, nullable=True)  # vertical-specific facets, e.g. {"carat": 1.2, "clarity": "VS1"}
     is_active = Column(Boolean, default=True)
     view_count = Column(Integer, default=0, nullable=False)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     promotions = relationship("Promotion", secondary=product_promotions_table, back_populates="products")
     reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan")
+    vendor = relationship("Vendor", back_populates="products")
 
 
 class Promotion(Base):

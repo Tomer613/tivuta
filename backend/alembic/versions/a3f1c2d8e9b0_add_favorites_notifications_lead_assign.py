@@ -15,8 +15,10 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add assigned_to to leads
-    op.add_column('leads', sa.Column('assigned_to', sa.Integer(), sa.ForeignKey('users.id'), nullable=True))
+    # Add assigned_to to leads (batch mode required — SQLite can't ALTER in an FK constraint directly)
+    with op.batch_alter_table('leads') as batch_op:
+        batch_op.add_column(sa.Column('assigned_to', sa.Integer(), nullable=True))
+        batch_op.create_foreign_key('fk_leads_assigned_to', 'users', ['assigned_to'], ['id'])
 
     # favorites table
     op.create_table(
@@ -45,4 +47,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table('notifications')
     op.drop_table('favorites')
-    op.drop_column('leads', 'assigned_to')
+    with op.batch_alter_table('leads') as batch_op:
+        batch_op.drop_constraint('fk_leads_assigned_to', type_='foreignkey')
+        batch_op.drop_column('assigned_to')

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
 from datetime import datetime
 
 # Schema for SubCategories
@@ -120,6 +120,53 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 # Product Schemas (new multi-vertical site)
+class VendorDayAvailability(BaseModel):
+    enabled: bool = False
+    start: Optional[str] = None
+    end: Optional[str] = None
+
+class VendorAvailability(BaseModel):
+    weekly: Dict[str, VendorDayAvailability] = {}
+    slot_minutes: int = 30
+
+class VendorBase(BaseModel):
+    vertical: str
+    name_he: str
+    name_en: Optional[str] = None
+    name_fr: Optional[str] = None
+    name_yi: Optional[str] = None
+    is_active: bool = True
+    availability: Optional[VendorAvailability] = None
+
+class VendorCreate(VendorBase):
+    pass
+
+class VendorUpdate(BaseModel):
+    vertical: Optional[str] = None
+    name_he: Optional[str] = None
+    name_en: Optional[str] = None
+    name_fr: Optional[str] = None
+    name_yi: Optional[str] = None
+    is_active: Optional[bool] = None
+    availability: Optional[VendorAvailability] = None
+
+class VendorRead(VendorBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+class VendorBrief(BaseModel):
+    id: int
+    name_he: str
+    name_en: Optional[str] = None
+    is_active: bool = True
+    availability: Optional[VendorAvailability] = None
+
+    class Config:
+        from_attributes = True
+
+
 class ProductBase(BaseModel):
     vertical: str
     title_he: str
@@ -134,6 +181,7 @@ class ProductBase(BaseModel):
     price: Optional[float] = None
     attributes: Optional[dict] = None
     is_active: bool = True
+    vendor_id: Optional[int] = None
 
 class ProductCreate(ProductBase):
     pass
@@ -152,6 +200,7 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = None
     attributes: Optional[dict] = None
     is_active: Optional[bool] = None
+    vendor_id: Optional[int] = None
 
 class PromotionBrief(BaseModel):
     id: int
@@ -173,6 +222,7 @@ class ProductRead(ProductBase):
     avg_rating: Optional[float] = None
     review_count: int = 0
     promotions: List[PromotionBrief] = []
+    vendor: Optional[VendorBrief] = None
 
     class Config:
         from_attributes = True

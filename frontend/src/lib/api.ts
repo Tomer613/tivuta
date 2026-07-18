@@ -13,6 +13,70 @@ export function productImageUrl(filename: string | null | undefined): string {
     return `${BASE_URL}/images/products/${filename}`;
 }
 
+export interface VendorDayAvailability {
+    enabled: boolean;
+    start?: string | null;
+    end?: string | null;
+}
+
+export interface VendorAvailability {
+    weekly: Record<string, VendorDayAvailability>;
+    slot_minutes: number;
+}
+
+export interface Vendor {
+    id: number;
+    vertical: string;
+    name_he: string;
+    name_en?: string | null;
+    name_fr?: string | null;
+    name_yi?: string | null;
+    is_active: boolean;
+    availability?: VendorAvailability | null;
+}
+
+export async function adminListVendors(token: string, vertical?: string): Promise<Vendor[]> {
+    const qs = vertical ? `?vertical=${encodeURIComponent(vertical)}` : '';
+    const res = await fetch(`${BASE_URL}/admin/vendors${qs}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load vendors');
+    return res.json();
+}
+
+export async function adminCreateVendor(token: string, payload: any): Promise<Vendor> {
+    const res = await fetch(`${BASE_URL}/admin/vendors`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create vendor');
+    }
+    return res.json();
+}
+
+export async function adminUpdateVendor(token: string, id: number, payload: any): Promise<Vendor> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${id}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update vendor');
+    }
+    return res.json();
+}
+
+export async function adminDeleteVendor(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to delete vendor');
+    return res.json();
+}
+
 // Fallback data for build-time when backend is unreachable
 const MOCK_CATEGORIES = [
     { id: 1, slug: 'judaism', name_he: 'יהדות', name_en: 'Judaism', name_fr: 'Judaïsme', name_yi: 'יהדות' },

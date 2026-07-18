@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics, productImageUrl } from '@/lib/api';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, productImageUrl, Vendor } from '@/lib/api';
 import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3 } from 'lucide-react';
 
 const VERTICALS = [
@@ -53,6 +53,7 @@ const EMPTY_FORM = {
     price: '',
     image_url: '',
     attributes: {} as Record<string, string>,
+    vendor_id: '' as string | number,
 };
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -83,6 +84,7 @@ export default function AdminProductsPage() {
     const [batchJson, setBatchJson] = useState('');
     const [batchError, setBatchError] = useState<string | null>(null);
     const [form, setForm] = useState(EMPTY_FORM);
+    const [vendors, setVendors] = useState<Vendor[]>([]);
     const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
     const [translating, setTranslating] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -106,6 +108,11 @@ export default function AdminProductsPage() {
     };
 
     useEffect(load, [token]);
+
+    useEffect(() => {
+        if (!token) return;
+        adminListVendors(token).then(setVendors).catch(() => {});
+    }, [token]);
 
     const filtered = useMemo(() => {
         let list = products;
@@ -161,6 +168,7 @@ export default function AdminProductsPage() {
             price: p.price ? String(p.price) : '',
             image_url: p.image_url || '',
             attributes: attrs,
+            vendor_id: p.vendor_id ?? '',
         });
         setLangTab('he');
         setShowForm(true);
@@ -205,6 +213,7 @@ export default function AdminProductsPage() {
             price: form.price ? Number(form.price) : null,
             image_url: form.image_url || null,
             attributes: Object.keys(cleanAttrs).length > 0 ? cleanAttrs : null,
+            vendor_id: form.vendor_id ? Number(form.vendor_id) : null,
             is_active: true,
         };
         try {
@@ -522,8 +531,19 @@ export default function AdminProductsPage() {
                         {/* Vertical */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">עולם המוצר</label>
-                            <select value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
+                            <select value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value, vendor_id: '' })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
                                 {VERTICALS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                            </select>
+                        </div>
+
+                        {/* Vendor */}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">ספק / חנות (קובע זמינות לפגישות)</label>
+                            <select value={form.vendor_id} onChange={(e) => setForm({ ...form, vendor_id: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
+                                <option value="">ללא ספק</option>
+                                {vendors.filter((v) => v.vertical === form.vertical).map((v) => (
+                                    <option key={v.id} value={v.id}>{v.name_he}</option>
+                                ))}
                             </select>
                         </div>
 

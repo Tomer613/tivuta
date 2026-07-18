@@ -51,7 +51,7 @@ def list_products(
     query = (
         db.query(models.Product)
         .filter(models.Product.is_active == True)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor))
     )
     if vertical:
         query = query.filter(models.Product.vertical == vertical)
@@ -82,7 +82,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     product = (
         db.query(models.Product)
         .filter(models.Product.id == product_id)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor))
         .first()
     )
     if not product:
@@ -114,7 +114,7 @@ def search_products(q: str = "", db: Session = Depends(get_db)):
                 models.Product.description_he.ilike(term),
             ),
         )
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor))
         .limit(20)
         .all()
     )
@@ -126,9 +126,20 @@ def _validate_vertical(vertical: str):
         raise HTTPException(status_code=400, detail=f"vertical must be one of {VALID_VERTICALS}")
 
 
+def _validate_vendor(vendor_id: Optional[int], vertical: str, db: Session):
+    if vendor_id is None:
+        return
+    vendor = db.query(models.Vendor).filter(models.Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    if vendor.vertical != vertical:
+        raise HTTPException(status_code=400, detail="Vendor vertical does not match product vertical")
+
+
 @router.post("/admin/products", response_model=schemas.ProductRead, dependencies=[Depends(get_current_admin)])
 def admin_create_product(product_in: schemas.ProductCreate, db: Session = Depends(get_db)):
     _validate_vertical(product_in.vertical)
+    _validate_vendor(product_in.vendor_id, product_in.vertical, db)
     new_product = models.Product(**product_in.model_dump())
     db.add(new_product)
     db.commit()
@@ -163,6 +174,8 @@ def admin_update_product(product_id: int, product_in: schemas.ProductUpdate, db:
     update_data = product_in.model_dump(exclude_unset=True)
     if "vertical" in update_data:
         _validate_vertical(update_data["vertical"])
+    if "vendor_id" in update_data:
+        _validate_vendor(update_data["vendor_id"], update_data.get("vertical", product.vertical), db)
     for key, value in update_data.items():
         setattr(product, key, value)
     db.commit()
@@ -175,7 +188,7 @@ def admin_list_all_products(db: Session = Depends(get_db)):
     """Returns all products including inactive ones — for admin management."""
     products = (
         db.query(models.Product)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor))
         .order_by(models.Product.created_at.desc())
         .all()
     )

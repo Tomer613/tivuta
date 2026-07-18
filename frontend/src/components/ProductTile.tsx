@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { CalendarCheck, MessageCircle, CheckCircle2, ArrowLeft, X, Info, Heart, Share2, Star, Clock } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
-import { createLead, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView, productImageUrl } from '@/lib/api';
+import { createLead, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView, productImageUrl, Vendor } from '@/lib/api';
 
 export interface PromotionBrief {
     id: number;
@@ -33,6 +33,7 @@ export interface Product {
     avg_rating?: number | null;
     review_count?: number;
     view_count?: number;
+    vendor?: Vendor | null;
 }
 
 const ATTR_LABELS: Record<string, Record<string, string>> = {
@@ -351,6 +352,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                 <AppointmentModal
                     locale={locale}
                     productTitle={title}
+                    vendor={product.vendor ?? null}
                     onClose={() => setShowModal(false)}
                     onConfirm={handleScheduled}
                 />
