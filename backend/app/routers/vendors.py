@@ -1,10 +1,11 @@
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..security import get_current_admin, get_db
+from ..security import get_current_admin, get_db, get_password_hash
 
 router = APIRouter(tags=["vendors"])
 
@@ -59,3 +60,133 @@ def admin_delete_vendor(vendor_id: int, db: Session = Depends(get_db)):
     vendor.is_active = False
     db.commit()
     return {"message": "Vendor deactivated"}
+
+
+@router.patch(
+    "/admin/vendors/{vendor_id}/portal-access",
+    response_model=schemas.VendorRead,
+    dependencies=[Depends(get_current_admin)],
+)
+def admin_set_vendor_portal_access(vendor_id: int, payload: schemas.VendorPortalAccessUpdate, db: Session = Depends(get_db)):
+    """Issues or resets a vendor's self-service portal login. Admin-issued for v1 — no
+    vendor-facing self-service signup/password-reset yet (small, known set of vendors)."""
+    vendor = db.query(models.Vendor).filter(models.Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # A login_email must resolve unambiguously to exactly one principal (member vs vendor) —
+    # get_current_user/get_current_vendor already separate tokens by "typ", but keeping the
+    # emails themselves disjoint avoids any confusing overlap in admin tooling too.
+    if db.query(models.User.id).filter(models.User.email == payload.login_email).first():
+        raise HTTPException(status_code=400, detail="This email is already used by a member account")
+    if (
+        db.query(models.Vendor.id)
+        .filter(models.Vendor.login_email == payload.login_email, models.Vendor.id != vendor_id)
+        .first()
+    ):
+        raise HTTPException(status_code=400, detail="This email is already used by another vendor")
+
+    vendor.login_email = payload.login_email
+    vendor.hashed_password = get_password_hash(payload.password)
+    db.commit()
+    db.refresh(vendor)
+    return vendor
+
+
+@router.get(
+    "/admin/vendors/{vendor_id}/settlements",
+    response_model=List[schemas.CommissionSettlementPeriodRead],
+    dependencies=[Depends(get_current_admin)],
+)
+def admin_list_settlements(vendor_id: int, db: Session = Depends(get_db)):
+    return (
+        db.query(models.CommissionSettlementPeriod)
+        .filter(models.CommissionSettlementPeriod.vendor_id == vendor_id)
+        .order_by(models.CommissionSettlementPeriod.period_start.desc())
+        .all()
+    )
+
+
+@router.post(
+    "/admin/vendors/{vendor_id}/settlements",
+    response_model=schemas.CommissionSettlementPeriodRead,
+    dependencies=[Depends(get_current_admin)],
+)
+def admin_open_settlement_period(
+    vendor_id: int, payload: schemas.CommissionSettlementPeriodCreate, db: Session = Depends(get_db)
+):
+    """Sums unsettled confirmed transactions for the vendor within [period_start, period_end]
+    and links them to a new 'open' period. A transaction can belong to at most one period
+    (settlement_period_id is only ever set once), so overlapping ranges can't double-count."""
+    vendor = db.query(models.Vendor).filter(models.Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    unsettled = (
+        db.query(models.SaleTransaction)
+        .filter(
+            models.SaleTransaction.vendor_id == vendor_id,
+            models.SaleTransaction.status == "confirmed",
+            models.SaleTransaction.settlement_period_id.is_(None),
+            models.SaleTransaction.confirmed_at >= payload.period_start,
+            models.SaleTransaction.confirmed_at <= payload.period_end,
+        )
+        .all()
+    )
+    total = round(sum(s.commission_owed_ils for s in unsettled), 2)
+
+    period = models.CommissionSettlementPeriod(
+        vendor_id=vendor_id,
+        period_start=payload.period_start,
+        period_end=payload.period_end,
+        total_amount_ils=total,
+        status="open",
+    )
+    db.add(period)
+    db.flush()
+
+    for s in unsettled:
+        s.settlement_period_id = period.id
+
+    db.commit()
+    db.refresh(period)
+    return period
+
+
+@router.patch(
+    "/admin/vendors/{vendor_id}/settlements/{period_id}/settle",
+    response_model=schemas.CommissionSettlementPeriodRead,
+)
+def admin_settle_period(
+    vendor_id: int,
+    period_id: int,
+    payload: schemas.CommissionSettlementPeriodSettle,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(get_current_admin),
+):
+    period = (
+        db.query(models.CommissionSettlementPeriod)
+        .filter(
+            models.CommissionSettlementPeriod.id == period_id,
+            models.CommissionSettlementPeriod.vendor_id == vendor_id,
+        )
+        .first()
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Settlement period not found")
+    if period.status == "settled":
+        raise HTTPException(status_code=400, detail="Period is already settled")
+
+    period.status = "settled"
+    period.settled_at = datetime.utcnow()
+    period.settled_by = current_admin.id
+    if payload.note:
+        period.note = payload.note
+
+    db.query(models.Vendor).filter(models.Vendor.id == vendor_id).update(
+        {"commission_owed_total": models.Vendor.commission_owed_total - period.total_amount_ils}
+    )
+
+    db.commit()
+    db.refresh(period)
+    return period

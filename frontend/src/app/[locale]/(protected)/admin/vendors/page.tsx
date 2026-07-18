@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListVendors, adminCreateVendor, adminUpdateVendor, adminDeleteVendor } from '@/lib/api';
-import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { adminListVendors, adminCreateVendor, adminUpdateVendor, adminDeleteVendor, adminSetVendorPortalAccess } from '@/lib/api';
+import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound } from 'lucide-react';
 
 const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
 const VERTICALS = ['diamonds', 'cars', 'insurance'];
@@ -37,6 +37,8 @@ const emptyForm = () => ({
     is_active: true,
     weekly: emptyWeekly() as Record<string, { enabled: boolean; start: string; end: string }>,
     slot_minutes: 30,
+    commission_rate_percent: 0,
+    points_rate_percent: '',
 });
 
 export default function AdminVendorsPage() {
@@ -49,6 +51,10 @@ export default function AdminVendorsPage() {
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [form, setForm] = useState(emptyForm());
+    const [portalAccessVendor, setPortalAccessVendor] = useState<any | null>(null);
+    const [portalEmail, setPortalEmail] = useState('');
+    const [portalPassword, setPortalPassword] = useState('');
+    const [savingPortalAccess, setSavingPortalAccess] = useState(false);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -80,6 +86,8 @@ export default function AdminVendorsPage() {
             is_active: vendor.is_active,
             weekly,
             slot_minutes: vendor.availability?.slot_minutes || 30,
+            commission_rate_percent: vendor.commission_rate_percent ?? 0,
+            points_rate_percent: vendor.points_rate_percent != null ? String(vendor.points_rate_percent) : '',
         });
         setShowForm(true);
     };
@@ -122,6 +130,8 @@ export default function AdminVendorsPage() {
             name_yi: form.name_yi || null,
             is_active: form.is_active,
             availability: { weekly: form.weekly, slot_minutes: form.slot_minutes },
+            commission_rate_percent: Number(form.commission_rate_percent) || 0,
+            points_rate_percent: form.points_rate_percent !== '' ? Number(form.points_rate_percent) : null,
         };
         try {
             if (editVendor) {
@@ -147,6 +157,34 @@ export default function AdminVendorsPage() {
             load();
         } catch {
             showToast('שגיאה במחיקה', 'error');
+        }
+    };
+
+    const openPortalAccessForm = (vendor: any) => {
+        setPortalAccessVendor(vendor);
+        setPortalEmail(vendor.login_email || '');
+        setPortalPassword('');
+    };
+
+    const closePortalAccessForm = () => {
+        setPortalAccessVendor(null);
+        setPortalEmail('');
+        setPortalPassword('');
+    };
+
+    const handleSavePortalAccess = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token || !portalAccessVendor) return;
+        setSavingPortalAccess(true);
+        try {
+            await adminSetVendorPortalAccess(token, portalAccessVendor.id, portalEmail, portalPassword);
+            showToast('פרטי הכניסה לפורטל הספק עודכנו ✓');
+            closePortalAccessForm();
+            load();
+        } catch (err: any) {
+            showToast(err.message || 'שגיאה בעדכון פרטי הכניסה', 'error');
+        } finally {
+            setSavingPortalAccess(false);
         }
     };
 
@@ -179,6 +217,8 @@ export default function AdminVendorsPage() {
                                 <th className="p-4 text-start">שם הספק</th>
                                 <th className="p-4 text-start">עולם</th>
                                 <th className="p-4 text-start">ימים פעילים</th>
+                                <th className="p-4 text-start">עמלה</th>
+                                <th className="p-4 text-start">חוב לTIVUTA</th>
                                 <th className="p-4 text-start">סטטוס</th>
                                 <th className="p-4 text-start">פעולות</th>
                             </tr>
@@ -186,7 +226,7 @@ export default function AdminVendorsPage() {
                         <tbody>
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="p-8 text-center text-[#f0e6d3]/40">אין ספקים עדיין</td>
+                                    <td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין ספקים עדיין</td>
                                 </tr>
                             )}
                             {filtered.map((vendor) => {
@@ -196,6 +236,8 @@ export default function AdminVendorsPage() {
                                         <td className="p-4 font-semibold">{vendor.name_he}</td>
                                         <td className="p-4 text-sm">{VERTICAL_LABEL[vendor.vertical] ?? vendor.vertical}</td>
                                         <td className="p-4 text-sm">{activeDays} מתוך 7</td>
+                                        <td className="p-4 text-sm">{vendor.commission_rate_percent}%</td>
+                                        <td className="p-4 text-sm text-[#d4af37]">₪{(vendor.commission_owed_total ?? 0).toLocaleString()}</td>
                                         <td className="p-4">
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${vendor.is_active ? 'bg-green-500/20 text-green-400' : 'bg-[#111a2f] text-[#f0e6d3]/40'}`}>
                                                 {vendor.is_active ? 'פעיל' : 'כבוי'}
@@ -203,6 +245,9 @@ export default function AdminVendorsPage() {
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
+                                                <button onClick={() => openPortalAccessForm(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title={vendor.login_email ? 'עדכון פרטי כניסה לפורטל' : 'הפעלת פורטל ספק'}>
+                                                    <KeyRound size={15} />
+                                                </button>
                                                 <button onClick={() => openEditForm(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="עריכה">
                                                     <Pencil size={15} />
                                                 </button>
@@ -271,6 +316,30 @@ export default function AdminVendorsPage() {
                             ספק פעיל
                         </label>
 
+                        <div className="border-t border-[#d4af37]/15 pt-4 grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-1 block">אחוז עמלה ל-TIVUTA (%)</label>
+                                <input
+                                    type="number" min={0} max={100} step="0.1"
+                                    value={form.commission_rate_percent}
+                                    onChange={(e) => setForm({ ...form, commission_rate_percent: Number(e.target.value) })}
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                    dir="ltr"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-1 block">אחוז נקודות ללקוח (%, ריק = ברירת מחדל)</label>
+                                <input
+                                    type="number" min={0} max={100} step="0.1"
+                                    value={form.points_rate_percent}
+                                    onChange={(e) => setForm({ ...form, points_rate_percent: e.target.value })}
+                                    placeholder="ברירת מחדל"
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                    dir="ltr"
+                                />
+                            </div>
+                        </div>
+
                         <div className="border-t border-[#d4af37]/15 pt-4">
                             <div className="flex items-center justify-between mb-3">
                                 <label className="text-xs text-[#f0e6d3]/50 font-bold uppercase tracking-wider">ימי ושעות זמינות לפגישות</label>
@@ -316,6 +385,48 @@ export default function AdminVendorsPage() {
                         </div>
 
                         <button type="submit" className="btn-primary w-full">{editVendor ? 'שמור שינויים' : 'שמור ספק'}</button>
+                    </form>
+                </div>
+            )}
+
+            {portalAccessVendor && (
+                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={closePortalAccessForm}>
+                    <form onSubmit={handleSavePortalAccess} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-2">
+                            <h2 className="text-xl font-black text-[#f0e6d3] flex items-center gap-2">
+                                <KeyRound size={20} /> פורטל ספק — {portalAccessVendor.name_he}
+                            </h2>
+                            <button type="button" onClick={closePortalAccessForm}><X size={20} className="text-[#f0e6d3]/60" /></button>
+                        </div>
+                        <p className="text-xs text-[#f0e6d3]/50">הזן/י אימייל וסיסמה שהספק ישתמש בהם כדי להתחבר לפורטל דיווח העסקאות שלו.</p>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">אימייל כניסה</label>
+                            <input
+                                required
+                                type="email"
+                                value={portalEmail}
+                                onChange={(e) => setPortalEmail(e.target.value)}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                dir="ltr"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סיסמה חדשה (8 תווים לפחות)</label>
+                            <input
+                                required
+                                type="text"
+                                minLength={8}
+                                value={portalPassword}
+                                onChange={(e) => setPortalPassword(e.target.value)}
+                                placeholder="••••••••"
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                dir="ltr"
+                            />
+                        </div>
+                        <button type="submit" disabled={savingPortalAccess} className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60">
+                            {savingPortalAccess ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
+                            שמור פרטי כניסה
+                        </button>
                     </form>
                 </div>
             )}

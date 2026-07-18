@@ -468,8 +468,7 @@ class SystemSettingRead(BaseModel):
 class SystemSettingsUpdate(BaseModel):
     settings: Dict[str, str]
 
-class AdminSaleCreate(BaseModel):
-    vendor_id: int
+class SaleCreateBase(BaseModel):
     customer_number: str = Field(..., max_length=24)
     amount_ils: float = Field(..., gt=0)
     product_id: Optional[int] = None
@@ -479,6 +478,14 @@ class AdminSaleCreate(BaseModel):
     @classmethod
     def _normalize_customer_number(cls, v):
         return v.strip().upper()
+
+class AdminSaleCreate(SaleCreateBase):
+    vendor_id: int
+
+class VendorSaleCreate(SaleCreateBase):
+    """Same shape as AdminSaleCreate but with no vendor_id — the vendor's identity comes from
+    their auth token (get_current_vendor), never from the request body."""
+    pass
 
 class SaleTransactionRead(BaseModel):
     id: int
@@ -495,6 +502,49 @@ class SaleTransactionRead(BaseModel):
     status: str
     reported_at: datetime
     confirmed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Loyalty program: vendor self-service portal
+class VendorPortalAccessUpdate(BaseModel):
+    login_email: str
+    password: str = Field(..., min_length=8)
+
+class VendorMeRead(BaseModel):
+    id: int
+    vertical: str
+    name_he: str
+    commission_rate_percent: float
+    points_rate_percent: Optional[float] = None
+    commission_owed_total: float
+
+    class Config:
+        from_attributes = True
+
+class CommissionSettlementPeriodCreate(BaseModel):
+    period_start: datetime
+    period_end: datetime
+
+    @model_validator(mode="after")
+    def _validate_range(self):
+        if self.period_start >= self.period_end:
+            raise ValueError("period_start must be before period_end")
+        return self
+
+class CommissionSettlementPeriodSettle(BaseModel):
+    note: Optional[str] = None
+
+class CommissionSettlementPeriodRead(BaseModel):
+    id: int
+    vendor_id: int
+    period_start: datetime
+    period_end: datetime
+    total_amount_ils: float
+    status: str
+    settled_at: Optional[datetime] = None
+    note: Optional[str] = None
 
     class Config:
         from_attributes = True

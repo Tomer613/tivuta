@@ -77,6 +77,108 @@ export async function adminDeleteVendor(token: string, id: number) {
     return res.json();
 }
 
+export async function adminSetVendorPortalAccess(token: string, id: number, loginEmail: string, password: string): Promise<Vendor> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${id}/portal-access`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login_email: loginEmail, password }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to set vendor portal access');
+    }
+    return res.json();
+}
+
+// ── Loyalty program: vendor self-service portal ─────────────────────────────
+
+export interface VendorMe {
+    id: number;
+    vertical: string;
+    name_he: string;
+    commission_rate_percent: number;
+    points_rate_percent: number | null;
+    commission_owed_total: number;
+}
+
+export interface SaleTransaction {
+    id: number;
+    vendor_id: number;
+    vendor_name_he?: string | null;
+    customer_id: number;
+    customer_name?: string | null;
+    product_id?: number | null;
+    product_title_he?: string | null;
+    amount_ils: number;
+    points_awarded: number;
+    commission_rate_percent_snapshot: number;
+    commission_owed_ils: number;
+    status: string;
+    reported_at: string;
+    confirmed_at?: string | null;
+}
+
+export interface CommissionSettlementPeriod {
+    id: number;
+    vendor_id: number;
+    period_start: string;
+    period_end: string;
+    total_amount_ils: number;
+    status: string;
+    settled_at?: string | null;
+    note?: string | null;
+}
+
+export async function vendorLogin(loginEmail: string, password: string): Promise<{ access_token: string; token_type: string }> {
+    const formData = new URLSearchParams();
+    formData.set('username', loginEmail);
+    formData.set('password', password);
+    const res = await fetch(`${BASE_URL}/vendor-auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString(),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Login failed');
+    }
+    return res.json();
+}
+
+export async function vendorGetMe(token: string): Promise<VendorMe> {
+    const res = await fetch(`${BASE_URL}/vendor/me`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load vendor profile');
+    return res.json();
+}
+
+export async function vendorListSales(token: string): Promise<SaleTransaction[]> {
+    const res = await fetch(`${BASE_URL}/vendor/sales`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load sales');
+    return res.json();
+}
+
+export async function vendorCreateSale(
+    token: string,
+    payload: { customer_number: string; amount_ils: number; product_id?: number | null; idempotency_key: string }
+): Promise<SaleTransaction> {
+    const res = await fetch(`${BASE_URL}/vendor/sales`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to report sale');
+    }
+    return res.json();
+}
+
+export async function vendorListSettlements(token: string): Promise<CommissionSettlementPeriod[]> {
+    const res = await fetch(`${BASE_URL}/vendor/settlements`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load settlements');
+    return res.json();
+}
+
 // Fallback data for build-time when backend is unreachable
 const MOCK_CATEGORIES = [
     { id: 1, slug: 'judaism', name_he: 'יהדות', name_en: 'Judaism', name_fr: 'Judaïsme', name_yi: 'יהדות' },
