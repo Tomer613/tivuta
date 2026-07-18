@@ -382,35 +382,42 @@ npm run build  # static export to /out
 
 ---
 
-## Loyalty & Vendor Commission Program (Phase 1 — session 2026-07-18)
+## Loyalty & Vendor Commission Program (Phases 1–2 — session 2026-07-18)
 
-Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming-puffin" plan — this section documents what's actually **built** so far (Phase 1 of a 5-phase rollout).
+Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming-puffin" plan — this section documents what's actually **built** so far (Phases 1–2 of a 5-phase rollout).
 
 **Goal**: reward a member with points when they buy at a physical store referred by Tivuta, reward the store with higher **per-product** popularity ranking the more it reports, and Tivuta earns a commission on every reported sale. Full design (data model rationale, fraud-resistance reasoning, phased rollout) lives in the plan this was built from — ask the user if you need the original brainstorm/rationale reproduced.
 
 ### What Phase 1 built
-- **`User.customer_number`** — unique, non-sequential ~50-bit random serial (`TVT-XXXXXXXXXX`, format in `services/loyalty.py`). Generated at signup (`routers/auth.py`); backfilled for pre-existing users in the `15f5ddaec4a5` migration. This is the loyalty-card identifier — no QR/physical card yet (that's Phase 4).
-- **`User.points_balance`** — denormalized running total, kept in sync transactionally with `PointsLedgerEntry` inserts (never updated independently).
-- **`Vendor.commission_rate_percent` / `points_rate_percent` / `commission_owed_total`** — per-vendor loyalty config, editable via the existing `PATCH /admin/vendors/{id}` (schema already extended). `points_rate_percent` falls back to the global `SystemSetting` default when null. `Vendor.login_email`/`hashed_password` columns exist for the future vendor self-service portal (Phase 3) but are unused/nullable for now.
-- **`SystemSetting`** (`system_settings` table) — flat key/value config for `point_value_ils`, `default_points_rate_percent`, `default_commission_rate_percent`, `min_transaction_ils`, `max_transaction_ils`. `services/loyalty.py`'s `get_setting()`/`get_setting_float()` fall back to in-code `DEFAULT_SETTINGS` if a row doesn't exist yet — so the feature works even before an admin ever visits `GET/PATCH /admin/settings`.
-- **`SaleTransaction`** (`sale_transactions` table) — the ledger record. Phase 1 only supports **admin-manual entry** (`POST /admin/sales` in `routers/sales.py`) as a stand-in for real vendor self-reporting, to validate the pipeline before building a second auth system (Phase 3). Sales are auto-confirmed synchronously (`status="confirmed"` immediately) — no `reported`→`confirmed` waiting window yet.
-- **`PointsLedgerEntry`** — one row created per confirmed sale (`reason="sale"`), with `balance_after` snapshotted.
+- **`User.customer_number`** — unique, non-sequential ~50-bit random serial (`TVT-XXXXXXXXXX`, format in `services/loyalty.py`). Generated at signup (`routers/auth.py`); backfilled for pre-existing users in the `15f5ddaec4a5` migration. Lookup is case/whitespace-normalized (`.strip().upper()` in the `AdminSaleCreate` schema validator). This is the loyalty-card identifier — no QR/physical card yet (that's Phase 4).
+- **`User.points_balance`** — denormalized running total, kept in sync via an atomic SQL-level increment (`db.query(User).filter(...).update({"points_balance": User.points_balance + n})`, same pattern as `Product.view_count`) — not a Python read-modify-write, to stay race-safe under concurrent sales.
+- **`Vendor.commission_rate_percent` / `points_rate_percent` / `commission_owed_total`** — per-vendor loyalty config, editable via the existing `PATCH /admin/vendors/{id}` (schema extended, `commission_rate_percent`/`points_rate_percent` bounded `0–100` via Pydantic `Field(ge=0, le=100)`). `points_rate_percent` falls back to the global `SystemSetting` default when null. `Vendor.login_email`/`hashed_password` columns exist for the future vendor self-service portal (Phase 3) but are unused/nullable for now.
+- **`SystemSetting`** (`system_settings` table) — flat key/value config for `point_value_ils`, `default_points_rate_percent`, `default_commission_rate_percent`, `min_transaction_ils`, `max_transaction_ils`. `services/loyalty.py`'s `get_setting()`/`get_setting_float()` fall back to in-code `DEFAULT_SETTINGS` if a row doesn't exist yet. `PATCH /admin/settings` validates known numeric keys parse as a positive float before writing (`validate_setting_value`) — prevents a bad admin edit (e.g. `point_value_ils="0"`) from causing a `ZeroDivisionError` on every subsequent sale report.
+- **`SaleTransaction`** (`sale_transactions` table) — the ledger record. Phase 1 only supports **admin-manual entry** (`POST /admin/sales` in `routers/sales.py`) as a stand-in for real vendor self-reporting, to validate the pipeline before building a second auth system (Phase 3). Sales are auto-confirmed synchronously (`status="confirmed"` immediately) — no `reported`→`confirmed` waiting window yet. If `product_id` is given, it must belong to the same vendor (or have no vendor assigned) — rejects a store taking popularity/commission credit for another store's product.
+- **`PointsLedgerEntry`** — one row created per confirmed sale (`reason="sale"`), with `balance_after` snapshotted (re-fetched via `db.refresh(customer)` after the atomic balance update, so the snapshot reflects the real DB value, not a stale Python one).
 - **`CommissionSettlementPeriod`** — table exists; no endpoints/UI to open or close a period yet (Phase 3+).
-- **Idempotency**: `SaleTransaction.idempotency_key` is unique; `POST /admin/sales` returns the existing row on a duplicate key instead of erroring or double-counting — verified end-to-end.
-- **Amount plausibility bounds**: `min_transaction_ils`/`max_transaction_ils` settings reject out-of-range `amount_ils` at the API level (400).
+- **Idempotency**: `SaleTransaction.idempotency_key` is unique (max 64 chars, enforced in the Pydantic schema too); `POST /admin/sales` returns the existing row on a duplicate key instead of erroring or double-counting. Also race-safe: a concurrent double-submit that both pass the initial existence check will have one `INSERT` fail on the unique constraint at `db.flush()` — that path is caught, rolled back, and re-resolved to the winning row instead of 500ing.
+- **Amount plausibility bounds**: `amount_ils` must be `> 0` (Pydantic `Field(gt=0)`) and within the configurable `min_transaction_ils`/`max_transaction_ils` settings (400 if out of range).
 - A `Notification` (`type="points_earned"`) is created for the customer on every confirmed sale, surfaced via the existing `NotificationBell`.
 
+### What Phase 2 built
+- **`Product.popularity_score`** (Integer, default 0) — a plain counter, incremented by 1 (atomic SQL update) every time a confirmed `SaleTransaction` carries that `product_id`. Deliberately counts *transactions*, not ₪ volume, so one expensive sale doesn't dwarf a boutique's steady repeat business. No decay/recency weighting.
+- **`GET /products?sort=popularity`** — new sort mode, `Product.popularity_score.desc()` with `created_at.desc()` as a tiebreaker. **This is now the default** when `sort` is omitted or unrecognized (previously defaulted to `newest`) — `routers/products.py`'s `list_products`.
+- **Frontend default sort flipped to `'popularity'`**: `VerticalListingClient.tsx`'s initial `useState<SortOption>` and a new `'popularity'` entry (placed first, `Flame` icon) in `FilterSortSidebar.tsx`'s `SortOption` union/`sortOptions`/translations. Both sides changed together — the frontend always sends an explicit `sort` value, so a backend-only default change would have had no visible effect.
+
 ### Explicitly NOT built yet (later phases per the plan)
-- `Product.popularity_score` and `sort=popularity` on `GET /products` (Phase 2) — sales do **not** yet affect listing order.
 - Vendor self-service portal/login, `/vendor-auth/login`, `get_current_vendor` (Phase 3).
 - Customer-facing profile card section (serial number display, points history) and the `card_order` Lead type + `shipping_address` for ordering a physical card (Phase 4) — physical card production/QR printing is explicitly **out of scope for the website**, handled by Tivuta externally.
 - Rate/velocity limits, `flagged` status usage, auto-deactivation on unpaid commission, admin fraud-audit dashboard (Phase 5). `SaleTransaction.status` already supports `flagged`/`reversed` values in the schema, but nothing sets them yet.
 
 ### Key files
-- `backend/app/models.py` — `SystemSetting`, `SaleTransaction`, `PointsLedgerEntry`, `CommissionSettlementPeriod`; loyalty columns on `User`/`Vendor`
-- `backend/app/services/loyalty.py` — customer-number generation, setting lookup w/ fallback, points/commission computation (`compute_sale_economics`)
+- `backend/app/models.py` — `SystemSetting`, `SaleTransaction`, `PointsLedgerEntry`, `CommissionSettlementPeriod`; loyalty columns on `User`/`Vendor`; `Product.popularity_score`
+- `backend/app/services/loyalty.py` — customer-number generation, setting lookup w/ fallback + write-side validation, points/commission computation (`compute_sale_economics`)
 - `backend/app/routers/sales.py` — `GET/PATCH /admin/settings`, `GET/POST /admin/sales`
-- `backend/alembic/versions/15f5ddaec4a5_add_loyalty_points_system.py` — schema + customer_number backfill
+- `backend/app/routers/products.py` — `sort=popularity` + new default in `list_products`
+- `frontend/src/components/FilterSortSidebar.tsx`, `VerticalListingClient.tsx` — popularity sort option + new default
+- `backend/alembic/versions/15f5ddaec4a5_add_loyalty_points_system.py` — Phase 1 schema + customer_number backfill
+- `backend/alembic/versions/655114dc8ce0_add_product_popularity_score.py` — Phase 2 schema
 
 ---
 
@@ -436,6 +443,8 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 - **Loyalty points auto-confirm, not settlement-gated**: `SaleTransaction.status` goes straight to `"confirmed"` on report (no payment gateway in v1 anyway) rather than waiting for the vendor to actually pay Tivuta's commission. Points/ranking benefit is the trust hook that makes the *customer* want the vendor to report — delaying it by weeks (until manual settlement) would break that loop. Non-paying vendors are handled by deactivating them (Phase 5), not by holding customer points hostage.
 - **Loyalty rate snapshotting**: `SaleTransaction.commission_rate_percent_snapshot` and `points_awarded` are computed and stored at report time, not recomputed from the vendor's *current* rate later — a vendor's rate can change going forward without silently repricing historical transactions.
 - **Customer number is a plain (not signed/rotating) token**: `services/loyalty.py`'s `generate_customer_number()` produces a random ~50-bit serial with no cryptographic signing. The vendor is a semi-trusted, identified counterparty (has its own commission ledger), not an anonymous adversary — a signed/rotating QR token was judged disproportionate complexity for that threat model. Revisit only if manual-entry fraud is actually observed.
+- **Popularity counts transactions, not ₪ volume**: `Product.popularity_score` increments by 1 per confirmed sale regardless of `amount_ils`, so a single expensive diamond sale can't outrank a boutique's many smaller repeat sales. Chosen as the fairer and less easily-gamed proxy for "genuinely selling."
+- **Balance/counter increments use atomic SQL updates, not ORM read-modify-write**: `Vendor.commission_owed_total`, `User.points_balance`, and `Product.popularity_score` are all incremented via `db.query(Model).filter(...).update({col: col + n})` — the same pattern already established for `Product.view_count` — rather than `obj.field += n` on an already-loaded ORM object, so concurrent sales against the same vendor/customer/product can't silently lose an update.
 
 ---
 

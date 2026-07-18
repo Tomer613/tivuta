@@ -17,6 +17,27 @@ DEFAULT_SETTINGS = {
     "max_transaction_ils": "50000",
 }
 
+# Settings that must parse as a positive float — enforced on write so a bad admin edit
+# (e.g. "point_value_ils": "0") fails fast instead of causing a ZeroDivisionError later,
+# at sale-report time, for every vendor.
+POSITIVE_FLOAT_SETTINGS = {
+    "point_value_ils",
+    "default_points_rate_percent",
+    "default_commission_rate_percent",
+    "min_transaction_ils",
+    "max_transaction_ils",
+}
+
+
+def validate_setting_value(key: str, value: str) -> None:
+    if key in POSITIVE_FLOAT_SETTINGS:
+        try:
+            parsed = float(value)
+        except ValueError:
+            raise ValueError(f"{key} must be a number")
+        if parsed <= 0:
+            raise ValueError(f"{key} must be greater than 0")
+
 
 def generate_customer_number(db: Session) -> str:
     """Non-sequential ~50-bit random serial, so a card can't be guessed/enumerated."""

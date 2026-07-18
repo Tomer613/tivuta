@@ -45,7 +45,7 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
     const { token, isLoading: authLoading } = useAuth();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
-    const [sort, setSort] = useState<SortOption>('newest');
+    const [sort, setSort] = useState<SortOption>('popularity');
     const [promotionType, setPromotionType] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [priceMin, setPriceMin] = useState('');

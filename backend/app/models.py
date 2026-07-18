@@ -184,6 +184,7 @@ class Product(Base):
     attributes = Column(JSON, nullable=True)  # vertical-specific facets, e.g. {"carat": 1.2, "clarity": "VS1"}
     is_active = Column(Boolean, default=True)
     view_count = Column(Integer, default=0, nullable=False)
+    popularity_score = Column(Integer, default=0, nullable=False)  # count of confirmed SaleTransaction rows
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

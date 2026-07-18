@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
@@ -34,6 +35,10 @@ def admin_update_settings(
     current_admin: models.User = Depends(get_current_admin),
 ):
     for key, value in payload.settings.items():
+        try:
+            loyalty.validate_setting_value(key, value)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         row = db.query(models.SystemSetting).filter(models.SystemSetting.key == key).first()
         if row:
             row.value = value
@@ -88,6 +93,8 @@ def admin_create_sale(
         product = db.query(models.Product).filter(models.Product.id == payload.product_id).first()
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
+        if product.vendor_id is not None and product.vendor_id != vendor.id:
+            raise HTTPException(status_code=400, detail="Product belongs to a different vendor")
 
     min_amount = loyalty.get_setting_float(db, "min_transaction_ils")
     max_amount = loyalty.get_setting_float(db, "max_transaction_ils")
@@ -117,12 +124,34 @@ def admin_create_sale(
         confirmed_at=now,
     )
 
-    vendor.commission_owed_total = (vendor.commission_owed_total or 0.0) + commission_owed_ils
-    customer.points_balance = (customer.points_balance or 0) + points_awarded
+    # Atomic SQL-level increments (same pattern as Product.view_count in routers/products.py) —
+    # avoids a read-modify-write race against concurrent sales for the same vendor/customer.
+    db.query(models.Vendor).filter(models.Vendor.id == vendor.id).update(
+        {"commission_owed_total": models.Vendor.commission_owed_total + commission_owed_ils}
+    )
+    db.query(models.User).filter(models.User.id == customer.id).update(
+        {"points_balance": models.User.points_balance + points_awarded}
+    )
+    if product is not None:
+        db.query(models.Product).filter(models.Product.id == product.id).update(
+            {"popularity_score": models.Product.popularity_score + 1}
+        )
 
     db.add(sale)
-    db.flush()  # assign sale.id for the ledger entry below
+    try:
+        db.flush()  # assign sale.id for the ledger entry below; also surfaces a duplicate idempotency_key race
+    except IntegrityError:
+        db.rollback()
+        existing = (
+            db.query(models.SaleTransaction)
+            .filter(models.SaleTransaction.idempotency_key == payload.idempotency_key)
+            .first()
+        )
+        if existing:
+            return _sale_read(existing)
+        raise
 
+    db.refresh(customer)  # pick up the atomic update above for an accurate ledger snapshot
     db.add(
         models.PointsLedgerEntry(
             user_id=customer.id,

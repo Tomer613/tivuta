@@ -33,6 +33,7 @@ export interface Product {
     avg_rating?: number | null;
     review_count?: number;
     view_count?: number;
+    popularity_score?: number;
     vendor?: Vendor | null;
 }
 

@@ -1,6 +1,6 @@
 import re
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Dict, List, Optional
 from datetime import datetime
 
@@ -159,8 +159,8 @@ class VendorBase(BaseModel):
     name_yi: Optional[str] = None
     is_active: bool = True
     availability: Optional[VendorAvailability] = None
-    commission_rate_percent: float = 0.0
-    points_rate_percent: Optional[float] = None
+    commission_rate_percent: float = Field(0.0, ge=0, le=100)
+    points_rate_percent: Optional[float] = Field(None, ge=0, le=100)
 
 class VendorCreate(VendorBase):
     pass
@@ -173,8 +173,8 @@ class VendorUpdate(BaseModel):
     name_yi: Optional[str] = None
     is_active: Optional[bool] = None
     availability: Optional[VendorAvailability] = None
-    commission_rate_percent: Optional[float] = None
-    points_rate_percent: Optional[float] = None
+    commission_rate_percent: Optional[float] = Field(None, ge=0, le=100)
+    points_rate_percent: Optional[float] = Field(None, ge=0, le=100)
 
 class VendorRead(VendorBase):
     id: int
@@ -246,6 +246,7 @@ class PromotionBrief(BaseModel):
 class ProductRead(ProductBase):
     id: int
     view_count: int = 0
+    popularity_score: int = 0
     avg_rating: Optional[float] = None
     review_count: int = 0
     promotions: List[PromotionBrief] = []
@@ -469,10 +470,15 @@ class SystemSettingsUpdate(BaseModel):
 
 class AdminSaleCreate(BaseModel):
     vendor_id: int
-    customer_number: str
-    amount_ils: float
+    customer_number: str = Field(..., max_length=24)
+    amount_ils: float = Field(..., gt=0)
     product_id: Optional[int] = None
-    idempotency_key: str
+    idempotency_key: str = Field(..., min_length=1, max_length=64)
+
+    @field_validator("customer_number")
+    @classmethod
+    def _normalize_customer_number(cls, v):
+        return v.strip().upper()
 
 class SaleTransactionRead(BaseModel):
     id: int

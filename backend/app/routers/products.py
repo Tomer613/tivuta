@@ -43,7 +43,7 @@ def _product_read(product: models.Product) -> schemas.ProductRead:
 @router.get("/products", response_model=List[schemas.ProductRead])
 def list_products(
     vertical: Optional[str] = None,
-    sort: Optional[str] = None,  # 'price_asc' | 'price_desc' | 'newest'
+    sort: Optional[str] = None,  # 'popularity' | 'price_asc' | 'price_desc' | 'newest'
     promotion_type: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
@@ -71,8 +71,10 @@ def list_products(
         query = query.order_by(models.Product.price.asc())
     elif sort == "price_desc":
         query = query.order_by(models.Product.price.desc())
-    else:
+    elif sort == "newest":
         query = query.order_by(models.Product.created_at.desc())
+    else:  # 'popularity' or unspecified — popularity is the default sort
+        query = query.order_by(models.Product.popularity_score.desc(), models.Product.created_at.desc())
 
     return [_product_read(p) for p in query.all()]
 

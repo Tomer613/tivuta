@@ -1,9 +1,10 @@
 'use client';
 
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Tag, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Flame, Tag, Search, SlidersHorizontal } from 'lucide-react';
 
 interface T {
     sort: string;
+    popularity: string;
     price_asc: string;
     price_desc: string;
     newest: string;
@@ -16,13 +17,13 @@ interface T {
 }
 
 const translations: Record<string, T> = {
-    he: { sort: 'מיון', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', filter_promo: 'סנן לפי מבצע', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום' },
-    en: { sort: 'Sort', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', filter_promo: 'Filter by promotion', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max' },
-    fr: { sort: 'Trier', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', filter_promo: 'Filtrer par promotion', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max' },
-    yi: { sort: 'סארטירן', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', filter_promo: 'פילטרירן', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום' },
+    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', filter_promo: 'סנן לפי מבצע', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום' },
+    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', filter_promo: 'Filter by promotion', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max' },
+    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', filter_promo: 'Filtrer par promotion', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max' },
+    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', filter_promo: 'פילטרירן', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום' },
 };
 
-export type SortOption = 'newest' | 'price_asc' | 'price_desc';
+export type SortOption = 'popularity' | 'newest' | 'price_asc' | 'price_desc';
 
 const PROMO_FILTERS: { value: string; label_he: string; label_en: string }[] = [
     { value: 'first_n',              label_he: 'ראשונים',       label_en: 'First N'        },
@@ -61,6 +62,7 @@ export default function FilterSortSidebar({
     const isHe = locale === 'he' || locale === 'yi';
 
     const sortOptions: { id: SortOption; label: string; icon: React.ReactNode }[] = [
+        { id: 'popularity', label: t.popularity, icon: <Flame size={16} /> },
         { id: 'newest',     label: t.newest,     icon: <Clock size={16} /> },
         { id: 'price_asc',  label: t.price_asc,  icon: <ArrowUpNarrowWide size={16} /> },
         { id: 'price_desc', label: t.price_desc, icon: <ArrowDownWideNarrow size={16} /> },
