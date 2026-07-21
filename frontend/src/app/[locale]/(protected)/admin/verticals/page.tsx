@@ -124,7 +124,6 @@ export default function AdminVerticalsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
-        setSaving(true);
         const attribute_fields = form.attribute_fields
             .filter((f) => f.key.trim() && f.label_he.trim())
             .map((f) => ({
@@ -135,6 +134,13 @@ export default function AdminVerticalsPage() {
                 placeholder: f.placeholder.trim() || null,
                 options: f.type === 'select' ? f.options.split(',').map((o) => o.trim()).filter(Boolean) : null,
             }));
+        const keys = attribute_fields.map((f) => f.key);
+        const duplicateKey = keys.find((k, i) => keys.indexOf(k) !== i);
+        if (duplicateKey) {
+            showToast(`מזהה שדה כפול: "${duplicateKey}" — כל שדה חייב מזהה ייחודי`, 'error');
+            return;
+        }
+        setSaving(true);
         try {
             if (editVertical) {
                 await adminUpdateVertical(token, editVertical.id, {

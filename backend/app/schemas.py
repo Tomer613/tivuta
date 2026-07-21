@@ -1,7 +1,7 @@
 import re
 
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 from datetime import datetime
 
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -282,9 +282,18 @@ class VerticalAttributeField(BaseModel):
     label_en: Optional[str] = None
     label_fr: Optional[str] = None
     label_yi: Optional[str] = None
-    type: str = "text"  # 'text' | 'number' | 'select'
+    type: Literal["text", "number", "select"] = "text"
     placeholder: Optional[str] = None
     options: Optional[List[str]] = None
+
+
+def _validate_unique_attribute_keys(fields: List["VerticalAttributeField"]) -> List["VerticalAttributeField"]:
+    seen = set()
+    for f in fields:
+        if f.key in seen:
+            raise ValueError(f"duplicate attribute_fields key: {f.key}")
+        seen.add(f.key)
+    return fields
 
 
 class VerticalBase(BaseModel):
@@ -301,6 +310,11 @@ class VerticalBase(BaseModel):
     attribute_fields: List[VerticalAttributeField] = []
     display_order: int = 0
     is_active: bool = True
+
+    @field_validator("attribute_fields")
+    @classmethod
+    def _validate_attribute_fields(cls, v: List[VerticalAttributeField]) -> List[VerticalAttributeField]:
+        return _validate_unique_attribute_keys(v)
 
 
 class VerticalCreate(VerticalBase):
@@ -343,6 +357,13 @@ class VerticalUpdate(BaseModel):
         if v is not None and v not in VALID_VERTICAL_ICONS:
             raise ValueError(f"icon must be one of {VALID_VERTICAL_ICONS}")
         return v
+
+    @field_validator("attribute_fields")
+    @classmethod
+    def _validate_attribute_fields(cls, v: Optional[List[VerticalAttributeField]]) -> Optional[List[VerticalAttributeField]]:
+        if v is None:
+            return v
+        return _validate_unique_attribute_keys(v)
 
 
 class VerticalRead(VerticalBase):

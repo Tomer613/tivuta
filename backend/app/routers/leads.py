@@ -139,7 +139,13 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
     """Submits every item in the user's cart as one contact_request lead per product,
     sharing a cart_group_id, but sends a single consolidated email to the user and to
     admin instead of one per product — the whole point of "checking out" a cart."""
-    product_ids = [item.product_id for item in payload.items]
+    # Merge quantities for repeated product_ids (e.g. a client-side race adding the same
+    # product twice) so checkout never creates two leads for what was one cart line.
+    merged_quantities: dict[int, int] = {}
+    for item in payload.items:
+        merged_quantities[item.product_id] = merged_quantities.get(item.product_id, 0) + item.quantity
+
+    product_ids = list(merged_quantities.keys())
     products = db.query(models.Product).filter(models.Product.id.in_(product_ids)).all()
     products_by_id = {p.id: p for p in products}
     missing = [pid for pid in product_ids if pid not in products_by_id]
@@ -150,8 +156,8 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
     cart_group_id = uuid.uuid4().hex
     new_leads = []
     email_items = []
-    for item in payload.items:
-        product = products_by_id[item.product_id]
+    for product_id, quantity in merged_quantities.items():
+        product = products_by_id[product_id]
         product_title = getattr(product, f"title_{locale}", None) or product.title_he
         lead = models.Lead(
             user_id=current_user.id,
