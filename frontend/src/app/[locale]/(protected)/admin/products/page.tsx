@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, productImageUrl, Vendor, Vertical } from '@/lib/api';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3, ExternalLink } from 'lucide-react';
 
 const LANGS = [
     { key: 'he', label: 'עברית', dir: 'rtl' as const },
@@ -37,6 +39,8 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 }
 
 export default function AdminProductsPage() {
+    const params = useParams();
+    const locale = (params?.locale as string) || 'he';
     const { token } = useAuth();
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -476,6 +480,9 @@ export default function AdminProductsPage() {
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
+                                                <Link href={`/${locale}/products/${p.id}`} target="_blank" className="text-[#f0e6d3]/25 hover:text-[#f0e6d3]/60 transition-colors" title="צפייה בדף המוצר באתר">
+                                                    <ExternalLink size={15} />
+                                                </Link>
                                                 <button onClick={() => openEditForm(p)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="עריכה">
                                                     <Pencil size={15} />
                                                 </button>

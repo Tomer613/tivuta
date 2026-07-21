@@ -121,7 +121,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
     const t = translations[locale] || translations.he;
     const dl = DETAIL_LABELS[locale] || DETAIL_LABELS.he;
     const flashPromo = product.promotions?.find((p) => p.type === 'flash_sale' && p.end_date);
-    const detailHref = `/${locale}/products/${product.id}`;
+    const detailHref = `/${locale}/products?id=${product.id}`;
 
     const toggleFav = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -246,8 +246,10 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
             </div>
 
             <div className="p-6 flex flex-col flex-grow items-start text-start">
-                <h3 className="text-xl font-bold text-[#f0e6d3] mb-2 line-clamp-1 w-full">{title}</h3>
-                <p className="text-[#f0e6d3]/60 text-sm line-clamp-2 mb-2 leading-relaxed w-full font-light">{description}</p>
+                <Link href={detailHref} className="contents">
+                    <h3 className="text-xl font-bold text-[#f0e6d3] mb-2 line-clamp-1 w-full hover:text-[#d4af37] transition-colors">{title}</h3>
+                    <p className="text-[#f0e6d3]/60 text-sm line-clamp-2 mb-2 leading-relaxed w-full font-light">{description}</p>
+                </Link>
                 {product.avg_rating && (
                     <div className="flex items-center gap-1.5 mb-2">
                         <div className="flex gap-0.5">

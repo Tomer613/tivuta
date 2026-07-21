@@ -50,7 +50,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     // that product now has its own real page, so redirect there instead.
     useEffect(() => {
         const productId = searchParams?.get('product');
-        if (productId) router.replace(`/${locale}/products/${productId}`);
+        if (productId) router.replace(`/${locale}/products?id=${productId}`);
     }, [searchParams, locale, router]);
 
     useEffect(() => {
