@@ -270,6 +270,90 @@ class ProductAnalyticsRead(BaseModel):
         from_attributes = True
 
 
+# Vertical ("world") Schemas
+# Must match frontend/src/lib/verticalIcons.tsx's VERTICAL_ICON_MAP keys exactly — lucide-react
+# icons are statically imported there, so an icon value outside this list would render nothing.
+VALID_VERTICAL_ICONS = ("Gem", "Car", "ShieldCheck", "Home", "Watch", "Briefcase", "Store", "Sparkles", "Heart", "Building2")
+
+
+class VerticalAttributeField(BaseModel):
+    key: str
+    label_he: str
+    label_en: Optional[str] = None
+    label_fr: Optional[str] = None
+    label_yi: Optional[str] = None
+    type: str = "text"  # 'text' | 'number' | 'select'
+    placeholder: Optional[str] = None
+    options: Optional[List[str]] = None
+
+
+class VerticalBase(BaseModel):
+    label_he: str
+    label_en: Optional[str] = None
+    label_fr: Optional[str] = None
+    label_yi: Optional[str] = None
+    subtitle_he: Optional[str] = None
+    subtitle_en: Optional[str] = None
+    subtitle_fr: Optional[str] = None
+    subtitle_yi: Optional[str] = None
+    icon: str = "Store"
+    supports_appointments: bool = False
+    attribute_fields: List[VerticalAttributeField] = []
+    display_order: int = 0
+    is_active: bool = True
+
+
+class VerticalCreate(VerticalBase):
+    slug: str = Field(min_length=2, max_length=50)
+
+    @field_validator("slug")
+    @classmethod
+    def _validate_slug(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not re.match(r"^[a-z0-9-]{2,50}$", v):
+            raise ValueError("slug must be 2-50 lowercase letters, digits, or hyphens")
+        return v
+
+    @field_validator("icon")
+    @classmethod
+    def _validate_icon(cls, v: str) -> str:
+        if v not in VALID_VERTICAL_ICONS:
+            raise ValueError(f"icon must be one of {VALID_VERTICAL_ICONS}")
+        return v
+
+
+class VerticalUpdate(BaseModel):
+    label_he: Optional[str] = None
+    label_en: Optional[str] = None
+    label_fr: Optional[str] = None
+    label_yi: Optional[str] = None
+    subtitle_he: Optional[str] = None
+    subtitle_en: Optional[str] = None
+    subtitle_fr: Optional[str] = None
+    subtitle_yi: Optional[str] = None
+    icon: Optional[str] = None
+    supports_appointments: Optional[bool] = None
+    attribute_fields: Optional[List[VerticalAttributeField]] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("icon")
+    @classmethod
+    def _validate_icon(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_VERTICAL_ICONS:
+            raise ValueError(f"icon must be one of {VALID_VERTICAL_ICONS}")
+        return v
+
+
+class VerticalRead(VerticalBase):
+    id: int
+    slug: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # Promotion Schemas
 class PromotionBase(BaseModel):
     name_he: str
@@ -349,6 +433,14 @@ class CardOrderCreate(BaseModel):
     shipping_address: ShippingAddress
     locale: Optional[str] = None
 
+class CartCheckoutItem(BaseModel):
+    product_id: int
+    quantity: int = Field(1, ge=1, le=99)
+
+class CartCheckoutCreate(BaseModel):
+    items: List[CartCheckoutItem] = Field(..., min_length=1, max_length=50)
+    locale: Optional[str] = None
+
 class LeadRead(BaseModel):
     id: int
     user_id: Optional[int] = None
@@ -358,6 +450,8 @@ class LeadRead(BaseModel):
     status: str
     channel: str
     shipping_address: Optional[dict] = None
+    quantity: Optional[int] = None
+    cart_group_id: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -390,6 +484,8 @@ class AdminLeadRead(BaseModel):
     product_title_he: Optional[str] = None
     product_vertical: Optional[str] = None
     shipping_address: Optional[dict] = None
+    quantity: Optional[int] = None
+    cart_group_id: Optional[str] = None
 
     class Config:
         from_attributes = True

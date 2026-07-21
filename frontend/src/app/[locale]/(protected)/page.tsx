@@ -2,22 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Gem, Car, ShieldCheck, BarChart3, CheckCircle2, Loader2 } from 'lucide-react';
+import { BarChart3, CheckCircle2, Loader2 } from 'lucide-react';
 import VerticalTile from '@/components/VerticalTile';
 import { useAuth } from '@/context/AuthContext';
-import { getSurveys, voteSurvey } from '@/lib/api';
+import { getSurveys, voteSurvey, getVerticals, Vertical } from '@/lib/api';
+import { getVerticalIcon } from '@/lib/verticalIcons';
 
 interface HomeTranslation {
     greeting_male: string;
     greeting_female: string;
     greeting_neutral: string;
     subtitle: string;
-    diamonds: string;
-    diamonds_sub: string;
-    cars: string;
-    cars_sub: string;
-    insurance: string;
-    insurance_sub: string;
 }
 
 interface SurveyTranslation {
@@ -39,37 +34,25 @@ const translations: Record<string, HomeTranslation> = {
         greeting_male: 'ברוך הבא',
         greeting_female: 'ברוכה הבאה',
         greeting_neutral: 'ברוכים הבאים',
-        subtitle: 'ברוכים הבאים לטיבותא — שלושת העולמות שלנו, מובחרים בשבילך.',
-        diamonds: 'עולם היהלומים', diamonds_sub: 'תכשיטים ויהלומים נבחרים, עם פגישת התרשמות אישית.',
-        cars: 'עולם הרכב', cars_sub: 'דילים ברכבים חדשים ומשומשים, בתנאים מיוחדים לחברים.',
-        insurance: 'עולם הביטוחים', insurance_sub: 'ביטוחי רכב, בריאות ודירה במחירי מועדון.',
+        subtitle: 'ברוכים הבאים לטיבותא — העולמות שלנו, מובחרים בשבילך.',
     },
     en: {
         greeting_male: 'Hello',
         greeting_female: 'Hello',
         greeting_neutral: 'Hello',
-        subtitle: 'Welcome to Tivuta — our three worlds, curated for you.',
-        diamonds: 'Diamonds World', diamonds_sub: 'Selected jewelry and diamonds, with a personal viewing appointment.',
-        cars: 'Cars World', cars_sub: 'Deals on new and used cars, on special member terms.',
-        insurance: 'Insurance World', insurance_sub: 'Car, health and home insurance at club prices.',
+        subtitle: 'Welcome to Tivuta — our worlds, curated for you.',
     },
     fr: {
         greeting_male: 'Bonjour',
         greeting_female: 'Bonjour',
         greeting_neutral: 'Bonjour',
-        subtitle: 'Bienvenue chez Tivuta — nos trois univers, sélectionnés pour vous.',
-        diamonds: 'Univers Diamants', diamonds_sub: 'Bijoux et diamants sélectionnés, avec rendez-vous personnel.',
-        cars: 'Univers Automobile', cars_sub: "Offres sur voitures neuves et d'occasion, conditions spéciales membres.",
-        insurance: 'Univers Assurance', insurance_sub: 'Assurance auto, santé et habitation à prix club.',
+        subtitle: 'Bienvenue chez Tivuta — nos univers, sélectionnés pour vous.',
     },
     yi: {
         greeting_male: 'ברוך הבא',
         greeting_female: 'ברוכה הבאה',
         greeting_neutral: 'ברוכים הבאים',
-        subtitle: 'ברוכים הבאים לטיבותא — אונדזערע דריי וועלטן, אויסגעקליבן פאר אייך.',
-        diamonds: 'דימענט וועלט', diamonds_sub: 'אויסגעקליבענע שמוק און דימענטן, מיט א פערזענליכע באגעגעניש.',
-        cars: 'אויטא וועלט', cars_sub: 'דילס אויף נייע און געניצטע אויטאס, מיט ספעציעלע טערמינען.',
-        insurance: 'אינשורענס וועלט', insurance_sub: 'אויטא, געזונטהייט און היים אינשורענס אין קלוב פרייזן.',
+        subtitle: 'ברוכים הבאים לטיבותא — אונדזערע וועלטן, אויסגעקליבן פאר אייך.',
     },
 };
 
@@ -170,8 +153,14 @@ function SurveyWidget({ locale, token }: { locale: string; token: string }) {
 export default function HomePage() {
     const params = useParams();
     const locale = (params?.locale as string) || 'he';
+    const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const t = translations[locale] || translations.he;
     const { user, token } = useAuth();
+    const [verticals, setVerticals] = useState<Vertical[]>([]);
+
+    useEffect(() => {
+        getVerticals().then(setVerticals);
+    }, []);
 
     const greeting = user?.gender === 'male'
         ? t.greeting_male
@@ -190,27 +179,21 @@ export default function HomePage() {
                 </div>
 
                 <div className="flex flex-col gap-8">
-                    <VerticalTile
-                        href={`/${locale}/diamonds`}
-                        title={t.diamonds}
-                        subtitle={t.diamonds_sub}
-                        icon={<Gem size={40} />}
-                        locale={locale}
-                    />
-                    <VerticalTile
-                        href={`/${locale}/cars`}
-                        title={t.cars}
-                        subtitle={t.cars_sub}
-                        icon={<Car size={40} />}
-                        locale={locale}
-                    />
-                    <VerticalTile
-                        href={`/${locale}/insurance`}
-                        title={t.insurance}
-                        subtitle={t.insurance_sub}
-                        icon={<ShieldCheck size={40} />}
-                        locale={locale}
-                    />
+                    {verticals.map((v) => {
+                        const Icon = getVerticalIcon(v.icon);
+                        const title = v[`label_${localeKey}`] || v.label_he;
+                        const subtitle = v[`subtitle_${localeKey}`] || v.subtitle_he || '';
+                        return (
+                            <VerticalTile
+                                key={v.slug}
+                                href={`/${locale}/${v.slug}`}
+                                title={title}
+                                subtitle={subtitle}
+                                icon={<Icon size={40} />}
+                                locale={locale}
+                            />
+                        );
+                    })}
                 </div>
 
                 {token && <SurveyWidget locale={locale} token={token} />}

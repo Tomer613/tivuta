@@ -26,7 +26,7 @@ interface RegisterTranslation {
 const translations: Record<string, RegisterTranslation> = {
     he: {
         title: 'יצירת חשבון ל-TIVUTA',
-        subtitle: 'פתיחת חשבון מאפשרת לך לגלוש בעולמות היהלומים, הרכב והביטוחים שלנו',
+        subtitle: 'פתיחת חשבון מאפשרת לך לגלוש בעולמות שלנו',
         fname: 'שם פרטי',
         lname: 'שם משפחה',
         phone: 'מספר טלפון',
@@ -40,7 +40,7 @@ const translations: Record<string, RegisterTranslation> = {
     },
     en: {
         title: 'Create your TIVUTA account',
-        subtitle: 'An account lets you browse our diamonds, cars and insurance worlds',
+        subtitle: 'An account lets you browse our worlds',
         fname: 'First Name',
         lname: 'Last Name',
         phone: 'Phone Number',
@@ -54,7 +54,7 @@ const translations: Record<string, RegisterTranslation> = {
     },
     fr: {
         title: 'Créer votre compte TIVUTA',
-        subtitle: 'Un compte vous permet de parcourir nos univers diamants, voitures et assurances',
+        subtitle: 'Un compte vous permet de parcourir nos univers',
         fname: 'Prénom',
         lname: 'Nom',
         phone: 'Téléphone',
@@ -68,7 +68,7 @@ const translations: Record<string, RegisterTranslation> = {
     },
     yi: {
         title: 'שאפן א TIVUTA קאנטע',
-        subtitle: 'א קאנטע לאזט אייך זען אונדזערע דימענטן, אויטאס און אינשורענס וועלטן',
+        subtitle: 'א קאנטע לאזט אייך זען אונדזערע וועלטן',
         fname: 'ערשטער נאמען',
         lname: 'לעצטער נאמען',
         phone: 'טעלעפאן',

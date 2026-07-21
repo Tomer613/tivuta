@@ -3,10 +3,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { getProduct, getPromotionStatus, enterPromotion, createLead, productImageUrl } from '@/lib/api';
-import { PromotionBrief } from '@/components/ProductTile';
+import {
+    getProduct, getPromotionStatus, enterPromotion, createLead, productImageUrl, getVerticals, Vertical,
+    getFavoriteIds, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView,
+} from '@/lib/api';
+import { PromotionBrief, promotionLabel } from '@/components/ProductTile';
 import AppointmentModal from '@/components/AppointmentModal';
-import { CalendarCheck, MessageCircle, CheckCircle2, Loader2, Trophy, Users, Tag, ArrowRight } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
+import { useAttrLabels } from '@/lib/useVerticals';
+import { CalendarCheck, MessageCircle, ShoppingCart, CheckCircle2, Loader2, Trophy, Users, Tag, ArrowRight, Heart, Share2, Star } from 'lucide-react';
 
 interface PromotionStatus {
     promotion_id: number;
@@ -33,6 +38,9 @@ const T = {
         first_n_join: 'הצטרף למבצע', first_n_joined: '✓ מקומך שמור', first_n_full: 'כל המקומות אזלו',
         first_n_remaining: 'מקומות נותרו מתוך', done: 'הפנייה נשלחה ✓', scheduled: 'הפגישה נקבעה ✓',
         days: 'ימים', hours: 'שעות', minutes: 'דקות', seconds: 'שניות', promo_ends: 'ההגרלה נסגרת בעוד',
+        add_to_cart: 'הוסף לסל', added_to_cart: 'נוסף לסל ✓',
+        reviews: 'ביקורות', rate_product: 'דרגו את המוצר', comment_placeholder: 'הערה (אופציונלי)',
+        submit_review: 'שלח דירוג', review_thanks: 'תודה על הדירוג!', add_fav: 'הוסף למועדפים', remove_fav: 'הסר מהמועדפים', share: 'שתף בווצאפ',
     },
     en: {
         schedule: 'Schedule Viewing', contact: 'Contact Me', price: 'Price', on_request: 'On request',
@@ -41,6 +49,9 @@ const T = {
         first_n_join: 'Join Offer', first_n_joined: '✓ Spot reserved', first_n_full: 'All spots taken',
         first_n_remaining: 'spots remaining of', done: 'Request sent ✓', scheduled: 'Appointment booked ✓',
         days: 'd', hours: 'h', minutes: 'm', seconds: 's', promo_ends: 'Raffle closes in',
+        add_to_cart: 'Add to Cart', added_to_cart: 'Added ✓',
+        reviews: 'Reviews', rate_product: 'Rate this product', comment_placeholder: 'Comment (optional)',
+        submit_review: 'Submit', review_thanks: 'Thanks for rating!', add_fav: 'Add to favorites', remove_fav: 'Remove from favorites', share: 'Share on WhatsApp',
     },
     fr: {
         schedule: 'Planifier', contact: 'Contacter', price: 'Prix', on_request: 'Sur demande',
@@ -49,6 +60,9 @@ const T = {
         first_n_join: "Rejoindre l'offre", first_n_joined: '✓ Place réservée', first_n_full: 'Complet',
         first_n_remaining: 'places restantes sur', done: 'Demande envoyée ✓', scheduled: 'Rendez-vous confirmé ✓',
         days: 'j', hours: 'h', minutes: 'm', seconds: 's', promo_ends: 'Le tirage se ferme dans',
+        add_to_cart: 'Ajouter au panier', added_to_cart: 'Ajouté ✓',
+        reviews: 'Avis', rate_product: 'Évaluez ce produit', comment_placeholder: 'Commentaire (optionnel)',
+        submit_review: 'Envoyer', review_thanks: 'Merci pour votre avis!', add_fav: 'Ajouter aux favoris', remove_fav: 'Retirer des favoris', share: 'Partager sur WhatsApp',
     },
     yi: {
         schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן', price: 'פרייז', on_request: 'אויף פארלאנג',
@@ -57,8 +71,23 @@ const T = {
         first_n_join: 'צוטרעטן', first_n_joined: '✓ ארט פארזיכערט', first_n_full: 'אלע ערטער פארנומען',
         first_n_remaining: 'ערטער פון', done: 'פארשיקט ✓', scheduled: 'באשטעטיגט ✓',
         days: 'ט', hours: 'שע', minutes: 'מ', seconds: 'ס', promo_ends: 'גורל שליסט זיך אין',
+        add_to_cart: 'צולייגן אין קארב', added_to_cart: 'צוגעלייגט ✓',
+        reviews: 'ביקורות', rate_product: 'דרגירט דעם פראדוקט', comment_placeholder: 'הערה (אויף ווילן)',
+        submit_review: 'שיקט דירוג', review_thanks: 'א דאנק פארן דירוג!', add_fav: 'צולייגן צו פאוואריטן', remove_fav: 'אראפנעמען פון פאוואריטן', share: 'טיילן אויף וואטסאפ',
     },
 };
+
+function StarRating({ rating, onChange }: { rating: number; onChange?: (v: number) => void }) {
+    return (
+        <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((i) => (
+                <button key={i} type="button" onClick={() => onChange?.(i)} className={onChange ? 'cursor-pointer' : 'cursor-default'}>
+                    <Star size={16} fill={i <= rating ? '#d4af37' : 'none'} className={i <= rating ? 'text-[#d4af37]' : 'text-[#f0e6d3]/20'} />
+                </button>
+            ))}
+        </div>
+    );
+}
 
 function useCountdown(endDate: string | null) {
     const [remaining, setRemaining] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
@@ -205,8 +234,6 @@ function PromoZone({ promo, status, onEnter, locale }: {
     return null;
 }
 
-const VERTICAL_LABELS: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
-
 export default function ProductDetailClient({ productId }: { productId: number }) {
     const params = useParams();
     const locale = ((params?.locale as string) || 'he') as Locale;
@@ -215,15 +242,26 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const t = T[locale] || T.he;
 
     const [product, setProduct] = useState<any>(null);
+    const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [promoStatuses, setPromoStatuses] = useState<Record<number, PromotionStatus>>({});
     const [leadStatus, setLeadStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
     const [showModal, setShowModal] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [justAdded, setJustAdded] = useState(false);
+    const [fav, setFav] = useState(false);
+    const [favLoading, setFavLoading] = useState(false);
+    const [reviews, setReviews] = useState<any[]>([]);
+    const [myRating, setMyRating] = useState(0);
+    const [myComment, setMyComment] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
+    const [reviewDone, setReviewDone] = useState(false);
+    const { addToCart } = useCart();
+    const ATTR_LABELS = useAttrLabels();
 
     useEffect(() => {
         if (!token) return;
-        getProduct(token, productId)
-            .then(setProduct)
+        Promise.all([getProduct(token, productId), getVerticals(), getFavoriteIds(token)])
+            .then(([p, v, favIds]) => { setProduct(p); setVerticals(v); setFav(favIds.includes(productId)); })
             .finally(() => setLoading(false));
     }, [token, productId]);
 
@@ -239,6 +277,44 @@ export default function ProductDetailClient({ productId }: { productId: number }
         });
     }, [token, product]);
 
+    useEffect(() => {
+        if (!product) return;
+        getProductReviews(product.id).then(setReviews).catch(() => {});
+        trackProductView(product.id);
+        try {
+            const key = 'tivuta_recent_v2';
+            const raw = localStorage.getItem(key);
+            const recent: any[] = raw ? JSON.parse(raw) : [];
+            const snap = { id: product.id, title_he: product.title_he, image_url: product.image_url, price: product.price, vertical: product.vertical };
+            const updated = [snap, ...recent.filter((s) => s.id !== product.id)].slice(0, 8);
+            localStorage.setItem(key, JSON.stringify(updated));
+        } catch { /* ignore */ }
+    }, [product]);
+
+    const toggleFav = async () => {
+        if (!token || !product || favLoading) return;
+        setFavLoading(true);
+        try {
+            if (fav) {
+                await removeFavorite(token, product.id);
+                setFav(false);
+            } else {
+                await addFavorite(token, product.id);
+                setFav(true);
+            }
+        } catch { /* ignore */ }
+        setFavLoading(false);
+    };
+
+    const shareWhatsApp = () => {
+        if (!product) return;
+        const titleText = product[`title_${locale}`] || product.title_he;
+        const price = product.price ? `₪${product.price.toLocaleString()}` : '';
+        const productUrl = `https://tivuta.co.il/${locale}/products/${product.id}`;
+        const text = encodeURIComponent(`${titleText}${price ? ' — ' + price : ''}\n${productUrl}`);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+    };
+
     const handleEnter = async (promo: PromotionBrief) => {
         if (!token || !product) return;
         try {
@@ -248,6 +324,22 @@ export default function ProductDetailClient({ productId }: { productId: number }
         } catch (err: any) {
             alert(err.message || 'שגיאה');
         }
+    };
+
+    const handleAddToCart = () => {
+        if (!product) return;
+        addToCart({
+            id: product.id,
+            vertical: product.vertical,
+            title_he: product.title_he,
+            title_en: product.title_en,
+            title_fr: product.title_fr,
+            title_yi: product.title_yi,
+            image_url: product.image_url,
+            price: product.price,
+        });
+        setJustAdded(true);
+        setTimeout(() => setJustAdded(false), 1800);
     };
 
     const handleContact = async () => {
@@ -285,7 +377,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const title = product[`title_${locKey}`] || product.title_he;
     const description = product[`description_${locKey}`] || product.description_he;
     const imagePath = productImageUrl(product.image_url);
-    const actionType = product.vertical === 'diamonds' ? 'appointment' : 'contact';
+    const actionType = verticals.find((v) => v.slug === product.vertical)?.supports_appointments ? 'appointment' : 'contact';
     const interactivePromos: PromotionBrief[] = (product.promotions || []).filter(
         (p: PromotionBrief) => p.type === 'raffle' || p.type === 'first_n'
     );
@@ -298,19 +390,74 @@ export default function ProductDetailClient({ productId }: { productId: number }
                     className="flex items-center gap-1.5 text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors text-sm font-semibold mb-8"
                 >
                     <ArrowRight size={16} />
-                    {product ? VERTICAL_LABELS[product.vertical] || 'חזרה' : 'חזרה'}
+                    {product ? verticals.find((v) => v.slug === product.vertical)?.label_he || 'חזרה' : 'חזרה'}
                 </button>
                 <div className="grid md:grid-cols-2 gap-10">
                     {/* Image */}
-                    <div className="rounded-3xl overflow-hidden h-80 md:h-auto bg-[#0e1628]">
+                    <div className="rounded-3xl overflow-hidden h-[420px] md:h-[560px] bg-[#0e1628] border border-[#d4af37]/20 relative shadow-2xl">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={imagePath} alt={title} className="w-full h-full object-cover" />
+                        {product.promotions && product.promotions.length > 0 && (
+                            <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5">
+                                {product.promotions.map((promo: PromotionBrief) => (
+                                    <span key={promo.id} className="bg-[#d4af37] text-[#080d1f] text-xs font-black px-3 py-1.5 rounded-full shadow-md">
+                                        {promotionLabel(promo)}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        <div className="absolute top-4 left-4 flex gap-2">
+                            <button
+                                type="button"
+                                onClick={toggleFav}
+                                className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-colors ${fav ? 'bg-red-500 text-white' : 'bg-black/60 text-white hover:bg-red-500'}`}
+                                title={fav ? t.remove_fav : t.add_fav}
+                            >
+                                <Heart size={16} fill={fav ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={shareWhatsApp}
+                                className="w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center shadow-md hover:bg-green-600 transition-colors"
+                                title={t.share}
+                            >
+                                <Share2 size={16} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Details */}
                     <div className="flex flex-col gap-6">
                         <h1 className="text-3xl font-black text-[#f0e6d3]">{title}</h1>
+                        {product.avg_rating && (
+                            <div className="flex items-center gap-1.5 -mt-4">
+                                <div className="flex gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((i) => (
+                                        <Star key={i} size={14} fill={i <= Math.round(product.avg_rating) ? '#d4af37' : 'none'} className={i <= Math.round(product.avg_rating) ? 'text-[#d4af37]' : 'text-[#f0e6d3]/20'} />
+                                    ))}
+                                </div>
+                                <span className="text-[#d4af37] text-sm font-bold">{product.avg_rating}</span>
+                                {product.review_count != null && product.review_count > 0 && (
+                                    <span className="text-[#f0e6d3]/30 text-sm">({product.review_count})</span>
+                                )}
+                            </div>
+                        )}
                         <p className="text-[#f0e6d3]/60 leading-relaxed">{description}</p>
+
+                        {product.attributes && Object.keys(product.attributes).length > 0 && (
+                            <div className="grid grid-cols-2 gap-2">
+                                {Object.entries(product.attributes).map(([k, v]) => {
+                                    if (v == null || v === '') return null;
+                                    const label = ATTR_LABELS[k]?.[locale === 'en' ? 'en' : 'he'] || k;
+                                    return (
+                                        <div key={k} className="bg-[#111a2f] rounded-xl px-3 py-2">
+                                            <p className="text-[10px] text-[#f0e6d3]/40 font-bold uppercase tracking-wider mb-0.5">{label}</p>
+                                            <p className="text-sm font-semibold text-[#f0e6d3]">{String(v)}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         <div>
                             <span className="text-[10px] font-black text-[#f0e6d3]/40 uppercase tracking-widest">{t.price}</span>
@@ -343,6 +490,15 @@ export default function ProductDetailClient({ productId }: { productId: number }
                                     <MessageCircle size={18} /> {t.contact}
                                 </button>
                             )}
+
+                            <button
+                                type="button"
+                                onClick={handleAddToCart}
+                                className="btn-secondary w-full flex items-center justify-center gap-2"
+                            >
+                                {justAdded ? <CheckCircle2 size={18} className="text-green-400" /> : <ShoppingCart size={18} />}
+                                {justAdded ? t.added_to_cart : t.add_to_cart}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -361,6 +517,64 @@ export default function ProductDetailClient({ productId }: { productId: number }
                         ))}
                     </div>
                 )}
+
+                {/* Reviews */}
+                {reviews.length > 0 && (
+                    <div className="mt-10 pt-8 border-t border-[#d4af37]/15">
+                        <h4 className="text-sm font-black text-[#f0e6d3]/50 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Star size={13} className="text-[#d4af37]" />
+                            {t.reviews}
+                            <span className="text-[#d4af37]">({reviews.length})</span>
+                        </h4>
+                        <div className="grid md:grid-cols-2 gap-3">
+                            {reviews.map((r: any) => (
+                                <div key={r.id} className="bg-[#0e1628] border border-[#d4af37]/10 rounded-xl p-4">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-sm font-bold text-[#f0e6d3]/70">{r.user_name || 'משתמש'}</span>
+                                        <StarRating rating={r.rating} />
+                                    </div>
+                                    {r.comment && <p className="text-sm text-[#f0e6d3]/50 leading-relaxed">{r.comment}</p>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Submit review */}
+                {token && !reviewDone && (
+                    <div className="mt-6 pt-6 border-t border-[#d4af37]/10">
+                        <p className="text-sm font-bold text-[#f0e6d3]/40 mb-2">{t.rate_product}</p>
+                        <StarRating rating={myRating} onChange={setMyRating} />
+                        {myRating > 0 && (
+                            <div className="mt-3 space-y-2 max-w-md">
+                                <textarea
+                                    value={myComment}
+                                    onChange={(e) => setMyComment(e.target.value)}
+                                    placeholder={t.comment_placeholder}
+                                    rows={2}
+                                    className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-2 text-sm text-[#f0e6d3] outline-none resize-none focus:border-[#d4af37]/50"
+                                />
+                                <button
+                                    disabled={reviewSubmitting}
+                                    onClick={async () => {
+                                        if (!token || !product) return;
+                                        setReviewSubmitting(true);
+                                        try {
+                                            const r = await submitReview(token, product.id, myRating, myComment);
+                                            setReviews((prev) => [r, ...prev]);
+                                            setReviewDone(true);
+                                        } catch { /* ignore */ }
+                                        setReviewSubmitting(false);
+                                    }}
+                                    className="btn-primary !py-2 !px-4 !text-sm"
+                                >
+                                    {t.submit_review}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+                {reviewDone && <p className="text-sm text-green-400 font-bold mt-4">{t.review_thanks}</p>}
             </div>
 
             {showModal && (

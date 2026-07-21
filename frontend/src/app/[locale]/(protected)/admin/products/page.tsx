@@ -2,15 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, productImageUrl, Vendor } from '@/lib/api';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, productImageUrl, Vendor, Vertical } from '@/lib/api';
 import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3 } from 'lucide-react';
-
-const VERTICALS = [
-    { value: 'diamonds', label: 'יהלומים' },
-    { value: 'cars',     label: 'רכב' },
-    { value: 'insurance', label: 'ביטוח' },
-];
-const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
 
 const LANGS = [
     { key: 'he', label: 'עברית', dir: 'rtl' as const },
@@ -21,33 +14,8 @@ const LANGS = [
 
 type AttrField = { key: string; label: string; type: 'text' | 'number' | 'select'; placeholder?: string; options?: string[] };
 
-const VERTICAL_ATTRS: Record<string, AttrField[]> = {
-    diamonds: [
-        { key: 'carat',   label: 'קרט',     type: 'number', placeholder: '1.00' },
-        { key: 'cut',     label: 'חיתוך',   type: 'select', options: ['מעולה', 'טוב מאוד', 'טוב', 'סביר', 'בינוני'] },
-        { key: 'color',   label: 'צבע',     type: 'select', options: ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'] },
-        { key: 'clarity', label: 'ניקיון',  type: 'select', options: ['IF', 'VVS1', 'VVS2', 'VS1', 'VS2', 'SI1', 'SI2', 'I1'] },
-        { key: 'shape',   label: 'צורה',    type: 'select', options: ['עגול', 'נסיכה', 'אמרלד', 'אובל', 'ביתניה', 'קושן', 'מרקיז'] },
-    ],
-    cars: [
-        { key: 'brand',        label: 'יצרן',           type: 'text',   placeholder: 'טויוטה' },
-        { key: 'model',        label: 'דגם',            type: 'text',   placeholder: 'קאמרי' },
-        { key: 'year',         label: 'שנת ייצור',     type: 'number', placeholder: '2024' },
-        { key: 'mileage',      label: "ק\"מ",           type: 'number', placeholder: '0' },
-        { key: 'condition',    label: 'מצב',            type: 'select', options: ['חדש', 'יד שנייה', 'לימוזינה'] },
-        { key: 'fuel',         label: 'דלק',            type: 'select', options: ['בנזין', 'דיזל', 'היברידי', 'חשמלי'] },
-        { key: 'transmission', label: 'תיבת הילוכים',  type: 'select', options: ['אוטומטי', 'ידני'] },
-    ],
-    insurance: [
-        { key: 'insurance_type',  label: 'סוג ביטוח',          type: 'select', options: ['רכב', 'בריאות', 'דירה', 'חיים', 'עסק'] },
-        { key: 'coverage',        label: 'רמת כיסוי',          type: 'select', options: ['בסיסי', 'מורחב', 'מקיף'] },
-        { key: 'deductible',      label: 'השתתפות עצמית (₪)', type: 'number', placeholder: '2000' },
-        { key: 'monthly_premium', label: 'פרמיה חודשית (₪)',  type: 'number', placeholder: '150' },
-    ],
-};
-
 const EMPTY_FORM = {
-    vertical: 'diamonds',
+    vertical: '',
     title_he: '', title_en: '', title_fr: '', title_yi: '',
     description_he: '', description_en: '', description_fr: '', description_yi: '',
     price: '',
@@ -85,6 +53,7 @@ export default function AdminProductsPage() {
     const [batchError, setBatchError] = useState<string | null>(null);
     const [form, setForm] = useState(EMPTY_FORM);
     const [vendors, setVendors] = useState<Vendor[]>([]);
+    const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
     const [translating, setTranslating] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
@@ -113,6 +82,21 @@ export default function AdminProductsPage() {
         if (!token) return;
         adminListVendors(token).then(setVendors).catch(() => {});
     }, [token]);
+
+    useEffect(() => {
+        if (!token) return;
+        adminListVerticals(token).then(setVerticals).catch(() => {});
+    }, [token]);
+
+    const VERTICAL_LABEL: Record<string, string> = useMemo(
+        () => Object.fromEntries(verticals.map((v) => [v.slug, v.label_he])),
+        [verticals]
+    );
+    const activeVerticals = useMemo(() => verticals.filter((v) => v.is_active), [verticals]);
+    const getVerticalAttrs = (slug: string): AttrField[] =>
+        (verticals.find((v) => v.slug === slug)?.attribute_fields || []).map((f) => ({
+            key: f.key, label: f.label_he, type: f.type, placeholder: f.placeholder || undefined, options: f.options || undefined,
+        }));
 
     const filtered = useMemo(() => {
         let list = products;
@@ -202,7 +186,7 @@ export default function AdminProductsPage() {
         const cleanAttrs: Record<string, any> = {};
         Object.entries(form.attributes).forEach(([k, v]) => {
             if (v !== '' && v != null) {
-                const field = VERTICAL_ATTRS[form.vertical]?.find((f) => f.key === k);
+                const field = getVerticalAttrs(form.vertical).find((f) => f.key === k);
                 cleanAttrs[k] = field?.type === 'number' ? Number(v) : v;
             }
         });
@@ -286,7 +270,7 @@ export default function AdminProductsPage() {
 
     const activeLang = LANGS.find((l) => l.key === langTab)!;
     const hasTranslations = form.title_en || form.title_fr || form.title_yi;
-    const verticalAttrs = VERTICAL_ATTRS[form.vertical] || [];
+    const verticalAttrs = getVerticalAttrs(form.vertical);
 
     const exportCsv = () => {
         const header = ['vertical', 'title_he', 'title_en', 'title_fr', 'title_yi', 'description_he', 'description_en', 'description_fr', 'description_yi', 'price', 'image', 'is_active', 'attributes'];
@@ -339,7 +323,7 @@ export default function AdminProductsPage() {
                     <button onClick={toggleAnalytics} className={`flex items-center gap-2 border rounded-xl px-4 py-2 text-sm font-bold transition-colors ${showAnalytics ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37]' : 'bg-[#0e1628] border-[#d4af37]/30 text-[#d4af37] hover:bg-[#111a2f]'}`}>
                         <BarChart3 size={15} /> אנליטיקס
                     </button>
-                    <button onClick={() => { setEditProduct(null); setForm(EMPTY_FORM); setLangTab('he'); setShowForm(true); }} className="btn-primary flex items-center gap-2 !text-sm">
+                    <button onClick={() => { setEditProduct(null); setForm({ ...EMPTY_FORM, vertical: activeVerticals[0]?.slug || '' }); setLangTab('he'); setShowForm(true); }} className="btn-primary flex items-center gap-2 !text-sm">
                         <Plus size={16} /> הוסף מוצר
                     </button>
                 </div>
@@ -425,7 +409,7 @@ export default function AdminProductsPage() {
                 </div>
                 <select value={filterVertical} onChange={(e) => setFilterVertical(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל העולמות</option>
-                    {VERTICALS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    {verticals.map((v) => <option key={v.slug} value={v.slug}>{v.label_he}</option>)}
                 </select>
                 <select value={filterActive} onChange={(e) => setFilterActive(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל הסטטוסים</option>
@@ -532,7 +516,10 @@ export default function AdminProductsPage() {
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">עולם המוצר</label>
                             <select value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value, vendor_id: '' })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
-                                {VERTICALS.map((v) => <option key={v.value} value={v.value}>{v.label}</option>)}
+                                {activeVerticals.map((v) => <option key={v.slug} value={v.slug}>{v.label_he}</option>)}
+                                {editProduct && !activeVerticals.some((v) => v.slug === form.vertical) && (
+                                    <option value={form.vertical}>{VERTICAL_LABEL[form.vertical] || form.vertical}</option>
+                                )}
                             </select>
                         </div>
 
@@ -704,7 +691,7 @@ export default function AdminProductsPage() {
                         </div>
                         <div className="text-xs text-[#f0e6d3]/50 space-y-1">
                             <p className="font-bold text-[#d4af37]/80 mb-2">עמודות נדרשות:</p>
-                            <p><code className="text-[#f0e6d3]/70">vertical</code> — diamonds | cars | insurance</p>
+                            <p><code className="text-[#f0e6d3]/70">vertical</code> — {verticals.map((v) => v.slug).join(' | ')}</p>
                             <p><code className="text-[#f0e6d3]/70">title_he</code> — כותרת בעברית (חובה)</p>
                             <p><code className="text-[#f0e6d3]/70">description_he</code>, <code className="text-[#f0e6d3]/70">price</code>, <code className="text-[#f0e6d3]/70">image</code>, <code className="text-[#f0e6d3]/70">is_active</code>, <code className="text-[#f0e6d3]/70">attributes</code> (JSON)</p>
                         </div>

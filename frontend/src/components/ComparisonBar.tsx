@@ -3,16 +3,7 @@
 import { X, GitCompareArrows } from 'lucide-react';
 import { Product } from '@/components/ProductTile';
 import { productImageUrl } from '@/lib/api';
-
-const ATTR_LABELS: Record<string, Record<string, string>> = {
-    carat: { he: 'קרט', en: 'Carat' }, cut: { he: 'חיתוך', en: 'Cut' }, color: { he: 'צבע', en: 'Color' },
-    clarity: { he: 'ניקיון', en: 'Clarity' }, shape: { he: 'צורה', en: 'Shape' },
-    brand: { he: 'יצרן', en: 'Brand' }, model: { he: 'דגם', en: 'Model' }, year: { he: 'שנה', en: 'Year' },
-    mileage: { he: 'ק"מ', en: 'Mileage' }, condition: { he: 'מצב', en: 'Condition' },
-    fuel: { he: 'דלק', en: 'Fuel' }, transmission: { he: 'תיבת הילוכים', en: 'Transmission' },
-    insurance_type: { he: 'סוג ביטוח', en: 'Type' }, coverage: { he: 'כיסוי', en: 'Coverage' },
-    deductible: { he: 'השתתפות עצמית', en: 'Deductible' }, monthly_premium: { he: 'פרמיה חודשית', en: 'Monthly' },
-};
+import { useAttrLabels } from '@/lib/useVerticals';
 
 interface Props {
     products: Product[];
@@ -22,6 +13,7 @@ interface Props {
 }
 
 export default function ComparisonBar({ products, locale, onRemove, onClear }: Props) {
+    const ATTR_LABELS = useAttrLabels();
     if (products.length === 0) return null;
 
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';

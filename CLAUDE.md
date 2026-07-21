@@ -8,7 +8,9 @@
 ## What is Tivuta?
 
 A full-stack platform for the Haredi (Ultra-Orthodox Jewish) community in Israel. It combines:
-- A **multi-vertical marketplace** (diamonds, cars, insurance) with appointment/contact-request flows
+- A **multi-vertical marketplace** — admin-configurable "worlds" (diamonds, cars, insurance out of
+  the box; more can be added from the admin panel, see "Worlds / Verticals" below) — with
+  appointment/contact-request flows
 - A **benefits club** (legacy `/benefits` section) with categories, items, and monthly featured deals
 - A **back-office admin panel** for managing products, promotions, users, surveys, and distribution campaigns
 - A **multilingual UI** supporting Hebrew (primary), English, French, and Yiddish
@@ -113,10 +115,11 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `sub_categories` | Nested under categories |
 | `items` | Legacy benefits catalog (linked to sub_categories) |
 | `orders` | User transaction history for dashboard |
-| `products` | Multi-vertical catalog (diamonds/cars/insurance); has `attributes JSON` for vertical-specific fields |
+| `verticals` | Admin-managed "worlds" (diamonds/cars/insurance by default); `Product.vertical`/`Vendor.vertical` store its `slug` |
+| `products` | Multi-vertical catalog; has `attributes JSON` for vertical-specific fields (schema defined per-vertical in `verticals.attribute_fields`) |
 | `promotions` | Promotion definitions: type, channel, config JSON, dates |
 | `product_promotions` | Junction table linking products ↔ promotions (many-to-many) |
-| `leads` | Appointment/contact requests; `assigned_to FK→users.id` for admin assignment |
+| `leads` | Appointment/contact requests; `assigned_to FK→users.id` for admin assignment; `quantity`/`cart_group_id` populated when created via cart checkout (see Shopping Cart section) |
 | `surveys` | Polls shown to users |
 | `survey_options` | Options within a survey (each links to a product) |
 | `survey_votes` | One vote per user per survey |
@@ -215,11 +218,28 @@ npm run build  # static export to /out
 
 ---
 
-## Deployment
+## Deployment & Infrastructure (confirmed 2026-07-19)
 
-- Frontend: GitHub Pages via GitHub Actions (`/.github/workflows/`). Static export (`output: 'export'` in next.config.ts).
-- Backend: Supabase PostgreSQL in production. Backend hosted separately (not GitHub Pages).
-- CNAME configured for custom domain.
+| Layer | Provider | Notes |
+|---|---|---|
+| Frontend | **GitHub Pages** via GitHub Actions (`/.github/workflows/`) | Static export (`output: 'export'` in `next.config.ts`). CNAME configured for custom domain. |
+| Backend (FastAPI) | **Render** | Not on GitHub Pages — hosted as its own service. All backend env vars (`RESEND_API_KEY`, `EMAIL_PROVIDER`, `EMAIL_FROM`, `ADMIN_NOTIFICATION_EMAIL`, `DATABASE_URL`, `JWT_SECRET_KEY`, `APP_BASE_URL`, `WHATSAPP_*`, `CORS_ORIGINS`, `GITHUB_REPO`, `GITHUB_DEPLOY_PAT`, `GITHUB_DEPLOY_WORKFLOW`) live in **Render's dashboard → service → Environment**, not in a repo `.env` file. Note: `backend/.env` in the working tree is an empty directory (not a file) and the app never calls `load_dotenv()` anywhere — so a local `.env` file would be ignored even if one existed; env vars must be real OS/platform environment variables.
+| Database | **Supabase** (PostgreSQL) | Production `DATABASE_URL` points here. Falls back to local SQLite (`./tivuta.db`) only when `DATABASE_URL` is unset (local dev). |
+| Outbound email | **Resend.com** | `EMAIL_PROVIDER=resend` selects `ResendEmailSender` (backend/app/services/email_resend.py) over the no-op `ConsoleEmailSender` fallback. Confirmed set up on Render as of 2026-07-19. |
+| Outbound WhatsApp | Meta WhatsApp Business API | `WHATSAPP_PROVIDER=meta_cloud` + `WHATSAPP_CLOUD_API_TOKEN`/`WHATSAPP_CLOUD_PHONE_NUMBER_ID`, same pattern as email (console fallback otherwise). |
+| Auto-redeploy trigger | GitHub Actions REST API | `services/deploy_trigger.py` fires `workflow_dispatch` on `deploy.yml` when an admin saves a vertical — see "Worlds / Verticals" below. No-op until `GITHUB_REPO`/`GITHUB_DEPLOY_PAT` are set on Render. |
+
+### Real email addresses in use (confirmed set up 2026-07-19)
+- **`support@tivuta.co.il`** — dual purpose: (1) customer-facing support address shown in `SiteFooter.tsx`/`BenefitsFooter.tsx`/accessibility-statement/Benefits contact page; (2) default value of `ADMIN_NOTIFICATION_EMAIL` (`backend/app/routers/leads.py`) — receives internal notifications when a new lead/appointment/card-order comes in.
+- **`no-reply@tivuta.co.il`** — default `EMAIL_FROM` outgoing sender address (`backend/app/services/email_resend.py`). Requires the `tivuta.co.il` domain to be verified in the Resend dashboard (SPF/DKIM) for sending to actually succeed — this is configured on Resend's side, not in this repo.
+- All other `@example.com`-style addresses in the frontend are form placeholders only; `test@example.com`/`sara@tivuta.com` in `backend/app/seed.py` are dev seed data — none of these are real.
+
+### To verify current env var values
+Since none of these live in the repo, check them directly in each provider's dashboard:
+- **Render** → the backend service → **Environment** tab: confirms `EMAIL_PROVIDER`, `RESEND_API_KEY` (presence, not the value), `EMAIL_FROM`, `ADMIN_NOTIFICATION_EMAIL`, `DATABASE_URL`, `CORS_ORIGINS`, `APP_BASE_URL`, `WHATSAPP_*`.
+- **Resend dashboard** (resend.com) → API Keys: confirms the key referenced by `RESEND_API_KEY` is active. → Domains: confirms `tivuta.co.il` shows as "Verified" (not "Pending"/failed DNS).
+- **Supabase dashboard** → Project Settings → Database: confirms the connection string matches what's set as `DATABASE_URL` on Render.
+- **GitHub repo** → Settings → Pages / Actions secrets: confirms `NEXT_PUBLIC_API_URL` (should point at the Render backend URL) and `NEXT_PUBLIC_BASE_PATH` used by the frontend build.
 
 ---
 
@@ -300,6 +320,87 @@ npm run build  # static export to /out
 - `PATCH /users/me/notification-prefs` — partial update; merges into existing prefs dict
 - Profile "Notification Preferences" collapsible section — 4 toggles: lead_status, appointment_reminder, system, promotions
 - `AuthContext.User` interface includes `notification_prefs?: Record<string, boolean> | null`
+
+---
+
+## Shopping Cart (session 2026-07-21)
+
+Lets a member add multiple products to a cart across verticals and submit one "contact me" request for all of them at once, instead of one contact/appointment click per product. Payment is out of scope for now — checkout still just produces leads for an admin to follow up on, same as the existing per-product contact button.
+
+- **Client-side cart, no login required to build one**: `frontend/src/context/CartContext.tsx` (`CartProvider`, `useCart()`) persists to `localStorage` key `tivuta_cart_v1` — same pattern as `tivuta_recent_v2`. Each item is a product snapshot (id, vertical, titles, image, price) + `quantity` (1–99, capped client-side). `CartProvider` wraps `RootHeader`/`children` in `frontend/src/app/[locale]/layout.tsx`, inside `AuthProvider`.
+- **`CartIcon`** (`frontend/src/components/CartIcon.tsx`) sits in `RootHeader` next to `NotificationBell`, always visible (not gated on login, since adding to cart doesn't require it). Badge shows `totalCount` (sum of quantities), mirrors `NotificationBell`'s badge styling. Links to `/{locale}/cart`.
+- **"Add to Cart" button**: added alongside the existing contact/appointment button in `ProductTile.tsx` (card + detail modal) and `ProductDetailClient.tsx` (the `/products/[id]` promo detail page) — `btn-secondary` style, calls `useCart().addToCart()`, shows a transient "Added ✓" state for 1.8s. Independent of the existing `status`/`leadStatus` state — adding to cart never disables or replaces the contact/appointment flow.
+- **Cart page**: `frontend/src/app/[locale]/cart/page.tsx` — a **top-level route, not under `(protected)`**, so it's viewable without login (matches the "no login to add to cart" decision). Lists items with quantity steppers (±) and remove, shows a running total. If not logged in, the checkout button becomes a link to `/{locale}/login?redirect=/{locale}/cart` (the login page already supports `?redirect=`).
+- **Checkout is one consolidated backend call, not N**: `POST /leads/cart-checkout` (`backend/app/routers/leads.py`) takes `{items: [{product_id, quantity}], locale}`, creates one `Lead` per product (`lead_type="contact_request"`, `quantity` stored on the row) sharing a generated `cart_group_id` (uuid hex) — but sends **a single consolidated email** to the user and a single consolidated email to admin listing every product + quantity, instead of the N separate emails the old per-product loop would have produced. This was a deliberate choice over looping the existing single-item `POST /leads` endpoint (which the user considered and rejected, precisely to avoid spamming the admin inbox on a 5-item cart checkout).
+- **`Lead.quantity`** (Integer, default 1) and **`Lead.cart_group_id`** (String(40), indexed, nullable) — new columns, `backend/alembic/versions/c7794c6bcb54_add_cart_quantity_and_cart_group_id_to_.py`. `quantity` is populated on every lead now (default 1 for the pre-existing single-item `/leads` flow too, via the model default), `cart_group_id` is only set on cart-checkout leads — `NULL` means "not part of a cart checkout."
+- **Admin leads table** (`admin/leads/page.tsx`) shows a gold `×N` next to the product title when `quantity > 1`, so an admin reviewing a cart-originated lead sees at a glance it wasn't a single-unit request.
+- **Not built (deliberately out of scope for this pass)**: quantity does exist (per the user's explicit choice — unlike a typical "one lead = one product" contact request, a cart item can represent "3 of this ring", though quantity is not tied to any real stock/inventory system since none exists); no cart merge/sync across devices (it's `localStorage`-only, same trade-off as recently-viewed); no payment — checkout still ends at "an admin will contact you," matching every other lead in the system. Direct on-site payment is planned as a later phase per the user.
+
+---
+
+## Worlds / Verticals (session 2026-07-21)
+
+Admins can now add a new "world" (vertical) — e.g. watches, real estate — from the admin panel,
+without a developer touching code. Before this, "diamonds/cars/insurance" were hardcoded in 7+
+places across the backend and frontend; a new `verticals` table is now the single source of
+truth, and every one of those places reads from it instead.
+
+- **`Vertical` model** (`backend/app/models.py`) — `slug` (unique, matches `Product.vertical`/
+  `Vendor.vertical`, both widened from `String(20)` to `String(50)`), `label_he/en/fr/yi`,
+  `subtitle_he/en/fr/yi`, `icon` (a key into a fixed frontend icon map — see below),
+  `supports_appointments` (bool — replaces the old `vertical == "diamonds"` special case),
+  `attribute_fields` (JSON array of `{key, label_he, label_en?, type: text|number|select,
+  options?}` — the per-vertical custom fields, e.g. diamonds' carat/cut/color), `display_order`,
+  `is_active` (soft deactivate — hides the world from public nav/build output on the next
+  rebuild, but never touches existing products/vendors already using that slug).
+- **`backend/app/routers/verticals.py`** — `GET /verticals` (public, active-only, used by the
+  frontend's nav/build), `GET/POST/PATCH /admin/verticals`. Slug is immutable after creation
+  (same rule as `Vendor.vertical`). Exports `validate_vertical_slug(db, slug)`, now shared by
+  `products.py`/`vendors.py` instead of each keeping its own hardcoded tuple.
+  `leads.py`'s `product.vertical == "diamonds"` check and its conversion-stats loop's hardcoded
+  `["diamonds","cars","insurance"]` list both now query `Vertical` instead.
+- **Auto-redeploy on save**: `admin_create_vertical`/`admin_update_vertical` call
+  `services/deploy_trigger.py`'s `trigger_frontend_redeploy()`, which fires a `workflow_dispatch`
+  on the GitHub Actions deploy workflow (added to `.github/workflows/deploy.yml` alongside its
+  existing `push` trigger) via the GitHub REST API — then emails `ADMIN_NOTIFICATION_EMAIL` a
+  confirmation. Both are best-effort (wrapped in try/except — a GitHub API hiccup never fails
+  the admin's save) and silently no-op if the new `GITHUB_REPO`/`GITHUB_DEPLOY_PAT` env vars
+  aren't set on Render yet (same "skip until configured" philosophy as the email/WhatsApp
+  console fallbacks). `GITHUB_DEPLOY_WORKFLOW` optionally overrides the workflow filename
+  (defaults to `deploy.yml`).
+- **Frontend data-driven everywhere a vertical used to be hardcoded**: `lib/api.ts`'s
+  `getVerticals()` (public fetch, used both at build time in `generateStaticParams` and at
+  runtime — same pattern as the pre-existing `getAllProductIds()`) and
+  `lib/useVerticals.ts`'s `useVerticals()`/`useAttrLabels()` hooks (module-level fetch cache) are
+  now the only way any component reads vertical data. Consumers: the dynamic
+  `(protected)/[vertical]/page.tsx` route (replaced the old static `diamonds/`, `cars/`,
+  `insurance/` folders — `generateStaticParams` fetches the live vertical list at build time,
+  same proven pattern as `products/[id]/page.tsx`), `VerticalListingClient.tsx` (title/subtitle/
+  `supports_appointments` per vertical, replacing its old hardcoded `COPY` dict),
+  `ComparisonBar.tsx` (attribute labels, via `useAttrLabels()`, replacing its own hardcoded
+  `ATTR_LABELS` dict), the homepage's vertical tiles, `SiteFooter`, `GlobalSearch`, and the admin
+  products/vendors forms' vertical dropdowns + attribute-field forms.
+- **Icon allow-list** (`frontend/src/lib/verticalIcons.tsx`) — lucide-react icons must be
+  statically imported, so a vertical's `icon` string is a key into a fixed ~10-icon map
+  (`Gem, Car, ShieldCheck, Home, Watch, Briefcase, Store, Sparkles, Heart, Building2`), not an
+  arbitrary dynamic import. The same fixed list is validated server-side in `schemas.py`'s
+  `VALID_VERTICAL_ICONS` — the two lists must be kept in sync manually if the icon set changes.
+- **New admin page** `admin/verticals/page.tsx` (nav tab "עולמות" in `admin/layout.tsx`) — create/
+  edit a world: slug (locked after creation), label/subtitle × 4 languages, icon picker,
+  "supports appointments" checkbox, display order, active toggle, and a repeatable
+  attribute-field builder (key + label_he/label_en + type + comma-separated options for
+  `select` fields) modeling what used to be the hardcoded `VERTICAL_ATTRS` in
+  `admin/products/page.tsx`.
+- **Deliberately not validated**: `Product.attributes` stays free-form JSON, never checked
+  against the owning vertical's `attribute_fields` — keeps this change low-risk (no chance of
+  rejecting an existing product) and matches `attributes`' pre-existing unvalidated behavior.
+- **Constraint accepted, not solved**: the frontend is `output: 'export'` on GitHub Pages, so a
+  newly added/edited world only actually goes live once the triggered GitHub Actions run
+  finishes (a few minutes) — there is no way to make a brand-new static route appear without a
+  rebuild. The auto-redeploy above is what closes that gap in practice.
+- **New Render env vars** (add to the deployment table): `GITHUB_REPO` (`owner/repo`),
+  `GITHUB_DEPLOY_PAT` (fine-grained PAT scoped to this repo, "Actions: read and write"),
+  `GITHUB_DEPLOY_WORKFLOW` (optional, defaults to `deploy.yml`).
 
 ---
 
@@ -485,7 +586,7 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 - **View count fire-and-forget**: `POST /products/{id}/view` is called with `fetch().catch(() => {})` — no auth, no await. A failed view-count increment should never block the user.
 - **Distribution segmentation mix**: `filter_city` uses a SQL WHERE clause (efficient); `filter_membership_track` uses Python in-memory filtering since `membership_tracks` is a JSON array column (not indexable with simple SQL). Trade-off accepted: segment sizes are small.
 - **Email preview in iframe**: HTML is rendered in a sandboxed `<iframe srcdoc>` in the admin preview modal. `sandbox="allow-same-origin"` prevents script execution while allowing CSS rendering.
-- **Product image serving via FastAPI StaticFiles**: Images uploaded through the admin are saved to `IMAGES_DIR` and served by FastAPI at `/images/products/`. Frontend uses `productImageUrl(filename)` helper from `api.ts` which prepends `NEXT_PUBLIC_API_URL`. In dev, `IMAGES_DIR` defaults to `frontend/public/images/products/` (same dir Next.js serves). In prod, set `IMAGES_DIR` to any writable path — FastAPI serves it directly. No static rebuild needed after upload.
+- **Product image storage is pluggable (`services/image_storage.py`), same factory pattern as `get_email_sender()`**: `get_image_storage()` reads `IMAGE_STORAGE_PROVIDER` (`local` default, `supabase` in prod). `LocalDiskImageStorage` is the original dev-only behavior — writes to `IMAGES_DIR` (default `frontend/public/images/products/`), served by FastAPI's `/images/products/` StaticFiles mount, returns just the filename. **This was found to silently lose every uploaded image in production** (discovered 2026-07-21: every product's image 404'd on the live Render backend) — Render's filesystem is ephemeral and is wiped on every deploy, so any image uploaded through the admin only survives until the next `git push`. `SupabaseImageStorage` (prod) uploads via the Supabase Storage REST API (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` — default `product-images`, must be a **public** bucket) and returns the full public URL, which is stored directly in `Product.image_url` instead of a bare filename. Frontend's `productImageUrl()` (`api.ts`) handles both shapes: a `http(s)://`-prefixed value (Supabase) is returned as-is; anything else falls back to `${NEXT_PUBLIC_API_URL}/images/products/${filename}` (local dev). **Setup required in each environment before this works**: create a public `product-images` bucket in the Supabase dashboard (Storage → New bucket → toggle Public — free tier: 1GB storage / 2GB egress/month), then set `IMAGE_STORAGE_PROVIDER=supabase` + `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → service_role key, keep secret) on Render. All product images uploaded before this fix are unrecoverable (never existed anywhere but the wiped local disk) and must be re-uploaded once the bucket is live.
 - **Loyalty points auto-confirm, not settlement-gated**: `SaleTransaction.status` goes straight to `"confirmed"` on report (no payment gateway in v1 anyway) rather than waiting for the vendor to actually pay Tivuta's commission. Points/ranking benefit is the trust hook that makes the *customer* want the vendor to report — delaying it by weeks (until manual settlement) would break that loop. Non-paying vendors are handled by deactivating them (Phase 5), not by holding customer points hostage.
 - **Loyalty rate snapshotting**: `SaleTransaction.commission_rate_percent_snapshot` and `points_awarded` are computed and stored at report time, not recomputed from the vendor's *current* rate later — a vendor's rate can change going forward without silently repricing historical transactions.
 - **Customer number is a plain (not signed/rotating) token**: `services/loyalty.py`'s `generate_customer_number()` produces a random ~50-bit serial with no cryptographic signing. The vendor is a semi-trusted, identified counterparty (has its own commission ledger), not an anonymous adversary — a signed/rotating QR token was judged disproportionate complexity for that threat model. Revisit only if manual-entry fraud is actually observed.

@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import datetime
 from typing import List, Optional
 
@@ -73,7 +74,9 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=404, detail="Product not found")
 
     locale = payload.locale or "he"
-    lead_type = "appointment" if (product.vertical == "diamonds" and payload.scheduled_at) else "contact_request"
+    vertical = db.query(models.Vertical).filter(models.Vertical.slug == product.vertical).first()
+    supports_appointments = bool(vertical and vertical.supports_appointments)
+    lead_type = "appointment" if (supports_appointments and payload.scheduled_at) else "contact_request"
 
     new_lead = models.Lead(
         user_id=current_user.id,
@@ -101,15 +104,94 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
     )
 
     # Notification to admin
-    lead_type_label = "appointment" if (product.vertical == "diamonds" and payload.scheduled_at) else "contact_request"
     email_sender.send(
         to=ADMIN_NOTIFICATION_EMAIL,
         subject=f"פנייה חדשה: {product_title} — {current_user.first_name} {current_user.last_name}",
-        html_body=_admin_notification_body(current_user, product_title, lead_type_label, payload.scheduled_at),
+        html_body=_admin_notification_body(current_user, product_title, lead_type, payload.scheduled_at),
         locale="he",
     )
 
     return new_lead
+
+
+def _cart_confirmation_body(locale: str, items: list) -> str:
+    rows = "".join(f"<li>{title} × {qty}</li>" for title, qty in items)
+    if locale == "he":
+        return f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>תודה על פנייתך. ריכזנו את הבקשה שלך עבור {len(items)} מוצרים:</p><ul>{rows}</ul><p>נציג שלנו ייצור איתך קשר בהקדם.</p></div>'
+    return f"<p>Thank you for your interest. We received your request for {len(items)} products:</p><ul>{rows}</ul><p>Our representative will reach out to you shortly.</p>"
+
+
+def _cart_admin_notification_body(user: models.User, items: list) -> str:
+    rows = "".join(f"<li>{title} × {qty}</li>" for title, qty in items)
+    return f"""
+    <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
+      <h2 style="color:#b8860b;">בקשת קשר מרוכזת מהסל ({len(items)} מוצרים) 🛒</h2>
+      <ul>{rows}</ul>
+      <hr/>
+      <p><strong>שם:</strong> {user.first_name} {user.last_name}</p>
+      <p><strong>מייל:</strong> <a href="mailto:{user.email}">{user.email}</a></p>
+      <p><strong>טלפון:</strong> {user.phone or '—'}</p>
+    </div>"""
+
+
+@router.post("/leads/cart-checkout", response_model=List[schemas.LeadRead])
+def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Submits every item in the user's cart as one contact_request lead per product,
+    sharing a cart_group_id, but sends a single consolidated email to the user and to
+    admin instead of one per product — the whole point of "checking out" a cart."""
+    product_ids = [item.product_id for item in payload.items]
+    products = db.query(models.Product).filter(models.Product.id.in_(product_ids)).all()
+    products_by_id = {p.id: p for p in products}
+    missing = [pid for pid in product_ids if pid not in products_by_id]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Product(s) not found: {missing}")
+
+    locale = payload.locale or "he"
+    cart_group_id = uuid.uuid4().hex
+    new_leads = []
+    email_items = []
+    for item in payload.items:
+        product = products_by_id[item.product_id]
+        product_title = getattr(product, f"title_{locale}", None) or product.title_he
+        lead = models.Lead(
+            user_id=current_user.id,
+            product_id=product.id,
+            lead_type="contact_request",
+            status="new",
+            channel="web",
+            locale=locale,
+            quantity=item.quantity,
+            cart_group_id=cart_group_id,
+        )
+        db.add(lead)
+        new_leads.append(lead)
+        email_items.append((product_title, item.quantity))
+
+    db.commit()
+    for lead in new_leads:
+        db.refresh(lead)
+
+    email_sender = get_email_sender()
+    try:
+        email_sender.send(
+            to=current_user.email,
+            subject=CONFIRMATION_SUBJECT.get(locale, CONFIRMATION_SUBJECT["he"]),
+            html_body=_cart_confirmation_body(locale, email_items),
+            locale=locale,
+        )
+    except Exception:
+        pass
+    try:
+        email_sender.send(
+            to=ADMIN_NOTIFICATION_EMAIL,
+            subject=f"בקשת קשר מהסל ({len(email_items)} מוצרים) — {current_user.first_name} {current_user.last_name}",
+            html_body=_cart_admin_notification_body(current_user, email_items),
+            locale="he",
+        )
+    except Exception:
+        pass
+
+    return new_leads
 
 
 @router.get("/leads/me", response_model=List[schemas.LeadRead])
@@ -236,6 +318,8 @@ def admin_list_leads(db: Session = Depends(get_db)):
             product_title_he=product.title_he if product else None,
             product_vertical=product.vertical if product else None,
             shipping_address=lead.shipping_address,
+            quantity=lead.quantity,
+            cart_group_id=lead.cart_group_id,
         ))
     return result
 
@@ -289,7 +373,10 @@ def admin_bulk_action(payload: schemas.LeadBulkAction, db: Session = Depends(get
 @router.get("/admin/leads/conversion", dependencies=[Depends(get_current_admin)])
 def admin_lead_conversion(db: Session = Depends(get_db)):
     from sqlalchemy import func
-    verticals = ["diamonds", "cars", "insurance"]
+    verticals = [
+        row[0] for row in
+        db.query(models.Vertical.slug).order_by(models.Vertical.display_order.asc()).all()
+    ]
     result = []
     for vertical in verticals:
         product_ids = [

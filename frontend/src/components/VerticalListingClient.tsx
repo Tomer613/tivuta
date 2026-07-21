@@ -1,49 +1,36 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, PackageOpen, GitCompareArrows } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getProducts, getFavoriteIds } from '@/lib/api';
+import { getProducts, getFavoriteIds, getVerticals, Vertical } from '@/lib/api';
 import FilterSortSidebar, { SortOption } from '@/components/FilterSortSidebar';
 import ProductTile, { Product } from '@/components/ProductTile';
 import ComparisonBar from '@/components/ComparisonBar';
 
 interface T {
-    title: string;
-    subtitle: string;
     empty: string;
     results: string;
 }
 
-const COPY: Record<string, Record<string, T>> = {
-    diamonds: {
-        he: { title: 'עולם היהלומים', subtitle: 'תכשיטים ויהלומים נבחרים', empty: 'אין מוצרים להצגה כרגע', results: 'תוצאות' },
-        en: { title: 'Diamonds World', subtitle: 'Selected jewelry and diamonds', empty: 'No products to show right now', results: 'results' },
-        fr: { title: 'Univers Diamants', subtitle: 'Bijoux et diamants sélectionnés', empty: 'Aucun produit pour le moment', results: 'résultats' },
-        yi: { title: 'דימענט וועלט', subtitle: 'אויסגעקליבענע שמוק', empty: 'נישטא קיין פראדוקטן איצט', results: 'רעזולטאטן' },
-    },
-    cars: {
-        he: { title: 'עולם הרכב', subtitle: 'דילים ברכבים חדשים ומשומשים', empty: 'אין מוצרים להצגה כרגע', results: 'תוצאות' },
-        en: { title: 'Cars World', subtitle: 'Deals on new and used cars', empty: 'No products to show right now', results: 'results' },
-        fr: { title: 'Univers Automobile', subtitle: "Offres sur voitures neuves et d'occasion", empty: 'Aucun produit pour le moment', results: 'résultats' },
-        yi: { title: 'אויטא וועלט', subtitle: 'דילס אויף אויטאס', empty: 'נישטא קיין פראדוקטן איצט', results: 'רעזולטאטן' },
-    },
-    insurance: {
-        he: { title: 'עולם הביטוחים', subtitle: 'ביטוחי רכב, בריאות ודירה', empty: 'אין מוצרים להצגה כרגע', results: 'תוצאות' },
-        en: { title: 'Insurance World', subtitle: 'Car, health and home insurance', empty: 'No products to show right now', results: 'results' },
-        fr: { title: 'Univers Assurance', subtitle: 'Assurance auto, santé et habitation', empty: 'Aucun produit pour le moment', results: 'résultats' },
-        yi: { title: 'אינשורענס וועלט', subtitle: 'אויטא, געזונטהייט און היים', empty: 'נישטא קיין פראדוקטן איצט', results: 'רעזולטאטן' },
-    },
+// Empty-state/results copy is identical across every world, so it's kept as one shared
+// translation rather than duplicated per-vertical in the database.
+const GENERIC_COPY: Record<string, T> = {
+    he: { empty: 'אין מוצרים להצגה כרגע', results: 'תוצאות' },
+    en: { empty: 'No products to show right now', results: 'results' },
+    fr: { empty: 'Aucun produit pour le moment', results: 'résultats' },
+    yi: { empty: 'נישטא קיין פראדוקטן איצט', results: 'רעזולטאטן' },
 };
 
-export default function VerticalListingClient({ vertical, actionType }: { vertical: 'diamonds' | 'cars' | 'insurance'; actionType: 'appointment' | 'contact' }) {
+export default function VerticalListingClient({ vertical }: { vertical: string }) {
     const params = useParams();
     const searchParams = useSearchParams();
+    const router = useRouter();
     const locale = (params?.locale as string) || 'he';
-    const autoOpenProductId = searchParams ? Number(searchParams.get('product')) || null : null;
     const { token, isLoading: authLoading } = useAuth();
     const [products, setProducts] = useState<Product[]>([]);
+    const [verticalMeta, setVerticalMeta] = useState<Vertical | null>(null);
     const [loading, setLoading] = useState(true);
     const [sort, setSort] = useState<SortOption>('popularity');
     const [promotionType, setPromotionType] = useState<string | null>(null);
@@ -53,7 +40,18 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
     const [favIds, setFavIds] = useState<Set<number>>(new Set());
     const [compareList, setCompareList] = useState<Product[]>([]);
 
-    const t = (COPY[vertical] && COPY[vertical][locale]) || COPY[vertical].he;
+    const t = GENERIC_COPY[locale] || GENERIC_COPY.he;
+    const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
+    const title = (verticalMeta && (verticalMeta[`label_${localeKey}`] || verticalMeta.label_he)) || '';
+    const subtitle = (verticalMeta && (verticalMeta[`subtitle_${localeKey}`] || verticalMeta.subtitle_he)) || '';
+    const actionType: 'appointment' | 'contact' = verticalMeta?.supports_appointments ? 'appointment' : 'contact';
+
+    // Backward compatibility: old shared links used ?product=ID to auto-open a popup;
+    // that product now has its own real page, so redirect there instead.
+    useEffect(() => {
+        const productId = searchParams?.get('product');
+        if (productId) router.replace(`/${locale}/products/${productId}`);
+    }, [searchParams, locale, router]);
 
     useEffect(() => {
         if (!token) return;
@@ -61,10 +59,12 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
         Promise.all([
             getProducts(token, vertical, sort, promotionType),
             getFavoriteIds(token),
+            getVerticals(),
         ])
-            .then(([prods, ids]) => {
+            .then(([prods, ids, verticals]) => {
                 setProducts(prods);
                 setFavIds(new Set(ids));
+                setVerticalMeta(verticals.find((v) => v.slug === vertical) || null);
             })
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
@@ -111,8 +111,8 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
         <main className="min-h-screen bg-[#111a2f]">
             <header className="bg-[#0e1628] border-b border-[#d4af37]/20 py-16 px-8">
                 <div className="max-w-7xl mx-auto text-start">
-                    <h1 className="text-4xl md:text-5xl font-black text-[#f0e6d3] mb-3">{t.title}</h1>
-                    <p className="text-xl text-[#f0e6d3]/60 font-light">{t.subtitle}</p>
+                    <h1 className="text-4xl md:text-5xl font-black text-[#f0e6d3] mb-3">{title}</h1>
+                    <p className="text-xl text-[#f0e6d3]/60 font-light">{subtitle}</p>
                     {isFiltered && !loading && (
                         <p className="text-sm text-[#d4af37]/70 mt-2 font-semibold">{filtered.length} {t.results}</p>
                     )}
@@ -143,7 +143,7 @@ export default function VerticalListingClient({ vertical, actionType }: { vertic
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                             {filtered.map((p) => (
                                 <div key={p.id} className="relative">
-                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} autoOpen={autoOpenProductId === p.id} />
+                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} />
                                     {/* Compare checkbox */}
                                     <button
                                         type="button"

@@ -127,6 +127,39 @@ class Order(Base):
     user = relationship("User", back_populates="orders")
 
 
+class Vertical(Base):
+    """
+    An admin-managed "world" (e.g. diamonds/cars/insurance) — the single source of truth for
+    every vertical slug referenced by Product.vertical / Vendor.vertical. Admins can add new
+    worlds without touching code; a new one only appears on the (statically-exported) frontend
+    after the next build+deploy, which admin_create_vertical/admin_update_vertical trigger
+    automatically via services/deploy_trigger.py.
+    """
+    __tablename__ = "verticals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    slug = Column(String(50), unique=True, index=True, nullable=False)
+
+    label_he = Column(String(100), nullable=False)
+    label_en = Column(String(100), nullable=True)
+    label_fr = Column(String(100), nullable=True)
+    label_yi = Column(String(100), nullable=True)
+
+    subtitle_he = Column(String(255), nullable=True)
+    subtitle_en = Column(String(255), nullable=True)
+    subtitle_fr = Column(String(255), nullable=True)
+    subtitle_yi = Column(String(255), nullable=True)
+
+    icon = Column(String(50), nullable=False, default="Store")  # key into the frontend's fixed icon map
+    supports_appointments = Column(Boolean, default=False, nullable=False)
+    # [{"key": "carat", "label_he": "קרט", "label_en": "Carat", "type": "number"|"text"|"select", "options": [...]}]
+    attribute_fields = Column(JSON, nullable=False, default=list)
+    display_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Vendor(Base):
     """
     A store/supplier for a single vertical (diamonds / cars / insurance).
@@ -135,7 +168,7 @@ class Vendor(Base):
     __tablename__ = "vendors"
 
     id = Column(Integer, primary_key=True, index=True)
-    vertical = Column(String(20), nullable=False, index=True)  # 'diamonds' | 'cars' | 'insurance'
+    vertical = Column(String(50), nullable=False, index=True)  # matches Vertical.slug
 
     name_he = Column(String(255), nullable=False)
     name_en = Column(String(255), nullable=True)
@@ -167,7 +200,7 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, index=True)
-    vertical = Column(String(20), nullable=False, index=True)  # 'diamonds' | 'cars' | 'insurance'
+    vertical = Column(String(50), nullable=False, index=True)  # matches Vertical.slug
 
     title_he = Column(String(255), nullable=False)
     title_en = Column(String(255), nullable=True)
@@ -246,6 +279,8 @@ class Lead(Base):
     locale = Column(String(5), nullable=True)
     history = Column(JSON, nullable=True, default=list)  # audit trail [{ts, actor, action, from, to}]
     shipping_address = Column(JSON, nullable=True)  # {full_name, street, city, zip_code, phone} — 'card_order' leads only
+    quantity = Column(Integer, nullable=True, default=1)
+    cart_group_id = Column(String(40), nullable=True, index=True)  # shared across leads created from one cart checkout
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id])

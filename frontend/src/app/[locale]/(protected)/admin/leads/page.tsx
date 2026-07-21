@@ -4,7 +4,9 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminListLeads, adminUpdateLeadStatus, adminUpdateLeadNotes, adminAssignLead, adminSendAppointmentReminder, adminGetAdminUsers, adminBulkLeadAction } from '@/lib/api';
-import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, Gem, Car, ShieldCheck, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Check, X, LayoutList, CalendarRange, Bell, History, Square, CheckSquare, Kanban } from 'lucide-react';
+import { useVerticals } from '@/lib/useVerticals';
+import { getVerticalIcon } from '@/lib/verticalIcons';
+import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Check, X, LayoutList, CalendarRange, Bell, History, Square, CheckSquare, Kanban } from 'lucide-react';
 
 const PAGE_SIZE = 50;
 
@@ -15,13 +17,12 @@ const STATUSES = [
     { value: 'closed',    label: 'סגורה',   color: 'bg-[#111a2f] text-[#f0e6d3]/30' },
 ];
 
-const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
 const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס' };
 
 function VerticalIcon({ v }: { v: string }) {
-    if (v === 'diamonds') return <Gem size={14} className="text-[#d4af37]" />;
-    if (v === 'cars')     return <Car size={14} className="text-[#d4af37]" />;
-    return <ShieldCheck size={14} className="text-[#d4af37]" />;
+    const verticals = useVerticals();
+    const Icon = getVerticalIcon(verticals.find((x) => x.slug === v)?.icon || 'Store');
+    return <Icon size={14} className="text-[#d4af37]" />;
 }
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -182,6 +183,8 @@ export default function AdminLeadsPage() {
     const [bulkValue, setBulkValue] = useState('');
     const [bulkLoading, setBulkLoading] = useState(false);
     const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
+    const verticals = useVerticals();
+    const VERTICAL_LABEL: Record<string, string> = Object.fromEntries(verticals.map((v) => [v.slug, v.label_he]));
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
     const resetPage = () => setPage(1);
@@ -410,9 +413,7 @@ export default function AdminLeadsPage() {
                 </select>
                 <select value={filterVertical} onChange={(e) => { setFilterVertical(e.target.value); resetPage(); }} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל העולמות</option>
-                    <option value="diamonds">יהלומים</option>
-                    <option value="cars">רכב</option>
-                    <option value="insurance">ביטוח</option>
+                    {verticals.map((v) => <option key={v.slug} value={v.slug}>{v.label_he}</option>)}
                 </select>
             </div>
 
@@ -483,12 +484,15 @@ export default function AdminLeadsPage() {
                                             {lead.product_title_he ? (
                                                 <div>
                                                     <a
-                                                        href={`/${locale}/${lead.product_vertical || 'diamonds'}`}
+                                                        href={lead.product_vertical ? `/${locale}/${lead.product_vertical}` : `/${locale}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="text-sm font-semibold hover:text-[#d4af37] transition-colors flex items-center gap-1 group/link"
                                                     >
                                                         {lead.product_title_he}
+                                                        {lead.quantity != null && lead.quantity > 1 && (
+                                                            <span className="text-[#d4af37] font-black">×{lead.quantity}</span>
+                                                        )}
                                                         <ExternalLink size={11} className="opacity-0 group-hover/link:opacity-60 transition-opacity" />
                                                     </a>
                                                     {lead.product_vertical && (

@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store, ShieldAlert } from 'lucide-react';
+import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store, ShieldAlert, Globe } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 
 interface T {
     dashboard: string;
     products: string;
+    verticals: string;
     vendors: string;
     users: string;
     surveys: string;
@@ -18,10 +19,10 @@ interface T {
 }
 
 const translations: Record<string, T> = {
-    he: { dashboard: 'בקרה', products: 'מוצרים', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', leads: 'פניות', loyalty: 'נאמנות והונאות' },
-    en: { dashboard: 'Dashboard', products: 'Products', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', leads: 'Leads', loyalty: 'Loyalty & Fraud' },
-    fr: { dashboard: 'Tableau', products: 'Produits', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', leads: 'Contacts', loyalty: 'Fidélité' },
-    yi: { dashboard: 'בקרה', products: 'פראדוקטן', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', leads: 'פנייות', loyalty: 'לויאלטי' },
+    he: { dashboard: 'בקרה', products: 'מוצרים', verticals: 'עולמות', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', leads: 'פניות', loyalty: 'נאמנות והונאות' },
+    en: { dashboard: 'Dashboard', products: 'Products', verticals: 'Worlds', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', leads: 'Leads', loyalty: 'Loyalty & Fraud' },
+    fr: { dashboard: 'Tableau', products: 'Produits', verticals: 'Univers', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', leads: 'Contacts', loyalty: 'Fidélité' },
+    yi: { dashboard: 'בקרה', products: 'פראדוקטן', verticals: 'וועלטן', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', leads: 'פנייות', loyalty: 'לויאלטי' },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -33,6 +34,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const tabs = [
         { href: `/${locale}/admin`, label: t.dashboard, icon: <LayoutDashboard size={18} /> },
         { href: `/${locale}/admin/products`, label: t.products, icon: <Package size={18} /> },
+        { href: `/${locale}/admin/verticals`, label: t.verticals, icon: <Globe size={18} /> },
         { href: `/${locale}/admin/vendors`, label: t.vendors, icon: <Store size={18} /> },
         { href: `/${locale}/admin/users`, label: t.users, icon: <Users size={18} /> },
         { href: `/${locale}/admin/surveys`, label: t.surveys, icon: <BarChart3 size={18} /> },

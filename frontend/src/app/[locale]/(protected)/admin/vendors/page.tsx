@@ -4,12 +4,10 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import {
     adminListVendors, adminCreateVendor, adminUpdateVendor, adminDeleteVendor, adminSetVendorPortalAccess,
-    adminListSettlements, adminOpenSettlementPeriod, adminSettlePeriod, CommissionSettlementPeriod,
+    adminListSettlements, adminOpenSettlementPeriod, adminSettlePeriod, adminListVerticals, CommissionSettlementPeriod, Vertical,
 } from '@/lib/api';
 import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet } from 'lucide-react';
 
-const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
-const VERTICALS = ['diamonds', 'cars', 'insurance'];
 const WEEKDAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const SLOT_OPTIONS = [15, 30, 60];
 
@@ -32,7 +30,7 @@ function emptyWeekly() {
 }
 
 const emptyForm = () => ({
-    vertical: 'diamonds',
+    vertical: '',
     name_he: '',
     name_en: '',
     name_fr: '',
@@ -47,6 +45,7 @@ const emptyForm = () => ({
 export default function AdminVendorsPage() {
     const { token } = useAuth();
     const [vendors, setVendors] = useState<any[]>([]);
+    const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterVertical, setFilterVertical] = useState('');
     const [showForm, setShowForm] = useState(false);
@@ -75,11 +74,19 @@ export default function AdminVendorsPage() {
 
     useEffect(load, [token]);
 
+    useEffect(() => {
+        if (!token) return;
+        adminListVerticals(token).then(setVerticals).catch(() => {});
+    }, [token]);
+
+    const VERTICAL_LABEL: Record<string, string> = Object.fromEntries(verticals.map((v) => [v.slug, v.label_he]));
+    const activeVerticals = verticals.filter((v) => v.is_active);
+
     const filtered = filterVertical ? vendors.filter((v) => v.vertical === filterVertical) : vendors;
 
     const openCreateForm = () => {
         setEditVendor(null);
-        setForm(emptyForm());
+        setForm({ ...emptyForm(), vertical: activeVerticals[0]?.slug || '' });
         setShowForm(true);
     };
 
@@ -260,7 +267,7 @@ export default function AdminVendorsPage() {
             <div className="flex items-center gap-3 mb-6">
                 <select value={filterVertical} onChange={(e) => setFilterVertical(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל העולמות</option>
-                    {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABEL[v]}</option>)}
+                    {verticals.map((v) => <option key={v.slug} value={v.slug}>{v.label_he}</option>)}
                 </select>
             </div>
 
@@ -350,7 +357,10 @@ export default function AdminVendorsPage() {
                                 onChange={(e) => setForm({ ...form, vertical: e.target.value })}
                                 className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] disabled:opacity-50"
                             >
-                                {VERTICALS.map((v) => <option key={v} value={v}>{VERTICAL_LABEL[v]}</option>)}
+                                {activeVerticals.map((v) => <option key={v.slug} value={v.slug}>{v.label_he}</option>)}
+                                {editVendor && !activeVerticals.some((v) => v.slug === form.vertical) && (
+                                    <option value={form.vertical}>{VERTICAL_LABEL[form.vertical] || form.vertical}</option>
+                                )}
                             </select>
                         </div>
 

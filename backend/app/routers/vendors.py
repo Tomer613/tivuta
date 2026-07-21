@@ -8,15 +8,9 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..security import get_current_admin, get_db, get_password_hash
 from ..services import loyalty
+from .verticals import validate_vertical_slug
 
 router = APIRouter(tags=["vendors"])
-
-VALID_VERTICALS = ("diamonds", "cars", "insurance")
-
-
-def _validate_vertical(vertical: str):
-    if vertical not in VALID_VERTICALS:
-        raise HTTPException(status_code=400, detail=f"vertical must be one of {VALID_VERTICALS}")
 
 
 @router.get("/admin/vendors", response_model=List[schemas.VendorRead], dependencies=[Depends(get_current_admin)])
@@ -29,7 +23,7 @@ def admin_list_vendors(vertical: Optional[str] = None, db: Session = Depends(get
 
 @router.post("/admin/vendors", response_model=schemas.VendorRead, dependencies=[Depends(get_current_admin)])
 def admin_create_vendor(vendor_in: schemas.VendorCreate, db: Session = Depends(get_db)):
-    _validate_vertical(vendor_in.vertical)
+    validate_vertical_slug(db, vendor_in.vertical)
     new_vendor = models.Vendor(**vendor_in.model_dump())
     db.add(new_vendor)
     db.commit()
@@ -44,7 +38,7 @@ def admin_update_vendor(vendor_id: int, vendor_in: schemas.VendorUpdate, db: Ses
         raise HTTPException(status_code=404, detail="Vendor not found")
     update_data = vendor_in.model_dump(exclude_unset=True)
     if "vertical" in update_data:
-        _validate_vertical(update_data["vertical"])
+        validate_vertical_slug(db, update_data["vertical"])
         if update_data["vertical"] != vendor.vertical:
             raise HTTPException(status_code=400, detail="Vendor vertical cannot be changed after creation")
     for key, value in update_data.items():

@@ -5,6 +5,7 @@ import SiteFooter from "@/components/SiteFooter";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
 import { AuthProvider } from "@/context/AuthContext";
 import { AccessibilityProvider } from "@/context/AccessibilityContext";
+import { CartProvider } from "@/context/CartContext";
 
 const heebo = localFont({
     src: [
@@ -21,7 +22,7 @@ const heebo = localFont({
 
 export const metadata = {
     title: "TIVUTA",
-    description: "TIVUTA - diamonds, cars and insurance for our members.",
+    description: "TIVUTA - a curated marketplace of worlds for our members.",
 };
 
 export function generateStaticParams() {
@@ -52,11 +53,13 @@ export default async function RootLayout({
             <body className={`${heebo.variable} font-sans antialiased bg-[#111a2f] min-h-screen flex flex-col`} suppressHydrationWarning>
                 <AccessibilityProvider>
                     <AuthProvider>
-                        <RootHeader />
-                        <div className="flex-grow">
-                            {children}
-                        </div>
-                        <SiteFooter />
+                        <CartProvider>
+                            <RootHeader />
+                            <div className="flex-grow">
+                                {children}
+                            </div>
+                            <SiteFooter />
+                        </CartProvider>
                     </AuthProvider>
                     <AccessibilityWidget />
                 </AccessibilityProvider>

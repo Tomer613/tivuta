@@ -9,10 +9,12 @@ import {
 } from '@/lib/api';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
-    CheckCircle2, CreditCard, Building2, Gem, Car, ShieldCheck, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
+    CheckCircle2, CreditCard, Building2, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
     Copy, Gift, Package, Send, Loader2,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
+import { useVerticals } from '@/lib/useVerticals';
+import { getVerticalIcon } from '@/lib/verticalIcons';
 
 // ─── Translations ─────────────────────────────────────────────────────────────
 const tr: Record<string, Record<string, string>> = {
@@ -35,7 +37,6 @@ const tr: Record<string, Record<string, string>> = {
         logout: 'התנתק',
         activity_title: 'היסטוריית פעילות',
         no_activity: 'טרם בוצעו פניות.',
-        vertical_diamonds: 'יהלומים', vertical_cars: 'רכב', vertical_insurance: 'ביטוח',
         lead_appointment: 'פגישה', lead_contact: 'פנייה', lead_other: 'בקשה',
         status_new: 'חדשה', status_confirmed: 'מאושרת', status_contacted: 'טופלה', status_closed: 'סגורה',
         completed_section: 'פרטים שמולאו', missing_section: 'פרטים חסרים',
@@ -61,7 +62,6 @@ const tr: Record<string, Record<string, string>> = {
         logout: 'Log out',
         activity_title: 'Activity history',
         no_activity: 'No activity yet.',
-        vertical_diamonds: 'Diamonds', vertical_cars: 'Cars', vertical_insurance: 'Insurance',
         lead_appointment: 'Appointment', lead_contact: 'Contact', lead_other: 'Request',
         status_new: 'New', status_confirmed: 'Confirmed', status_contacted: 'Handled', status_closed: 'Closed',
         completed_section: 'Completed details', missing_section: 'Missing details',
@@ -87,7 +87,6 @@ const tr: Record<string, Record<string, string>> = {
         logout: 'Se déconnecter',
         activity_title: "Historique d'activité",
         no_activity: 'Aucune activité.',
-        vertical_diamonds: 'Diamants', vertical_cars: 'Voitures', vertical_insurance: 'Assurance',
         lead_appointment: 'Rendez-vous', lead_contact: 'Contact', lead_other: 'Demande',
         status_new: 'Nouveau', status_confirmed: 'Confirmé', status_contacted: 'Traité', status_closed: 'Fermé',
         completed_section: 'Détails complétés', missing_section: 'Détails manquants',
@@ -113,7 +112,6 @@ const tr: Record<string, Record<string, string>> = {
         logout: 'אויסלאָגן',
         activity_title: 'פּעולה היסטאָריע',
         no_activity: 'קיין פּעולות נאָך ניט.',
-        vertical_diamonds: 'דימענטן', vertical_cars: 'אויטאס', vertical_insurance: 'אינשורענס',
         lead_appointment: 'פּגישה', lead_contact: 'פּנייה', lead_other: 'בקשה',
         status_new: 'ניי', status_confirmed: 'באשטעטיקט', status_contacted: 'באהאנדלט', status_closed: 'פארמאכט',
         completed_section: 'פֿאַרענדיקטע פּרטים', missing_section: 'פֿעלנדע פּרטים',
@@ -229,6 +227,7 @@ export default function ProfileClient() {
     const locale = (params?.locale as string) || 'he';
     const t = tr[locale] || tr.he;
     const { user, token, logout, login } = useAuth();
+    const verticals = useVerticals();
 
     const [form, setForm] = useState({
         phone: '', gender: '', city: '', birth_year: '',
@@ -388,8 +387,11 @@ export default function ProfileClient() {
 
     const barColor = pct === 100 ? 'bg-green-400' : pct >= 60 ? 'bg-[#d4af37]' : 'bg-orange-400';
 
-    const verticalLabel = (v: string) =>
-        v === 'diamonds' ? t.vertical_diamonds : v === 'cars' ? t.vertical_cars : t.vertical_insurance;
+    const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
+    const verticalLabel = (v: string) => {
+        const meta = verticals.find((x) => x.slug === v);
+        return (meta && (meta[`label_${localeKey}`] || meta.label_he)) || v;
+    };
     const leadTypeLabel = (lt: string) =>
         lt === 'appointment' ? t.lead_appointment : lt === 'contact_request' ? t.lead_contact : t.lead_other;
     const statusLabel = (s: string) =>
@@ -407,10 +409,10 @@ export default function ProfileClient() {
         return acc;
     }, {});
 
-    const VERTICAL_ICON = (v: string) =>
-        v === 'diamonds' ? <Gem size={15} className="text-[#d4af37]" />
-        : v === 'cars'   ? <Car size={15} className="text-[#d4af37]" />
-        : <ShieldCheck size={15} className="text-[#d4af37]" />;
+    const VERTICAL_ICON = (v: string) => {
+        const Icon = getVerticalIcon(verticals.find((x) => x.slug === v)?.icon || 'Store');
+        return <Icon size={15} className="text-[#d4af37]" />;
+    };
 
     // Renders a single form field by name
     const renderField = (fieldName: string) => {

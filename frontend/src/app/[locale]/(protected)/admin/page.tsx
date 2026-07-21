@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp, Gem, Car, ShieldCheck, Bell, CheckCircle2 } from 'lucide-react';
+import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp, Bell, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { adminGetStats, adminGetLeadStats, adminGetConversionStats, adminSendFollowupReminders } from '@/lib/api';
+import { useVerticals } from '@/lib/useVerticals';
+import { getVerticalIcon } from '@/lib/verticalIcons';
 
 const STAT_CARDS = [
     { key: 'open_leads',         label: 'פניות פתוחות',     href: 'leads',        color: 'text-blue-400',   ring: 'ring-blue-500/20',   bg: 'bg-blue-500/10' },
@@ -22,14 +24,6 @@ const ICONS: Record<string, React.FC<{ size: number; className?: string }>> = {
     active_promotions:   Tag,
     draft_distributions: Send,
 };
-
-const VERTICAL_ICONS: Record<string, React.FC<{ size: number; className?: string }>> = {
-    diamonds: Gem,
-    cars: Car,
-    insurance: ShieldCheck,
-};
-
-const VERTICAL_LABEL: Record<string, string> = { diamonds: 'יהלומים', cars: 'רכב', insurance: 'ביטוח' };
 
 function LeadsChart({ chartData }: { chartData: { date: string; count: number }[] }) {
     if (!chartData.length) return null;
@@ -69,6 +63,7 @@ function LeadsChart({ chartData }: { chartData: { date: string; count: number }[
 }
 
 function ConversionPanel({ data }: { data: { vertical: string; total: number; confirmed: number; contacted: number; closed: number; conversion_rate: number }[] }) {
+    const verticals = useVerticals();
     if (!data.length) return null;
     return (
         <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-6 mt-8">
@@ -77,12 +72,13 @@ function ConversionPanel({ data }: { data: { vertical: string; total: number; co
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {data.map((d) => {
-                    const Icon = VERTICAL_ICONS[d.vertical] || Package;
+                    const meta = verticals.find((v) => v.slug === d.vertical);
+                    const Icon = getVerticalIcon(meta?.icon || 'Store');
                     return (
                         <div key={d.vertical} className="bg-[#111a2f] rounded-xl p-4">
                             <div className="flex items-center gap-2 mb-3">
                                 <Icon size={16} className="text-[#d4af37]" />
-                                <span className="text-sm font-bold text-[#f0e6d3]">{VERTICAL_LABEL[d.vertical] || d.vertical}</span>
+                                <span className="text-sm font-bold text-[#f0e6d3]">{meta?.label_he || d.vertical}</span>
                             </div>
                             <div className="text-3xl font-black text-[#d4af37] mb-1">{d.conversion_rate}%</div>
                             <div className="text-[10px] text-[#f0e6d3]/40 mb-3">קונברסיה ({d.confirmed + d.contacted + d.closed}/{d.total} פניות)</div>

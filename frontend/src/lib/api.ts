@@ -7,9 +7,11 @@ export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:800
 
 const STATIC_BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
-/** Returns the URL for a product image, served from the backend (works in both dev and prod). */
+/** Returns the URL for a product image. In prod this is a full Supabase Storage URL already
+ *  (stored as-is in image_url); the backend-relative form is a local-dev fallback. */
 export function productImageUrl(filename: string | null | undefined): string {
     if (!filename) return `${STATIC_BASE}/images/products/placeholder.jpg`;
+    if (filename.startsWith("http://") || filename.startsWith("https://")) return filename;
     return `${BASE_URL}/images/products/${filename}`;
 }
 
@@ -439,6 +441,89 @@ export async function getAllProductIds(): Promise<{ id: number }[]> {
     }
 }
 
+// ── Verticals ("worlds") — single source of truth for diamonds/cars/insurance/etc ──────────
+
+export interface VerticalAttributeField {
+    key: string;
+    label_he: string;
+    label_en?: string | null;
+    label_fr?: string | null;
+    label_yi?: string | null;
+    type: 'text' | 'number' | 'select';
+    placeholder?: string | null;
+    options?: string[] | null;
+}
+
+export interface Vertical {
+    id: number;
+    slug: string;
+    label_he: string;
+    label_en?: string | null;
+    label_fr?: string | null;
+    label_yi?: string | null;
+    subtitle_he?: string | null;
+    subtitle_en?: string | null;
+    subtitle_fr?: string | null;
+    subtitle_yi?: string | null;
+    icon: string;
+    supports_appointments: boolean;
+    attribute_fields: VerticalAttributeField[];
+    display_order: number;
+    is_active: boolean;
+}
+
+// Used only if the backend is briefly unreachable during a static build — keeps the 3 worlds
+// that exist today from vanishing out of the build entirely.
+const FALLBACK_VERTICALS: Vertical[] = [
+    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, attribute_fields: [], display_order: 0, is_active: true },
+    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, attribute_fields: [], display_order: 1, is_active: true },
+    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, attribute_fields: [], display_order: 2, is_active: true },
+];
+
+export async function getVerticals(): Promise<Vertical[]> {
+    try {
+        const res = await fetch(`${BASE_URL}/verticals`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
+        if (!res.ok) return FALLBACK_VERTICALS;
+        const data = await res.json();
+        return data.length > 0 ? data : FALLBACK_VERTICALS;
+    } catch {
+        console.warn('Backend unreachable during build, using fallback verticals.');
+        return FALLBACK_VERTICALS;
+    }
+}
+
+export async function adminListVerticals(token: string): Promise<Vertical[]> {
+    const res = await fetch(`${BASE_URL}/admin/verticals`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load verticals');
+    return res.json();
+}
+
+export async function adminCreateVertical(token: string, payload: any): Promise<Vertical> {
+    const res = await fetch(`${BASE_URL}/admin/verticals`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create vertical');
+    }
+    return res.json();
+}
+
+export async function adminUpdateVertical(token: string, id: number, payload: any): Promise<Vertical> {
+    const res = await fetch(`${BASE_URL}/admin/verticals/${id}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update vertical');
+    }
+    return res.json();
+}
+
 export async function getPromotionStatus(token: string, promotionId: number) {
     const res = await fetch(`${BASE_URL}/promotions/${promotionId}/status`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load promotion status');
@@ -481,6 +566,19 @@ export async function createLead(token: string, payload: { product_id: number; s
         body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Failed to submit request');
+    return res.json();
+}
+
+export async function cartCheckout(token: string, payload: { items: { product_id: number; quantity: number }[]; locale?: string }) {
+    const res = await fetch(`${BASE_URL}/leads/cart-checkout`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to submit cart');
+    }
     return res.json();
 }
 

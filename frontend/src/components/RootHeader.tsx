@@ -8,6 +8,7 @@ import Logo from '@/components/Logo';
 import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
 import GlobalSearch from '@/components/GlobalSearch';
+import CartIcon from '@/components/CartIcon';
 
 const languages = [
     { code: 'he', label: 'עברית' },
@@ -42,6 +43,7 @@ export default function RootHeader() {
                 <div className="flex items-center gap-2">
                     {user && <GlobalSearch locale={locale} />}
                     {token && <NotificationBell token={token} />}
+                    <CartIcon locale={locale} />
                     {user?.role === 'admin' && (
                         <Link
                             href={`/${locale}/admin/products`}

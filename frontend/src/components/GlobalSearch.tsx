@@ -2,20 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, X, Diamond, Car, Shield } from 'lucide-react';
-import { searchProducts, productImageUrl } from '@/lib/api';
+import { Search, X } from 'lucide-react';
+import { searchProducts, productImageUrl, getVerticals, Vertical } from '@/lib/api';
+import { getVerticalIcon } from '@/lib/verticalIcons';
 import Link from 'next/link';
-
-const VERTICAL_ICON: Record<string, React.ReactNode> = {
-    diamonds: <Diamond size={13} />,
-    cars: <Car size={13} />,
-    insurance: <Shield size={13} />,
-};
-const VERTICAL_LABEL: Record<string, string> = {
-    diamonds: 'יהלומים',
-    cars: 'רכב',
-    insurance: 'ביטוח',
-};
 
 interface Props {
     locale: string;
@@ -26,8 +16,13 @@ export default function GlobalSearch({ locale }: Props) {
     const [q, setQ] = useState('');
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
+    const [verticals, setVerticals] = useState<Vertical[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        getVerticals().then(setVerticals);
+    }, []);
 
     useEffect(() => {
         if (open) {
@@ -75,41 +70,45 @@ export default function GlobalSearch({ locale }: Props) {
                                         לא נמצאו תוצאות עבור &quot;{q}&quot;
                                     </div>
                                 )}
-                                {!loading && results.map((product) => (
-                                    <Link
-                                        key={product.id}
-                                        href={`/${locale}/${product.vertical}?product=${product.id}`}
-                                        onClick={close}
-                                        className="flex items-center gap-3 px-4 py-3 hover:bg-[#111a2f] transition-colors border-b border-[#d4af37]/5 last:border-0"
-                                    >
-                                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#111a2f] shrink-0 product-img-wrap">
-                                            {product.image_url && (
-                                                <img
-                                                    src={productImageUrl(product.image_url)}
-                                                    alt={product.title_he}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[#f0e6d3] text-sm font-bold truncate">{product.title_he}</p>
-                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                                <span className="text-[#d4af37]/70 text-xs flex items-center gap-1">
-                                                    {VERTICAL_ICON[product.vertical]}
-                                                    {VERTICAL_LABEL[product.vertical] ?? product.vertical}
-                                                </span>
-                                                {product.price && (
-                                                    <span className="text-[#f0e6d3]/40 text-xs">
-                                                        · ₪{Number(product.price).toLocaleString('he-IL')}
-                                                    </span>
+                                {!loading && results.map((product) => {
+                                    const vertical = verticals.find((v) => v.slug === product.vertical);
+                                    const Icon = getVerticalIcon(vertical?.icon || 'Store');
+                                    return (
+                                        <Link
+                                            key={product.id}
+                                            href={`/${locale}/${product.vertical}?product=${product.id}`}
+                                            onClick={close}
+                                            className="flex items-center gap-3 px-4 py-3 hover:bg-[#111a2f] transition-colors border-b border-[#d4af37]/5 last:border-0"
+                                        >
+                                            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#111a2f] shrink-0 product-img-wrap">
+                                                {product.image_url && (
+                                                    <img
+                                                        src={productImageUrl(product.image_url)}
+                                                        alt={product.title_he}
+                                                        className="w-full h-full object-cover"
+                                                    />
                                                 )}
                                             </div>
-                                        </div>
-                                        {product.avg_rating && (
-                                            <span className="text-[#d4af37] text-xs font-bold">⭐ {product.avg_rating}</span>
-                                        )}
-                                    </Link>
-                                ))}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-[#f0e6d3] text-sm font-bold truncate">{product.title_he}</p>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className="text-[#d4af37]/70 text-xs flex items-center gap-1">
+                                                        <Icon size={13} />
+                                                        {vertical?.label_he ?? product.vertical}
+                                                    </span>
+                                                    {product.price && (
+                                                        <span className="text-[#f0e6d3]/40 text-xs">
+                                                            · ₪{Number(product.price).toLocaleString('he-IL')}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {product.avg_rating && (
+                                                <span className="text-[#d4af37] text-xs font-bold">⭐ {product.avg_rating}</span>
+                                            )}
+                                        </Link>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -144,7 +143,7 @@ export default function GlobalSearch({ locale }: Props) {
                         ref={inputRef}
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        placeholder="חפש יהלומים, רכב, ביטוח..."
+                        placeholder="חפש מוצרים..."
                         className="flex-1 bg-transparent text-[#f0e6d3] placeholder-[#f0e6d3]/30 outline-none text-sm min-w-0"
                         dir="rtl"
                         onClick={(e) => e.stopPropagation()}

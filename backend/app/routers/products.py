@@ -1,7 +1,5 @@
 import csv
 import io
-import os
-import uuid
 from datetime import datetime
 from typing import List, Optional
 
@@ -11,15 +9,11 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
-
-IMAGES_DIR = os.environ.get(
-    "IMAGES_DIR",
-    os.path.normpath(os.path.join(os.path.dirname(__file__), "../../../frontend/public/images/products")),
-)
+from ..services import get_image_storage
+from ..services.image_storage import generate_image_filename
+from .verticals import validate_vertical_slug
 
 router = APIRouter(tags=["products"])
-
-VALID_VERTICALS = ("diamonds", "cars", "insurance")
 
 
 def _active_promotions(product: models.Product) -> List[schemas.PromotionBrief]:
@@ -123,11 +117,6 @@ def search_products(q: str = "", db: Session = Depends(get_db)):
     return [_product_read(p) for p in products]
 
 
-def _validate_vertical(vertical: str):
-    if vertical not in VALID_VERTICALS:
-        raise HTTPException(status_code=400, detail=f"vertical must be one of {VALID_VERTICALS}")
-
-
 def _validate_vendor(vendor_id: Optional[int], vertical: str, db: Session):
     if vendor_id is None:
         return
@@ -140,7 +129,7 @@ def _validate_vendor(vendor_id: Optional[int], vertical: str, db: Session):
 
 @router.post("/admin/products", response_model=schemas.ProductRead, dependencies=[Depends(get_current_admin)])
 def admin_create_product(product_in: schemas.ProductCreate, db: Session = Depends(get_db)):
-    _validate_vertical(product_in.vertical)
+    validate_vertical_slug(db, product_in.vertical)
     _validate_vendor(product_in.vendor_id, product_in.vertical, db)
     new_product = models.Product(**product_in.model_dump())
     db.add(new_product)
@@ -153,7 +142,7 @@ def admin_create_product(product_in: schemas.ProductCreate, db: Session = Depend
 def admin_create_products_batch(products_in: List[schemas.ProductCreate], db: Session = Depends(get_db)):
     new_products = []
     for product_in in products_in:
-        _validate_vertical(product_in.vertical)
+        validate_vertical_slug(db, product_in.vertical)
         new_product = models.Product(**product_in.model_dump())
         db.add(new_product)
         new_products.append(new_product)
@@ -175,7 +164,7 @@ def admin_update_product(product_id: int, product_in: schemas.ProductUpdate, db:
         raise HTTPException(status_code=404, detail="Product not found")
     update_data = product_in.model_dump(exclude_unset=True)
     if "vertical" in update_data:
-        _validate_vertical(update_data["vertical"])
+        validate_vertical_slug(db, update_data["vertical"])
     if "vendor_id" in update_data:
         _validate_vendor(update_data["vendor_id"], update_data.get("vertical", product.vertical), db)
     for key, value in update_data.items():
@@ -234,13 +223,13 @@ def admin_product_analytics(db: Session = Depends(get_db)):
 
 @router.post("/admin/upload-image", dependencies=[Depends(get_current_admin)])
 async def upload_product_image(file: UploadFile = File(...)):
-    os.makedirs(IMAGES_DIR, exist_ok=True)
-    ext = os.path.splitext(file.filename or "")[1].lower() or ".jpg"
-    filename = f"{uuid.uuid4().hex}{ext}"
-    dest = os.path.join(IMAGES_DIR, filename)
-    with open(dest, "wb") as f:
-        f.write(await file.read())
-    return {"filename": filename}
+    filename = generate_image_filename(file.filename or "")
+    stored = get_image_storage().save(
+        filename=filename,
+        content=await file.read(),
+        content_type=file.content_type or "application/octet-stream",
+    )
+    return {"filename": stored}
 
 
 @router.post("/admin/products/{product_id}/duplicate", response_model=schemas.ProductRead, dependencies=[Depends(get_current_admin)])
@@ -282,12 +271,15 @@ async def admin_import_csv(file: UploadFile = File(...), db: Session = Depends(g
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = content.decode("windows-1255", errors="replace")
+    valid_slugs = {
+        row[0] for row in db.query(models.Vertical.slug).filter(models.Vertical.is_active == True).all()
+    }
     reader = csv.DictReader(io.StringIO(text))
     new_products = []
     errors = []
     for i, row in enumerate(reader):
         vertical = (row.get("vertical") or "").strip()
-        if vertical not in VALID_VERTICALS:
+        if vertical not in valid_slugs:
             errors.append(f"Row {i+2}: invalid vertical '{vertical}'")
             continue
         title_he = (row.get("title_he") or "").strip()

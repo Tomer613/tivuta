@@ -1,17 +1,17 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Phone, Mail, MapPin, ShieldCheck, Gem, Car, Shield } from 'lucide-react';
+import { Phone, Mail, MapPin, ShieldCheck } from 'lucide-react';
+import { getVerticals, Vertical } from '@/lib/api';
+import { getVerticalIcon } from '@/lib/verticalIcons';
 
 const tr: Record<string, Record<string, string>> = {
     he: {
         tagline: 'המעטפת המקצועית המובילה לקהילה החרדית.',
         quick_links: 'ניווט מהיר',
         home: 'דף הבית',
-        diamonds: 'עולם היהלומים',
-        cars: 'עולם הרכב',
-        insurance: 'עולם הביטוחים',
         profile: 'האזור האישי',
         contact_us: 'צור קשר',
         service_center: 'מוקד שירות חברים',
@@ -25,9 +25,6 @@ const tr: Record<string, Record<string, string>> = {
         tagline: 'The leading professional ecosystem for the working Haredi community.',
         quick_links: 'Quick Links',
         home: 'Home',
-        diamonds: 'Diamonds World',
-        cars: 'Cars World',
-        insurance: 'Insurance World',
         profile: 'My Profile',
         contact_us: 'Contact Us',
         service_center: 'Member Service Center',
@@ -41,9 +38,6 @@ const tr: Record<string, Record<string, string>> = {
         tagline: "L'écosystème professionnel leader pour la communauté Harédi.",
         quick_links: 'Navigation rapide',
         home: 'Accueil',
-        diamonds: 'Univers Diamants',
-        cars: 'Univers Automobile',
-        insurance: 'Univers Assurance',
         profile: 'Mon Espace',
         contact_us: 'Nous contacter',
         service_center: 'Centre de service',
@@ -57,9 +51,6 @@ const tr: Record<string, Record<string, string>> = {
         tagline: 'די פראפעסיאנעלע הילף פארן חרדישן ציבור.',
         quick_links: 'שנעלע לינקס',
         home: 'היים',
-        diamonds: 'דימענט וועלט',
-        cars: 'אויטא וועלט',
-        insurance: 'אינשורענס וועלט',
         profile: 'מיין פּרופֿיל',
         contact_us: 'קאנטאקט',
         service_center: 'מיטגליד סערוויס',
@@ -74,8 +65,14 @@ const tr: Record<string, Record<string, string>> = {
 export default function SiteFooter() {
     const params = useParams();
     const locale = (params?.locale as string) || 'he';
+    const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const t = tr[locale] || tr.he;
     const base = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const [verticals, setVerticals] = useState<Vertical[]>([]);
+
+    useEffect(() => {
+        getVerticals().then(setVerticals);
+    }, []);
 
     return (
         <footer className="bg-[#080d1f] text-[#f0e6d3]/70 py-16 px-8 border-t border-[#d4af37]/20">
@@ -105,21 +102,17 @@ export default function SiteFooter() {
                         <li>
                             <Link href={`/${locale}`} className="hover:text-white transition-colors">{t.home}</Link>
                         </li>
-                        <li>
-                            <Link href={`/${locale}/diamonds`} className="flex items-center gap-2 hover:text-white transition-colors">
-                                <Gem size={13} className="text-[#d4af37]" /> {t.diamonds}
-                            </Link>
-                        </li>
-                        <li>
-                            <Link href={`/${locale}/cars`} className="flex items-center gap-2 hover:text-white transition-colors">
-                                <Car size={13} className="text-[#d4af37]" /> {t.cars}
-                            </Link>
-                        </li>
-                        <li>
-                            <Link href={`/${locale}/insurance`} className="flex items-center gap-2 hover:text-white transition-colors">
-                                <Shield size={13} className="text-[#d4af37]" /> {t.insurance}
-                            </Link>
-                        </li>
+                        {verticals.map((v) => {
+                            const Icon = getVerticalIcon(v.icon);
+                            const label = v[`label_${localeKey}`] || v.label_he;
+                            return (
+                                <li key={v.slug}>
+                                    <Link href={`/${locale}/${v.slug}`} className="flex items-center gap-2 hover:text-white transition-colors">
+                                        <Icon size={13} className="text-[#d4af37]" /> {label}
+                                    </Link>
+                                </li>
+                            );
+                        })}
                         <li>
                             <Link href={`/${locale}/profile`} className="hover:text-white transition-colors">{t.profile}</Link>
                         </li>
