@@ -59,7 +59,7 @@ export default function ComparisonBar({ products, locale, onRemove, onClear }: P
                                     </p>
                                     {allAttrKeys.map((k) => {
                                         const val = p.attributes?.[k];
-                                        const label = ATTR_LABELS[k]?.[locale === 'en' ? 'en' : 'he'] || k;
+                                        const label = ATTR_LABELS[k]?.[locale] || ATTR_LABELS[k]?.he || k;
                                         return (
                                             <div key={k} className="flex justify-between text-[10px] border-b border-[#d4af37]/10 py-0.5">
                                                 <span className="text-[#f0e6d3]/40">{label}</span>

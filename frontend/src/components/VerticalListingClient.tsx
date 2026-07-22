@@ -37,6 +37,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     const [search, setSearch] = useState('');
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
+    const [attrFilters, setAttrFilters] = useState<Record<string, string>>({});
     const [favIds, setFavIds] = useState<Set<number>>(new Set());
     const [compareList, setCompareList] = useState<Product[]>([]);
 
@@ -70,6 +71,10 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
             .finally(() => setLoading(false));
     }, [token, vertical, sort, promotionType]);
 
+    useEffect(() => {
+        setAttrFilters({});
+    }, [vertical]);
+
     const toggleCompare = (product: Product) => {
         setCompareList((prev) => {
             if (prev.some((p) => p.id === product.id)) return prev.filter((p) => p.id !== product.id);
@@ -93,10 +98,14 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
         }
         if (priceMin !== '') list = list.filter((p) => (p.price ?? 0) >= Number(priceMin));
         if (priceMax !== '') list = list.filter((p) => p.price != null && p.price <= Number(priceMax));
+        for (const [key, value] of Object.entries(attrFilters)) {
+            if (!value) continue;
+            list = list.filter((p) => p.attributes?.[key] === value);
+        }
         return list;
-    }, [products, search, priceMin, priceMax, locale]);
+    }, [products, search, priceMin, priceMax, attrFilters, locale]);
 
-    const isFiltered = search.trim() || priceMin || priceMax;
+    const isFiltered = search.trim() || priceMin || priceMax || Object.values(attrFilters).some(Boolean);
 
     if (authLoading || !token) {
         return (
@@ -132,6 +141,9 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                     onPriceMinChange={setPriceMin}
                     priceMax={priceMax}
                     onPriceMaxChange={setPriceMax}
+                    attributeFields={verticalMeta?.attribute_fields}
+                    attrFilters={attrFilters}
+                    onAttrFilterChange={(key, value) => setAttrFilters((prev) => ({ ...prev, [key]: value }))}
                 />
 
                 <div className="flex-grow">

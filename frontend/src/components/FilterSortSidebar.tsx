@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Flame, Tag, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Flame, Tag, Search, SlidersHorizontal, ListFilter } from 'lucide-react';
+import { VerticalAttributeField } from '@/lib/api';
 
 interface T {
     sort: string;
@@ -45,6 +46,9 @@ export default function FilterSortSidebar({
     onPriceMinChange,
     priceMax,
     onPriceMaxChange,
+    attributeFields = [],
+    attrFilters = {},
+    onAttrFilterChange,
 }: {
     locale: string;
     sort: SortOption;
@@ -57,9 +61,14 @@ export default function FilterSortSidebar({
     onPriceMinChange: (v: string) => void;
     priceMax: string;
     onPriceMaxChange: (v: string) => void;
+    attributeFields?: VerticalAttributeField[];
+    attrFilters?: Record<string, string>;
+    onAttrFilterChange?: (key: string, value: string) => void;
 }) {
     const t = translations[locale] || translations.he;
     const isHe = locale === 'he' || locale === 'yi';
+    const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
+    const selectFields = attributeFields.filter((f) => f.type === 'select' && (f.options || []).length > 0);
 
     const sortOptions: { id: SortOption; label: string; icon: React.ReactNode }[] = [
         { id: 'popularity', label: t.popularity, icon: <Flame size={16} /> },
@@ -118,6 +127,44 @@ export default function FilterSortSidebar({
                     </button>
                 )}
             </div>
+
+            {/* Dynamic per-vertical attribute filters (e.g. diamond shape) */}
+            {selectFields.map((field) => {
+                const fieldLabel = field[`label_${localeKey}`] || field.label_he;
+                const active = attrFilters[field.key] || '';
+                return (
+                    <div key={field.key}>
+                        <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-4 ps-2 flex items-center gap-2">
+                            <ListFilter size={13} /> {fieldLabel}
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => onAttrFilterChange?.(field.key, '')}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+                                    active === ''
+                                        ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
+                                        : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
+                                }`}
+                            >
+                                {t.all}
+                            </button>
+                            {(field.options || []).map((opt) => (
+                                <button
+                                    key={opt}
+                                    onClick={() => onAttrFilterChange?.(field.key, opt === active ? '' : opt)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+                                        active === opt
+                                            ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
+                                            : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
+                                    }`}
+                                >
+                                    {opt}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
 
             {/* Sort */}
             <div>

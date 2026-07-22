@@ -17,4 +17,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping backend root endpoint
-        run: curl -s -o /dev/null -w "status: %{http_code}, time: %{time_total}s\n" https://tivuta.onrender.com/
+        run: |
+          curl -s -o /dev/null -w "status: %{http_code}, time: %{time_total}s\n" https://tivuta.onrender.com/

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -41,6 +41,7 @@ const T = {
         add_to_cart: 'הוסף לסל', added_to_cart: 'נוסף לסל ✓',
         reviews: 'ביקורות', rate_product: 'דרגו את המוצר', comment_placeholder: 'הערה (אופציונלי)',
         submit_review: 'שלח דירוג', review_thanks: 'תודה על הדירוג!', add_fav: 'הוסף למועדפים', remove_fav: 'הסר מהמועדפים', share: 'שתף בווצאפ',
+        specs: 'מפרט',
     },
     en: {
         schedule: 'Schedule Viewing', contact: 'Contact Me', price: 'Price', on_request: 'On request',
@@ -52,6 +53,7 @@ const T = {
         add_to_cart: 'Add to Cart', added_to_cart: 'Added ✓',
         reviews: 'Reviews', rate_product: 'Rate this product', comment_placeholder: 'Comment (optional)',
         submit_review: 'Submit', review_thanks: 'Thanks for rating!', add_fav: 'Add to favorites', remove_fav: 'Remove from favorites', share: 'Share on WhatsApp',
+        specs: 'Specifications',
     },
     fr: {
         schedule: 'Planifier', contact: 'Contacter', price: 'Prix', on_request: 'Sur demande',
@@ -63,6 +65,7 @@ const T = {
         add_to_cart: 'Ajouter au panier', added_to_cart: 'Ajouté ✓',
         reviews: 'Avis', rate_product: 'Évaluez ce produit', comment_placeholder: 'Commentaire (optionnel)',
         submit_review: 'Envoyer', review_thanks: 'Merci pour votre avis!', add_fav: 'Ajouter aux favoris', remove_fav: 'Retirer des favoris', share: 'Partager sur WhatsApp',
+        specs: 'Caractéristiques',
     },
     yi: {
         schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן', price: 'פרייז', on_request: 'אויף פארלאנג',
@@ -74,6 +77,7 @@ const T = {
         add_to_cart: 'צולייגן אין קארב', added_to_cart: 'צוגעלייגט ✓',
         reviews: 'ביקורות', rate_product: 'דרגירט דעם פראדוקט', comment_placeholder: 'הערה (אויף ווילן)',
         submit_review: 'שיקט דירוג', review_thanks: 'א דאנק פארן דירוג!', add_fav: 'צולייגן צו פאוואריטן', remove_fav: 'אראפנעמען פון פאוואריטן', share: 'טיילן אויף וואטסאפ',
+        specs: 'מפרט',
     },
 };
 
@@ -257,6 +261,22 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const [reviewDone, setReviewDone] = useState(false);
     const { addToCart } = useCart();
     const ATTR_LABELS = useAttrLabels();
+    const productVertical = verticals.find((v) => v.slug === product?.vertical);
+
+    const orderedAttrs = useMemo(() => {
+        if (!product?.attributes) return [];
+        const fieldOrder = (productVertical?.attribute_fields || []).map((f) => f.key);
+        const entries = Object.entries(product.attributes).filter(([, v]) => v != null && v !== '');
+        entries.sort((a, b) => {
+            const ai = fieldOrder.indexOf(a[0]);
+            const bi = fieldOrder.indexOf(b[0]);
+            if (ai === -1 && bi === -1) return 0;
+            if (ai === -1) return 1;
+            if (bi === -1) return -1;
+            return ai - bi;
+        });
+        return entries;
+    }, [product, productVertical]);
 
     useEffect(() => {
         if (!token) return;
@@ -444,18 +464,25 @@ export default function ProductDetailClient({ productId }: { productId: number }
                         )}
                         <p className="text-[#f0e6d3]/60 leading-relaxed">{description}</p>
 
-                        {product.attributes && Object.keys(product.attributes).length > 0 && (
-                            <div className="grid grid-cols-2 gap-2">
-                                {Object.entries(product.attributes).map(([k, v]) => {
-                                    if (v == null || v === '') return null;
-                                    const label = ATTR_LABELS[k]?.[locale === 'en' ? 'en' : 'he'] || k;
-                                    return (
-                                        <div key={k} className="bg-[#111a2f] rounded-xl px-3 py-2">
-                                            <p className="text-[10px] text-[#f0e6d3]/40 font-bold uppercase tracking-wider mb-0.5">{label}</p>
-                                            <p className="text-sm font-semibold text-[#f0e6d3]">{String(v)}</p>
-                                        </div>
-                                    );
-                                })}
+                        {orderedAttrs.length > 0 && (
+                            <div>
+                                <h3 className="text-xs font-black text-[#d4af37]/70 uppercase tracking-widest mb-3 ps-1">{t.specs}</h3>
+                                <div className="bg-[#111a2f] rounded-2xl border border-[#d4af37]/10 divide-y divide-[#d4af37]/10 overflow-hidden">
+                                    {orderedAttrs.map(([k, v]) => {
+                                        const field = productVertical?.attribute_fields?.find((f) => f.key === k);
+                                        const label = ATTR_LABELS[k]?.[locale] || ATTR_LABELS[k]?.he || k;
+                                        return (
+                                            <div key={k} className="flex items-center justify-between gap-4 px-4 py-3">
+                                                <span className="text-sm text-[#f0e6d3]/50 font-medium">{label}</span>
+                                                {field?.type === 'select' ? (
+                                                    <span className="text-xs font-bold text-[#d4af37] bg-[#d4af37]/10 px-3 py-1 rounded-full">{String(v)}</span>
+                                                ) : (
+                                                    <span className="text-sm font-bold text-[#f0e6d3]">{String(v)}</span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
                             </div>
                         )}
 

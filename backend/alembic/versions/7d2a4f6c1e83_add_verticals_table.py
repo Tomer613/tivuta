@@ -33,7 +33,7 @@ _SEED_VERTICALS = [
             {"key": "clarity", "label_he": "ניקיון", "label_en": "Clarity", "type": "select",
              "options": ["IF", "VVS1", "VVS2", "VS1", "VS2", "SI1", "SI2", "I1"]},
             {"key": "shape", "label_he": "צורה", "label_en": "Shape", "type": "select",
-             "options": ["עגול", "נסיכה", "אמרלד", "אובל", "ביתניה", "קושן", "מרקיז"]},
+             "options": ["עגול", "נסיכה", "אמרלד", "אובל", "טיפה", "קושן", "מרקיז"]},
         ],
     },
     {
