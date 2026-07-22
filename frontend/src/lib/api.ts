@@ -616,11 +616,11 @@ export async function getSurvey(token: MaybeToken, id: number) {
     return res.json();
 }
 
-export async function voteSurvey(token: string, surveyId: number, surveyOptionId: number) {
+export async function voteSurvey(token: string, surveyId: number, surveyOptionIds: number[]) {
     const res = await fetch(`${BASE_URL}/surveys/${surveyId}/vote`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ survey_option_id: surveyOptionId }),
+        body: JSON.stringify({ survey_option_ids: surveyOptionIds }),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -726,10 +726,11 @@ export async function adminListSurveys(token: string) {
     return res.json();
 }
 
-export async function adminSetSurveyActive(token: string, surveyId: number, isActive: boolean) {
-    const res = await fetch(`${BASE_URL}/admin/surveys/${surveyId}?is_active=${isActive}`, {
+export async function adminUpdateSurvey(token: string, surveyId: number, payload: { is_active?: boolean; max_choices?: number }) {
+    const res = await fetch(`${BASE_URL}/admin/surveys/${surveyId}`, {
         method: 'PATCH',
-        headers: authHeaders(token),
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Failed to update survey');
     return res.json();

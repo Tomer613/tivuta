@@ -325,6 +325,7 @@ class Survey(Base):
     question_fr = Column(String(500), nullable=True)
     question_yi = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
+    max_choices = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     options = relationship("SurveyOption", back_populates="survey", cascade="all, delete-orphan")
@@ -345,7 +346,7 @@ class SurveyOption(Base):
 
 class SurveyVote(Base):
     __tablename__ = "survey_votes"
-    __table_args__ = (UniqueConstraint("survey_id", "user_id", name="uq_one_vote_per_survey"),)
+    __table_args__ = (UniqueConstraint("survey_id", "user_id", "survey_option_id", name="uq_one_vote_per_survey_option"),)
 
     id = Column(Integer, primary_key=True, index=True)
     survey_id = Column(Integer, ForeignKey("surveys.id"), nullable=False)

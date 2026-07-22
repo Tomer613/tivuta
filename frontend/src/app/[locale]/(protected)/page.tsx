@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { BarChart3, CheckCircle2, Loader2 } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 import VerticalTile from '@/components/VerticalTile';
 import { useAuth } from '@/context/AuthContext';
-import { getSurveys, voteSurvey, getVerticals, Vertical } from '@/lib/api';
+import { getSurveys, getVerticals, Vertical } from '@/lib/api';
 import { getVerticalIcon } from '@/lib/verticalIcons';
+import SurveyCard, { Survey } from '@/components/SurveyCard';
 
 interface HomeTranslation {
     greeting_male: string;
@@ -17,16 +18,13 @@ interface HomeTranslation {
 
 interface SurveyTranslation {
     survey_title: string;
-    vote: string;
-    voted: string;
-    votes: string;
 }
 
 const surveyTranslations: Record<string, SurveyTranslation> = {
-    he: { survey_title: 'סקר החודש', vote: 'הצבע', voted: 'הצבעת!', votes: 'קולות' },
-    en: { survey_title: 'Poll of the Month', vote: 'Vote', voted: 'Voted!', votes: 'votes' },
-    fr: { survey_title: 'Sondage du mois', vote: 'Voter', voted: 'Voté!', votes: 'votes' },
-    yi: { survey_title: 'סורוועי פון חודש', vote: 'שטים', voted: 'גישטימט!', votes: 'קולות' },
+    he: { survey_title: 'סקר החודש' },
+    en: { survey_title: 'Poll of the Month' },
+    fr: { survey_title: 'Sondage du mois' },
+    yi: { survey_title: 'סורוועי פון חודש' },
 };
 
 const translations: Record<string, HomeTranslation> = {
@@ -58,40 +56,21 @@ const translations: Record<string, HomeTranslation> = {
 
 function SurveyWidget({ locale, token }: { locale: string; token: string }) {
     const st = surveyTranslations[locale] || surveyTranslations.he;
-    const [survey, setSurvey] = useState<any | null>(null);
-    const [voted, setVoted] = useState(false);
+    const [survey, setSurvey] = useState<Survey | null>(null);
     const [loading, setLoading] = useState(true);
-    const [voting, setVoting] = useState(false);
 
     useEffect(() => {
         getSurveys(token)
-            .then((surveys: any[]) => {
-                const active = surveys.find((s: any) => s.is_active);
+            .then((surveys: Survey[]) => {
+                const active = surveys.find((s) => s.is_active);
                 setSurvey(active || null);
             })
             .catch(() => setSurvey(null))
             .finally(() => setLoading(false));
     }, [token]);
 
-    const handleVote = async (optionId: number) => {
-        if (!survey || voting) return;
-        setVoting(true);
-        try {
-            await voteSurvey(token, survey.id, optionId);
-            setVoted(true);
-            const updated = await getSurveys(token);
-            const fresh = updated.find((s: any) => s.id === survey.id);
-            if (fresh) setSurvey(fresh);
-        } catch {
-            setVoted(true);
-        } finally {
-            setVoting(false);
-        }
-    };
-
     if (loading || !survey) return null;
 
-    const totalVotes = survey.options?.reduce((sum: number, o: any) => sum + (o.vote_count ?? 0), 0) || 0;
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const question = survey[`question_${localeKey}`] || survey.question_he || '';
 
@@ -107,45 +86,7 @@ function SurveyWidget({ locale, token }: { locale: string; token: string }) {
                 </div>
             </div>
 
-            <div className="space-y-3">
-                {survey.options?.map((option: any) => {
-                    const optTitle = option[`product_title_${localeKey}`] || option.product_title_he || `אפשרות ${option.id}`;
-                    const votes = option.vote_count ?? 0;
-                    const pct = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
-
-                    return voted ? (
-                        <div key={option.id} className="space-y-1.5">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-[#f0e6d3]/80 font-semibold">{optTitle}</span>
-                                <span className="text-[#d4af37] font-bold">{pct}%</span>
-                            </div>
-                            <div className="h-2 bg-[#111a2f] rounded-full overflow-hidden">
-                                <div
-                                    className="h-full bg-gradient-to-l from-[#d4af37] to-[#b8860b] rounded-full transition-all duration-700"
-                                    style={{ width: `${pct}%` }}
-                                />
-                            </div>
-                            <p className="text-xs text-[#f0e6d3]/30">{votes} {st.votes}</p>
-                        </div>
-                    ) : (
-                        <button
-                            key={option.id}
-                            onClick={() => handleVote(option.id)}
-                            disabled={voting}
-                            className="w-full text-start px-5 py-3 rounded-xl border border-[#d4af37]/20 text-[#f0e6d3]/80 font-semibold text-sm hover:border-[#d4af37]/50 hover:bg-[#111a2f] hover:text-[#f0e6d3] transition-all disabled:opacity-50"
-                        >
-                            {voting ? <Loader2 size={14} className="animate-spin inline mr-2" /> : null}
-                            {optTitle}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {voted && (
-                <div className="flex items-center gap-2 mt-4 text-green-400 text-sm font-bold">
-                    <CheckCircle2 size={15} /> {st.voted} ({totalVotes} {st.votes})
-                </div>
-            )}
+            <SurveyCard survey={survey} token={token} locale={locale} onVoted={setSurvey} />
         </div>
     );
 }

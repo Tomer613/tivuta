@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LogIn, Loader2, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
@@ -18,6 +18,7 @@ interface LoginTranslation {
     no_account: string;
     secure: string;
     error_invalid: string;
+    slow_connect: string;
 }
 
 const translations: Record<string, LoginTranslation> = {
@@ -31,6 +32,7 @@ const translations: Record<string, LoginTranslation> = {
         no_account: 'עדיין אין לך חשבון? הצטרף עכשיו',
         secure: 'התחברות מאובטחת',
         error_invalid: 'אימייל או סיסמה שגויים',
+        slow_connect: 'מתחברים לשרת... בכניסה הראשונה לאחר זמן מה זה יכול לקחת עד דקה',
     },
     en: {
         title: 'Welcome to TIVUTA',
@@ -42,6 +44,7 @@ const translations: Record<string, LoginTranslation> = {
         no_account: "Don't have an account? Join now",
         secure: 'Secure Login',
         error_invalid: 'Invalid email or password',
+        slow_connect: 'Connecting... this can take up to a minute on the first visit in a while',
     },
     fr: {
         title: 'Bienvenue chez TIVUTA',
@@ -53,6 +56,7 @@ const translations: Record<string, LoginTranslation> = {
         no_account: "Pas de compte ? S'inscrire",
         secure: 'Connexion sécurisée',
         error_invalid: 'Identifiants invalides',
+        slow_connect: 'Connexion en cours... cela peut prendre jusqu’à une minute lors de la première visite',
     },
     yi: {
         title: 'ברוכים הבאים TIVUTA',
@@ -64,6 +68,7 @@ const translations: Record<string, LoginTranslation> = {
         no_account: 'נישטא קיין קאנטע? שליסן זיך אן יעצט',
         secure: 'זיכערהייט',
         error_invalid: 'טעות אין אימייל אדער סיסמה',
+        slow_connect: 'מיר שאפונירן... דאס קען נעמען ביז א מינוט',
     },
 };
 
@@ -73,12 +78,22 @@ export default function LoginPage() {
     const locale = (params?.locale as string) || 'he';
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const [showSlowMessage, setShowSlowMessage] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
     const t = translations[locale] || translations.he;
+
+    useEffect(() => {
+        if (!isLoading) {
+            setShowSlowMessage(false);
+            return;
+        }
+        const timer = setTimeout(() => setShowSlowMessage(true), 4000);
+        return () => clearTimeout(timer);
+    }, [isLoading]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -190,6 +205,9 @@ export default function LoginPage() {
                             </>
                         )}
                     </button>
+                    {showSlowMessage && (
+                        <p className="text-center text-[#f0e6d3]/50 text-xs -mt-2">{t.slow_connect}</p>
+                    )}
                 </form>
 
                 <div className="mt-12 pt-8 border-t border-[#d4af37]/20 text-center">

@@ -1,15 +1,15 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..security import get_current_admin, get_current_user, get_db
+from ..security import get_current_admin, get_current_user, get_current_user_optional, get_db
 
 router = APIRouter(tags=["surveys"])
 
 
-def _serialize_survey(survey: models.Survey, db: Session = None) -> schemas.SurveyRead:
+def _serialize_survey(survey: models.Survey, db: Session = None, current_user: Optional[models.User] = None) -> schemas.SurveyRead:
     product_titles: dict = {}
     if db is not None:
         ids = [opt.product_id for opt in survey.options if opt.product_id]
@@ -27,6 +27,17 @@ def _serialize_survey(survey: models.Survey, db: Session = None) -> schemas.Surv
         )
         for opt in survey.options
     ]
+
+    has_voted = False
+    my_option_ids: List[int] = []
+    if db is not None and current_user is not None:
+        my_votes = db.query(models.SurveyVote).filter(
+            models.SurveyVote.survey_id == survey.id,
+            models.SurveyVote.user_id == current_user.id,
+        ).all()
+        has_voted = len(my_votes) > 0
+        my_option_ids = [v.survey_option_id for v in my_votes]
+
     return schemas.SurveyRead(
         id=survey.id,
         question_he=survey.question_he,
@@ -34,22 +45,25 @@ def _serialize_survey(survey: models.Survey, db: Session = None) -> schemas.Surv
         question_fr=survey.question_fr,
         question_yi=survey.question_yi,
         is_active=survey.is_active,
+        max_choices=survey.max_choices,
+        has_voted=has_voted,
+        my_option_ids=my_option_ids,
         options=options,
     )
 
 
 @router.get("/surveys", response_model=List[schemas.SurveyRead])
-def list_surveys(db: Session = Depends(get_db)):
+def list_surveys(db: Session = Depends(get_db), current_user: Optional[models.User] = Depends(get_current_user_optional)):
     surveys = db.query(models.Survey).filter(models.Survey.is_active == True).all()
-    return [_serialize_survey(s, db) for s in surveys]
+    return [_serialize_survey(s, db, current_user) for s in surveys]
 
 
 @router.get("/surveys/{survey_id}", response_model=schemas.SurveyRead)
-def get_survey(survey_id: int, db: Session = Depends(get_db)):
+def get_survey(survey_id: int, db: Session = Depends(get_db), current_user: Optional[models.User] = Depends(get_current_user_optional)):
     survey = db.query(models.Survey).filter(models.Survey.id == survey_id).first()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
-    return _serialize_survey(survey, db)
+    return _serialize_survey(survey, db, current_user)
 
 
 @router.get("/admin/surveys", response_model=List[schemas.SurveyRead], dependencies=[Depends(get_current_admin)])
@@ -58,14 +72,25 @@ def admin_list_surveys(db: Session = Depends(get_db)):
     return [_serialize_survey(s, db) for s in surveys]
 
 
-@router.post("/surveys/{survey_id}/vote")
+@router.post("/surveys/{survey_id}/vote", response_model=schemas.SurveyRead)
 def vote_survey(survey_id: int, payload: schemas.SurveyVoteCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    option = db.query(models.SurveyOption).filter(
-        models.SurveyOption.id == payload.survey_option_id,
+    survey = db.query(models.Survey).filter(models.Survey.id == survey_id).first()
+    if not survey:
+        raise HTTPException(status_code=404, detail="Survey not found")
+
+    option_ids = payload.survey_option_ids
+    if not option_ids:
+        raise HTTPException(status_code=400, detail="Select at least one option")
+
+    matching_options = db.query(models.SurveyOption).filter(
+        models.SurveyOption.id.in_(option_ids),
         models.SurveyOption.survey_id == survey_id,
-    ).first()
-    if not option:
+    ).all()
+    if len(matching_options) != len(set(option_ids)):
         raise HTTPException(status_code=404, detail="Survey option not found")
+
+    if len(option_ids) > survey.max_choices:
+        raise HTTPException(status_code=400, detail=f"You can select up to {survey.max_choices} options")
 
     existing = db.query(models.SurveyVote).filter(
         models.SurveyVote.survey_id == survey_id,
@@ -74,18 +99,24 @@ def vote_survey(survey_id: int, payload: schemas.SurveyVoteCreate, db: Session =
     if existing:
         raise HTTPException(status_code=400, detail="You have already voted in this survey")
 
-    db.add(models.SurveyVote(survey_id=survey_id, survey_option_id=option.id, user_id=current_user.id))
+    for option in matching_options:
+        db.add(models.SurveyVote(survey_id=survey_id, survey_option_id=option.id, user_id=current_user.id))
     db.commit()
-    return {"message": "Vote recorded"}
+    db.refresh(survey)
+    return _serialize_survey(survey, db, current_user)
 
 
 @router.post("/admin/surveys", response_model=schemas.SurveyRead, dependencies=[Depends(get_current_admin)])
 def admin_create_survey(payload: schemas.SurveyCreate, db: Session = Depends(get_db)):
+    if payload.max_choices < 1:
+        raise HTTPException(status_code=400, detail="max_choices must be at least 1")
+
     survey = models.Survey(
         question_he=payload.question_he,
         question_en=payload.question_en,
         question_fr=payload.question_fr,
         question_yi=payload.question_yi,
+        max_choices=payload.max_choices,
     )
     db.add(survey)
     db.flush()
@@ -99,11 +130,18 @@ def admin_create_survey(payload: schemas.SurveyCreate, db: Session = Depends(get
 
 
 @router.patch("/admin/surveys/{survey_id}", response_model=schemas.SurveyRead, dependencies=[Depends(get_current_admin)])
-def admin_set_survey_active(survey_id: int, is_active: bool, db: Session = Depends(get_db)):
+def admin_update_survey(survey_id: int, payload: schemas.SurveyUpdate, db: Session = Depends(get_db)):
     survey = db.query(models.Survey).filter(models.Survey.id == survey_id).first()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
-    survey.is_active = is_active
+
+    updates = payload.model_dump(exclude_unset=True)
+    if "max_choices" in updates and updates["max_choices"] is not None and updates["max_choices"] < 1:
+        raise HTTPException(status_code=400, detail="max_choices must be at least 1")
+
+    for field, value in updates.items():
+        setattr(survey, field, value)
+
     db.commit()
     db.refresh(survey)
     return _serialize_survey(survey, db)

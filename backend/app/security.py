@@ -18,6 +18,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 vendor_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="vendor-auth/login")
+optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login", auto_error=False)
 
 
 def get_db():
@@ -66,6 +67,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user is None:
         raise credentials_exception
     return user
+
+
+async def get_current_user_optional(token: Optional[str] = Depends(optional_oauth2_scheme), db: Session = Depends(get_db)) -> Optional[models.User]:
+    """Like get_current_user, but returns None instead of 401ing when no/invalid token is
+    given — used by endpoints that must stay publicly readable (e.g. build-time static
+    export fetches) but personalize their response when a user happens to be logged in."""
+    if not token:
+        return None
+    try:
+        return await get_current_user(token=token, db=db)
+    except HTTPException:
+        return None
 
 
 async def get_current_admin(current_user: models.User = Depends(get_current_user)):

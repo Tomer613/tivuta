@@ -2,8 +2,49 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateSurvey, adminListSurveys, adminSetSurveyActive, adminDeleteSurvey } from '@/lib/api';
-import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { adminListProducts, adminCreateSurvey, adminListSurveys, adminUpdateSurvey, adminDeleteSurvey } from '@/lib/api';
+import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle, Pencil, Check } from 'lucide-react';
+
+function MaxChoicesEditor({ value, onSave }: { value: number; onSave: (n: number) => Promise<void> }) {
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(value);
+    const [saving, setSaving] = useState(false);
+
+    if (!editing) {
+        return (
+            <button
+                onClick={() => { setDraft(value); setEditing(true); }}
+                className="flex items-center gap-1.5 text-xs text-[#f0e6d3]/50 hover:text-[#f0e6d3] transition-colors"
+                title="ערוך מספר אפשרויות לבחירה"
+            >
+                <Pencil size={12} /> מקסימום בחירות: <span className="font-bold text-[#d4af37]">{value}</span>
+            </button>
+        );
+    }
+
+    return (
+        <div className="flex items-center gap-2 text-xs">
+            <span className="text-[#f0e6d3]/50">מקסימום בחירות:</span>
+            <input
+                type="number"
+                min={1}
+                value={draft}
+                onChange={(e) => setDraft(Math.max(1, Number(e.target.value) || 1))}
+                className="w-16 bg-[#111a2f] rounded-lg px-2 py-1 text-[#f0e6d3]"
+            />
+            <button
+                disabled={saving}
+                onClick={async () => { setSaving(true); await onSave(draft); setSaving(false); setEditing(false); }}
+                className="text-green-400 hover:text-green-300"
+            >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            </button>
+            <button onClick={() => setEditing(false)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">
+                <X size={14} />
+            </button>
+        </div>
+    );
+}
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -25,6 +66,7 @@ export default function AdminSurveysPage() {
     const [showForm, setShowForm] = useState(false);
     const [question, setQuestion] = useState('');
     const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+    const [maxChoices, setMaxChoices] = useState(1);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -46,10 +88,12 @@ export default function AdminSurveysPage() {
         try {
             await adminCreateSurvey(token, {
                 question_he: question,
+                max_choices: Math.min(maxChoices, selectedProductIds.length),
                 options: selectedProductIds.map((id) => ({ product_id: id })),
             });
             setQuestion('');
             setSelectedProductIds([]);
+            setMaxChoices(1);
             setShowForm(false);
             showToast('הסקר נוצר בהצלחה ✓');
             load();
@@ -91,13 +135,13 @@ export default function AdminSurveysPage() {
                         const total = s.options.reduce((sum: number, o: any) => sum + o.vote_count, 0) || 1;
                         return (
                             <div key={s.id} className={`bg-[#0e1628] border rounded-3xl p-6 ${s.is_active ? 'border-[#d4af37]/20' : 'border-red-500/20 opacity-60'}`}>
-                                <div className="flex items-start justify-between mb-5 gap-4">
+                                <div className="flex items-start justify-between mb-3 gap-4">
                                     <h2 className="text-xl font-bold text-[#f0e6d3]">{s.question_he}</h2>
                                     <div className="flex items-center gap-3 flex-shrink-0">
                                         <button
                                             onClick={async () => {
                                                 if (!token) return;
-                                                await adminSetSurveyActive(token, s.id, !s.is_active);
+                                                await adminUpdateSurvey(token, s.id, { is_active: !s.is_active });
                                                 load();
                                             }}
                                             className={`flex items-center gap-1.5 text-sm font-bold ${s.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
@@ -117,6 +161,16 @@ export default function AdminSurveysPage() {
                                             </button>
                                         )}
                                     </div>
+                                </div>
+                                <div className="mb-5">
+                                    <MaxChoicesEditor
+                                        value={s.max_choices ?? 1}
+                                        onSave={async (n) => {
+                                            if (!token) return;
+                                            await adminUpdateSurvey(token, s.id, { max_choices: Math.min(n, s.options.length) });
+                                            load();
+                                        }}
+                                    />
                                 </div>
                                 <div className="flex flex-col gap-3">
                                     {s.options.map((opt: any) => {
@@ -147,6 +201,17 @@ export default function AdminSurveysPage() {
                             <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
                         <input required placeholder="שאלת הסקר" value={question} onChange={(e) => setQuestion(e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                        <label className="flex items-center gap-3 text-sm text-[#f0e6d3]/80">
+                            מספר אפשרויות לבחירה:
+                            <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, selectedProductIds.length)}
+                                value={maxChoices}
+                                onChange={(e) => setMaxChoices(Math.max(1, Number(e.target.value) || 1))}
+                                className="w-20 bg-[#111a2f] rounded-xl px-3 py-2 text-[#f0e6d3]"
+                            />
+                        </label>
                         <p className="text-xs text-[#f0e6d3]/60">בחר/י לפחות 2 מוצרים כאופציות:</p>
                         <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
                             {products.length === 0 ? (

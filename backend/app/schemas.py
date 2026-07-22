@@ -587,7 +587,12 @@ class SurveyCreate(BaseModel):
     question_en: Optional[str] = None
     question_fr: Optional[str] = None
     question_yi: Optional[str] = None
+    max_choices: int = 1
     options: List[SurveyOptionCreate]
+
+class SurveyUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    max_choices: Optional[int] = None
 
 
 # Loyalty program: system settings, sale transactions
@@ -718,13 +723,16 @@ class SurveyRead(BaseModel):
     question_fr: Optional[str] = None
     question_yi: Optional[str] = None
     is_active: bool
+    max_choices: int = 1
+    has_voted: bool = False
+    my_option_ids: List[int] = []
     options: List[SurveyOptionRead] = []
 
     class Config:
         from_attributes = True
 
 class SurveyVoteCreate(BaseModel):
-    survey_option_id: int
+    survey_option_ids: List[int]
 
 # Distribution Schemas
 class DistributionCreate(BaseModel):
