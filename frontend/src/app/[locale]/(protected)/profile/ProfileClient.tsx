@@ -932,7 +932,7 @@ export default function ProfileClient() {
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {recentlyViewed.slice(0, 8).map((p: any) => {
                                 const imgSrc = productImageUrl(p.image_url);
-                                const href = `/${locale}/${p.vertical}`;
+                                const href = `/${locale}/products?id=${p.id}`;
                                 return (
                                     <a key={p.id} href={href} className="group bg-[#111a2f] rounded-xl overflow-hidden hover:ring-1 hover:ring-[#d4af37]/40 transition-all">
                                         {/* eslint-disable-next-line @next/next/no-img-element */}

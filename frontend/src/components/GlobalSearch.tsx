@@ -76,7 +76,7 @@ export default function GlobalSearch({ locale }: Props) {
                                     return (
                                         <Link
                                             key={product.id}
-                                            href={`/${locale}/${product.vertical}?product=${product.id}`}
+                                            href={`/${locale}/products?id=${product.id}`}
                                             onClick={close}
                                             className="flex items-center gap-3 px-4 py-3 hover:bg-[#111a2f] transition-colors border-b border-[#d4af37]/5 last:border-0"
                                         >

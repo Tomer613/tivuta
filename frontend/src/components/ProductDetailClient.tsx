@@ -406,7 +406,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
         <main className="min-h-screen bg-[#111a2f] py-12 px-6">
             <div className="max-w-4xl mx-auto">
                 <button
-                    onClick={() => product ? router.push(`/${locale}/${product.vertical}`) : router.back()}
+                    onClick={() => product ? router.push(`/${locale}/world?slug=${product.vertical}`) : router.back()}
                     className="flex items-center gap-1.5 text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors text-sm font-semibold mb-8"
                 >
                     <ArrowRight size={16} />

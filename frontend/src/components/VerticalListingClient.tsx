@@ -55,7 +55,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     }, [searchParams, locale, router]);
 
     useEffect(() => {
-        if (!token) return;
+        if (!token || !vertical) { setLoading(false); return; }
         setLoading(true);
         Promise.all([
             getProducts(token, vertical, sort, promotionType),
@@ -111,6 +111,18 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
         return (
             <div className="min-h-[60vh] flex items-center justify-center">
                 <Loader2 className="animate-spin text-[#d4af37]" size={36} />
+            </div>
+        );
+    }
+
+    // No slug at all (e.g. /world with no ?slug=) or a slug that doesn't match any world —
+    // once loading has actually finished, never fall through to the products grid, which would
+    // otherwise have queried GET /products with a blank vertical filter and shown every product
+    // across every world unfiltered.
+    if (!loading && (!vertical || !verticalMeta)) {
+        return (
+            <div className="min-h-[60vh] flex items-center justify-center">
+                <p className="text-[#f0e6d3]/40">{t.empty}</p>
             </div>
         );
     }

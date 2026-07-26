@@ -107,7 +107,7 @@ export default function SiteFooter() {
                             const label = v[`label_${localeKey}`] || v.label_he;
                             return (
                                 <li key={v.slug}>
-                                    <Link href={`/${locale}/${v.slug}`} className="flex items-center gap-2 hover:text-white transition-colors">
+                                    <Link href={`/${locale}/world?slug=${v.slug}`} className="flex items-center gap-2 hover:text-white transition-colors">
                                         <Icon size={13} className="text-[#d4af37]" /> {label}
                                     </Link>
                                 </li>

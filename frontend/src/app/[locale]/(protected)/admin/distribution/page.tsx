@@ -147,11 +147,8 @@ export default function AdminDistributionPage() {
             const product = products.find((p) => p.id === d.product_id);
             const price = product?.price ? `₪${Math.round(product.price).toLocaleString('he-IL')}` : 'לפי בקשה';
             const title = product?.title_he || d.product_title || d.title_he;
-            if (product?.vertical) {
-                const url = `https://tivuta.co.il/he/${product.vertical}?product=${d.product_id}`;
-                return `${intro}${title} — ${price}\n\nלפרטים:\n${url}`.trim();
-            }
-            return `${intro}${title} — ${price}`.trim();
+            const url = `https://tivuta.co.il/he/products?id=${d.product_id}`;
+            return `${intro}${title} — ${price}\n\nלפרטים:\n${url}`.trim();
         }
         return `${intro}${d.title_he}`.trim();
     };

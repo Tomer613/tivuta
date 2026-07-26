@@ -484,7 +484,7 @@ export default function AdminLeadsPage() {
                                             {lead.product_title_he ? (
                                                 <div>
                                                     <a
-                                                        href={lead.product_vertical ? `/${locale}/${lead.product_vertical}` : `/${locale}`}
+                                                        href={lead.product_id ? `/${locale}/products?id=${lead.product_id}` : `/${locale}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="text-sm font-semibold hover:text-[#d4af37] transition-colors flex items-center gap-1 group/link"

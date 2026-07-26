@@ -127,7 +127,7 @@ export default function HomePage() {
                         return (
                             <VerticalTile
                                 key={v.slug}
-                                href={`/${locale}/${v.slug}`}
+                                href={`/${locale}/world?slug=${v.slug}`}
                                 title={title}
                                 subtitle={subtitle}
                                 icon={<Icon size={40} />}
