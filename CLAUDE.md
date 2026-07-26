@@ -398,7 +398,7 @@ truth, and every one of those places reads from it instead.
   `GITHUB_DEPLOY_PAT` (fine-grained PAT scoped to this repo, "Actions: read and write"),
   `GITHUB_DEPLOY_WORKFLOW` (optional, defaults to `deploy.yml`).
 
-### Instant-loading worlds (session 2026-07-26) — superseded the "wait for rebuild" constraint above
+### Instant-loading worlds (session 2026-07-26) — superseded the "wait for rebuild" constraint above, then simplified to a single route per resource
 The original `(protected)/[vertical]/page.tsx` dynamic route required every slug to be known at
 build time via `generateStaticParams` — a brand-new world had no HTML file to serve until the
 auto-triggered rebuild above actually finished (a few minutes, and only if `GITHUB_DEPLOY_PAT`/
@@ -411,10 +411,12 @@ reading `?id=`, so a brand-new product needs no rebuild either) to worlds:
   `VerticalListingClient` already does all of its data-fetching client-side at runtime (it was
   never actually build-time-bound — only the route's *existence* was), a slug created seconds ago
   renders correctly with zero rebuild wait.
-- **The old `[vertical]/page.tsx` dynamic route was kept, not deleted** — same status as
-  `products/[id]/page.tsx` — so already-shared/bookmarked links to `/he/diamonds` etc. keep
-  working (and still benefit from the auto-rebuild above to eventually include new worlds too).
-  Every link the app itself generates now points at `/world?slug=X` instead.
+- **The old `[vertical]/page.tsx` and `products/[id]/page.tsx` dynamic routes were deleted
+  outright**, not kept for backward compatibility — this is a pre-launch site with no real
+  audience holding bookmarked/shared links yet, so there was nothing to preserve. `/world?slug=X`
+  and `/products?id=X` are the only routes for a world/product, full stop. If external links ever
+  need preserving after a real launch, that's a "add a redirect" problem to revisit then, not a
+  reason to carry two parallel URL schemes now.
 - **`VerticalListingClient.tsx`** gained a guard: if `vertical` is empty or doesn't match any
   fetched world (once loading has actually finished — not before, since `verticalMeta` is
   legitimately still `null` while a real fetch is in flight), it shows the empty-state message
@@ -608,7 +610,7 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 - **Review upsert**: `POST /reviews/{product_id}` checks `(user_id, product_id)` unique constraint — updates existing if present, creates otherwise. Single endpoint for add/edit.
 - **Audit history as JSON array**: Lead `history` field is an append-only JSON array on the model; no separate table needed. Trade-off: cannot query history fields with SQL, but history is only ever displayed per-lead, never queried across leads.
 - **Distribution scheduling is storage-only**: `scheduled_at` is stored on the `Distribution` row. Actual auto-send at the scheduled time requires an external cron job / background worker (not yet built). Admin still sends manually; the field is UI infrastructure for when scheduling is wired up.
-- **Query-param routes for anything that can't be known at build time**: `output: 'export'` requires `generateStaticParams` to enumerate every value of a dynamic route segment at build time — infeasible for a live database whose rows (products, worlds) can change between deploys. The fix used twice now: a single fixed static page reads an identifier from a query string (`?id=` for `/products`, `?slug=` for `/world`) via `useSearchParams()` and fetches/renders entirely client-side at runtime, so a brand-new row needs zero rebuild. The original per-item dynamic routes (`/products/[id]`, `/[vertical]`) are kept alongside these, not replaced, purely so already-shared/bookmarked links keep working.
+- **Query-param routes for anything that can't be known at build time**: `output: 'export'` requires `generateStaticParams` to enumerate every value of a dynamic route segment at build time — infeasible for a live database whose rows (products, worlds) can change between deploys. The fix used twice now: a single fixed static page reads an identifier from a query string (`?id=` for `/products`, `?slug=` for `/world`) via `useSearchParams()` and fetches/renders entirely client-side at runtime, so a brand-new row needs zero rebuild. There is deliberately no parallel per-item dynamic route (`/products/[id]`, `/[vertical]`) kept alongside these — pre-launch, with no real external links to preserve, one canonical URL per resource beats carrying a second scheme "just in case."
 - **View count fire-and-forget**: `POST /products/{id}/view` is called with `fetch().catch(() => {})` — no auth, no await. A failed view-count increment should never block the user.
 - **Distribution segmentation mix**: `filter_city` uses a SQL WHERE clause (efficient); `filter_membership_track` uses Python in-memory filtering since `membership_tracks` is a JSON array column (not indexable with simple SQL). Trade-off accepted: segment sizes are small.
 - **Email preview in iframe**: HTML is rendered in a sandboxed `<iframe srcdoc>` in the admin preview modal. `sandbox="allow-same-origin"` prevents script execution while allowing CSS rendering.

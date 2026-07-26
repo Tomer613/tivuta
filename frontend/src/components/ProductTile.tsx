@@ -143,7 +143,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
         e.stopPropagation();
         const titleText = product[`title_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || product.title_he;
         const price = product.price ? `₪${product.price.toLocaleString()}` : '';
-        const productUrl = `https://tivuta.co.il/${locale}/products/${product.id}`;
+        const productUrl = `https://tivuta.co.il/${locale}/products?id=${product.id}`;
         const text = encodeURIComponent(`${titleText}${price ? ' — ' + price : ''}\n${productUrl}`);
         window.open(`https://wa.me/?text=${text}`, '_blank');
     };

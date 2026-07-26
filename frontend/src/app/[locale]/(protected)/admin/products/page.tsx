@@ -480,7 +480,7 @@ export default function AdminProductsPage() {
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
-                                                <Link href={`/${locale}/products/${p.id}`} target="_blank" className="text-[#f0e6d3]/25 hover:text-[#f0e6d3]/60 transition-colors" title="צפייה בדף המוצר באתר">
+                                                <Link href={`/${locale}/products?id=${p.id}`} target="_blank" className="text-[#f0e6d3]/25 hover:text-[#f0e6d3]/60 transition-colors" title="צפייה בדף המוצר באתר">
                                                     <ExternalLink size={15} />
                                                 </Link>
                                                 <button onClick={() => openEditForm(p)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="עריכה">
