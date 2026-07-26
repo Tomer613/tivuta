@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, productImageUrl, Vendor, Vertical } from '@/lib/api';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, productImageUrl, Vendor, Vertical } from '@/lib/api';
 import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3, ExternalLink } from 'lucide-react';
 
 const LANGS = [
@@ -60,6 +60,7 @@ export default function AdminProductsPage() {
     const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
     const [translating, setTranslating] = useState(false);
+    const [translateAvailable, setTranslateAvailable] = useState(true);
     const [uploadingImage, setUploadingImage] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [showCsvModal, setShowCsvModal] = useState(false);
@@ -90,6 +91,11 @@ export default function AdminProductsPage() {
     useEffect(() => {
         if (!token) return;
         adminListVerticals(token).then(setVerticals).catch(() => {});
+    }, [token]);
+
+    useEffect(() => {
+        if (!token) return;
+        adminGetTranslateStatus(token).then((s) => setTranslateAvailable(s.available)).catch(() => setTranslateAvailable(true));
     }, [token]);
 
     const VERTICAL_LABEL: Record<string, string> = useMemo(
@@ -548,9 +554,9 @@ export default function AdminProductsPage() {
                                 <button
                                     type="button"
                                     onClick={handleTranslate}
-                                    disabled={translating || !form.title_he.trim()}
+                                    disabled={translating || !form.title_he.trim() || !translateAvailable}
                                     className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-[#d4af37]/10 text-[#d4af37] hover:bg-[#d4af37]/20 disabled:opacity-40 transition-colors"
-                                    title="תרגם אוטומטית לאנגלית, צרפתית וייִדיש"
+                                    title={translateAvailable ? 'תרגם אוטומטית לאנגלית, צרפתית וייִדיש' : 'תרגום אוטומטי לא זמין — ANTHROPIC_API_KEY לא מוגדר בשרת'}
                                 >
                                     {translating ? <Loader2 size={13} className="animate-spin" /> : <Languages size={13} />}
                                     {translating ? 'מתרגם...' : 'תרגם אוטומטית'}

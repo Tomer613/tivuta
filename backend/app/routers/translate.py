@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -10,6 +12,11 @@ router = APIRouter(tags=["translate"])
 class TranslateRequest(BaseModel):
     title_he: str
     description_he: str
+
+
+@router.get("/admin/translate/status", dependencies=[Depends(get_current_admin)])
+def translate_status():
+    return {"available": bool(os.environ.get("ANTHROPIC_API_KEY"))}
 
 
 @router.post("/admin/translate", dependencies=[Depends(get_current_admin)])

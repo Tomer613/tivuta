@@ -59,7 +59,14 @@ tivuta/
 │   │       ├── a4b2c3d1e8f0_add_reviews_lead_history_scheduled_dist.py
 │   │       ├── b5c3d4e2f9a1_add_view_count_notif_prefs_dist_filters.py
 │   │       ├── c6d4e5f3a0b2_add_vendors.py
-│   │       └── 15f5ddaec4a5_add_loyalty_points_system.py  ← newest
+│   │       ├── 15f5ddaec4a5_add_loyalty_points_system.py
+│   │       ├── 655114dc8ce0_add_product_popularity_score.py
+│   │       ├── 20b196d5ff3e_add_lead_shipping_address.py
+│   │       ├── 7d2a4f6c1e83_add_verticals_table.py               (branches from 20b196d5ff3e)
+│   │       ├── c7794c6bcb54_add_cart_quantity_and_cart_group_id_to_....py  (branches from 20b196d5ff3e)
+│   │       ├── dcf603bb12f3_merge_cart_and_verticals_branches.py  (merges the two branches above)
+│   │       ├── 91c9b7fe9361_survey_max_choices_multiselect.py
+│   │       └── c2f8a4e1b6d0_fix_diamonds_shape_typo.py  ← newest (head)
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │

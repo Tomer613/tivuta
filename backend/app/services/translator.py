@@ -15,6 +15,10 @@ def _get_client():
     return _client
 
 
+# Sends whatever text is passed in (currently title_he/description_he only) to
+# Anthropic's API over the network. Don't route PII-bearing fields (names,
+# addresses, phone/ID numbers, etc.) through this helper without revisiting
+# that data-sharing decision first.
 def translate_product(title_he: str, description_he: str) -> dict:
     prompt = f"""You are a professional translator for a luxury Jewish marketplace in Israel serving the Haredi (Ultra-Orthodox) community.
 

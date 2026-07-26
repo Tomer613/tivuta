@@ -17,12 +17,13 @@ export default function ComparisonBar({ products, locale, onRemove, onClear }: P
     if (products.length === 0) return null;
 
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
+    const isRTL = locale === 'he' || locale === 'yi';
     const allAttrKeys = Array.from(
         new Set(products.flatMap((p) => Object.keys(p.attributes || {})))
     );
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-[150] bg-[#080d1f] border-t border-[#d4af37]/30 shadow-2xl" dir="rtl">
+        <div className="fixed bottom-0 left-0 right-0 z-[150] bg-[#080d1f] border-t border-[#d4af37]/30 shadow-2xl" dir={isRTL ? 'rtl' : 'ltr'}>
             <div className="max-w-6xl mx-auto px-4 py-3">
                 {/* header row */}
                 <div className="flex items-center justify-between mb-3">

@@ -874,6 +874,12 @@ export async function adminTranslateProduct(token: string, title_he: string, des
     return res.json() as Promise<{ title_en: string; description_en: string; title_fr: string; description_fr: string; title_yi: string; description_yi: string }>;
 }
 
+export async function adminGetTranslateStatus(token: string): Promise<{ available: boolean }> {
+    const res = await fetch(`${BASE_URL}/admin/translate/status`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to check translate status');
+    return res.json();
+}
+
 export async function adminDeleteUser(token: string, userId: number) {
     const res = await fetch(`${BASE_URL}/admin/users/${userId}`, { method: 'DELETE', headers: authHeaders(token) });
     if (!res.ok) {

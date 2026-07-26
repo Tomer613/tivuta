@@ -145,7 +145,7 @@ export default function GlobalSearch({ locale }: Props) {
                         onChange={(e) => setQ(e.target.value)}
                         placeholder="חפש מוצרים..."
                         className="flex-1 bg-transparent text-[#f0e6d3] placeholder-[#f0e6d3]/30 outline-none text-sm min-w-0"
-                        dir="rtl"
+                        dir={locale === 'he' || locale === 'yi' ? 'rtl' : 'ltr'}
                         onClick={(e) => e.stopPropagation()}
                     />
                 ) : (

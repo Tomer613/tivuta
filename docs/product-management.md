@@ -6,7 +6,7 @@ How to organize product data on your computer and upload it to Tivuta.
 
 ## Folder Structure (on your computer)
 
-Keep one folder per vertical, each containing a CSV file and an images subfolder:
+Keep one folder per vertical ("world"), each containing a CSV file and an images subfolder. `diamonds`, `cars`, and `insurance` ship out of the box, but an admin can add further worlds at any time from **Admin → עולמות (Worlds)** — the folders below are just an example, not a fixed list:
 
 ```
 products/
@@ -20,11 +20,14 @@ products/
 │   └── images/
 │       ├── C001.jpg
 │       └── C002.jpg
-└── insurance/
+├── insurance/
+│   ├── products.csv
+│   └── images/
+│       ├── I001.jpg
+│       └── I002.jpg
+└── <any-other-world-slug>/
     ├── products.csv
     └── images/
-        ├── I001.jpg
-        └── I002.jpg
 ```
 
 ---
@@ -50,7 +53,7 @@ Edit `products.csv` in Excel or Google Sheets. Each row is one product.
 | Column | Required | Notes |
 |---|---|---|
 | `sku` | Yes | Your internal product code (e.g. `D001`) — not stored in DB, used only for image matching |
-| `vertical` | Yes | `diamonds`, `cars`, or `insurance` |
+| `vertical` | Yes | Slug of an active world — `diamonds`, `cars`, and `insurance` ship by default, but any world an admin has created under **Admin → עולמות (Worlds)** is valid too. Check `GET /verticals` (or the Worlds admin page) for the current list — an unrecognized/inactive slug rejects that CSV row on import |
 | `title_he` | Yes | Hebrew title (primary language) |
 | `title_en` | No | English title |
 | `title_fr` | No | French title |
@@ -75,7 +78,7 @@ D001,diamonds,יהלום 1 קרט,1 Carat Diamond,45000,יהלום עגול מו
 
 ## Attributes by Vertical
 
-Use these keys inside the `attributes` JSON column:
+`attributes` is free-form JSON — the backend doesn't validate it against anything, so any keys you put there are accepted as-is. Each world defines its own recommended attribute keys/labels/types (text, number, or select) in **Admin → עולמות (Worlds) → attribute-field builder** — check that world's field list before filling in a CSV for it, especially for a world an admin added themselves. The three built-in worlds below are shown as a reference example, not an exhaustive or fixed set:
 
 ### Diamonds
 ```json
