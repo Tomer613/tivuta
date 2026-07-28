@@ -720,6 +720,54 @@ export async function adminListLeads(token: string) {
     return res.json();
 }
 
+export interface CustomerOrderLine {
+    id: number;
+    lead_type: string;
+    scheduled_at?: string | null;
+    status: string;
+    channel: string;
+    notes?: string | null;
+    assigned_to?: number | null;
+    assigned_to_name?: string | null;
+    history: { ts: string; action: string; from_val?: string | null; to_val?: string | null }[];
+    created_at: string;
+    product_id?: number | null;
+    product_title_he?: string | null;
+    product_vertical?: string | null;
+    vendor_id?: number | null;
+    vendor_name_he?: string | null;
+    shipping_address?: { full_name: string; street: string; city: string; zip_code?: string | null; phone: string } | null;
+    quantity?: number | null;
+}
+
+export interface CustomerOrder {
+    id: number;
+    order_number: string;
+    user_id: number;
+    user_name?: string | null;
+    user_email?: string | null;
+    user_phone?: string | null;
+    notes?: string | null;
+    created_at: string;
+    items: CustomerOrderLine[];
+}
+
+export async function adminListOrders(token: string): Promise<CustomerOrder[]> {
+    const res = await fetch(`${BASE_URL}/admin/orders`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load orders');
+    return res.json();
+}
+
+export async function adminUpdateOrderNotes(token: string, orderId: number, notes: string) {
+    const res = await fetch(`${BASE_URL}/admin/orders/${orderId}/notes`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+    });
+    if (!res.ok) throw new Error('Failed to update order notes');
+    return res.json();
+}
+
 export async function adminListSurveys(token: string) {
     const res = await fetch(`${BASE_URL}/admin/surveys`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load surveys');

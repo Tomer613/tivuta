@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store, ShieldAlert, Globe } from 'lucide-react';
+import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store, ShieldAlert, Globe, ShoppingCart } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 
 interface T {
@@ -14,15 +14,16 @@ interface T {
     surveys: string;
     distribution: string;
     promotions: string;
+    orders: string;
     leads: string;
     loyalty: string;
 }
 
 const translations: Record<string, T> = {
-    he: { dashboard: 'בקרה', products: 'מוצרים', verticals: 'עולמות', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', leads: 'פניות', loyalty: 'נאמנות והונאות' },
-    en: { dashboard: 'Dashboard', products: 'Products', verticals: 'Worlds', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', leads: 'Leads', loyalty: 'Loyalty & Fraud' },
-    fr: { dashboard: 'Tableau', products: 'Produits', verticals: 'Univers', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', leads: 'Contacts', loyalty: 'Fidélité' },
-    yi: { dashboard: 'בקרה', products: 'פראדוקטן', verticals: 'וועלטן', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', leads: 'פנייות', loyalty: 'לויאלטי' },
+    he: { dashboard: 'בקרה', products: 'מוצרים', verticals: 'עולמות', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', orders: 'הזמנות', leads: 'פניות', loyalty: 'נאמנות והונאות' },
+    en: { dashboard: 'Dashboard', products: 'Products', verticals: 'Worlds', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', orders: 'Orders', leads: 'Leads', loyalty: 'Loyalty & Fraud' },
+    fr: { dashboard: 'Tableau', products: 'Produits', verticals: 'Univers', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', orders: 'Commandes', leads: 'Contacts', loyalty: 'Fidélité' },
+    yi: { dashboard: 'בקרה', products: 'פראדוקטן', verticals: 'וועלטן', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', orders: 'הזמנות', leads: 'פנייות', loyalty: 'לויאלטי' },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -40,6 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: `/${locale}/admin/surveys`, label: t.surveys, icon: <BarChart3 size={18} /> },
         { href: `/${locale}/admin/distribution`, label: t.distribution, icon: <Send size={18} /> },
         { href: `/${locale}/admin/promotions`, label: t.promotions, icon: <Tag size={18} /> },
+        { href: `/${locale}/admin/orders`, label: t.orders, icon: <ShoppingCart size={18} /> },
         { href: `/${locale}/admin/leads`, label: t.leads, icon: <Inbox size={18} /> },
         { href: `/${locale}/admin/loyalty`, label: t.loyalty, icon: <ShieldAlert size={18} /> },
     ];

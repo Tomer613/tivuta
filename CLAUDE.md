@@ -66,7 +66,8 @@ tivuta/
 │   │       ├── c7794c6bcb54_add_cart_quantity_and_cart_group_id_to_....py  (branches from 20b196d5ff3e)
 │   │       ├── dcf603bb12f3_merge_cart_and_verticals_branches.py  (merges the two branches above)
 │   │       ├── 91c9b7fe9361_survey_max_choices_multiselect.py
-│   │       └── c2f8a4e1b6d0_fix_diamonds_shape_typo.py  ← newest (head)
+│   │       ├── c2f8a4e1b6d0_fix_diamonds_shape_typo.py
+│   │       └── 861a4db9d155_add_customer_orders.py  ← newest (head)
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │
@@ -84,12 +85,13 @@ tivuta/
     │   │           ├── insurance/
     │   │           ├── survey/[id]/     Survey voting
     │   │           └── admin/
-    │   │               ├── layout.tsx   Nav tabs (Dashboard, Products, Users, Surveys, Distribution, Promotions)
+    │   │               ├── layout.tsx   Nav tabs (Dashboard, Products, Users, Surveys, Distribution, Promotions, Orders, Leads, ...)
     │   │               ├── page.tsx     Dashboard: stats, 14-day leads chart, conversion panel, follow-up trigger
     │   │               ├── products/    Product CRUD + duplicate + CSV import
     │   │               ├── users/       User + role management
     │   │               ├── surveys/     Survey creation + vote stats
-    │   │               ├── leads/       Leads table (notes, assignment, appointment reminder) + calendar view
+    │   │               ├── orders/      Orders table — CustomerOrder-grouped, per-vertical/vendor breakdown (see "Back-Office Orders" below)
+    │   │               ├── leads/       Leads/Inquiries table — now only appointments/club-signups/card-orders end up here; empty until a general "contact us" feature exists (see "Back-Office Orders" below)
     │   │               ├── distribution/ Email/WhatsApp campaigns
     │   │               └── promotions/  Promotion CRUD + product assignment
     │   ├── components/
@@ -121,12 +123,13 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `categories` | Top-level benefits categories (slug-based routing) |
 | `sub_categories` | Nested under categories |
 | `items` | Legacy benefits catalog (linked to sub_categories) |
-| `orders` | User transaction history for dashboard |
+| `orders` | Legacy user transaction history for dashboard (`GET /orders/me`) — **unrelated to and predates** the `customer_orders` table below; do not confuse the two |
 | `verticals` | Admin-managed "worlds" (diamonds/cars/insurance by default); `Product.vertical`/`Vendor.vertical` store its `slug` |
 | `products` | Multi-vertical catalog; has `attributes JSON` for vertical-specific fields (schema defined per-vertical in `verticals.attribute_fields`) |
 | `promotions` | Promotion definitions: type, channel, config JSON, dates |
 | `product_promotions` | Junction table linking products ↔ promotions (many-to-many) |
-| `leads` | Appointment/contact requests; `assigned_to FK→users.id` for admin assignment; `quantity`/`cart_group_id` populated when created via cart checkout (see Shopping Cart section) |
+| `customer_orders` | One row per checkout/appointment/card-order — the customer-facing order; `order_number` is computed from `id` (`ORD-{id:06d}`), not stored (see "Back-Office Orders" below) |
+| `leads` | Line items within a `customer_order` (appointment/contact-request/club-signup/card-order); `assigned_to FK→users.id` for admin assignment; `customer_order_id FK→customer_orders.id`; `quantity`/`cart_group_id` populated when created via cart checkout (see "Back-Office Orders" below) |
 | `surveys` | Polls shown to users |
 | `survey_options` | Options within a survey (each links to a product) |
 | `survey_votes` | One vote per user per survey |
@@ -518,6 +521,72 @@ reading `?id=`, so a brand-new product needs no rebuild either) to worlds:
 
 ---
 
+## Back-Office Orders (Phase 1 — session 2026-07-28)
+
+Before this, every fulfillable request (product interest, appointments, card requests) landed
+flat in the admin "פניות" (Leads/Inquiries) tab as individual `Lead` rows — a 5-item cart checkout
+looked like 5 unrelated inquiries, there was no order number, and there was no way to see a
+customer's other open requests. **Phase 2** (cross-customer vendor consolidation batches — "50
+kugel orders → 1 vendor PO" — plus warehouse picking/packing documents) is intentionally deferred
+to a future plan; this phase covers order numbering and per-order vendor/vertical breakdown only.
+
+- **New model `CustomerOrder`** (table `customer_orders`, `backend/app/models.py`) wraps one or
+  more `Lead` rows created together under one customer-facing order. `order_number` is a computed
+  property (`f"ORD-{self.id:06d}"`), not a stored column — avoids a flush-then-update dance.
+  **Not to be confused with the pre-existing, unrelated `Order` model** (table `orders`, used only
+  by `GET /orders/me` / the profile page's legacy "My Orders" section) — the name was deliberately
+  chosen to avoid colliding with it.
+- **Every current lead-creating path now wraps its lead(s) in a `CustomerOrder`** — not just cart
+  checkouts. This was a deliberate, explicit correction from the user during planning: appointments
+  and card-order requests are "orders" too, same as a product purchase; only a true general
+  "contact us" inquiry (which doesn't exist anywhere in the code yet — confirmed by search, and
+  `club_signup` is a documented `lead_type` that's never actually created) belongs in the
+  now-mostly-empty "פניות" tab going forward.
+- **Product-purchase creation is unified into a single code path**: `POST /leads/cart-checkout`
+  (`routers/leads.py`) is now the *only* way a `contact_request` lead gets created — both "add to
+  cart" (do it later) and the single-product "contact me now" button now call it (the latter with
+  a one-item, ad-hoc array, bypassing `CartContext` entirely so it never touches the customer's
+  persisted "for later" cart). `POST /leads` (`create_lead`) now 400s if it would have resolved to
+  `contact_request` — it only creates `appointment` leads. This was the user's explicit
+  instruction: "all orders should walk through shopping cart," so there's exactly one place that
+  can drift on quantity/order-number logic instead of two.
+- **Found and fixed a real bug while wiring this up**: `cart_checkout`'s per-product loop closed
+  over a stale `item` from an earlier merge loop (`quantity=item.quantity` instead of the
+  per-product `quantity` from the loop it was actually in) — every line item in a cart checkout was
+  silently getting tagged with the *last* cart item's quantity. Fixed as part of this change since
+  Orders now surfaces quantity prominently.
+- **`GET /admin/orders`** returns every `CustomerOrder` with nested line items (any `lead_type`),
+  each including `vendor_id`/`vendor_name_he` (joined via `product.vendor`). **`GET /admin/leads`
+  now filters to `customer_order_id IS NULL`** — intentionally empty today, reserved for a future
+  general "contact us" feature; the existing `admin/leads/page.tsx` needed zero code changes.
+  `PATCH /admin/orders/{id}/notes` adds order-level notes, mirroring the existing per-lead notes
+  pattern. Per-line-item actions (status/notes/assign) reuse the existing `PATCH
+  /admin/leads/{id}/...` endpoints unchanged — a `Lead`'s id doesn't care which tab surfaces it.
+- **New admin page `admin/orders/page.tsx`** (new "הזמנות" nav tab in `admin/layout.tsx`, placed
+  before "פניות") — adapts `admin/leads/page.tsx`'s existing Table/Calendar/Kanban machinery to
+  render order-grouped: each order is a card showing `order_number`, customer info, an "X other
+  active orders from this customer" badge (computed client-side from the already-loaded full order
+  list — no extra request), and its line items grouped first by vertical, then by vendor within
+  each vertical. The vendor grouping shows a **display-only** computed sub-order suffix (e.g.
+  `ORD-000123-A`, `-B`, ...) assigned by sorting distinct vendor ids present in that order — not a
+  persisted field; promote it to a stored column only if a future need requires handing that
+  exact string to a vendor externally (e.g. on a printed PO).
+- **Migration** (`861a4db9d155_add_customer_orders.py`) backfills every pre-existing `Lead` (all
+  types) into a `CustomerOrder`: leads sharing a `cart_group_id` are grouped into one order (same
+  grouping cart-checkout uses going forward); every other lead gets its own one-line order. Same
+  backfill-in-migration shape as the `customer_number` backfill in
+  `15f5ddaec4a5_add_loyalty_points_system.py`.
+- **`cart/page.tsx`** shows the resulting order number on the post-checkout success screen,
+  formatted client-side from `customer_order_id` (added to `LeadRead`) — `ORD-{id:06d}`.
+- **Verified end-to-end** with a real browser session (Playwright, tokens injected into
+  `localStorage` since the seeded admin/member passwords in `seed.py` no longer match what's in the
+  dev DB): cart checkout with mixed quantities produced one order with correct per-item quantities;
+  the single-product "contact me now" button on a non-appointment vertical created a one-line
+  order via the same endpoint; `/admin/orders` rendered vertical/vendor grouping and the
+  "other active orders" badge correctly; `/admin/leads` rendered its empty state as expected.
+
+---
+
 ## Loyalty & Vendor Commission Program (Phases 1–5 — session 2026-07-18/19) — COMPLETE
 
 Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming-puffin" plan — this section documents what's actually **built**. All 5 planned phases are done.
@@ -617,6 +686,8 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 - **Review upsert**: `POST /reviews/{product_id}` checks `(user_id, product_id)` unique constraint — updates existing if present, creates otherwise. Single endpoint for add/edit.
 - **Audit history as JSON array**: Lead `history` field is an append-only JSON array on the model; no separate table needed. Trade-off: cannot query history fields with SQL, but history is only ever displayed per-lead, never queried across leads.
 - **Distribution scheduling is storage-only**: `scheduled_at` is stored on the `Distribution` row. Actual auto-send at the scheduled time requires an external cron job / background worker (not yet built). Admin still sends manually; the field is UI infrastructure for when scheduling is wired up.
+- **Order numbers are computed, not stored**: `CustomerOrder.order_number` is a Python `@property` (`f"ORD-{self.id:06d}"`), derived from the auto-increment `id` at read time rather than written on insert — avoids the flush-then-update-then-commit dance a stored, id-derived column would need.
+- **One code path creates product orders**: both "add to cart" and single-product "contact me now" call `POST /leads/cart-checkout` (the latter with a one-item array) rather than each having its own creation logic — `POST /leads` now rejects a plain contact request outright, forcing every product-order to go through the same quantity/order-number logic instead of two implementations that could drift.
 - **Query-param routes for anything that can't be known at build time**: `output: 'export'` requires `generateStaticParams` to enumerate every value of a dynamic route segment at build time — infeasible for a live database whose rows (products, worlds) can change between deploys. The fix used twice now: a single fixed static page reads an identifier from a query string (`?id=` for `/products`, `?slug=` for `/world`) via `useSearchParams()` and fetches/renders entirely client-side at runtime, so a brand-new row needs zero rebuild. There is deliberately no parallel per-item dynamic route (`/products/[id]`, `/[vertical]`) kept alongside these — pre-launch, with no real external links to preserve, one canonical URL per resource beats carrying a second scheme "just in case."
 - **View count fire-and-forget**: `POST /products/{id}/view` is called with `fetch().catch(() => {})` — no auth, no await. A failed view-count increment should never block the user.
 - **Distribution segmentation mix**: `filter_city` uses a SQL WHERE clause (efficient); `filter_membership_track` uses Python in-memory filtering since `membership_tracks` is a JSON array column (not indexable with simple SQL). Trade-off accepted: segment sizes are small.

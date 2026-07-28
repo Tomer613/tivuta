@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { CalendarCheck, MessageCircle, ShoppingCart, CheckCircle2, Info, Heart, Share2, Star, Clock } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
-import { createLead, addFavorite, removeFavorite, productImageUrl, Vendor } from '@/lib/api';
+import { createLead, cartCheckout, addFavorite, removeFavorite, productImageUrl, Vendor } from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 
 export interface PromotionBrief {
@@ -156,7 +156,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
     const handleContact = async () => {
         setStatus('submitting');
         try {
-            await createLead(token, { product_id: product.id, scheduled_at: null, locale });
+            await cartCheckout(token, { items: [{ product_id: product.id, quantity: 1 }], locale });
             setStatus('done');
         } catch {
             setStatus('idle');

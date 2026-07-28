@@ -69,6 +69,10 @@ def _confirmation_body(locale: str, product_title: str, scheduled_at):
 
 @router.post("/leads", response_model=schemas.LeadRead)
 def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Creates an appointment lead. Plain product-interest requests (no scheduled_at) are no
+    longer accepted here — they go through /leads/cart-checkout instead, so there is exactly one
+    code path that creates a product order, whether it came from the cart or a single-click
+    "contact me now" button."""
     product = db.query(models.Product).filter(models.Product.id == payload.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -76,7 +80,13 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
     locale = payload.locale or "he"
     vertical = db.query(models.Vertical).filter(models.Vertical.slug == product.vertical).first()
     supports_appointments = bool(vertical and vertical.supports_appointments)
-    lead_type = "appointment" if (supports_appointments and payload.scheduled_at) else "contact_request"
+    if not (supports_appointments and payload.scheduled_at):
+        raise HTTPException(status_code=400, detail="Use /leads/cart-checkout for product interest requests")
+    lead_type = "appointment"
+
+    order = models.CustomerOrder(user_id=current_user.id)
+    db.add(order)
+    db.flush()
 
     new_lead = models.Lead(
         user_id=current_user.id,
@@ -87,6 +97,7 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
         channel="web",
         notes=payload.notes,
         locale=locale,
+        customer_order_id=order.id,
     )
     db.add(new_lead)
     db.commit()
@@ -114,18 +125,18 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
     return new_lead
 
 
-def _cart_confirmation_body(locale: str, items: list) -> str:
+def _cart_confirmation_body(locale: str, items: list, order_number: str) -> str:
     rows = "".join(f"<li>{title} × {qty}</li>" for title, qty in items)
     if locale == "he":
-        return f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>תודה על פנייתך. ריכזנו את הבקשה שלך עבור {len(items)} מוצרים:</p><ul>{rows}</ul><p>נציג שלנו ייצור איתך קשר בהקדם.</p></div>'
-    return f"<p>Thank you for your interest. We received your request for {len(items)} products:</p><ul>{rows}</ul><p>Our representative will reach out to you shortly.</p>"
+        return f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>תודה על פנייתך. ריכזנו את הבקשה שלך (הזמנה <strong>{order_number}</strong>) עבור {len(items)} מוצרים:</p><ul>{rows}</ul><p>נציג שלנו ייצור איתך קשר בהקדם.</p></div>'
+    return f"<p>Thank you for your interest. We received your request (order <strong>{order_number}</strong>) for {len(items)} products:</p><ul>{rows}</ul><p>Our representative will reach out to you shortly.</p>"
 
 
-def _cart_admin_notification_body(user: models.User, items: list) -> str:
+def _cart_admin_notification_body(user: models.User, items: list, order_number: str) -> str:
     rows = "".join(f"<li>{title} × {qty}</li>" for title, qty in items)
     return f"""
     <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
-      <h2 style="color:#b8860b;">בקשת קשר מרוכזת מהסל ({len(items)} מוצרים) 🛒</h2>
+      <h2 style="color:#b8860b;">בקשת קשר מרוכזת מהסל — הזמנה {order_number} ({len(items)} מוצרים) 🛒</h2>
       <ul>{rows}</ul>
       <hr/>
       <p><strong>שם:</strong> {user.first_name} {user.last_name}</p>
@@ -136,9 +147,11 @@ def _cart_admin_notification_body(user: models.User, items: list) -> str:
 
 @router.post("/leads/cart-checkout", response_model=List[schemas.LeadRead])
 def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    """Submits every item in the user's cart as one contact_request lead per product,
-    sharing a cart_group_id, but sends a single consolidated email to the user and to
-    admin instead of one per product — the whole point of "checking out" a cart."""
+    """Submits every item in the user's cart as one contact_request lead per product, all
+    sharing one CustomerOrder, but sends a single consolidated email to the user and to
+    admin instead of one per product — the whole point of "checking out" a cart. This is also
+    the single code path for "contact me now" on a single product (the frontend just checks out
+    a one-item cart), so every product order — batched or single — gets an order number."""
     # Merge quantities for repeated product_ids (e.g. a client-side race adding the same
     # product twice) so checkout never creates two leads for what was one cart line.
     merged_quantities: dict[int, int] = {}
@@ -154,6 +167,11 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
 
     locale = payload.locale or "he"
     cart_group_id = uuid.uuid4().hex
+
+    order = models.CustomerOrder(user_id=current_user.id)
+    db.add(order)
+    db.flush()
+
     new_leads = []
     email_items = []
     for product_id, quantity in merged_quantities.items():
@@ -166,12 +184,13 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
             status="new",
             channel="web",
             locale=locale,
-            quantity=item.quantity,
+            quantity=quantity,
             cart_group_id=cart_group_id,
+            customer_order_id=order.id,
         )
         db.add(lead)
         new_leads.append(lead)
-        email_items.append((product_title, item.quantity))
+        email_items.append((product_title, quantity))
 
     db.commit()
     for lead in new_leads:
@@ -182,7 +201,7 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
         email_sender.send(
             to=current_user.email,
             subject=CONFIRMATION_SUBJECT.get(locale, CONFIRMATION_SUBJECT["he"]),
-            html_body=_cart_confirmation_body(locale, email_items),
+            html_body=_cart_confirmation_body(locale, email_items, order.order_number),
             locale=locale,
         )
     except Exception:
@@ -190,8 +209,8 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
     try:
         email_sender.send(
             to=ADMIN_NOTIFICATION_EMAIL,
-            subject=f"בקשת קשר מהסל ({len(email_items)} מוצרים) — {current_user.first_name} {current_user.last_name}",
-            html_body=_cart_admin_notification_body(current_user, email_items),
+            subject=f"בקשת קשר מהסל — הזמנה {order.order_number} ({len(email_items)} מוצרים) — {current_user.first_name} {current_user.last_name}",
+            html_body=_cart_admin_notification_body(current_user, email_items, order.order_number),
             locale="he",
         )
     except Exception:
@@ -228,6 +247,11 @@ def create_card_order(
         return existing
 
     locale = payload.locale or "he"
+
+    order = models.CustomerOrder(user_id=current_user.id)
+    db.add(order)
+    db.flush()
+
     new_lead = models.Lead(
         user_id=current_user.id,
         product_id=None,
@@ -236,6 +260,7 @@ def create_card_order(
         channel="web",
         locale=locale,
         shipping_address=payload.shipping_address.model_dump(),
+        customer_order_id=order.id,
     )
     db.add(new_lead)
     db.commit()
@@ -290,6 +315,9 @@ def my_activity(db: Session = Depends(get_db), current_user: models.User = Depen
 
 @router.get("/admin/leads", response_model=List[schemas.AdminLeadRead], dependencies=[Depends(get_current_admin)])
 def admin_list_leads(db: Session = Depends(get_db)):
+    """Every current lead-creating path wraps its lead(s) in a CustomerOrder (see /admin/orders),
+    so this intentionally returns nothing today — it's reserved for a future general "contact us"
+    inquiry that isn't tied to any order."""
     leads = (
         db.query(models.Lead)
         .options(
@@ -297,6 +325,7 @@ def admin_list_leads(db: Session = Depends(get_db)):
             selectinload(models.Lead.user),
             selectinload(models.Lead.assignee),
         )
+        .filter(models.Lead.customer_order_id.is_(None))
         .order_by(models.Lead.created_at.desc())
         .all()
     )
@@ -328,6 +357,70 @@ def admin_list_leads(db: Session = Depends(get_db)):
             cart_group_id=lead.cart_group_id,
         ))
     return result
+
+
+def _order_line_from_lead(lead: models.Lead) -> schemas.CustomerOrderLineRead:
+    product = lead.product
+    vendor = product.vendor if product else None
+    assignee = lead.assignee
+    return schemas.CustomerOrderLineRead(
+        id=lead.id,
+        lead_type=lead.lead_type,
+        scheduled_at=lead.scheduled_at,
+        status=lead.status,
+        channel=lead.channel,
+        notes=lead.notes,
+        assigned_to=lead.assigned_to,
+        assigned_to_name=f"{assignee.first_name} {assignee.last_name}".strip() if assignee else None,
+        history=lead.history or [],
+        created_at=lead.created_at,
+        product_id=lead.product_id,
+        product_title_he=product.title_he if product else None,
+        product_vertical=product.vertical if product else None,
+        vendor_id=vendor.id if vendor else None,
+        vendor_name_he=vendor.name_he if vendor else None,
+        shipping_address=lead.shipping_address,
+        quantity=lead.quantity,
+    )
+
+
+@router.get("/admin/orders", response_model=List[schemas.CustomerOrderRead], dependencies=[Depends(get_current_admin)])
+def admin_list_orders(db: Session = Depends(get_db)):
+    orders = (
+        db.query(models.CustomerOrder)
+        .options(
+            selectinload(models.CustomerOrder.user),
+            selectinload(models.CustomerOrder.leads).selectinload(models.Lead.product).selectinload(models.Product.vendor),
+            selectinload(models.CustomerOrder.leads).selectinload(models.Lead.assignee),
+        )
+        .order_by(models.CustomerOrder.created_at.desc())
+        .all()
+    )
+    result = []
+    for order in orders:
+        user = order.user
+        result.append(schemas.CustomerOrderRead(
+            id=order.id,
+            order_number=order.order_number,
+            user_id=order.user_id,
+            user_name=f"{user.first_name} {user.last_name}".strip() if user else None,
+            user_email=user.email if user else None,
+            user_phone=user.phone if user else None,
+            notes=order.notes,
+            created_at=order.created_at,
+            items=[_order_line_from_lead(lead) for lead in order.leads],
+        ))
+    return result
+
+
+@router.patch("/admin/orders/{order_id}/notes", dependencies=[Depends(get_current_admin)])
+def admin_update_order_notes(order_id: int, payload: schemas.OrderNotesUpdate, db: Session = Depends(get_db)):
+    order = db.query(models.CustomerOrder).filter(models.CustomerOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.notes = payload.notes
+    db.commit()
+    return {"id": order.id, "notes": order.notes}
 
 
 @router.patch("/admin/leads/{lead_id}/assign", response_model=schemas.LeadRead, dependencies=[Depends(get_current_admin)])

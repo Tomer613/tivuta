@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
-    getProduct, getPromotionStatus, enterPromotion, createLead, productImageUrl, getVerticals, Vertical,
+    getProduct, getPromotionStatus, enterPromotion, createLead, cartCheckout, productImageUrl, getVerticals, Vertical,
     getFavoriteIds, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView,
 } from '@/lib/api';
 import { PromotionBrief, promotionLabel } from '@/components/ProductTile';
@@ -366,7 +366,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
         if (!token || !product) return;
         setLeadStatus('submitting');
         try {
-            await createLead(token, { product_id: product.id, locale });
+            await cartCheckout(token, { items: [{ product_id: product.id, quantity: 1 }], locale });
             setLeadStatus('done');
         } catch { setLeadStatus('idle'); }
     };

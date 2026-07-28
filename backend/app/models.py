@@ -261,6 +261,27 @@ class PromotionEntry(Base):
     product = relationship("Product")
 
 
+class CustomerOrder(Base):
+    """
+    Wraps one or more Leads created together (a cart checkout, or a single appointment/
+    contact-request/card-order) under one customer-facing order number.
+    """
+    __tablename__ = "customer_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    notes = Column(Text, nullable=True)
+    history = Column(JSON, nullable=True, default=list)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+    leads = relationship("Lead", back_populates="customer_order", order_by="Lead.id")
+
+    @property
+    def order_number(self) -> str:
+        return f"ORD-{self.id:06d}"
+
+
 class Lead(Base):
     """
     Unifies appointment requests, contact requests and club signups into one table.
@@ -271,6 +292,7 @@ class Lead(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    customer_order_id = Column(Integer, ForeignKey("customer_orders.id"), nullable=True, index=True)
     lead_type = Column(String(30), nullable=False)  # 'appointment' | 'contact_request' | 'club_signup' | 'card_order'
     scheduled_at = Column(DateTime, nullable=True)
     status = Column(String(20), default="new")  # new | confirmed | contacted | closed | cancelled
@@ -286,6 +308,7 @@ class Lead(Base):
     user = relationship("User", foreign_keys=[user_id])
     assignee = relationship("User", foreign_keys=[assigned_to])
     product = relationship("Product")
+    customer_order = relationship("CustomerOrder", back_populates="leads")
 
 
 class Favorite(Base):

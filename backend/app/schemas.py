@@ -473,6 +473,7 @@ class LeadRead(BaseModel):
     shipping_address: Optional[dict] = None
     quantity: Optional[int] = None
     cart_group_id: Optional[str] = None
+    customer_order_id: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -510,6 +511,48 @@ class AdminLeadRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class CustomerOrderLineRead(BaseModel):
+    id: int
+    lead_type: str
+    scheduled_at: Optional[datetime] = None
+    status: str
+    channel: str
+    notes: Optional[str] = None
+    assigned_to: Optional[int] = None
+    assigned_to_name: Optional[str] = None
+    history: Optional[List[dict]] = []
+    created_at: datetime
+    product_id: Optional[int] = None
+    product_title_he: Optional[str] = None
+    product_vertical: Optional[str] = None
+    vendor_id: Optional[int] = None
+    vendor_name_he: Optional[str] = None
+    shipping_address: Optional[dict] = None
+    quantity: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CustomerOrderRead(BaseModel):
+    id: int
+    order_number: str
+    user_id: int
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    user_phone: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    items: List[CustomerOrderLineRead]
+
+    class Config:
+        from_attributes = True
+
+
+class OrderNotesUpdate(BaseModel):
+    notes: str
 
 
 class LeadNotesUpdate(BaseModel):

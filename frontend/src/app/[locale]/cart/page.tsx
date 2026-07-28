@@ -22,13 +22,14 @@ interface T {
     submitting: string;
     done: string;
     error: string;
+    order_number: string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב' },
-    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again' },
-    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer" },
-    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל' },
+    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה' },
+    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number' },
+    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande' },
+    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה' },
 };
 
 export default function CartPage() {
@@ -42,6 +43,7 @@ export default function CartPage() {
     const { items, totalCount, removeFromCart, updateQuantity, clearCart } = useCart();
     const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
     const totalPrice = items.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
     const hasOnRequestItem = items.some((i) => !i.price);
@@ -51,10 +53,12 @@ export default function CartPage() {
         setStatus('submitting');
         setErrorMessage(null);
         try {
-            await cartCheckout(token, {
+            const leads = await cartCheckout(token, {
                 items: items.map((i) => ({ product_id: i.id, quantity: i.quantity })),
                 locale,
             });
+            const orderId = leads?.[0]?.customer_order_id;
+            setOrderNumber(orderId ? `ORD-${String(orderId).padStart(6, '0')}` : null);
             setStatus('done');
             clearCart();
         } catch (err: any) {
@@ -68,7 +72,10 @@ export default function CartPage() {
             <main className="min-h-screen bg-[#111a2f] py-16 px-6 flex items-center justify-center">
                 <div className="text-center max-w-md">
                     <CheckCircle2 size={48} className="text-green-400 mx-auto mb-4" />
-                    <p className="text-[#f0e6d3] text-lg font-bold mb-6">{t.done}</p>
+                    <p className="text-[#f0e6d3] text-lg font-bold mb-3">{t.done}</p>
+                    {orderNumber && (
+                        <p className="text-[#d4af37] font-black text-lg mb-6" dir="ltr">{t.order_number}: {orderNumber}</p>
+                    )}
                     <Link href={`/${locale}`} className="btn-primary inline-flex">{t.browse}</Link>
                 </div>
             </main>
