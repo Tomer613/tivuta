@@ -5,8 +5,18 @@ import { useAuth } from '@/context/AuthContext';
 import {
     adminListVendors, adminCreateVendor, adminUpdateVendor, adminDeleteVendor, adminSetVendorPortalAccess,
     adminListSettlements, adminOpenSettlementPeriod, adminSettlePeriod, adminListVerticals, CommissionSettlementPeriod, Vertical,
+    adminListOrders, adminListVendorBatches, adminCreateVendorBatch, adminUpdateVendorBatchStatus,
+    CustomerOrder, VendorPurchaseBatch,
 } from '@/lib/api';
-import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet } from 'lucide-react';
+import { openPrintableTable, downloadCsv } from '@/lib/printDocument';
+import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet, Boxes, Printer, Download, Square, CheckSquare } from 'lucide-react';
+
+const BATCH_STATUS_LABEL: Record<string, string> = { open: 'פתוחה', ordered: 'הוזמנה', received: 'התקבלה' };
+const BATCH_STATUS_COLOR: Record<string, string> = {
+    open: 'bg-blue-500/20 text-blue-400',
+    ordered: 'bg-[#d4af37]/20 text-[#d4af37]',
+    received: 'bg-green-500/20 text-green-400',
+};
 
 const WEEKDAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const SLOT_OPTIONS = [15, 30, 60];
@@ -63,6 +73,14 @@ export default function AdminVendorsPage() {
     const [newPeriodStart, setNewPeriodStart] = useState('');
     const [newPeriodEnd, setNewPeriodEnd] = useState('');
     const [savingSettlement, setSavingSettlement] = useState(false);
+    const [orders, setOrders] = useState<CustomerOrder[]>([]);
+    const [batchesVendor, setBatchesVendor] = useState<any | null>(null);
+    const [batches, setBatches] = useState<VendorPurchaseBatch[]>([]);
+    const [loadingBatches, setLoadingBatches] = useState(false);
+    const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
+    const [savingBatch, setSavingBatch] = useState(false);
+    const [updatingBatchId, setUpdatingBatchId] = useState<number | null>(null);
+    const [docsBatchId, setDocsBatchId] = useState<number | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -73,6 +91,11 @@ export default function AdminVendorsPage() {
     };
 
     useEffect(load, [token]);
+
+    useEffect(() => {
+        if (!token) return;
+        adminListOrders(token).then(setOrders).catch(() => {});
+    }, [token]);
 
     useEffect(() => {
         if (!token) return;
@@ -252,6 +275,134 @@ export default function AdminVendorsPage() {
         }
     };
 
+    // ---- Vendor purchase batches (consolidate many customers' orders into one procurement) ----
+
+    const unbatchedItemsForVendor = (vendorId: number) => {
+        const items: { id: number; product_title_he: string; order_number: string; user_name: string; quantity: number }[] = [];
+        orders.forEach((o) => {
+            o.items.forEach((i) => {
+                if (
+                    i.lead_type === 'contact_request' &&
+                    i.vendor_id === vendorId &&
+                    !i.vendor_batch_id &&
+                    i.status !== 'closed' &&
+                    i.status !== 'cancelled'
+                ) {
+                    items.push({
+                        id: i.id,
+                        product_title_he: i.product_title_he || '—',
+                        order_number: o.order_number,
+                        user_name: o.user_name || '—',
+                        quantity: i.quantity || 1,
+                    });
+                }
+            });
+        });
+        return items;
+    };
+
+    const loadBatches = (vendorId: number) => {
+        if (!token) return;
+        setLoadingBatches(true);
+        adminListVendorBatches(token, vendorId).then(setBatches).finally(() => setLoadingBatches(false));
+    };
+
+    const openBatchesPanel = (vendor: any) => {
+        setBatchesVendor(vendor);
+        setSelectedLeadIds(new Set());
+        setDocsBatchId(null);
+        loadBatches(vendor.id);
+    };
+
+    const closeBatchesPanel = () => {
+        setBatchesVendor(null);
+        setBatches([]);
+        setSelectedLeadIds(new Set());
+        setDocsBatchId(null);
+    };
+
+    const toggleSelectLead = (id: number) => setSelectedLeadIds((prev) => {
+        const s = new Set(prev);
+        s.has(id) ? s.delete(id) : s.add(id);
+        return s;
+    });
+
+    const toggleSelectAllLeads = (ids: number[]) => setSelectedLeadIds((prev) =>
+        prev.size === ids.length ? new Set() : new Set(ids)
+    );
+
+    const handleOpenBatch = async () => {
+        if (!token || !batchesVendor || selectedLeadIds.size === 0) return;
+        setSavingBatch(true);
+        try {
+            await adminCreateVendorBatch(token, batchesVendor.id, Array.from(selectedLeadIds));
+            showToast('אצוות רכש נפתחה ✓');
+            setSelectedLeadIds(new Set());
+            loadBatches(batchesVendor.id);
+            adminListOrders(token).then(setOrders).catch(() => {});
+        } catch (err: any) {
+            showToast(err.message || 'שגיאה בפתיחת אצווה', 'error');
+        } finally {
+            setSavingBatch(false);
+        }
+    };
+
+    const handleAdvanceBatchStatus = async (batch: VendorPurchaseBatch, nextStatus: string) => {
+        if (!token || !batchesVendor) return;
+        setUpdatingBatchId(batch.id);
+        try {
+            await adminUpdateVendorBatchStatus(token, batchesVendor.id, batch.id, nextStatus);
+            showToast('סטטוס האצווה עודכן ✓');
+            loadBatches(batchesVendor.id);
+        } catch (err: any) {
+            showToast(err.message || 'שגיאה בעדכון סטטוס', 'error');
+        } finally {
+            setUpdatingBatchId(null);
+        }
+    };
+
+    const printPickingList = (batch: VendorPurchaseBatch) => {
+        const byProduct = new Map<string, number>();
+        batch.items.forEach((i) => {
+            const key = i.product_title_he || '—';
+            byProduct.set(key, (byProduct.get(key) || 0) + (i.quantity || 1));
+        });
+        const rows = Array.from(byProduct.entries()).map(([product, qty]) => [product, qty]);
+        openPrintableTable(`רשימת ליקוט — ${batch.batch_number}`, ['מוצר', 'כמות כוללת'], rows);
+    };
+
+    const exportPickingListCsv = (batch: VendorPurchaseBatch) => {
+        const byProduct = new Map<string, number>();
+        batch.items.forEach((i) => {
+            const key = i.product_title_he || '—';
+            byProduct.set(key, (byProduct.get(key) || 0) + (i.quantity || 1));
+        });
+        const rows = Array.from(byProduct.entries()).map(([product, qty]) => [product, qty]);
+        downloadCsv(`picking-list-${batch.batch_number}.csv`, ['מוצר', 'כמות כוללת'], rows);
+    };
+
+    const printPackingList = (batch: VendorPurchaseBatch) => {
+        const rows = batch.items.map((i) => [
+            i.order_number || '—',
+            i.user_name || '—',
+            i.user_phone || i.user_email || '—',
+            i.product_title_he || '—',
+            i.quantity || 1,
+        ]);
+        openPrintableTable(`רשימת חלוקה — ${batch.batch_number}`, ['הזמנה', 'לקוח', 'יצירת קשר', 'מוצר', 'כמות'], rows);
+    };
+
+    const exportPackingListCsv = (batch: VendorPurchaseBatch) => {
+        const rows = batch.items.map((i) => [
+            i.order_number || '—',
+            i.user_name || '—',
+            i.user_phone || i.user_email || '—',
+            i.product_title_he || '—',
+            i.quantity || 1,
+        ]);
+        downloadCsv(`packing-list-${batch.batch_number}.csv`, ['הזמנה', 'לקוח', 'יצירת קשר', 'מוצר', 'כמות'], rows);
+    };
+
     return (
         <div>
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -314,6 +465,9 @@ export default function AdminVendorsPage() {
                                                 </button>
                                                 <button onClick={() => openSettlementsPanel(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="התחשבנות עמלות">
                                                     <Wallet size={15} />
+                                                </button>
+                                                <button onClick={() => openBatchesPanel(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="אצוות רכש">
+                                                    <Boxes size={15} />
                                                 </button>
                                                 <button onClick={() => openEditForm(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title="עריכה">
                                                     <Pencil size={15} />
@@ -565,6 +719,147 @@ export default function AdminVendorsPage() {
                                                 >
                                                     סמן כשולם
                                                 </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {batchesVendor && (
+                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6 overflow-y-auto" onClick={closeBatchesPanel}>
+                    <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-2xl space-y-5 my-8" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-xl font-black text-[#f0e6d3] flex items-center gap-2">
+                                <Boxes size={20} /> אצוות רכש — {batchesVendor.name_he}
+                            </h2>
+                            <button type="button" onClick={closeBatchesPanel}><X size={20} className="text-[#f0e6d3]/60" /></button>
+                        </div>
+
+                        {(() => {
+                            const unbatched = unbatchedItemsForVendor(batchesVendor.id);
+                            const allIds = unbatched.map((i) => i.id);
+                            return (
+                                <div className="bg-[#111a2f] rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs text-[#f0e6d3]/50 font-bold uppercase tracking-wider">
+                                            הזמנות פעילות שטרם שובצו לאצווה ({unbatched.length})
+                                        </label>
+                                        {unbatched.length > 0 && (
+                                            <button onClick={() => toggleSelectAllLeads(allIds)} className="text-xs text-[#d4af37] hover:text-[#d4af37]/70 flex items-center gap-1">
+                                                {selectedLeadIds.size === allIds.length ? <CheckSquare size={13} /> : <Square size={13} />}
+                                                בחר הכל
+                                            </button>
+                                        )}
+                                    </div>
+                                    {unbatched.length === 0 ? (
+                                        <p className="text-xs text-[#f0e6d3]/40 text-center py-3">אין כרגע הזמנות פעילות של ספק זה שטרם שובצו לאצווה</p>
+                                    ) : (
+                                        <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                                            {unbatched.map((item) => (
+                                                <label key={item.id} className="flex items-center gap-2.5 bg-[#0e1628] rounded-lg px-3 py-2 text-xs text-[#f0e6d3] cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedLeadIds.has(item.id)}
+                                                        onChange={() => toggleSelectLead(item.id)}
+                                                        className="accent-[#d4af37] w-4 h-4 shrink-0"
+                                                    />
+                                                    <span className="flex-1 truncate">{item.product_title_he} {item.quantity > 1 && <span className="text-[#d4af37] font-bold">×{item.quantity}</span>}</span>
+                                                    <span className="text-[#f0e6d3]/40 shrink-0">{item.order_number}</span>
+                                                    <span className="text-[#f0e6d3]/40 shrink-0">{item.user_name}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={handleOpenBatch}
+                                        disabled={savingBatch || selectedLeadIds.size === 0}
+                                        className="btn-primary w-full !text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+                                    >
+                                        {savingBatch ? <Loader2 className="animate-spin" size={14} /> : <Boxes size={14} />}
+                                        פתח אצווית רכש ({selectedLeadIds.size} פריטים נבחרים)
+                                    </button>
+                                </div>
+                            );
+                        })()}
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 font-bold uppercase tracking-wider mb-2 block">היסטוריית אצוות</label>
+                            {loadingBatches ? (
+                                <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={20} />
+                            ) : batches.length === 0 ? (
+                                <p className="text-xs text-[#f0e6d3]/40 text-center py-4">אין אצוות רכש עדיין</p>
+                            ) : (
+                                <div className="space-y-2 max-h-80 overflow-y-auto">
+                                    {batches.map((b) => (
+                                        <div key={b.id} className="bg-[#111a2f] rounded-xl px-4 py-3 text-sm space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <span className="text-[#f0e6d3] font-bold">{b.batch_number}</span>
+                                                    <span className="text-[#f0e6d3]/40 text-xs ms-2">{b.items.length} פריטים · {new Date(b.created_at).toLocaleDateString('he-IL')}</span>
+                                                </div>
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${BATCH_STATUS_COLOR[b.status]}`}>
+                                                    {BATCH_STATUS_LABEL[b.status] ?? b.status}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                {b.status === 'open' && (
+                                                    <button
+                                                        onClick={() => handleAdvanceBatchStatus(b, 'ordered')}
+                                                        disabled={updatingBatchId === b.id}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {updatingBatchId === b.id ? <Loader2 className="animate-spin" size={12} /> : 'סמן כהוזמן'}
+                                                    </button>
+                                                )}
+                                                {b.status === 'ordered' && (
+                                                    <button
+                                                        onClick={() => handleAdvanceBatchStatus(b, 'received')}
+                                                        disabled={updatingBatchId === b.id}
+                                                        className="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {updatingBatchId === b.id ? <Loader2 className="animate-spin" size={12} /> : 'סמן כהתקבל'}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => setDocsBatchId(docsBatchId === b.id ? null : b.id)}
+                                                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#d4af37]/15 text-[#d4af37] hover:bg-[#d4af37]/25 transition-colors"
+                                                >
+                                                    מסמכים
+                                                </button>
+                                            </div>
+
+                                            {docsBatchId === b.id && (
+                                                <div className="border-t border-[#d4af37]/10 pt-2.5 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs text-[#f0e6d3]/60">רשימת ליקוט (סה״כ לפי מוצר)</span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <button onClick={() => printPickingList(b)} className="p-1.5 rounded-lg bg-[#0e1628] text-[#d4af37]/70 hover:text-[#d4af37]" title="הדפס">
+                                                                <Printer size={13} />
+                                                            </button>
+                                                            <button onClick={() => exportPickingListCsv(b)} className="p-1.5 rounded-lg bg-[#0e1628] text-[#d4af37]/70 hover:text-[#d4af37]" title="CSV">
+                                                                <Download size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs text-[#f0e6d3]/60">רשימת חלוקה (לפי הזמנת לקוח)</span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <button onClick={() => printPackingList(b)} className="p-1.5 rounded-lg bg-[#0e1628] text-[#d4af37]/70 hover:text-[#d4af37]" title="הדפס">
+                                                                <Printer size={13} />
+                                                            </button>
+                                                            <button onClick={() => exportPackingListCsv(b)} className="p-1.5 rounded-lg bg-[#0e1628] text-[#d4af37]/70 hover:text-[#d4af37]" title="CSV">
+                                                                <Download size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[10px] text-[#f0e6d3]/30">
+                                                        רשימת החלוקה מציגה פרטי יצירת קשר עם הלקוח (טלפון/מייל) — להזמנות מוצר רגילות אין כתובת משלוח שמורה במערכת.
+                                                    </p>
+                                                </div>
                                             )}
                                         </div>
                                     ))}

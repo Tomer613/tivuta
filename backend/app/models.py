@@ -293,6 +293,7 @@ class Lead(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     customer_order_id = Column(Integer, ForeignKey("customer_orders.id"), nullable=True, index=True)
+    vendor_batch_id = Column(Integer, ForeignKey("vendor_purchase_batches.id"), nullable=True, index=True)
     lead_type = Column(String(30), nullable=False)  # 'appointment' | 'contact_request' | 'club_signup' | 'card_order'
     scheduled_at = Column(DateTime, nullable=True)
     status = Column(String(20), default="new")  # new | confirmed | contacted | closed | cancelled
@@ -309,6 +310,7 @@ class Lead(Base):
     assignee = relationship("User", foreign_keys=[assigned_to])
     product = relationship("Product")
     customer_order = relationship("CustomerOrder", back_populates="leads")
+    vendor_batch = relationship("VendorPurchaseBatch", back_populates="leads")
 
 
 class Favorite(Base):
@@ -512,3 +514,28 @@ class CommissionSettlementPeriod(Base):
 
     vendor = relationship("Vendor")
     transactions = relationship("SaleTransaction", back_populates="settlement_period")
+
+
+class VendorPurchaseBatch(Base):
+    """
+    Groups Lead line items from many different CustomerOrders that share a vendor into one
+    consolidated procurement action — e.g. 50 customers' kugel orders combined into one purchase
+    from the vendor. Separate from Lead.status (customer-contact progress): this tracks
+    procurement progress (open -> ordered -> received).
+    """
+    __tablename__ = "vendor_purchase_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=False, index=True)
+    status = Column(String(20), default="open")  # open | ordered | received
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    ordered_at = Column(DateTime, nullable=True)
+    received_at = Column(DateTime, nullable=True)
+
+    vendor = relationship("Vendor")
+    leads = relationship("Lead", back_populates="vendor_batch", order_by="Lead.id")
+
+    @property
+    def batch_number(self) -> str:
+        return f"PB-{self.id:06d}"

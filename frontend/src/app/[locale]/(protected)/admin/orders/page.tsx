@@ -532,6 +532,11 @@ export default function AdminOrdersPage() {
                                                                     <Fragment key={line.id}>
                                                                     <div className={`bg-[#111a2f] rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 ${isSlaBreached ? 'border border-red-500/40' : 'border border-transparent'}`}>
                                                                         <span className="text-[10px] font-bold text-[#d4af37]/60 bg-[#0e1628] px-2 py-0.5 rounded-full">{TYPE_LABEL[line.lead_type] ?? line.lead_type}</span>
+                                                                        {line.vendor_batch_id != null && (
+                                                                            <span className="text-[10px] font-bold text-green-400/80 bg-[#0e1628] px-2 py-0.5 rounded-full">
+                                                                                אצווה PB-{String(line.vendor_batch_id).padStart(6, '0')}
+                                                                            </span>
+                                                                        )}
                                                                         <div className="min-w-[140px] flex-1">
                                                                             {line.product_title_he ? (
                                                                                 <a

@@ -381,6 +381,7 @@ def _order_line_from_lead(lead: models.Lead) -> schemas.CustomerOrderLineRead:
         vendor_name_he=vendor.name_he if vendor else None,
         shipping_address=lead.shipping_address,
         quantity=lead.quantity,
+        vendor_batch_id=lead.vendor_batch_id,
     )
 
 

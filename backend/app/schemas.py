@@ -531,6 +531,7 @@ class CustomerOrderLineRead(BaseModel):
     vendor_name_he: Optional[str] = None
     shipping_address: Optional[dict] = None
     quantity: Optional[int] = None
+    vendor_batch_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -748,6 +749,45 @@ class CommissionSettlementPeriodRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+class VendorPurchaseBatchCreate(BaseModel):
+    lead_ids: List[int] = Field(..., min_length=1)
+
+
+class VendorPurchaseBatchStatusUpdate(BaseModel):
+    status: str
+
+
+class VendorPurchaseBatchLineRead(BaseModel):
+    id: int
+    product_id: Optional[int] = None
+    product_title_he: Optional[str] = None
+    quantity: Optional[int] = None
+    status: str
+    customer_order_id: Optional[int] = None
+    order_number: Optional[str] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    user_phone: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VendorPurchaseBatchRead(BaseModel):
+    id: int
+    batch_number: str
+    vendor_id: int
+    status: str
+    notes: Optional[str] = None
+    created_at: datetime
+    ordered_at: Optional[datetime] = None
+    received_at: Optional[datetime] = None
+    items: List[VendorPurchaseBatchLineRead]
+
+    class Config:
+        from_attributes = True
+
 
 class SurveyOptionRead(BaseModel):
     id: int

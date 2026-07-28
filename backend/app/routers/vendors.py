@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_db, get_password_hash
@@ -187,6 +187,136 @@ def admin_settle_period(
     db.commit()
     db.refresh(period)
     return period
+
+
+def _batch_line_from_lead(lead: models.Lead) -> schemas.VendorPurchaseBatchLineRead:
+    product = lead.product
+    order = lead.customer_order
+    user = lead.user
+    return schemas.VendorPurchaseBatchLineRead(
+        id=lead.id,
+        product_id=lead.product_id,
+        product_title_he=product.title_he if product else None,
+        quantity=lead.quantity,
+        status=lead.status,
+        customer_order_id=lead.customer_order_id,
+        order_number=order.order_number if order else None,
+        user_name=f"{user.first_name} {user.last_name}".strip() if user else None,
+        user_email=user.email if user else None,
+        user_phone=user.phone if user else None,
+    )
+
+
+def _load_batch(db: Session, batch_id: int) -> Optional[models.VendorPurchaseBatch]:
+    return (
+        db.query(models.VendorPurchaseBatch)
+        .options(
+            selectinload(models.VendorPurchaseBatch.leads).selectinload(models.Lead.product),
+            selectinload(models.VendorPurchaseBatch.leads).selectinload(models.Lead.customer_order),
+            selectinload(models.VendorPurchaseBatch.leads).selectinload(models.Lead.user),
+        )
+        .filter(models.VendorPurchaseBatch.id == batch_id)
+        .first()
+    )
+
+
+def _batch_read(batch: models.VendorPurchaseBatch) -> schemas.VendorPurchaseBatchRead:
+    return schemas.VendorPurchaseBatchRead(
+        id=batch.id,
+        batch_number=batch.batch_number,
+        vendor_id=batch.vendor_id,
+        status=batch.status,
+        notes=batch.notes,
+        created_at=batch.created_at,
+        ordered_at=batch.ordered_at,
+        received_at=batch.received_at,
+        items=[_batch_line_from_lead(lead) for lead in batch.leads],
+    )
+
+
+@router.get(
+    "/admin/vendors/{vendor_id}/purchase-batches",
+    response_model=List[schemas.VendorPurchaseBatchRead],
+    dependencies=[Depends(get_current_admin)],
+)
+def admin_list_vendor_batches(vendor_id: int, db: Session = Depends(get_db)):
+    batches = (
+        db.query(models.VendorPurchaseBatch)
+        .options(
+            selectinload(models.VendorPurchaseBatch.leads).selectinload(models.Lead.product),
+            selectinload(models.VendorPurchaseBatch.leads).selectinload(models.Lead.customer_order),
+            selectinload(models.VendorPurchaseBatch.leads).selectinload(models.Lead.user),
+        )
+        .filter(models.VendorPurchaseBatch.vendor_id == vendor_id)
+        .order_by(models.VendorPurchaseBatch.created_at.desc())
+        .all()
+    )
+    return [_batch_read(b) for b in batches]
+
+
+@router.post(
+    "/admin/vendors/{vendor_id}/purchase-batches",
+    response_model=schemas.VendorPurchaseBatchRead,
+    dependencies=[Depends(get_current_admin)],
+)
+def admin_create_vendor_batch(vendor_id: int, payload: schemas.VendorPurchaseBatchCreate, db: Session = Depends(get_db)):
+    """Consolidates line items from many different CustomerOrders (e.g. 50 customers' kugel
+    orders) that share this vendor into one purchase batch. The claim is a single atomic UPDATE
+    re-checking vendor_batch_id IS NULL at execution time — same shape as
+    admin_open_settlement_period — so a double-submit can't double-claim a row."""
+    vendor = db.query(models.Vendor).filter(models.Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    batch = models.VendorPurchaseBatch(vendor_id=vendor_id, status="open")
+    db.add(batch)
+    db.flush()  # assign batch.id
+
+    db.query(models.Lead).filter(
+        models.Lead.id.in_(payload.lead_ids),
+        models.Lead.vendor_batch_id.is_(None),
+        models.Lead.lead_type == "contact_request",  # only product-purchase lines are procurable
+        models.Lead.status.notin_(["closed", "cancelled"]),
+        models.Lead.product_id.in_(
+            db.query(models.Product.id).filter(models.Product.vendor_id == vendor_id)
+        ),
+    ).update({"vendor_batch_id": batch.id}, synchronize_session=False)
+
+    db.commit()
+    return _batch_read(_load_batch(db, batch.id))
+
+
+@router.patch(
+    "/admin/vendors/{vendor_id}/purchase-batches/{batch_id}/status",
+    response_model=schemas.VendorPurchaseBatchRead,
+    dependencies=[Depends(get_current_admin)],
+)
+def admin_update_vendor_batch_status(
+    vendor_id: int, batch_id: int, payload: schemas.VendorPurchaseBatchStatusUpdate, db: Session = Depends(get_db)
+):
+    batch = (
+        db.query(models.VendorPurchaseBatch)
+        .filter(models.VendorPurchaseBatch.id == batch_id, models.VendorPurchaseBatch.vendor_id == vendor_id)
+        .first()
+    )
+    if not batch:
+        raise HTTPException(status_code=404, detail="Purchase batch not found")
+
+    allowed_next = {"open": "ordered", "ordered": "received"}
+    if allowed_next.get(batch.status) != payload.status:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot move batch from '{batch.status}' to '{payload.status}'",
+        )
+
+    batch.status = payload.status
+    if payload.status == "ordered":
+        batch.ordered_at = datetime.utcnow()
+    elif payload.status == "received":
+        batch.received_at = datetime.utcnow()
+
+    db.commit()
+    return _batch_read(_load_batch(db, batch.id))
 
 
 def _oldest_unsettled_transaction(db: Session, vendor_id: int) -> Optional[models.SaleTransaction]:

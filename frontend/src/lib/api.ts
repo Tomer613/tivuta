@@ -127,6 +127,63 @@ export async function adminSettlePeriod(token: string, vendorId: number, periodI
     return res.json();
 }
 
+export interface VendorPurchaseBatchLine {
+    id: number;
+    product_id?: number | null;
+    product_title_he?: string | null;
+    quantity?: number | null;
+    status: string;
+    customer_order_id?: number | null;
+    order_number?: string | null;
+    user_name?: string | null;
+    user_email?: string | null;
+    user_phone?: string | null;
+}
+
+export interface VendorPurchaseBatch {
+    id: number;
+    batch_number: string;
+    vendor_id: number;
+    status: string;
+    notes?: string | null;
+    created_at: string;
+    ordered_at?: string | null;
+    received_at?: string | null;
+    items: VendorPurchaseBatchLine[];
+}
+
+export async function adminListVendorBatches(token: string, vendorId: number): Promise<VendorPurchaseBatch[]> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${vendorId}/purchase-batches`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load purchase batches');
+    return res.json();
+}
+
+export async function adminCreateVendorBatch(token: string, vendorId: number, leadIds: number[]): Promise<VendorPurchaseBatch> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${vendorId}/purchase-batches`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_ids: leadIds }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to open purchase batch');
+    }
+    return res.json();
+}
+
+export async function adminUpdateVendorBatchStatus(token: string, vendorId: number, batchId: number, status: string): Promise<VendorPurchaseBatch> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${vendorId}/purchase-batches/${batchId}/status`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update batch status');
+    }
+    return res.json();
+}
+
 // ── Loyalty program: system settings, sale review, fraud monitoring ─────────
 
 export interface SystemSetting {
@@ -738,6 +795,7 @@ export interface CustomerOrderLine {
     vendor_name_he?: string | null;
     shipping_address?: { full_name: string; street: string; city: string; zip_code?: string | null; phone: string } | null;
     quantity?: number | null;
+    vendor_batch_id?: number | null;
 }
 
 export interface CustomerOrder {

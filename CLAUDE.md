@@ -67,7 +67,8 @@ tivuta/
 │   │       ├── dcf603bb12f3_merge_cart_and_verticals_branches.py  (merges the two branches above)
 │   │       ├── 91c9b7fe9361_survey_max_choices_multiselect.py
 │   │       ├── c2f8a4e1b6d0_fix_diamonds_shape_typo.py
-│   │       └── 861a4db9d155_add_customer_orders.py  ← newest (head)
+│   │       ├── 861a4db9d155_add_customer_orders.py
+│   │       └── bbcdc94e0e14_add_vendor_purchase_batches.py  ← newest (head)
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │
@@ -143,6 +144,7 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `sale_transactions` | Ledger of in-store sales reported for a vendor+customer(+product); drives points + commission |
 | `points_ledger_entries` | Append-only per-user points history (accrual/redemption/adjustment/clawback) |
 | `commission_settlement_periods` | Admin-driven periodic reconciliation of vendor commission owed |
+| `vendor_purchase_batches` | Consolidates `Lead` line items from many different `customer_orders` that share a vendor into one procurement action; `batch_number` computed from `id`, not stored (see "Back-Office Orders Phase 2") |
 
 ---
 
@@ -526,9 +528,9 @@ reading `?id=`, so a brand-new product needs no rebuild either) to worlds:
 Before this, every fulfillable request (product interest, appointments, card requests) landed
 flat in the admin "פניות" (Leads/Inquiries) tab as individual `Lead` rows — a 5-item cart checkout
 looked like 5 unrelated inquiries, there was no order number, and there was no way to see a
-customer's other open requests. **Phase 2** (cross-customer vendor consolidation batches — "50
-kugel orders → 1 vendor PO" — plus warehouse picking/packing documents) is intentionally deferred
-to a future plan; this phase covers order numbering and per-order vendor/vertical breakdown only.
+customer's other open requests. This phase covers order numbering and per-order vendor/vertical
+breakdown; **Phase 2** (cross-customer vendor consolidation batches + picking/packing documents,
+shipped the same session — see the section right below this one) builds directly on it.
 
 - **New model `CustomerOrder`** (table `customer_orders`, `backend/app/models.py`) wraps one or
   more `Lead` rows created together under one customer-facing order. `order_number` is a computed
@@ -584,6 +586,74 @@ to a future plan; this phase covers order numbering and per-order vendor/vertica
   the single-product "contact me now" button on a non-appointment vertical created a one-line
   order via the same endpoint; `/admin/orders` rendered vertical/vendor grouping and the
   "other active orders" badge correctly; `/admin/leads` rendered its empty state as expected.
+
+---
+
+## Back-Office Orders Phase 2: Vendor Purchase Batches (session 2026-07-28)
+
+Builds on Phase 1 above. Phase 1 gave every checkout an order number and a per-order
+vertical/vendor breakdown; still missing was the **cross-customer** procurement workflow the user
+originally asked for — e.g. 50 different customers each order "Jerusalem kugel" from the same
+vendor, and the admin wants to combine all of those into one consolidated purchase, then get
+organized picking/packing documents once the pallet physically arrives.
+
+- **New model `VendorPurchaseBatch`** (table `vendor_purchase_batches`, `backend/app/models.py`)
+  groups `Lead` line items from many different `CustomerOrder`s that share a vendor under one
+  procurement action. `batch_number` is a computed property (`f"PB-{self.id:06d}"`), same
+  "computed, not stored" pattern as `CustomerOrder.order_number`. `Lead.vendor_batch_id` is
+  **deliberately separate from `Lead.status`**: `status` tracks customer-contact progress,
+  `vendor_batch_id`/the batch's own `status` (`open → ordered → received`) tracks procurement
+  progress — a line item can be `contacted` and still unbatched, or batched-and-received while
+  still `new`. Migration `bbcdc94e0e14_add_vendor_purchase_batches.py` has no backfill — every
+  pre-existing lead simply gets `vendor_batch_id = NULL`, correctly meaning "not yet procured."
+- **Claiming reuses the exact atomic-update shape** the loyalty program already established for
+  `CommissionSettlementPeriod` (`vendors.py:106-150`, session 2026-07-18/19): `POST
+  /admin/vendors/{vendor_id}/purchase-batches` (body `{lead_ids}`) creates the batch, flushes for
+  its id, then runs a single `UPDATE leads SET vendor_batch_id = :id WHERE id IN (:lead_ids) AND
+  vendor_batch_id IS NULL AND lead_type = 'contact_request' AND status NOT IN ('closed',
+  'cancelled') AND product_id IN (vendor's products)` — a double-submit can't double-claim a row,
+  verified live (submitting the same lead_ids twice claims 0 the second time). The `lead_type =
+  'contact_request'` guard specifically prevents an appointment or card-order lead from ever being
+  claimed into a procurement batch, even though such a lead could share the same vendor's product
+  — appointments aren't things you buy inventory for.
+- **`PATCH /admin/vendors/{vendor_id}/purchase-batches/{batch_id}/status`** enforces forward-only
+  transitions (`open→ordered→received` only) — verified live that `received` before `ordered` is
+  rejected (400).
+- **New "אצוות רכש" (Purchase Batches) modal** in `admin/vendors/page.tsx` — a `Boxes`-icon button
+  per vendor row (next to the existing `Wallet` settlements icon), structured identically to that
+  settlements modal (`settlementsVendor`/`settlements` state → `batchesVendor`/`batches`). The page
+  additionally fetches `adminListOrders()` (Phase 1's endpoint) once and computes, client-side,
+  each vendor's unbatched+active `contact_request` line items — no new "list unbatched items"
+  backend endpoint, since the frontend can already see everything it needs from that call (same
+  "load everything, filter in JS" convention every other admin page in this codebase follows).
+  Admin selects items (or "select all"), opens a batch, and advances it through
+  ordered/received via the history list.
+- **Picking list and packing list documents are computed entirely client-side** from a batch's
+  already-fetched `items` — no HTML-string-building backend endpoints. Picking list aggregates by
+  product (total quantity to expect on the pallet); packing list groups by `order_number` (which
+  customer gets which items, with phone/email — **there is no shipping address for regular
+  product orders**, only `card_order` leads have one, so contact info is the only "how to reach
+  them" data available, noted directly in the UI). Each has its own print + CSV button.
+- **`frontend/src/lib/printDocument.ts`** (new shared utility) — `openPrintableTable()` builds a
+  minimal RTL HTML table and opens it via `URL.createObjectURL(new Blob(...))` in a new tab (no
+  `document.write`, no new Next.js route — this is a static-export site, so a dynamically
+  generated page can't be a build-time route anyway); the opened tab has its own "הדפס" button
+  (hidden via `@media print`) rather than auto-triggering `window.print()`. `downloadCsv()` is the
+  same client-side CSV-blob pattern already used in `admin/orders/page.tsx`/`admin/leads/page.tsx`,
+  extracted here for reuse. A 3rd "PDF" document option is planned for later, not built now.
+- **`admin/orders/page.tsx`** shows a small green "אצווה PB-000001" badge next to a line item's
+  type badge once it's been claimed into a batch (`CustomerOrderLineRead.vendor_batch_id`, added
+  to the Phase 1 schema) — so an admin browsing Orders can see at a glance that procurement is
+  already in motion for that item, without needing to open the vendor's batch modal.
+- **Verified end-to-end** with a real browser session (Playwright): consolidated 3 different
+  customers' orders for the same vendor/product into one batch, advanced it open→ordered→received,
+  opened the documents panel, printed the picking list (new tab rendered a correct aggregated
+  table), and confirmed the batch badge appeared on all 3 orders back on `/admin/orders`. Hit and
+  fixed one unrelated environment issue along the way: a stale Turbopack `.next` cache caused every
+  nested route under `[locale]/(protected)/...` to 404 after several rapid edits to
+  `admin/vendors/page.tsx` — deleting `frontend/.next` and restarting `next dev` resolved it; not
+  a code bug, just something to try first if admin routes start 404ing mid-session after heavy
+  editing.
 
 ---
 
@@ -687,6 +757,8 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 - **Audit history as JSON array**: Lead `history` field is an append-only JSON array on the model; no separate table needed. Trade-off: cannot query history fields with SQL, but history is only ever displayed per-lead, never queried across leads.
 - **Distribution scheduling is storage-only**: `scheduled_at` is stored on the `Distribution` row. Actual auto-send at the scheduled time requires an external cron job / background worker (not yet built). Admin still sends manually; the field is UI infrastructure for when scheduling is wired up.
 - **Order numbers are computed, not stored**: `CustomerOrder.order_number` is a Python `@property` (`f"ORD-{self.id:06d}"`), derived from the auto-increment `id` at read time rather than written on insert — avoids the flush-then-update-then-commit dance a stored, id-derived column would need.
+- **Printable documents are Blob URLs opened in a new tab, not a route or a backend template**: `printDocument.ts`'s `openPrintableTable()` builds the HTML string client-side from data the page already has and opens it via `URL.createObjectURL` — consistent with the static-export constraint above (a dynamically generated printable page genuinely cannot be a build-time route) and avoiding a second HTML-templating system alongside the existing email-body builders in `services/`.
+- **Procurement claiming reuses the settlement-period atomic-update pattern verbatim**: `VendorPurchaseBatch`'s claim (`vendors.py`, Phase 2) is the same "flush for id, then single `UPDATE ... WHERE ... IS NULL`" shape as `CommissionSettlementPeriod`'s claim — proven correct under double-submit once already, no reason to invent a second way to safely claim a batch of rows.
 - **One code path creates product orders**: both "add to cart" and single-product "contact me now" call `POST /leads/cart-checkout` (the latter with a one-item array) rather than each having its own creation logic — `POST /leads` now rejects a plain contact request outright, forcing every product-order to go through the same quantity/order-number logic instead of two implementations that could drift.
 - **Query-param routes for anything that can't be known at build time**: `output: 'export'` requires `generateStaticParams` to enumerate every value of a dynamic route segment at build time — infeasible for a live database whose rows (products, worlds) can change between deploys. The fix used twice now: a single fixed static page reads an identifier from a query string (`?id=` for `/products`, `?slug=` for `/world`) via `useSearchParams()` and fetches/renders entirely client-side at runtime, so a brand-new row needs zero rebuild. There is deliberately no parallel per-item dynamic route (`/products/[id]`, `/[vertical]`) kept alongside these — pre-launch, with no real external links to preserve, one canonical URL per resource beats carrying a second scheme "just in case."
 - **View count fire-and-forget**: `POST /products/{id}/view` is called with `fetch().catch(() => {})` — no auth, no await. A failed view-count increment should never block the user.
