@@ -333,10 +333,15 @@ export default function AdminVendorsPage() {
 
     const handleOpenBatch = async () => {
         if (!token || !batchesVendor || selectedLeadIds.size === 0) return;
+        const requestedCount = selectedLeadIds.size;
         setSavingBatch(true);
         try {
-            await adminCreateVendorBatch(token, batchesVendor.id, Array.from(selectedLeadIds));
-            showToast('אצוות רכש נפתחה ✓');
+            const batch = await adminCreateVendorBatch(token, batchesVendor.id, Array.from(selectedLeadIds));
+            showToast(
+                batch.items.length < requestedCount
+                    ? `נפתחה אצווה עם ${batch.items.length} מתוך ${requestedCount} פריטים שנבחרו — השאר כבר שובצו לאצווה אחרת בינתיים`
+                    : 'אצוות רכש נפתחה ✓'
+            );
             setSelectedLeadIds(new Set());
             loadBatches(batchesVendor.id);
             adminListOrders(token).then(setOrders).catch(() => {});

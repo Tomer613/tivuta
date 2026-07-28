@@ -272,7 +272,7 @@ def admin_create_vendor_batch(vendor_id: int, payload: schemas.VendorPurchaseBat
     db.add(batch)
     db.flush()  # assign batch.id
 
-    db.query(models.Lead).filter(
+    claimed = db.query(models.Lead).filter(
         models.Lead.id.in_(payload.lead_ids),
         models.Lead.vendor_batch_id.is_(None),
         models.Lead.lead_type == "contact_request",  # only product-purchase lines are procurable
@@ -281,6 +281,15 @@ def admin_create_vendor_batch(vendor_id: int, payload: schemas.VendorPurchaseBat
             db.query(models.Product.id).filter(models.Product.vendor_id == vendor_id)
         ),
     ).update({"vendor_batch_id": batch.id}, synchronize_session=False)
+
+    if claimed == 0:
+        # Nothing was actually claimable (e.g. another request already claimed these leads a
+        # moment ago) — don't leave a phantom empty batch behind for a claim that did nothing.
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="None of the selected items are available to batch — they may have already been claimed by another batch",
+        )
 
     db.commit()
     return _batch_read(_load_batch(db, batch.id))
