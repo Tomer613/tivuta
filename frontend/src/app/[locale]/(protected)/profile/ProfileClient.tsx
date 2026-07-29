@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
-    updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, updateNotificationPrefs, productImageUrl,
-    getMyPointsHistory, createCardOrder, PointsLedgerEntry, ShippingAddress,
+    updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, productImageUrl,
+    getMyPointsHistory, createCardOrder, PointsLedgerEntry, ShippingAddress, MyOrder,
 } from '@/lib/api';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
@@ -35,9 +35,12 @@ const tr: Record<string, Record<string, string>> = {
         backoffice: 'כניסה לבק-אופיס',
         backoffice_sub: 'ניהול מוצרים, משתמשים, מבצעים, הפצות וסקרים',
         logout: 'התנתק',
+        orders_title: 'מעקב הזמנות',
+        no_orders: 'אין הזמנות עדיין.',
+        order_items_done: 'הושלמו',
         activity_title: 'היסטוריית פעילות',
         no_activity: 'טרם בוצעו פניות.',
-        lead_appointment: 'פגישה', lead_contact: 'פנייה', lead_other: 'בקשה',
+        lead_appointment: 'פגישה', lead_contact: 'פנייה', lead_other: 'בקשה', lead_card_order: 'הזמנת כרטיס',
         status_new: 'חדשה', status_confirmed: 'מאושרת', status_contacted: 'טופלה', status_closed: 'סגורה',
         completed_section: 'פרטים שמולאו', missing_section: 'פרטים חסרים',
         profile_full: 'הפרופיל שלך מלא לחלוטין',
@@ -60,9 +63,12 @@ const tr: Record<string, Record<string, string>> = {
         backoffice: 'Enter Back-Office',
         backoffice_sub: 'Manage products, users, promotions, distributions and surveys',
         logout: 'Log out',
+        orders_title: 'Order Tracking',
+        no_orders: 'No orders yet.',
+        order_items_done: 'done',
         activity_title: 'Activity history',
         no_activity: 'No activity yet.',
-        lead_appointment: 'Appointment', lead_contact: 'Contact', lead_other: 'Request',
+        lead_appointment: 'Appointment', lead_contact: 'Contact', lead_other: 'Request', lead_card_order: 'Card Order',
         status_new: 'New', status_confirmed: 'Confirmed', status_contacted: 'Handled', status_closed: 'Closed',
         completed_section: 'Completed details', missing_section: 'Missing details',
         profile_full: 'Your profile is complete!',
@@ -85,9 +91,12 @@ const tr: Record<string, Record<string, string>> = {
         backoffice: 'Accès Back-Office',
         backoffice_sub: 'Gérer les produits, utilisateurs, promotions et enquêtes',
         logout: 'Se déconnecter',
+        orders_title: 'Suivi des commandes',
+        no_orders: 'Aucune commande.',
+        order_items_done: 'terminés',
         activity_title: "Historique d'activité",
         no_activity: 'Aucune activité.',
-        lead_appointment: 'Rendez-vous', lead_contact: 'Contact', lead_other: 'Demande',
+        lead_appointment: 'Rendez-vous', lead_contact: 'Contact', lead_other: 'Demande', lead_card_order: 'Commande de carte',
         status_new: 'Nouveau', status_confirmed: 'Confirmé', status_contacted: 'Traité', status_closed: 'Fermé',
         completed_section: 'Détails complétés', missing_section: 'Détails manquants',
         profile_full: 'Votre profil est complet !',
@@ -110,9 +119,12 @@ const tr: Record<string, Record<string, string>> = {
         backoffice: 'אריין אין בעק-אָפיס',
         backoffice_sub: 'פאַרוואַלטן פּראָדוקטן, באניצערס, מבצעים',
         logout: 'אויסלאָגן',
+        orders_title: 'מעקב הזמנות',
+        no_orders: 'קיין הזמנות נאָך ניט.',
+        order_items_done: 'פֿאַרטיק',
         activity_title: 'פּעולה היסטאָריע',
         no_activity: 'קיין פּעולות נאָך ניט.',
-        lead_appointment: 'פּגישה', lead_contact: 'פּנייה', lead_other: 'בקשה',
+        lead_appointment: 'פּגישה', lead_contact: 'פּנייה', lead_other: 'בקשה', lead_card_order: 'הזמנת כרטיס',
         status_new: 'ניי', status_confirmed: 'באשטעטיקט', status_contacted: 'באהאנדלט', status_closed: 'פארמאכט',
         completed_section: 'פֿאַרענדיקטע פּרטים', missing_section: 'פֿעלנדע פּרטים',
         profile_full: 'דיין פּרופֿיל איז פֿולשטענדיק!',
@@ -241,6 +253,7 @@ export default function ProfileClient() {
     const [appointments, setAppointments] = useState<any[]>([]);
     const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
     const [orders, setOrders] = useState<any[]>([]);
+    const [myOrders, setMyOrders] = useState<MyOrder[]>([]);
     const [showNotifPrefs, setShowNotifPrefs] = useState(false);
     const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({ lead_status: true, appointment_reminder: true, system: true, promotions: true });
     const [notifSaving, setNotifSaving] = useState(false);
@@ -279,6 +292,7 @@ export default function ProfileClient() {
         getFavorites(token).then(setFavorites).catch(() => {});
         getMyAppointments(token).then(setAppointments).catch(() => {});
         getMyOrders(token).then(setOrders).catch(() => {});
+        getMyCustomerOrders(token).then(setMyOrders).catch(() => {});
         getMyPointsHistory(token).then(setPointsHistory).catch(() => {});
         try {
             const raw = localStorage.getItem('tivuta_recent_v2');
@@ -393,7 +407,7 @@ export default function ProfileClient() {
         return (meta && (meta[`label_${localeKey}`] || meta.label_he)) || v;
     };
     const leadTypeLabel = (lt: string) =>
-        lt === 'appointment' ? t.lead_appointment : lt === 'contact_request' ? t.lead_contact : t.lead_other;
+        lt === 'appointment' ? t.lead_appointment : lt === 'contact_request' ? t.lead_contact : lt === 'card_order' ? t.lead_card_order : t.lead_other;
     const statusLabel = (s: string) =>
         ({ new: t.status_new, confirmed: t.status_confirmed, contacted: t.status_contacted, closed: t.status_closed }[s] ?? s);
     const statusColor = (s: string) =>
@@ -783,6 +797,54 @@ export default function ProfileClient() {
                             </button>
                         )}
                     </div>
+                </div>
+
+                {/* ── Order Tracking (CustomerOrder-backed) ── */}
+                <div id="my-orders" className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5 scroll-mt-24">
+                    <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
+                        <ShoppingBag size={14} className="text-[#d4af37]" />
+                        {t.orders_title}
+                    </h2>
+                    {myOrders.length === 0 ? (
+                        <p className="text-[#f0e6d3]/40 text-sm">{t.no_orders}</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {myOrders.map((order) => {
+                                const doneCount = order.items.filter((i) => i.status === 'closed').length;
+                                return (
+                                    <div key={order.id} className="bg-[#111a2f] rounded-xl px-4 py-3">
+                                        <div className="flex items-center justify-between gap-3 mb-2">
+                                            <span className="text-sm font-black text-[#d4af37]" dir="ltr">{order.order_number}</span>
+                                            <span className="text-xs text-[#f0e6d3]/40">
+                                                {new Date(order.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        {order.items.length > 1 && (
+                                            <p className="text-xs text-[#f0e6d3]/40 mb-2">
+                                                {doneCount} / {order.items.length} {t.order_items_done}
+                                            </p>
+                                        )}
+                                        <div className="space-y-1.5">
+                                            {order.items.map((item) => (
+                                                <div key={item.id} className="flex items-center justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm text-[#f0e6d3] truncate">
+                                                            {item.product_title_he || leadTypeLabel(item.lead_type)}
+                                                            {item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                                                        </p>
+                                                        <p className="text-xs text-[#f0e6d3]/40">{leadTypeLabel(item.lead_type)}</p>
+                                                    </div>
+                                                    <span className={`text-xs font-bold shrink-0 ${statusColor(item.status)}`}>
+                                                        {statusLabel(item.status)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Activity history ── */}

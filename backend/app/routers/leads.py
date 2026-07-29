@@ -224,6 +224,44 @@ def my_leads(db: Session = Depends(get_db), current_user: models.User = Depends(
     return db.query(models.Lead).filter(models.Lead.user_id == current_user.id).order_by(models.Lead.created_at.desc()).all()
 
 
+def _my_order_line_from_lead(lead: models.Lead) -> schemas.MyOrderLineRead:
+    product = lead.product
+    return schemas.MyOrderLineRead(
+        id=lead.id,
+        lead_type=lead.lead_type,
+        scheduled_at=lead.scheduled_at,
+        status=lead.status,
+        product_id=lead.product_id,
+        product_title_he=product.title_he if product else None,
+        product_vertical=product.vertical if product else None,
+        product_image_url=product.image_url if product else None,
+        product_price=product.price if product else None,
+        shipping_address=lead.shipping_address,
+        quantity=lead.quantity,
+        created_at=lead.created_at,
+    )
+
+
+@router.get("/users/me/orders", response_model=List[schemas.MyOrderRead])
+def my_orders(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    orders = (
+        db.query(models.CustomerOrder)
+        .options(selectinload(models.CustomerOrder.leads).selectinload(models.Lead.product))
+        .filter(models.CustomerOrder.user_id == current_user.id)
+        .order_by(models.CustomerOrder.created_at.desc())
+        .all()
+    )
+    return [
+        schemas.MyOrderRead(
+            id=order.id,
+            order_number=order.order_number,
+            created_at=order.created_at,
+            items=[_my_order_line_from_lead(lead) for lead in order.leads],
+        )
+        for order in orders
+    ]
+
+
 @router.post("/leads/card-order", response_model=schemas.LeadRead)
 def create_card_order(
     payload: schemas.CardOrderCreate,

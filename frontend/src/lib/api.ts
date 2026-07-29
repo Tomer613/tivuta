@@ -1253,6 +1253,35 @@ export async function getMyOrders(token: string) {
     return res.json();
 }
 
+// My marketplace orders (CustomerOrder-backed — cart checkouts, appointments, card requests)
+export interface MyOrderLine {
+    id: number;
+    lead_type: string;
+    scheduled_at?: string | null;
+    status: string;
+    product_id?: number | null;
+    product_title_he?: string | null;
+    product_vertical?: string | null;
+    product_image_url?: string | null;
+    product_price?: number | null;
+    shipping_address?: ShippingAddress | null;
+    quantity?: number | null;
+    created_at: string;
+}
+
+export interface MyOrder {
+    id: number;
+    order_number: string;
+    created_at: string;
+    items: MyOrderLine[];
+}
+
+export async function getMyCustomerOrders(token: string): Promise<MyOrder[]> {
+    const res = await fetch(`${BASE_URL}/users/me/orders`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
 // ── Loyalty program: customer card / points history / physical card request ─
 
 export interface PointsLedgerEntry {

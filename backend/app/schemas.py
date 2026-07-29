@@ -628,6 +628,34 @@ class LeadHistoryRead(BaseModel):
     product_image_url: Optional[str] = None
     product_price: Optional[float] = None
 
+
+class MyOrderLineRead(BaseModel):
+    id: int
+    lead_type: str
+    scheduled_at: Optional[datetime] = None
+    status: str
+    product_id: Optional[int] = None
+    product_title_he: Optional[str] = None
+    product_vertical: Optional[str] = None
+    product_image_url: Optional[str] = None
+    product_price: Optional[float] = None
+    shipping_address: Optional[dict] = None
+    quantity: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MyOrderRead(BaseModel):
+    id: int
+    order_number: str
+    created_at: datetime
+    items: List[MyOrderLineRead]
+
+    class Config:
+        from_attributes = True
+
 # Survey Schemas
 class SurveyOptionCreate(BaseModel):
     product_id: int

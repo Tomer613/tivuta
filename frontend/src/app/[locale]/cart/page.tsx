@@ -23,13 +23,14 @@ interface T {
     done: string;
     error: string;
     order_number: string;
+    view_orders: string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה' },
-    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number' },
-    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande' },
-    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה' },
+    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי' },
+    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders' },
+    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes' },
+    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות' },
 };
 
 export default function CartPage() {
@@ -74,7 +75,12 @@ export default function CartPage() {
                     <CheckCircle2 size={48} className="text-green-400 mx-auto mb-4" />
                     <p className="text-[#f0e6d3] text-lg font-bold mb-3">{t.done}</p>
                     {orderNumber && (
-                        <p className="text-[#d4af37] font-black text-lg mb-6" dir="ltr">{t.order_number}: {orderNumber}</p>
+                        <>
+                            <p className="text-[#d4af37] font-black text-lg mb-2" dir="ltr">{t.order_number}: {orderNumber}</p>
+                            <Link href={`/${locale}/profile#my-orders`} className="text-sm text-[#f0e6d3]/60 hover:text-[#d4af37] underline block mb-6">
+                                {t.view_orders}
+                            </Link>
+                        </>
                     )}
                     <Link href={`/${locale}`} className="btn-primary inline-flex">{t.browse}</Link>
                 </div>

@@ -772,6 +772,53 @@ per-vendor identity:
 
 ---
 
+## User-Facing Order Lookup (session 2026-07-29)
+
+A robustness/clarity audit of the whole Orders+Vendors system (done right after Vendor Identity)
+found that a member had **no durable way to find an order again** after checking out. The cart
+success screen computed `order_number` client-side into local React state only — refresh or leave
+the page and it was gone. The profile page's existing "ההזמנות שלי" section looked like it should
+help but doesn't: it reads `GET /orders/me`, the legacy/unrelated `Order` table (a simple
+amount/title/status ledger that predates `CustomerOrder` and has nothing to do with the
+marketplace checkout flow — CLAUDE.md already warned not to confuse the two). "Activity history"
+shows flat `Lead` rows grouped by vertical, with no order number and no order-level grouping.
+
+- **`GET /users/me/orders`** (`routers/leads.py`) — new customer-scoped endpoint returning every
+  `CustomerOrder` belonging to the current user (cart checkouts, single-item "contact me now"
+  orders, appointments, card requests — anything wrapped in a `CustomerOrder`), newest first. Uses
+  a **separate, customer-safe schema** (`MyOrderRead`/`MyOrderLineRead`, modeled on the existing
+  `LeadHistoryRead` pattern already used for `/users/me/activity`) that deliberately omits
+  admin-internal fields present on the admin equivalent (`CustomerOrderRead`/
+  `CustomerOrderLineRead`): no `notes`, `history`, `assigned_to`/`assigned_to_name`, or
+  `vendor_id`/`vendor_name_he`/`vendor_batch_id` — none of that is the customer's business. A new
+  `_my_order_line_from_lead()` helper sits next to the existing admin `_order_line_from_lead()` in
+  `leads.py`, same shape, leaner output.
+- **Profile page gained a new "מעקב הזמנות" (Order Tracking) section** (`ProfileClient.tsx`),
+  placed **before** "Activity history" since orders are now the primary customer-facing concept.
+  Each order card shows `order_number` (bold gold, `dir="ltr"`) + date, a client-side-computed
+  rollup line for multi-item orders (e.g. "0 / 2 הושלמו" — counts `status === 'closed'` items, no
+  new backend field needed), and each line item's product/quantity/status — reusing the existing
+  `leadTypeLabel`/`statusLabel`/`statusColor` helpers so status vocabulary/colors match every other
+  section on the page. `leadTypeLabel` was extended to handle `card_order` (previously fell through
+  to a generic "בקשה" label — harmless before since the Activity section explicitly filters
+  `card_order` out via `marketplaceActivity`, but the new section doesn't filter, so it needed a
+  real label). The section has `id="my-orders"` so it can be deep-linked.
+- **This is purely additive** — the pre-existing legacy "ההזמנות שלי" section (`orders` state,
+  `GET /orders/me`) was deliberately left untouched, same data, same place, still unrelated to
+  `CustomerOrder`.
+- **Cart success screen** (`cart/page.tsx`) now links the order-number line to
+  `/${locale}/profile#my-orders`, so checkout naturally teaches the user where to find the order
+  again later instead of the number being a one-time-only display.
+- **Verified end-to-end** live: `GET /users/me/orders` returns the right orders/items for a member
+  with 3 single-item orders and confirmed a *different* member's token only sees their own
+  (separately confirmed multi-item order with correct per-item quantities and rollup); Playwright
+  screenshots confirmed the new section renders correctly in RTL Hebrew with the dark navy/gold
+  theme, the rollup/quantity line renders on a real 2-item order, the `#my-orders` anchor exists
+  and is deep-linkable, the legacy "ההזמנות שלי" section is unaffected, and there were zero console
+  errors.
+
+---
+
 ## Loyalty & Vendor Commission Program (Phases 1–5 — session 2026-07-18/19) — COMPLETE
 
 Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming-puffin" plan — this section documents what's actually **built**. All 5 planned phases are done.
