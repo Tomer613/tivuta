@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import {
     adminListOrders, adminUpdateOrderNotes, adminUpdateLeadStatus, adminUpdateLeadNotes,
     adminAssignLead, adminSendAppointmentReminder, adminGetAdminUsers, adminBulkLeadAction,
-    CustomerOrder, CustomerOrderLine,
+    vendorCode, CustomerOrder, CustomerOrderLine,
 } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
@@ -168,11 +168,10 @@ function KanbanView({ lines, onStatusChange, updatingId }: { lines: FlatLine[]; 
 }
 
 /** Groups one order's line items first by vertical, then by vendor within each vertical.
- *  The vendor suffix (A/B/C...) is a display-only label for issuing a separate purchase
- *  request per vendor — sorted by vendor_id across the whole order, not stored anywhere. */
+ *  The vendor suffix is that vendor's own stable code (vendorCode()), so e.g. ORD-000123-007
+ *  always means vendor #7 — consistent across every order, not just within this one. */
 function groupOrderItems(items: CustomerOrderLine[]) {
-    const vendorIds = Array.from(new Set(items.map((i) => i.vendor_id).filter((v): v is number => v != null))).sort((a, b) => a - b);
-    const suffixFor = (vendorId?: number | null) => (vendorId != null && vendorIds.indexOf(vendorId) >= 0) ? String.fromCharCode(65 + vendorIds.indexOf(vendorId)) : null;
+    const suffixFor = (vendorId?: number | null) => vendorId != null ? vendorCode(vendorId) : null;
 
     const byVertical = new Map<string, CustomerOrderLine[]>();
     for (const item of items) {

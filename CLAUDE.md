@@ -68,7 +68,8 @@ tivuta/
 │   │       ├── 91c9b7fe9361_survey_max_choices_multiselect.py
 │   │       ├── c2f8a4e1b6d0_fix_diamonds_shape_typo.py
 │   │       ├── 861a4db9d155_add_customer_orders.py
-│   │       └── bbcdc94e0e14_add_vendor_purchase_batches.py  ← newest (head)
+│   │       ├── bbcdc94e0e14_add_vendor_purchase_batches.py
+│   │       └── 50da6b936e9b_add_vendor_specialty_contact_fields.py  ← newest (head)
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │
@@ -139,7 +140,7 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `favorites` | User wishlist; `UniqueConstraint(user_id, product_id)`; CASCADE deletes |
 | `notifications` | In-app notifications per user; `type`: `lead_status` \| `appointment_reminder` \| `system` \| `followup` \| `points_earned`; `is_read`, `link` fields |
 | `reviews` | Product rating (1–5) + comment; `UniqueConstraint(user_id, product_id)` — upsert semantics |
-| `vendors` | Physical store/supplier per vertical; products optionally belong to one via `Product.vendor_id`; also carries loyalty-program fields (see below) |
+| `vendors` | Physical store/supplier per vertical; products optionally belong to one via `Product.vendor_id`; also carries loyalty-program fields (see below); `vendor_code` is a computed property (`{id:03d}`), not a column; `specialty`/`contact_phone`/`contact_email` are separate from `login_email` (portal auth) |
 | `system_settings` | Flat key/value config (e.g. `point_value_ils`) — see Loyalty Program section |
 | `sale_transactions` | Ledger of in-store sales reported for a vendor+customer(+product); drives points + commission |
 | `points_ledger_entries` | Append-only per-user points history (accrual/redemption/adjustment/clawback) |
@@ -599,7 +600,8 @@ organized picking/packing documents once the pallet physically arrives.
 
 - **New model `VendorPurchaseBatch`** (table `vendor_purchase_batches`, `backend/app/models.py`)
   groups `Lead` line items from many different `CustomerOrder`s that share a vendor under one
-  procurement action. `batch_number` is a computed property (`f"PB-{self.id:06d}"`), same
+  procurement action. `batch_number` is a computed property (`f"PB-{self.vendor_id:03d}-
+  {self.id:06d}"` — vendor code + sequential id, see "Vendor Identity" below for why), same
   "computed, not stored" pattern as `CustomerOrder.order_number`. `Lead.vendor_batch_id` is
   **deliberately separate from `Lead.status`**: `status` tracks customer-contact progress,
   `vendor_batch_id`/the batch's own `status` (`open → ordered → received`) tracks procurement
@@ -654,6 +656,68 @@ organized picking/packing documents once the pallet physically arrives.
   `admin/vendors/page.tsx` — deleting `frontend/.next` and restarting `next dev` resolved it; not
   a code bug, just something to try first if admin routes start 404ing mid-session after heavy
   editing.
+
+### Post-review fixes (same session, after a multi-angle code review of both phases)
+- **`admin_create_vendor_batch` no longer leaves a phantom empty batch** on a raced/duplicate
+  claim: the atomic `UPDATE`'s claimed-row count is now checked before committing — if it's 0,
+  the batch insert is rolled back and a 400 is raised instead of committing a real, empty,
+  permanently-visible batch with a misleading success toast. The frontend toast also now says
+  "X of Y items" if a claim comes back partial, not just a blanket success message.
+- **Bulk multi-select (status/assign) was restored on `admin/orders/page.tsx`**: the review found
+  that filtering `GET /admin/leads` to unwrapped leads only (Phase 1) had an undiscussed side
+  effect — `admin/leads/page.tsx`'s bulk-select toolbar had nothing left to select, and Orders had
+  no equivalent, silently losing the "select many, act once" workflow. Orders now has the same
+  checkbox/select-all/bulk-action toolbar the Leads page always had, calling the same pre-existing
+  `PATCH /admin/leads/bulk` (`adminBulkLeadAction`) — no backend change needed, since a `Lead`'s id
+  doesn't care which admin tab it's acted on from.
+
+---
+
+## Vendor Identity: Stable Codes + Specialty + Contact Info (session 2026-07-29)
+
+Phase 2's per-order vendor suffix (`ORD-000123-A`) was explicitly a placeholder — computed by
+sorting the distinct vendor ids *within one order* and assigning letters, so the same vendor could
+be "A" in one order and "C" in another. Discussing that limitation with the user led to a real
+per-vendor identity:
+
+- **`Vendor.vendor_code`** — computed property (`f"{self.id:03d}"`, e.g. vendor #7 → `"007"`),
+  same "computed, not stored" convention as `CustomerOrder.order_number`/`VendorPurchaseBatch.
+  batch_number`. Deliberately **not** admin-editable — no uniqueness validation needed, zero data
+  entry, and it's the option the user explicitly chose over a custom/free-typed code.
+- **`Vendor.specialty`** (new nullable column) — free text for what the vendor actually supplies
+  (e.g. "קוגלים", "תכשיטי יהלומים") — distinct from and finer-grained than the existing coarse
+  `vertical` field (diamonds/cars/insurance). Admin-UI-only, so no per-language variants needed
+  (unlike `name_he/en/fr/yi`) — matches "Admin UI is Hebrew-only" already established elsewhere.
+- **`Vendor.contact_phone`/`contact_email`** (new nullable columns) — who to actually call/email to
+  place an order. Deliberately separate from `login_email` (the vendor portal's login credential,
+  Phase 3 of the loyalty program) — conflating a business contact with an auth credential would
+  have been wrong.
+- **The per-order vendor suffix now uses `vendor_code` directly** (`admin/orders/page.tsx`'s
+  `groupOrderItems`) instead of sorting/assigning letters — `ORD-000123-007` means vendor #7 in
+  *every* order it appears in, not just that one. This deleted the `vendorIds`/`indexOf` logic
+  entirely — `vendorCode()` is a pure function of the id, no per-order context needed.
+- **`VendorPurchaseBatch.batch_number` also folds in the vendor code**: `f"PB-{self.vendor_id:03d}-
+  {self.id:06d}"` (was `f"PB-{self.id:06d}"`) — since a batch already belongs to exactly one
+  vendor, this makes a batch number self-identifying on a printed document without needing the
+  app open next to it.
+- **`frontend/src/lib/api.ts`** exports a shared `vendorCode(vendorId: number): string` helper —
+  used both in `admin/vendors/page.tsx` (table) and `admin/orders/page.tsx` (order suffix), since
+  a `CustomerOrderLine` only carries a bare `vendor_id`, not a nested vendor object.
+- **`admin/vendors/page.tsx`** table gained קוד/תחום אחריות/טלפון/מייל columns (table wrapper
+  changed from `overflow-hidden` to `overflow-x-auto` to accommodate); the Purchase Batches modal
+  header now shows the vendor code and a "צור קשר: {phone} · {email}" line — directly useful at
+  the exact moment an admin is about to place a consolidated order.
+- **Migration** (`50da6b936e9b_add_vendor_specialty_contact_fields.py`) — three plain nullable
+  `op.add_column`s on `vendors`, no FK/index so no `batch_alter_table` needed (unlike Phase 1/2's
+  FK-carrying columns on `leads`, which required SQLite's batch-mode table-copy dance).
+- **Verified end-to-end** live: `vendor_code`/`specialty`/contact fields round-trip through
+  `PATCH /admin/vendors/{id}`; a new batch for vendor #1 correctly produced `PB-001-000001`; the
+  vendors table, edit form, and Purchase Batches modal all render the new fields; `/admin/orders`
+  shows a stable `-001` suffix for that vendor.
+- **Not built** (noted as an easy future option, not requested now): a human-chosen memorable code
+  (e.g. "D-01") instead of the sequential id-based one — would only require changing the one
+  `vendor_code` property/`vendorCode()` helper, since every consumer (order suffix, batch number,
+  documents, CSV) already goes through it.
 
 ---
 

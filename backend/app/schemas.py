@@ -157,6 +157,9 @@ class VendorBase(BaseModel):
     name_en: Optional[str] = None
     name_fr: Optional[str] = None
     name_yi: Optional[str] = None
+    specialty: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
     is_active: bool = True
     availability: Optional[VendorAvailability] = None
     commission_rate_percent: float = Field(0.0, ge=0, le=100)
@@ -171,6 +174,9 @@ class VendorUpdate(BaseModel):
     name_en: Optional[str] = None
     name_fr: Optional[str] = None
     name_yi: Optional[str] = None
+    specialty: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
     is_active: Optional[bool] = None
     availability: Optional[VendorAvailability] = None
     commission_rate_percent: Optional[float] = Field(None, ge=0, le=100)
@@ -178,6 +184,7 @@ class VendorUpdate(BaseModel):
 
 class VendorRead(VendorBase):
     id: int
+    vendor_code: str
     commission_owed_total: float = 0.0
 
     class Config:

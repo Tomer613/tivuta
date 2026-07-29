@@ -175,6 +175,10 @@ class Vendor(Base):
     name_fr = Column(String(255), nullable=True)
     name_yi = Column(String(255), nullable=True)
 
+    specialty = Column(String(255), nullable=True)  # what this vendor actually supplies, e.g. "קוגלים"
+    contact_phone = Column(String(30), nullable=True)  # who to call to place an order — distinct from login_email
+    contact_email = Column(String(255), nullable=True)
+
     is_active = Column(Boolean, default=True, nullable=False)
     # {"weekly": {"0": {"enabled": true, "start": "10:00", "end": "14:00"}, ... "6": {...}}, "slot_minutes": 30}
     # weekly keys "0".."6" = Sunday..Saturday (JS Date.getDay() convention)
@@ -190,6 +194,10 @@ class Vendor(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     products = relationship("Product", back_populates="vendor")
+
+    @property
+    def vendor_code(self) -> str:
+        return f"{self.id:03d}"
 
 
 class Product(Base):
@@ -538,4 +546,4 @@ class VendorPurchaseBatch(Base):
 
     @property
     def batch_number(self) -> str:
-        return f"PB-{self.id:06d}"
+        return f"PB-{self.vendor_id:03d}-{self.id:06d}"

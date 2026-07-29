@@ -45,6 +45,9 @@ const emptyForm = () => ({
     name_en: '',
     name_fr: '',
     name_yi: '',
+    specialty: '',
+    contact_phone: '',
+    contact_email: '',
     is_active: true,
     weekly: emptyWeekly() as Record<string, { enabled: boolean; start: string; end: string }>,
     slot_minutes: 30,
@@ -122,6 +125,9 @@ export default function AdminVendorsPage() {
             name_en: vendor.name_en || '',
             name_fr: vendor.name_fr || '',
             name_yi: vendor.name_yi || '',
+            specialty: vendor.specialty || '',
+            contact_phone: vendor.contact_phone || '',
+            contact_email: vendor.contact_email || '',
             is_active: vendor.is_active,
             weekly,
             slot_minutes: vendor.availability?.slot_minutes || 30,
@@ -167,6 +173,9 @@ export default function AdminVendorsPage() {
             name_en: form.name_en || null,
             name_fr: form.name_fr || null,
             name_yi: form.name_yi || null,
+            specialty: form.specialty || null,
+            contact_phone: form.contact_phone || null,
+            contact_email: form.contact_email || null,
             is_active: form.is_active,
             availability: { weekly: form.weekly, slot_minutes: form.slot_minutes },
             commission_rate_percent: Number(form.commission_rate_percent) || 0,
@@ -430,11 +439,15 @@ export default function AdminVendorsPage() {
             {loading ? (
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={32} />
             ) : (
-                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-x-auto">
                     <table className="w-full text-start">
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
+                                <th className="p-4 text-start">קוד</th>
                                 <th className="p-4 text-start">שם הספק</th>
+                                <th className="p-4 text-start">תחום אחריות</th>
+                                <th className="p-4 text-start">טלפון</th>
+                                <th className="p-4 text-start">מייל</th>
                                 <th className="p-4 text-start">עולם</th>
                                 <th className="p-4 text-start">ימים פעילים</th>
                                 <th className="p-4 text-start">עמלה</th>
@@ -446,14 +459,18 @@ export default function AdminVendorsPage() {
                         <tbody>
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין ספקים עדיין</td>
+                                    <td colSpan={11} className="p-8 text-center text-[#f0e6d3]/40">אין ספקים עדיין</td>
                                 </tr>
                             )}
                             {filtered.map((vendor) => {
                                 const activeDays = Object.values(vendor.availability?.weekly || {}).filter((d: any) => d.enabled).length;
                                 return (
                                     <tr key={vendor.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
+                                        <td className="p-4 text-sm text-[#d4af37] font-bold" dir="ltr">{vendor.vendor_code}</td>
                                         <td className="p-4 font-semibold">{vendor.name_he}</td>
+                                        <td className="p-4 text-sm text-[#f0e6d3]/70">{vendor.specialty || '—'}</td>
+                                        <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{vendor.contact_phone || '—'}</td>
+                                        <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{vendor.contact_email || '—'}</td>
                                         <td className="p-4 text-sm">{VERTICAL_LABEL[vendor.vertical] ?? vendor.vertical}</td>
                                         <td className="p-4 text-sm">{activeDays} מתוך 7</td>
                                         <td className="p-4 text-sm">{vendor.commission_rate_percent}%</td>
@@ -538,6 +555,40 @@ export default function AdminVendorsPage() {
                             <input placeholder="שם (אנגלית)" value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} className="bg-[#111a2f] rounded-xl px-3 py-2 text-sm text-[#f0e6d3]" />
                             <input placeholder="שם (צרפתית)" value={form.name_fr} onChange={(e) => setForm({ ...form, name_fr: e.target.value })} className="bg-[#111a2f] rounded-xl px-3 py-2 text-sm text-[#f0e6d3]" />
                             <input placeholder="שם (יידיש)" value={form.name_yi} onChange={(e) => setForm({ ...form, name_yi: e.target.value })} className="bg-[#111a2f] rounded-xl px-3 py-2 text-sm text-[#f0e6d3]" />
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תחום אחריות (מה הספק מספק, למשל "קוגלים")</label>
+                            <input
+                                placeholder="תחום אחריות"
+                                value={form.specialty}
+                                onChange={(e) => setForm({ ...form, specialty: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-1 block">טלפון ליצירת קשר</label>
+                                <input
+                                    dir="ltr"
+                                    placeholder="050-1234567"
+                                    value={form.contact_phone}
+                                    onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מייל ליצירת קשר</label>
+                                <input
+                                    dir="ltr"
+                                    type="email"
+                                    placeholder="vendor@example.com"
+                                    value={form.contact_email}
+                                    onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                />
+                            </div>
                         </div>
 
                         <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
@@ -739,10 +790,15 @@ export default function AdminVendorsPage() {
                     <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-2xl space-y-5 my-8" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center">
                             <h2 className="text-xl font-black text-[#f0e6d3] flex items-center gap-2">
-                                <Boxes size={20} /> אצוות רכש — {batchesVendor.name_he}
+                                <Boxes size={20} /> אצוות רכש — {batchesVendor.name_he} <span className="text-[#d4af37]/60 text-sm font-bold" dir="ltr">#{batchesVendor.vendor_code}</span>
                             </h2>
                             <button type="button" onClick={closeBatchesPanel}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
+                        {(batchesVendor.contact_phone || batchesVendor.contact_email) && (
+                            <p className="text-xs text-[#f0e6d3]/50 -mt-3">
+                                צור קשר: {[batchesVendor.contact_phone, batchesVendor.contact_email].filter(Boolean).join(' · ')}
+                            </p>
+                        )}
 
                         {(() => {
                             const unbatched = unbatchedItemsForVendor(batchesVendor.id);

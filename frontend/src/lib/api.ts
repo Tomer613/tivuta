@@ -28,16 +28,26 @@ export interface VendorAvailability {
 
 export interface Vendor {
     id: number;
+    vendor_code: string;
     vertical: string;
     name_he: string;
     name_en?: string | null;
     name_fr?: string | null;
     name_yi?: string | null;
+    specialty?: string | null;
+    contact_phone?: string | null;
+    contact_email?: string | null;
     is_active: boolean;
     availability?: VendorAvailability | null;
     commission_rate_percent?: number;
     points_rate_percent?: number | null;
     commission_owed_total?: number;
+}
+
+/** Derives a vendor's stable display code from just its id (e.g. 7 -> "007"), for contexts that
+ *  only have a bare vendor_id (like a CustomerOrderLine) and no full Vendor object. */
+export function vendorCode(vendorId: number): string {
+    return String(vendorId).padStart(3, '0');
 }
 
 export async function adminListVendors(token: string, vertical?: string): Promise<Vendor[]> {
