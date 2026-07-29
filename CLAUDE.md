@@ -254,6 +254,58 @@ Since none of these live in the repo, check them directly in each provider's das
 - **Supabase dashboard** → Project Settings → Database: confirms the connection string matches what's set as `DATABASE_URL` on Render.
 - **GitHub repo** → Settings → Pages / Actions secrets: confirms `NEXT_PUBLIC_API_URL` (should point at the Render backend URL) and `NEXT_PUBLIC_BASE_PATH` used by the frontend build.
 
+### Which services actually use a GitHub token (audited 2026-07-29)
+Checked the real code/workflow files rather than assuming, since a local dev-machine credential
+incident (see below) raised the question of blast radius:
+- **GitHub Pages deploy (`.github/workflows/deploy.yml`) does NOT use any PAT.** It deploys via
+  `actions/deploy-pages@v4` under `permissions: pages: write, id-token: write` — GitHub's own
+  automatic per-run token, no `secrets.*` reference anywhere in the workflow. Revoking/rotating a
+  personal PAT has zero effect on this.
+- **Render is the only service with a real GitHub-PAT dependency**, and only for one feature:
+  `services/deploy_trigger.py`'s `trigger_frontend_redeploy()` reads `GITHUB_DEPLOY_PAT` from
+  Render's own environment (Worlds/Verticals auto-redeploy-on-save, see that section above). This
+  is a fine-grained PAT stored only in Render's dashboard — structurally unrelated to whatever
+  token a developer's local machine uses to `git push`, unless someone manually reused the same
+  token value in both places. Even if it does go stale, the call is wrapped in try/except
+  (`deploy_trigger.py:6-9`), so a bad/revoked token here degrades silently (admin's save still
+  works, it just stops auto-triggering a rebuild) — never a hard failure.
+- **Supabase and Resend are both unrelated to GitHub entirely** — `SUPABASE_SERVICE_ROLE_KEY` and
+  `RESEND_API_KEY` respectively, no token overlap with GitHub in either direction.
+
+### Local git credential setup on the primary dev machine (2026-07-29)
+Found and fixed a real exposure: `origin`'s remote URL had a classic GitHub PAT embedded in
+plaintext (`https://ghp_...@github.com/...`) directly in `.git/config`. Confirmed via `git grep`/
+`git log -S` that it was never committed/never in history — purely a local `.git/config` issue —
+but treated as compromised anyway since printing `git remote -v` for diagnosis put it in an AI
+conversation transcript.
+
+**The dev machine has two separate GitHub accounts in play**: `Tomer613` (owner of this repo) and
+`Tomer-lt` (used for other, unrelated repos/tools on the same machine, incl. `gh` CLI's logged-in
+account). This matters for any future credential change here — a fix that's global (e.g. `gh auth
+setup-git`, which sets `credential.helper` in `~/.gitconfig`) will silently swap *every* repo on
+the machine over to whichever account `gh` is currently logged into, which broke push access here
+on the first attempt (`gh` = `Tomer-lt`, who has no write access to `Tomer613/tivuta` → GitHub
+offered "create a fork" instead of pushing).
+
+**Correct fix, now in place**: the machine already has Git Credential Manager configured
+system-wide (`credential.helper=manager` in `C:\Program Files\Git\etc\gitconfig`) with two
+already-cached Windows-Credential-Manager entries — `git:https://github.com` → `Tomer-lt` (the
+default, used by other repos) and `git:https://Tomer613@github.com` → `Tomer613`. Setting this
+repo's remote to include the username (`git remote set-url origin
+https://Tomer613@github.com/Tomer613/tivuta.git`) makes GCM match the `Tomer613`-specific cached
+credential for this repo only, with **no local or global `credential.helper` override needed** —
+this repo just falls through to the same system-level GCM every other repo already uses, GCM's own
+per-username matching does the account isolation. Verified live: `git fetch` and `git push
+--dry-run origin main` both succeed with no prompt, no token in `.git/config`, and zero change to
+any other repo's credentials on the machine.
+
+**Takeaway for future sessions**: never re-introduce a raw token in this repo's remote URL, and
+never run a *global* credential/auth reconfiguration (`gh auth setup-git`, changing
+`~/.gitconfig`) to fix a tivuta-specific git problem — this machine has another account depending
+on the current global state. Any git-auth fix here should stay scoped to this repo's own
+`.git/config` (or, as ended up being unnecessary here, an explicit `Tomer613@` username in the
+remote URL matched against the already-system-wide GCM helper).
+
 ---
 
 ## User-Facing Features (session 2026-07-05)
