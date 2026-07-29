@@ -256,14 +256,22 @@ def admin_list_vendor_batches(vendor_id: int, db: Session = Depends(get_db)):
 
 @router.post(
     "/admin/vendors/{vendor_id}/purchase-batches",
-    response_model=schemas.VendorPurchaseBatchRead,
+    response_model=Optional[schemas.VendorPurchaseBatchRead],
     dependencies=[Depends(get_current_admin)],
 )
 def admin_create_vendor_batch(vendor_id: int, payload: schemas.VendorPurchaseBatchCreate, db: Session = Depends(get_db)):
     """Consolidates line items from many different CustomerOrders (e.g. 50 customers' kugel
     orders) that share this vendor into one purchase batch. The claim is a single atomic UPDATE
     re-checking vendor_batch_id IS NULL at execution time — same shape as
-    admin_open_settlement_period — so a double-submit can't double-claim a row."""
+    admin_open_settlement_period — so a double-submit can't double-claim a row.
+
+    Returns null (200) rather than an error when zero items were claimable — e.g. another
+    request already claimed the same leads a moment ago. This is deliberately NOT an
+    HTTPException: a partial claim (some items claimed) already succeeds with a 200 and a
+    smaller item list, so a *complete* miss should read as the same event, just at the 0-of-N
+    end of that same spectrum, rather than jumping to a different, scarier UX path. The caller
+    treats null the same way it already treats "fewer items than requested" — an informational
+    message, not an error banner."""
     vendor = db.query(models.Vendor).filter(models.Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
@@ -283,16 +291,16 @@ def admin_create_vendor_batch(vendor_id: int, payload: schemas.VendorPurchaseBat
     ).update({"vendor_batch_id": batch.id}, synchronize_session=False)
 
     if claimed == 0:
-        # Nothing was actually claimable (e.g. another request already claimed these leads a
-        # moment ago) — don't leave a phantom empty batch behind for a claim that did nothing.
+        # Nothing was actually claimable — don't leave a phantom empty batch behind for a claim
+        # that did nothing.
         db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="None of the selected items are available to batch — they may have already been claimed by another batch",
-        )
+        return None
 
     db.commit()
-    return _batch_read(_load_batch(db, batch.id))
+    loaded = _load_batch(db, batch.id)
+    if not loaded:
+        raise HTTPException(status_code=500, detail="Batch was created but could not be reloaded")
+    return _batch_read(loaded)
 
 
 @router.patch(
@@ -325,7 +333,10 @@ def admin_update_vendor_batch_status(
         batch.received_at = datetime.utcnow()
 
     db.commit()
-    return _batch_read(_load_batch(db, batch.id))
+    loaded = _load_batch(db, batch.id)
+    if not loaded:
+        raise HTTPException(status_code=500, detail="Batch was updated but could not be reloaded")
+    return _batch_read(loaded)
 
 
 def _oldest_unsettled_transaction(db: Session, vendor_id: int) -> Optional[models.SaleTransaction]:

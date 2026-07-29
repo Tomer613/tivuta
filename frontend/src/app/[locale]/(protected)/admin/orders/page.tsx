@@ -10,6 +10,8 @@ import {
 } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
+import { useBulkSelection } from '@/lib/useBulkSelection';
+import BulkActionToolbar from '@/components/admin/BulkActionToolbar';
 import {
     Loader2, CheckCircle2, AlertCircle, Phone, Mail, CalendarDays, Download, ExternalLink,
     ChevronLeft, ChevronRight, MessageSquare, Check, X, LayoutList, CalendarRange, Bell,
@@ -221,12 +223,14 @@ export default function AdminOrdersPage() {
     const [orderNoteValue, setOrderNoteValue] = useState('');
     const [savingOrderNoteId, setSavingOrderNoteId] = useState<number | null>(null);
     const [expandedHistoryLineId, setExpandedHistoryLineId] = useState<number | null>(null);
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
     const [bulkAction, setBulkAction] = useState('');
     const [bulkValue, setBulkValue] = useState('');
     const [bulkLoading, setBulkLoading] = useState(false);
     const verticals = useVerticals();
     const VERTICAL_LABEL: Record<string, string> = Object.fromEntries(verticals.map((v) => [v.slug, v.label_he]));
+    // Cleared whenever the active filters change, so a bulk action can never silently act on
+    // line items that scrolled out of view.
+    const { selectedIds, toggleSelect, toggleSelectAll, clear: clearSelection } = useBulkSelection(`${search}|${filterStatus}|${filterVertical}|${filterType}`);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -357,27 +361,24 @@ export default function AdminOrdersPage() {
 
     const statusInfo = (val: string) => STATUSES.find((s) => s.value === val) ?? STATUSES[0];
 
-    const toggleSelect = (id: number) => setSelectedIds((prev) => {
-        const s = new Set(prev);
-        s.has(id) ? s.delete(id) : s.add(id);
-        return s;
-    });
-
-    const toggleSelectAll = () => setSelectedIds((prev) =>
-        prev.size === filteredFlatLines.length ? new Set() : new Set(filteredFlatLines.map((l) => l.id))
-    );
-
     const handleBulkAction = async () => {
         if (!token || !bulkAction || selectedIds.size === 0) return;
         setBulkLoading(true);
         try {
             await adminBulkLeadAction(token, Array.from(selectedIds), bulkAction, bulkValue || undefined);
-            const updated = await adminListOrders(token);
-            setOrders(updated);
-            setSelectedIds(new Set());
+            // Patch locally instead of refetching the whole (unpaginated) order list — we already
+            // know exactly which ids changed and to what, same pattern as handleStatusChange/handleAssign.
+            const patch: Partial<CustomerOrderLine> =
+                bulkAction === 'set_status' ? { status: bulkValue } :
+                bulkAction === 'assign' ? {
+                    assigned_to: bulkValue ? Number(bulkValue) : null,
+                    assigned_to_name: bulkValue ? (adminUsers.find((u) => u.id === Number(bulkValue))?.first_name || null) : null,
+                } : {};
+            selectedIds.forEach((id) => updateLineInState(id, patch));
+            showToast(`${selectedIds.size} פריטים עודכנו ✓`);
+            clearSelection();
             setBulkAction('');
             setBulkValue('');
-            showToast(`${selectedIds.size} פריטים עודכנו ✓`);
         } catch {
             showToast('שגיאה בפעולה מרוכזת', 'error');
         } finally {
@@ -431,7 +432,7 @@ export default function AdminOrdersPage() {
                     <Download size={15} /> ייצוא CSV ({filteredOrders.length})
                 </button>
                 {view === 'table' && filteredFlatLines.length > 0 && (
-                    <button onClick={toggleSelectAll} className="flex items-center gap-2 text-xs text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
+                    <button onClick={() => toggleSelectAll(filteredFlatLines.map((l) => l.id))} className="flex items-center gap-2 text-xs text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
                         {selectedIds.size === filteredFlatLines.length ? <CheckSquare size={14} className="text-[#d4af37]" /> : <Square size={14} />}
                         בחר הכל
                     </button>
@@ -447,32 +448,18 @@ export default function AdminOrdersPage() {
             </div>
 
             {/* Bulk Actions Toolbar */}
-            {selectedIds.size > 0 && (
-                <div className="flex flex-wrap items-center gap-3 mb-4 bg-[#0e1628] border border-[#d4af37]/30 rounded-2xl px-5 py-3">
-                    <span className="text-sm font-bold text-[#d4af37]">{selectedIds.size} נבחרו</span>
-                    <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
-                        <option value="">בחר פעולה...</option>
-                        <option value="set_status">שינוי סטטוס</option>
-                        <option value="assign">הקצאה לנציג</option>
-                    </select>
-                    {bulkAction === 'set_status' && (
-                        <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
-                            <option value="">בחר סטטוס</option>
-                            {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                        </select>
-                    )}
-                    {bulkAction === 'assign' && (
-                        <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
-                            <option value="">ללא נציג</option>
-                            {adminUsers.map((u) => <option key={u.id} value={String(u.id)}>{u.first_name} {u.last_name}</option>)}
-                        </select>
-                    )}
-                    <button onClick={handleBulkAction} disabled={bulkLoading || !bulkAction} className="bg-[#d4af37] text-[#080d1f] px-4 py-1.5 rounded-xl text-xs font-black disabled:opacity-50 flex items-center gap-1.5">
-                        {bulkLoading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} בצע
-                    </button>
-                    <button onClick={() => setSelectedIds(new Set())} className="text-xs text-[#f0e6d3]/40 hover:text-[#f0e6d3]"><X size={14} /></button>
-                </div>
-            )}
+            <BulkActionToolbar
+                selectedCount={selectedIds.size}
+                statuses={STATUSES}
+                adminUsers={adminUsers}
+                bulkAction={bulkAction}
+                onBulkActionChange={setBulkAction}
+                bulkValue={bulkValue}
+                onBulkValueChange={setBulkValue}
+                onExecute={handleBulkAction}
+                onClear={clearSelection}
+                loading={bulkLoading}
+            />
 
             {/* Filters */}
             <div className="flex flex-wrap gap-3 mb-6">
@@ -600,9 +587,9 @@ export default function AdminOrdersPage() {
                                                                             {selectedIds.has(line.id) ? <CheckSquare size={14} className="text-[#d4af37]" /> : <Square size={14} />}
                                                                         </button>
                                                                         <span className="text-[10px] font-bold text-[#d4af37]/60 bg-[#0e1628] px-2 py-0.5 rounded-full">{TYPE_LABEL[line.lead_type] ?? line.lead_type}</span>
-                                                                        {line.vendor_batch_id != null && (
+                                                                        {line.vendor_batch_id != null && line.vendor_id != null && (
                                                                             <span className="text-[10px] font-bold text-green-400/80 bg-[#0e1628] px-2 py-0.5 rounded-full">
-                                                                                אצווה PB-{String(line.vendor_batch_id).padStart(6, '0')}
+                                                                                אצווה PB-{vendorCode(line.vendor_id)}-{String(line.vendor_batch_id).padStart(6, '0')}
                                                                             </span>
                                                                         )}
                                                                         <div className="min-w-[140px] flex-1">

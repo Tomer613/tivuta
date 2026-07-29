@@ -73,6 +73,8 @@ def _backfill_customer_orders() -> None:
         .group_by(leads.c.user_id, leads.c.cart_group_id)
     ).fetchall()
     for user_id, cart_group_id, created_at in cart_groups:
+        if user_id is None:
+            continue
         result = bind.execute(
             customer_orders.insert().values(user_id=user_id, notes=None, history=[], created_at=created_at)
         )

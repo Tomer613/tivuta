@@ -346,11 +346,17 @@ export default function AdminVendorsPage() {
         setSavingBatch(true);
         try {
             const batch = await adminCreateVendorBatch(token, batchesVendor.id, Array.from(selectedLeadIds));
-            showToast(
-                batch.items.length < requestedCount
-                    ? `נפתחה אצווה עם ${batch.items.length} מתוך ${requestedCount} פריטים שנבחרו — השאר כבר שובצו לאצווה אחרת בינתיים`
-                    : 'אצוות רכש נפתחה ✓'
-            );
+            // null means zero of the selected items were actually claimable (e.g. already
+            // claimed by another batch a moment ago) — the same underlying race as a partial
+            // claim, just at the 0-of-N end of it, so it gets the same calm messaging rather
+            // than an error banner.
+            if (!batch) {
+                showToast(`אף אחד מהפריטים שנבחרו לא היה זמין לשיבוץ — הם כבר שובצו לאצווה אחרת בינתיים`);
+            } else if (batch.items.length < requestedCount) {
+                showToast(`נפתחה אצווה עם ${batch.items.length} מתוך ${requestedCount} פריטים שנבחרו — השאר כבר שובצו לאצווה אחרת בינתיים`);
+            } else {
+                showToast('אצוות רכש נפתחה ✓');
+            }
             setSelectedLeadIds(new Set());
             loadBatches(batchesVendor.id);
             adminListOrders(token).then(setOrders).catch(() => {});

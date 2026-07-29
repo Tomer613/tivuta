@@ -168,7 +168,9 @@ export async function adminListVendorBatches(token: string, vendorId: number): P
     return res.json();
 }
 
-export async function adminCreateVendorBatch(token: string, vendorId: number, leadIds: number[]): Promise<VendorPurchaseBatch> {
+/** Returns null (not an error) if none of the selected leads were actually claimable — e.g.
+ *  another request already claimed them a moment ago. Only a real request failure throws. */
+export async function adminCreateVendorBatch(token: string, vendorId: number, leadIds: number[]): Promise<VendorPurchaseBatch | null> {
     const res = await fetch(`${BASE_URL}/admin/vendors/${vendorId}/purchase-batches`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },

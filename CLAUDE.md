@@ -671,6 +671,57 @@ organized picking/packing documents once the pallet physically arrives.
   `PATCH /admin/leads/bulk` (`adminBulkLeadAction`) — no backend change needed, since a `Lead`'s id
   doesn't care which admin tab it's acted on from.
 
+### Second review pass fixes (after Vendor Identity — reviewed the whole Orders+Vendors system, not just the delta)
+- **The batch badge on `admin/orders/page.tsx` now matches the real `batch_number` format.** The
+  Vendor Identity commit changed `VendorPurchaseBatch.batch_number` to include the vendor code
+  (`PB-007-000042`) everywhere except one spot: the small green badge on an order line that's
+  already been claimed into a batch still hardcoded the old `PB-{id:06d}` reconstruction. Fixed to
+  build the same string from `vendorCode(line.vendor_id)` + the padded batch id — found
+  independently by 3 of 8 review angles, a good example of why "grep for every consumer of a
+  format you're changing" matters more than it seems.
+- **Bulk-selected ids no longer survive a filter change.** `admin/orders/page.tsx`'s bulk-select
+  toolbar (added in the previous fix round) never cleared `selectedIds` when the admin changed
+  `search`/`filterStatus`/`filterVertical`/`filterType` — so selecting items, changing a filter,
+  and clicking "בצע" could silently bulk-act on now-invisible leads. Fixed via a new shared
+  `frontend/src/lib/useBulkSelection.ts` hook that clears the selection whenever a `resetKey`
+  (the joined filter values) changes — used by both `admin/orders/page.tsx` and
+  `admin/leads/page.tsx` (which had the exact same latent bug, just never exercised by a diff a
+  reviewer was looking at, since that file wasn't touched by the commits under review).
+- **The bulk-action toolbar UI itself was extracted** into
+  `frontend/src/components/admin/BulkActionToolbar.tsx` — it had been copy-pasted verbatim into
+  `admin/orders/page.tsx` and had *already* drifted from `admin/leads/page.tsx`'s copy (different
+  toast wording) after only one edit cycle. Both pages now render the same component and only
+  keep their own `bulkAction`/`bulkValue`/`bulkLoading` state and `handleBulkAction` (which
+  legitimately differ — different refresh/patch strategy per page, see next point).
+- **`admin/orders/page.tsx`'s bulk action patches state locally instead of refetching everything.**
+  `handleBulkAction` used to call `adminListOrders()` (a full, unpaginated, eager-loaded dataset)
+  after every bulk action, even though it already knows exactly which ids changed and to what —
+  the same information `handleStatusChange`/`handleAssign` already use with the existing
+  `updateLineInState` helper. Bulk actions now loop `selectedIds` through the same helper.
+- **The zero-claim vs. partial-claim UX asymmetry was unified.** Claiming 0 of N selected items
+  used to hard-error (400 → thrown `Error` → scary red toast); claiming 1+ of N always succeeded
+  (200 → calm "X of Y" info toast) — the *same* underlying race (some/all selected leads already
+  claimed elsewhere) surfaced with two different severities depending only on how many leads lost
+  the race. `admin_create_vendor_batch` now returns `null` (200) instead of raising when nothing
+  was claimable — no error, no phantom batch either way — and `handleOpenBatch` shows the same
+  calm, specific messaging for the 0-of-N case as it already did for the partial case.
+- **Two small defensive hardenings, neither currently reachable but cheap to close:**
+  `admin_create_vendor_batch`/`admin_update_vendor_batch_status` now check `_load_batch`'s result
+  for `None` before dereferencing it (previously would have raised an unhandled `AttributeError`
+  instead of a clean 500, if ever reached — there's no delete endpoint for `VendorPurchaseBatch`,
+  so this was purely theoretical); the `861a4db9d155` migration's cart-group backfill loop now
+  skips a `None` `user_id` the same way its sibling loop already did (unreachable given every
+  current code path that sets `cart_group_id` also always sets `user_id` on the same `Lead`, but
+  asymmetric defensive checks in twin loops are exactly the kind of thing worth matching anyway).
+- **Deliberately NOT fixed**: `admin_open_settlement_period` (pre-existing loyalty-program code,
+  not part of this session's Orders/Vendors work) has no equivalent zero-claim guard, despite
+  `admin_create_vendor_batch`'s docstring calling it "same shape." Concluded this is a different
+  case, not the same bug: a purchase batch with zero items is never meaningful (nothing to order),
+  but a settlement period covering a genuinely slow/quiet date range with zero transactions is a
+  legitimate business record ("$0 owed this period"), so blocking it the same way could turn a
+  real "nothing owed" record into a confusing error. Left as-is rather than porting a fix that
+  might not actually be correct for that endpoint's semantics.
+
 ---
 
 ## Vendor Identity: Stable Codes + Specialty + Contact Info (session 2026-07-29)
