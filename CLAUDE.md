@@ -871,6 +871,119 @@ shows flat `Lead` rows grouped by vertical, with no order number and no order-le
 
 ---
 
+## In-Place Quantity Stepper on Product Cards (session 2026-07-30)
+
+Before this, "Add to Cart" and "Contact Me" on a product tile were one-shot buttons — to change a
+quantity you had to leave the page and go to `/cart`, which only had a stepper for items already
+added. The user wanted the button itself to become the quantity control, in place, the instant
+it's pressed.
+
+- **"Add to Cart"** → clicking it swaps the button, in the same slot, for a live +/- stepper bound
+  directly to the real `CartContext` quantity for that product (`items.find(i => i.id ===
+  product.id)?.quantity ?? 0` — fully derived, no separate local state). Decrementing to 0 calls
+  the existing `updateQuantity()`, which already auto-removes the item
+  (`CartContext.tsx:63-69`) — the slot reverting back to the plain "Add to Cart" button is a free
+  side effect of that derived state, not extra code. No more transient "Added ✓" 1800ms timeout —
+  the persistent stepper itself is the confirmation, which also incidentally fixed a small
+  pre-existing bug (that timeout had no cleanup on unmount in either of the two files it lived in).
+- **"Contact Me"** (`actionType === 'contact'`) fires an immediate one-shot order
+  (`POST /leads/cart-checkout`) with no backend support for editing quantity after the fact — so
+  unlike Add to Cart, quantity has to be set *before* sending, not after. **Per explicit user
+  choice** (offered a simpler single-click alternative, user picked this one) it's now a two-tap
+  flow: first click swaps the button for a stepper (starts at 1, nothing sent yet) + a compact
+  "שלח" send button, in the same slot; adjusting the stepper is free; tapping send fires the
+  request with whatever quantity was dialed in. **Decrementing the contact stepper below 1 cancels
+  back to the plain "Contact Me" button** — a deliberate refinement beyond what was originally
+  planned (the plan only specified clamping at 1), added because it gives a free, discoverable
+  "change my mind" exit using the same control, mirroring exactly how the cart stepper bottoms out
+  back to its own originating button — no separate cancel button needed on either flow.
+- **"Schedule Viewing"** (`actionType === 'appointment'`) is untouched — an appointment is a single
+  visit, not a quantity, and the user's request named "contact me"/"add to cart" specifically.
+- **Extracted into a new shared component, `frontend/src/components/ProductActionButtons.tsx`**,
+  used by both `ProductTile.tsx` (the grid card, `compact` sizing) and `ProductDetailClient.tsx`
+  (the `/products?id=` detail page, full sizing) — previously these two files carried fully
+  independent copies of this button block (same handlers, same JSX, same unfixed timeout-cleanup
+  gap). Given this session's own precedent for extracting shared logic once duplication starts
+  drifting (`useBulkSelection`/`BulkActionToolbar`, from the Orders+Vendors work), adding a
+  meaningfully more complex stepper state machine to both copies instead of one shared component
+  would have doubled an already-duplicated block. Each caller keeps owning its own per-locale
+  translation strings (`ProductTile`'s `translations`, `ProductDetailClient`'s `T`) and just passes
+  the handful of needed ones through as a `labels` prop — the shared component doesn't own a third
+  translation object, only the couple of new strings the stepper itself needed (send button, +/-
+  aria-labels), which follow the **existing precedent** already shipped on the cart page
+  (`cart/page.tsx:126/136`) of hardcoded Hebrew-only aria-labels, not a new inconsistency.
+- **Visual language matches the cart page's stepper exactly** (`cart/page.tsx:123-142` — circular
+  `w-7/8 h-7/8` +/- buttons, lucide `Minus`/`Plus`, centered count), wrapped in a
+  `rounded-2xl border border-[#f0e6d3]/30` pill sized like `.btn-secondary` so the swap reads as
+  "the same button, now interactive" rather than a layout jump. Both the stepper's appearance and
+  a button reverting back use the pre-existing `.animate-fade-in` utility (`globals.css:177-182`)
+  for a soft transition — no new CSS added.
+- **Verified end-to-end** live via Playwright on both `ProductTile` (listing grid) and
+  `ProductDetailClient` (detail page): Add to Cart → stepper appears, `CartIcon` badge updates live
+  on increment, decrementing to 0 reverts to the plain button (confirmed via screenshot after an
+  initial test-script locator bug gave a false negative — the revert itself works correctly);
+  Contact Me → stepper + send appears with zero network calls until send is pressed, sending with a
+  dialed-in quantity of 3 produced a real order with `quantity: 3` confirmed via `GET
+  /users/me/orders`; Schedule Viewing (diamonds, appointment vertical) confirmed completely
+  unchanged, opens `AppointmentModal` directly. Zero console errors throughout; test data cleaned
+  up afterward to restore the dev DB baseline (4 `customer_orders`, 5 `leads`).
+
+### Post-implementation review fixes (same session, after an 8-angle code review)
+A code review of the diff above (5 independent finder angles, all converging on the same root
+cause for the top finding) surfaced real bugs; all were fixed:
+- **The cart snapshot bug** (found independently by all 5 review angles): `addOneToCart` was
+  calling `addToCart(product)` with whatever `product` prop the caller passed — the *full* listing
+  `Product` (attributes, promotions, ratings, vendor) or the *full* raw `any`-typed detail-page API
+  response — instead of the deliberate 8-field snapshot the pre-refactor code always built by hand.
+  Every cart item was silently persisting several KB of stale, undeclared metadata into
+  `localStorage['tivuta_cart_v1']`. Fixed by having `ProductActionButtons` build its own narrow
+  `cartSnapshot` (the same 8 `CartItem` fields, nothing else) before ever calling `addToCart()` —
+  the narrowing now happens once, inside the component that owns the cart interaction, regardless
+  of how much extra data a caller's `product` prop actually carries.
+- **Cart-tile stepper decrement no longer deletes on a single click**: it previously had no floor
+  guard, so decrementing from 1 called `updateQuantity(id, 0)`, which `CartContext` treats as a
+  remove — a full, silent, unconfirmed cart-line deletion reachable by one click on a
+  listing/detail page, a much higher accidental-click surface than the dedicated cart page (which
+  already floors its own stepper at 1 and requires a separate trash-icon click to actually
+  remove). Fixed by flooring the cart-tile stepper the same way (`decDisabled={cartQty <= 1}`) —
+  **this is a deliberate behavior change from the original stepper plan**, which had explicitly
+  designed decrement-to-zero-removes as a feature ("no dead/orphan state"). The review correctly
+  identified that feature as the actual source of the accidental-deletion risk; once added to a
+  tile's cart, an item can now only be fully removed via the cart page, matching how removal has
+  always worked everywhere else in the app. The Contact-Me stepper's decrement-to-cancel behavior
+  (reverting to the plain "Contact Me" button) was **not** changed — that one is fully reversible
+  pre-send state, not a real deletion, so the original risk doesn't apply there.
+- **Restored the `if (!token) return;` guard** in `handleContactSend`/`handleScheduled` that the
+  extraction had dropped — low real-world risk today since both call sites sit behind `AuthGate`,
+  but worth keeping on a component now explicitly meant to be reusable/shared.
+- **Fixed an impure React state updater**: `onDec` for the contact stepper used to call
+  `setStatus('idle')` as a side effect from inside `setContactQty`'s functional updater (would
+  double-fire under React 18 StrictMode's intentional double-invocation). Rewritten to read
+  `contactQty` directly and branch before calling either setter — no updater impurity.
+- **Extracted `frontend/src/components/QuantityStepper.tsx`**, a real shared +/- control now used
+  by `ProductActionButtons.tsx` *and* `cart/page.tsx` (which previously had its own separate,
+  already-drifting inline copy — e.g. no 99-cap disable on its increment button). One component,
+  one place to fix a future visual or behavioral tweak.
+- **Removed the hardcoded `SEND_LABEL`/Hebrew-only aria-label inconsistency**: the "Send" button
+  text and the stepper's `decLabel`/`incLabel` now flow through the same per-caller `labels` prop
+  every other button string already used (`ProductTile`'s `translations`, `ProductDetailClient`'s
+  `T`, and `cart/page.tsx`'s own `translations` all gained `send`/`dec_qty`/`inc_qty` keys across
+  all 4 locales) — fully localized everywhere the stepper now appears, including the cart page's
+  aria-labels, which had been Hebrew-only since before this whole feature existed.
+- **Removed the now-dead `added_to_cart` translation key** (8 entries across `ProductTile.tsx` and
+  `ProductDetailClient.tsx`, one per locale) — unused since the transient "Added ✓" confirmation
+  was replaced by the persistent stepper itself.
+- **Verified end-to-end** live via Playwright: a fresh cart-add's `localStorage` entry has exactly
+  the 9 expected keys (8 `CartItem` fields + `quantity`) and nothing else; the cart-tile stepper's
+  minus button is disabled at qty 1 and the item survives a click on it; the Contact-Me flow still
+  shows the Send button and its decrement-to-cancel still works; the appointment flow (diamonds) is
+  untouched; the English locale renders the localized "Decrease quantity" aria-label. Zero console
+  errors, dev DB confirmed still at baseline (no test data needed cleanup this round). Hit the
+  documented stale-Turbopack-cache gotcha again mid-verification (routes 404ing after the batch of
+  edits) — same fix as before, delete `frontend/.next` and restart.
+
+---
+
 ## Loyalty & Vendor Commission Program (Phases 1–5 — session 2026-07-18/19) — COMPLETE
 
 Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming-puffin" plan — this section documents what's actually **built**. All 5 planned phases are done.

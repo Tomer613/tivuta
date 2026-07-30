@@ -4,14 +4,13 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
-    getProduct, getPromotionStatus, enterPromotion, createLead, cartCheckout, productImageUrl, getVerticals, Vertical,
+    getProduct, getPromotionStatus, enterPromotion, productImageUrl, getVerticals, Vertical,
     getFavoriteIds, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView,
 } from '@/lib/api';
 import { PromotionBrief, promotionLabel } from '@/components/ProductTile';
-import AppointmentModal from '@/components/AppointmentModal';
-import { useCart } from '@/context/CartContext';
+import ProductActionButtons from '@/components/ProductActionButtons';
 import { useAttrLabels } from '@/lib/useVerticals';
-import { CalendarCheck, MessageCircle, ShoppingCart, CheckCircle2, Loader2, Trophy, Users, Tag, ArrowRight, Heart, Share2, Star } from 'lucide-react';
+import { CheckCircle2, Loader2, Trophy, Users, Tag, ArrowRight, Heart, Share2, Star } from 'lucide-react';
 
 interface PromotionStatus {
     promotion_id: number;
@@ -38,7 +37,7 @@ const T = {
         first_n_join: 'הצטרף למבצע', first_n_joined: '✓ מקומך שמור', first_n_full: 'כל המקומות אזלו',
         first_n_remaining: 'מקומות נותרו מתוך', done: 'הפנייה נשלחה ✓', scheduled: 'הפגישה נקבעה ✓',
         days: 'ימים', hours: 'שעות', minutes: 'דקות', seconds: 'שניות', promo_ends: 'ההגרלה נסגרת בעוד',
-        add_to_cart: 'הוסף לסל', added_to_cart: 'נוסף לסל ✓',
+        add_to_cart: 'הוסף לסל', send: 'שלח', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות',
         reviews: 'ביקורות', rate_product: 'דרגו את המוצר', comment_placeholder: 'הערה (אופציונלי)',
         submit_review: 'שלח דירוג', review_thanks: 'תודה על הדירוג!', add_fav: 'הוסף למועדפים', remove_fav: 'הסר מהמועדפים', share: 'שתף בווצאפ',
         specs: 'מפרט',
@@ -50,7 +49,7 @@ const T = {
         first_n_join: 'Join Offer', first_n_joined: '✓ Spot reserved', first_n_full: 'All spots taken',
         first_n_remaining: 'spots remaining of', done: 'Request sent ✓', scheduled: 'Appointment booked ✓',
         days: 'd', hours: 'h', minutes: 'm', seconds: 's', promo_ends: 'Raffle closes in',
-        add_to_cart: 'Add to Cart', added_to_cart: 'Added ✓',
+        add_to_cart: 'Add to Cart', send: 'Send', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity',
         reviews: 'Reviews', rate_product: 'Rate this product', comment_placeholder: 'Comment (optional)',
         submit_review: 'Submit', review_thanks: 'Thanks for rating!', add_fav: 'Add to favorites', remove_fav: 'Remove from favorites', share: 'Share on WhatsApp',
         specs: 'Specifications',
@@ -62,7 +61,7 @@ const T = {
         first_n_join: "Rejoindre l'offre", first_n_joined: '✓ Place réservée', first_n_full: 'Complet',
         first_n_remaining: 'places restantes sur', done: 'Demande envoyée ✓', scheduled: 'Rendez-vous confirmé ✓',
         days: 'j', hours: 'h', minutes: 'm', seconds: 's', promo_ends: 'Le tirage se ferme dans',
-        add_to_cart: 'Ajouter au panier', added_to_cart: 'Ajouté ✓',
+        add_to_cart: 'Ajouter au panier', send: 'Envoyer', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité',
         reviews: 'Avis', rate_product: 'Évaluez ce produit', comment_placeholder: 'Commentaire (optionnel)',
         submit_review: 'Envoyer', review_thanks: 'Merci pour votre avis!', add_fav: 'Ajouter aux favoris', remove_fav: 'Retirer des favoris', share: 'Partager sur WhatsApp',
         specs: 'Caractéristiques',
@@ -74,7 +73,7 @@ const T = {
         first_n_join: 'צוטרעטן', first_n_joined: '✓ ארט פארזיכערט', first_n_full: 'אלע ערטער פארנומען',
         first_n_remaining: 'ערטער פון', done: 'פארשיקט ✓', scheduled: 'באשטעטיגט ✓',
         days: 'ט', hours: 'שע', minutes: 'מ', seconds: 'ס', promo_ends: 'גורל שליסט זיך אין',
-        add_to_cart: 'צולייגן אין קארב', added_to_cart: 'צוגעלייגט ✓',
+        add_to_cart: 'צולייגן אין קארב', send: 'שיקן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות',
         reviews: 'ביקורות', rate_product: 'דרגירט דעם פראדוקט', comment_placeholder: 'הערה (אויף ווילן)',
         submit_review: 'שיקט דירוג', review_thanks: 'א דאנק פארן דירוג!', add_fav: 'צולייגן צו פאוואריטן', remove_fav: 'אראפנעמען פון פאוואריטן', share: 'טיילן אויף וואטסאפ',
         specs: 'מפרט',
@@ -248,10 +247,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const [product, setProduct] = useState<any>(null);
     const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [promoStatuses, setPromoStatuses] = useState<Record<number, PromotionStatus>>({});
-    const [leadStatus, setLeadStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
-    const [showModal, setShowModal] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [justAdded, setJustAdded] = useState(false);
     const [fav, setFav] = useState(false);
     const [favLoading, setFavLoading] = useState(false);
     const [reviews, setReviews] = useState<any[]>([]);
@@ -259,7 +255,6 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const [myComment, setMyComment] = useState('');
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [reviewDone, setReviewDone] = useState(false);
-    const { addToCart } = useCart();
     const ATTR_LABELS = useAttrLabels();
     const productVertical = verticals.find((v) => v.slug === product?.vertical);
 
@@ -344,41 +339,6 @@ export default function ProductDetailClient({ productId }: { productId: number }
         } catch (err: any) {
             alert(err.message || 'שגיאה');
         }
-    };
-
-    const handleAddToCart = () => {
-        if (!product) return;
-        addToCart({
-            id: product.id,
-            vertical: product.vertical,
-            title_he: product.title_he,
-            title_en: product.title_en,
-            title_fr: product.title_fr,
-            title_yi: product.title_yi,
-            image_url: product.image_url,
-            price: product.price,
-        });
-        setJustAdded(true);
-        setTimeout(() => setJustAdded(false), 1800);
-    };
-
-    const handleContact = async () => {
-        if (!token || !product) return;
-        setLeadStatus('submitting');
-        try {
-            await cartCheckout(token, { items: [{ product_id: product.id, quantity: 1 }], locale });
-            setLeadStatus('done');
-        } catch { setLeadStatus('idle'); }
-    };
-
-    const handleScheduled = async (date: Date) => {
-        if (!token || !product) return;
-        setLeadStatus('submitting');
-        try {
-            await createLead(token, { product_id: product.id, scheduled_at: date.toISOString(), locale });
-            setLeadStatus('done');
-        } catch { setLeadStatus('idle'); }
-        finally { setShowModal(false); }
     };
 
     if (loading) {
@@ -495,37 +455,24 @@ export default function ProductDetailClient({ productId }: { productId: number }
 
                         {/* Appointment / Contact */}
                         <div className="border-t border-[#d4af37]/20 pt-4">
-                            {leadStatus === 'done' ? (
-                                <div className="flex items-center gap-2 text-green-400 font-bold">
-                                    <CheckCircle2 size={18} />
-                                    {actionType === 'appointment' ? t.scheduled : t.done}
-                                </div>
-                            ) : actionType === 'appointment' ? (
-                                <button
-                                    onClick={() => setShowModal(true)}
-                                    disabled={leadStatus === 'submitting'}
-                                    className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60"
-                                >
-                                    <CalendarCheck size={18} /> {t.schedule}
-                                </button>
-                            ) : (
-                                <button
-                                    onClick={handleContact}
-                                    disabled={leadStatus === 'submitting'}
-                                    className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60"
-                                >
-                                    <MessageCircle size={18} /> {t.contact}
-                                </button>
-                            )}
-
-                            <button
-                                type="button"
-                                onClick={handleAddToCart}
-                                className="btn-secondary w-full flex items-center justify-center gap-2"
-                            >
-                                {justAdded ? <CheckCircle2 size={18} className="text-green-400" /> : <ShoppingCart size={18} />}
-                                {justAdded ? t.added_to_cart : t.add_to_cart}
-                            </button>
+                            <ProductActionButtons
+                                product={product}
+                                title={title}
+                                locale={locale}
+                                actionType={actionType}
+                                token={token || ''}
+                                vendor={product.vendor ?? null}
+                                labels={{
+                                    schedule: t.schedule,
+                                    contact: t.contact,
+                                    scheduled: t.scheduled,
+                                    requestedOrDone: t.done,
+                                    add_to_cart: t.add_to_cart,
+                                    send: t.send,
+                                    decQty: t.dec_qty,
+                                    incQty: t.inc_qty,
+                                }}
+                            />
                         </div>
                     </div>
                 </div>
@@ -603,16 +550,6 @@ export default function ProductDetailClient({ productId }: { productId: number }
                 )}
                 {reviewDone && <p className="text-sm text-green-400 font-bold mt-4">{t.review_thanks}</p>}
             </div>
-
-            {showModal && (
-                <AppointmentModal
-                    locale={locale}
-                    productTitle={title}
-                    vendor={product.vendor ?? null}
-                    onClose={() => setShowModal(false)}
-                    onConfirm={handleScheduled}
-                />
-            )}
         </main>
     );
 }

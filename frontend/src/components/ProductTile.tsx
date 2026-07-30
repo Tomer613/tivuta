@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { CalendarCheck, MessageCircle, ShoppingCart, CheckCircle2, Info, Heart, Share2, Star, Clock } from 'lucide-react';
-import AppointmentModal from '@/components/AppointmentModal';
-import { createLead, cartCheckout, addFavorite, removeFavorite, productImageUrl, Vendor } from '@/lib/api';
-import { useCart } from '@/context/CartContext';
+import { Info, Heart, Share2, Star, Clock } from 'lucide-react';
+import { addFavorite, removeFavorite, productImageUrl, Vendor } from '@/lib/api';
+import ProductActionButtons from '@/components/ProductActionButtons';
 
 export interface PromotionBrief {
     id: number;
@@ -58,14 +57,16 @@ interface T {
     price_label: string;
     on_request: string;
     add_to_cart: string;
-    added_to_cart: string;
+    send: string;
+    dec_qty: string;
+    inc_qty: string;
 }
 
 const translations: Record<string, T> = {
-    he: { schedule: 'קביעת פגישה', contact: 'יצירת קשר', requested: 'הפנייה נשלחה, ניצור איתך קשר בקרוב', scheduled: 'הפגישה נקבעה! אישור נשלח למייל', price_label: 'מחיר', on_request: 'לפי בקשה', add_to_cart: 'הוסף לסל', added_to_cart: 'נוסף לסל ✓' },
-    en: { schedule: 'Schedule Viewing', contact: 'Contact Me', requested: 'Request sent, we will reach out shortly', scheduled: 'Appointment booked! Confirmation sent to your email', price_label: 'Price', on_request: 'On request', add_to_cart: 'Add to Cart', added_to_cart: 'Added ✓' },
-    fr: { schedule: 'Planifier une visite', contact: 'Me contacter', requested: 'Demande envoyée, nous vous contacterons bientôt', scheduled: 'Rendez-vous confirmé ! Email envoyé', price_label: 'Prix', on_request: 'Sur demande', add_to_cart: 'Ajouter au panier', added_to_cart: 'Ajouté ✓' },
-    yi: { schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן מיר', requested: 'געשיקט, מיר וועלן זיך פארבינדן', scheduled: 'באגעגעניש איז באשטעטיגט!', price_label: 'פרייז', on_request: 'אויף פארלאנג', add_to_cart: 'צולייגן אין קארב', added_to_cart: 'צוגעלייגט ✓' },
+    he: { schedule: 'קביעת פגישה', contact: 'יצירת קשר', requested: 'הפנייה נשלחה, ניצור איתך קשר בקרוב', scheduled: 'הפגישה נקבעה! אישור נשלח למייל', price_label: 'מחיר', on_request: 'לפי בקשה', add_to_cart: 'הוסף לסל', send: 'שלח', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות' },
+    en: { schedule: 'Schedule Viewing', contact: 'Contact Me', requested: 'Request sent, we will reach out shortly', scheduled: 'Appointment booked! Confirmation sent to your email', price_label: 'Price', on_request: 'On request', add_to_cart: 'Add to Cart', send: 'Send', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity' },
+    fr: { schedule: 'Planifier une visite', contact: 'Me contacter', requested: 'Demande envoyée, nous vous contacterons bientôt', scheduled: 'Rendez-vous confirmé ! Email envoyé', price_label: 'Prix', on_request: 'Sur demande', add_to_cart: 'Ajouter au panier', send: 'Envoyer', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité' },
+    yi: { schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן מיר', requested: 'געשיקט, מיר וועלן זיך פארבינדן', scheduled: 'באגעגעניש איז באשטעטיגט!', price_label: 'פרייז', on_request: 'אויף פארלאנג', add_to_cart: 'צולייגן אין קארב', send: 'שיקן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות' },
 };
 
 function useCountdown(endDate: string | null | undefined) {
@@ -112,12 +113,8 @@ const DETAIL_LABELS: Record<string, { details: string }> = {
 };
 
 export default function ProductTile({ product, locale, actionType, token, isFav = false }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string; isFav?: boolean }) {
-    const [showModal, setShowModal] = useState(false);
-    const [status, setStatus] = useState<'idle' | 'submitting' | 'done'>('idle');
     const [fav, setFav] = useState(isFav);
     const [favLoading, setFavLoading] = useState(false);
-    const [justAdded, setJustAdded] = useState(false);
-    const { addToCart } = useCart();
     const t = translations[locale] || translations.he;
     const dl = DETAIL_LABELS[locale] || DETAIL_LABELS.he;
     const flashPromo = product.promotions?.find((p) => p.type === 'flash_sale' && p.end_date);
@@ -152,44 +149,6 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
     const title = product[`title_${localeKey}`] || product.title_he;
     const description = product[`description_${localeKey}`] || product.description_he;
     const imagePath = productImageUrl(product.image_url);
-
-    const handleContact = async () => {
-        setStatus('submitting');
-        try {
-            await cartCheckout(token, { items: [{ product_id: product.id, quantity: 1 }], locale });
-            setStatus('done');
-        } catch {
-            setStatus('idle');
-        }
-    };
-
-    const handleAddToCart = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        addToCart({
-            id: product.id,
-            vertical: product.vertical,
-            title_he: product.title_he,
-            title_en: product.title_en,
-            title_fr: product.title_fr,
-            title_yi: product.title_yi,
-            image_url: product.image_url,
-            price: product.price,
-        });
-        setJustAdded(true);
-        setTimeout(() => setJustAdded(false), 1800);
-    };
-
-    const handleScheduled = async (date: Date) => {
-        setStatus('submitting');
-        try {
-            await createLead(token, { product_id: product.id, scheduled_at: date.toISOString(), locale });
-            setStatus('done');
-        } catch {
-            setStatus('idle');
-        } finally {
-            setShowModal(false);
-        }
-    };
 
     return (
         <div className="group flex flex-col h-full bg-[#0e1628] rounded-2xl border border-[#d4af37]/20 overflow-hidden shadow-sm text-start"
@@ -278,51 +237,27 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                         </span>
                     </div>
 
-                    {status === 'done' ? (
-                        <div className="flex items-center gap-2 text-green-400 font-bold text-sm">
-                            <CheckCircle2 size={18} />
-                            {actionType === 'appointment' ? t.scheduled : t.requested}
-                        </div>
-                    ) : actionType === 'appointment' ? (
-                        <button
-                            onClick={() => setShowModal(true)}
-                            disabled={status === 'submitting'}
-                            className="btn-primary w-full flex items-center justify-center gap-2 !text-sm disabled:opacity-60"
-                        >
-                            <CalendarCheck size={18} />
-                            {t.schedule}
-                        </button>
-                    ) : (
-                        <button
-                            onClick={handleContact}
-                            disabled={status === 'submitting'}
-                            className="btn-primary w-full flex items-center justify-center gap-2 !text-sm disabled:opacity-60"
-                        >
-                            <MessageCircle size={18} />
-                            {t.contact}
-                        </button>
-                    )}
-
-                    <button
-                        type="button"
-                        onClick={handleAddToCart}
-                        className="btn-secondary w-full flex items-center justify-center gap-2 !text-sm"
-                    >
-                        {justAdded ? <CheckCircle2 size={16} className="text-green-400" /> : <ShoppingCart size={16} />}
-                        {justAdded ? t.added_to_cart : t.add_to_cart}
-                    </button>
+                    <ProductActionButtons
+                        product={product}
+                        title={title}
+                        locale={locale}
+                        actionType={actionType}
+                        token={token}
+                        vendor={product.vendor}
+                        compact
+                        labels={{
+                            schedule: t.schedule,
+                            contact: t.contact,
+                            scheduled: t.scheduled,
+                            requestedOrDone: t.requested,
+                            add_to_cart: t.add_to_cart,
+                            send: t.send,
+                            decQty: t.dec_qty,
+                            incQty: t.inc_qty,
+                        }}
+                    />
                 </div>
             </div>
-
-            {showModal && (
-                <AppointmentModal
-                    locale={locale}
-                    productTitle={title}
-                    vendor={product.vendor ?? null}
-                    onClose={() => setShowModal(false)}
-                    onConfirm={handleScheduled}
-                />
-            )}
         </div>
     );
 }

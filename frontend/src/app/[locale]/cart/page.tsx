@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Trash2, Minus, Plus, ShoppingCart, MessageCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Trash2, ShoppingCart, MessageCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { cartCheckout, productImageUrl } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
+import QuantityStepper from '@/components/QuantityStepper';
 
 interface T {
     title: string;
@@ -24,13 +25,15 @@ interface T {
     error: string;
     order_number: string;
     view_orders: string;
+    dec_qty: string;
+    inc_qty: string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי' },
-    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders' },
-    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes' },
-    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות' },
+    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות' },
+    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity' },
+    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité' },
+    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות' },
 };
 
 export default function CartPage() {
@@ -120,25 +123,17 @@ export default function CartPage() {
                                                 {item.price ? `₪${item.price.toLocaleString()}` : t.on_request}
                                             </p>
                                         </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <button
-                                                type="button"
-                                                aria-label="הפחת כמות"
-                                                disabled={item.quantity <= 1}
-                                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                                className="w-7 h-7 rounded-full bg-[#111a2f] border border-[#d4af37]/20 flex items-center justify-center text-[#f0e6d3]/70 hover:border-[#d4af37]/50 transition-colors disabled:opacity-30 disabled:hover:border-[#d4af37]/20"
-                                            >
-                                                <Minus size={12} />
-                                            </button>
-                                            <span className="w-6 text-center text-[#f0e6d3] font-bold">{item.quantity}</span>
-                                            <button
-                                                type="button"
-                                                aria-label="הוסף כמות"
-                                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                                className="w-7 h-7 rounded-full bg-[#111a2f] border border-[#d4af37]/20 flex items-center justify-center text-[#f0e6d3]/70 hover:border-[#d4af37]/50 transition-colors"
-                                            >
-                                                <Plus size={12} />
-                                            </button>
+                                        <div className="shrink-0">
+                                            <QuantityStepper
+                                                qty={item.quantity}
+                                                size="sm"
+                                                decDisabled={item.quantity <= 1}
+                                                incDisabled={item.quantity >= 99}
+                                                decLabel={t.dec_qty}
+                                                incLabel={t.inc_qty}
+                                                onDec={() => updateQuantity(item.id, item.quantity - 1)}
+                                                onInc={() => updateQuantity(item.id, item.quantity + 1)}
+                                            />
                                         </div>
                                         <button
                                             type="button"
