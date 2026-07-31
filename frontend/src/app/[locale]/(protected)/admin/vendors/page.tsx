@@ -676,8 +676,8 @@ export default function AdminVendorsPage() {
             )}
 
             {portalAccessVendor && (
-                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={closePortalAccessForm}>
-                    <form onSubmit={handleSavePortalAccess} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-sm space-y-4" onClick={(e) => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6 overflow-y-auto" onClick={closePortalAccessForm}>
+                    <form onSubmit={handleSavePortalAccess} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-sm space-y-4 max-h-[90vh] overflow-y-auto my-8" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-xl font-black text-[#f0e6d3] flex items-center gap-2">
                                 <KeyRound size={20} /> פורטל ספק — {portalAccessVendor.name_he}

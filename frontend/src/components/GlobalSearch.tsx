@@ -9,9 +9,10 @@ import Link from 'next/link';
 
 interface Props {
     locale: string;
+    onOpenChange?: (open: boolean) => void;
 }
 
-export default function GlobalSearch({ locale }: Props) {
+export default function GlobalSearch({ locale, onOpenChange }: Props) {
     const [open, setOpen] = useState(false);
     const [q, setQ] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -45,7 +46,7 @@ export default function GlobalSearch({ locale }: Props) {
         }, 300);
     }, [q]);
 
-    const close = () => { setOpen(false); setQ(''); setResults([]); };
+    const close = () => { setOpen(false); setQ(''); setResults([]); onOpenChange?.(false); };
 
     const hasResults = q.length >= 2;
 
@@ -127,7 +128,7 @@ export default function GlobalSearch({ locale }: Props) {
                         ? 'w-full md:w-[360px] border-[#d4af37]/50 shadow-[0_0_20px_rgba(212,175,55,0.15)] cursor-default'
                         : 'w-[130px] border-[#d4af37]/20 cursor-pointer hover:border-[#d4af37]/40 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)]'
                 }`}
-                onClick={() => !open && setOpen(true)}
+                onClick={() => { if (!open) { setOpen(true); onOpenChange?.(true); } }}
             >
                 <Search
                     size={15}

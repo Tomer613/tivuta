@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Globe, UserCircle2, LayoutDashboard, Menu } from 'lucide-react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
@@ -20,6 +20,9 @@ const languages = [
 export default function RootHeader() {
     const [showLangMenu, setShowLangMenu] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [searchActive, setSearchActive] = useState(false);
+    const headerMenuRef = useRef<HTMLDivElement>(null);
+    const langMenuRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
     const params = useParams();
     const pathname = usePathname();
@@ -29,6 +32,30 @@ export default function RootHeader() {
     useEffect(() => {
         setShowMobileMenu(false);
     }, [pathname]);
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            const target = e.target as Node;
+            if (headerMenuRef.current && !headerMenuRef.current.contains(target)) {
+                setShowMobileMenu(false);
+            }
+            if (langMenuRef.current && !langMenuRef.current.contains(target)) {
+                setShowLangMenu(false);
+            }
+        }
+        function handleEscape(e: KeyboardEvent) {
+            if (e.key === 'Escape') {
+                setShowMobileMenu(false);
+                setShowLangMenu(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, []);
 
     const changeLanguage = (newLocale: string) => {
         // pathname looks like /{locale}/... — locale is segment index 1
@@ -47,31 +74,34 @@ export default function RootHeader() {
 
                 <div className="relative flex items-center gap-2">
                     <div
+                        ref={headerMenuRef}
                         className={`${showMobileMenu ? 'flex absolute top-full inset-x-0 mt-2 flex-col items-start gap-3 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-4 shadow-xl z-40' : 'hidden'} md:flex md:static md:mt-0 md:flex-row md:items-center md:gap-2 md:bg-transparent md:border-0 md:p-0 md:shadow-none`}
                     >
-                        {user && <GlobalSearch locale={locale} />}
-                        {token && <NotificationBell token={token} />}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowLangMenu(!showLangMenu)}
-                                aria-label="Language"
-                                className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] rounded-full transition-all duration-300 hover:text-[#d4af37] hover:bg-[#d4af37]/10 hover:scale-110 hover:rotate-12"
-                            >
-                                <Globe size={22} />
-                            </button>
-                            {showLangMenu && (
-                                <div className="absolute top-12 end-0 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl shadow-xl py-3 w-32 overflow-hidden z-50">
-                                    {languages.map((lang) => (
-                                        <button
-                                            key={lang.code}
-                                            onClick={() => changeLanguage(lang.code)}
-                                            className={`w-full text-start px-4 py-2 text-sm hover:bg-[#111a2f] transition-colors ${locale === lang.code ? 'font-black text-[#d4af37]' : 'text-[#f0e6d3]'}`}
-                                        >
-                                            {lang.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                        {user && <GlobalSearch locale={locale} onOpenChange={setSearchActive} />}
+                        <div className={searchActive ? 'hidden md:contents' : 'contents'}>
+                            {token && <NotificationBell token={token} />}
+                            <div ref={langMenuRef} className="relative">
+                                <button
+                                    onClick={() => setShowLangMenu(!showLangMenu)}
+                                    aria-label="Language"
+                                    className="w-10 h-10 flex items-center justify-center text-[#f0e6d3] rounded-full transition-all duration-300 hover:text-[#d4af37] hover:bg-[#d4af37]/10 hover:scale-110 hover:rotate-12"
+                                >
+                                    <Globe size={22} />
+                                </button>
+                                {showLangMenu && (
+                                    <div className="absolute top-12 end-0 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl shadow-xl py-3 w-32 overflow-hidden z-50">
+                                        {languages.map((lang) => (
+                                            <button
+                                                key={lang.code}
+                                                onClick={() => changeLanguage(lang.code)}
+                                                className={`w-full text-start px-4 py-2 text-sm hover:bg-[#111a2f] transition-colors ${locale === lang.code ? 'font-black text-[#d4af37]' : 'text-[#f0e6d3]'}`}
+                                            >
+                                                {lang.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <CartIcon locale={locale} />
