@@ -116,7 +116,7 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
 
                 {/* Sidebar CTA */}
                 <div className="lg:col-span-1">
-                    <div className="sticky top-32 space-y-6">
+                    <div className="lg:sticky lg:top-32 space-y-6">
                         <div className="bg-[#111a2f] border border-[#d4af37]/20 rounded-[3rem] p-10 text-[#f0e6d3] shadow-2xl shadow-[#111a2f]/40">
                             <h3 className="text-2xl font-black mb-8">{t.open}</h3>
                             <button className="w-full bg-[#d4af37] text-[#080d1f] py-6 rounded-2xl font-black text-xl hover:bg-[#f5d061] transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-[#d4af37]/20">

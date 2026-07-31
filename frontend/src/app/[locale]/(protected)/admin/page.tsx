@@ -39,7 +39,7 @@ function LeadsChart({ chartData }: { chartData: { date: string; count: number }[
                     const dayLabel = new Date(d.date).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' });
                     return (
                         <div key={d.date} className="flex-1 flex flex-col items-center gap-1 group" title={`${dayLabel}: ${d.count} פניות`}>
-                            <div className="text-[9px] text-[#f0e6d3]/0 group-hover:text-[#d4af37] transition-colors font-bold whitespace-nowrap">
+                            <div className="text-[9px] text-[#f0e6d3]/40 sm:text-[#f0e6d3]/0 sm:group-hover:text-[#d4af37] transition-colors font-bold whitespace-nowrap">
                                 {d.count > 0 ? d.count : ''}
                             </div>
                             <div className="w-full flex items-end h-20">
@@ -143,7 +143,7 @@ export default function AdminDashboardPage() {
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
                 <div className="flex items-center gap-3">
                     <TrendingUp size={28} className="text-[#d4af37]" />
                     <h1 className="text-3xl font-black text-[#f0e6d3]">לוח בקרה</h1>
@@ -152,7 +152,7 @@ export default function AdminDashboardPage() {
                 <button
                     onClick={handleFollowup}
                     disabled={sendingFollowup || loading}
-                    className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/20 text-[#f0e6d3]/60 hover:text-[#d4af37] hover:border-[#d4af37]/40 rounded-xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-40"
+                    className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/20 text-[#f0e6d3]/60 hover:text-[#d4af37] hover:border-[#d4af37]/40 rounded-xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-40 shrink-0"
                     title="שלח תזכורות follow-up לפניות ממתינות 3+ ימים"
                 >
                     {sendingFollowup ? <Loader2 size={13} className="animate-spin" /> : <Bell size={13} />}

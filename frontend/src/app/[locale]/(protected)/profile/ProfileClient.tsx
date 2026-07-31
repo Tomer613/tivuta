@@ -909,7 +909,7 @@ export default function ProfileClient() {
                                         <button
                                             onClick={() => handleRemoveFav(fav.product_id)}
                                             disabled={removingFavId === fav.product_id}
-                                            className="text-[#f0e6d3]/20 hover:text-red-400 transition-colors"
+                                            className="text-[#f0e6d3]/20 hover:text-red-400 transition-colors p-2 -m-2 shrink-0"
                                         >
                                             <X size={14} />
                                         </button>
@@ -1046,7 +1046,7 @@ export default function ProfileClient() {
                                             dir="ltr"
                                         />
                                         {key !== 'confirm' && (
-                                            <button type="button" onClick={toggle} className="absolute end-3 top-1/2 -translate-y-1/2 text-[#f0e6d3]/30 hover:text-[#f0e6d3]/60">
+                                            <button type="button" onClick={toggle} className="absolute end-1 top-1/2 -translate-y-1/2 text-[#f0e6d3]/30 hover:text-[#f0e6d3]/60 p-2">
                                                 {show ? <EyeOff size={14} /> : <Eye size={14} />}
                                             </button>
                                         )}
