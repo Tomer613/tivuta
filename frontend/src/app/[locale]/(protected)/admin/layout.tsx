@@ -46,6 +46,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: `/${locale}/admin/loyalty`, label: t.loyalty, icon: <ShieldAlert size={18} /> },
     ];
 
+    const backToSiteLink = (extraClass: string) => (
+        <Link
+            href={`/${locale}`}
+            className={`${extraClass} items-center gap-1.5 text-xs text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors font-semibold shrink-0`}
+        >
+            <ExternalLink size={13} />
+            חזרה לאתר
+        </Link>
+    );
+
     return (
         <AdminGuard>
             <div className="min-h-screen bg-[#111a2f]">
@@ -57,13 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 <span className="text-[#d4af37]/25 text-sm">|</span>
                                 <span className="text-[#f0e6d3]/35 text-[11px] uppercase tracking-widest font-bold">בק-אופיס</span>
                             </div>
-                            <Link
-                                href={`/${locale}`}
-                                className="md:hidden flex items-center gap-1.5 text-xs text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors font-semibold shrink-0"
-                            >
-                                <ExternalLink size={13} />
-                                חזרה לאתר
-                            </Link>
+                            {backToSiteLink('flex md:hidden')}
                         </div>
                         <div className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar -mx-6 px-6 md:mx-0 md:px-0 md:flex-wrap">
                             {tabs.map((tab) => {
@@ -88,13 +92,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 );
                             })}
                         </div>
-                        <Link
-                            href={`/${locale}`}
-                            className="hidden md:flex items-center gap-1.5 text-xs text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors font-semibold shrink-0"
-                        >
-                            <ExternalLink size={13} />
-                            חזרה לאתר
-                        </Link>
+                        {backToSiteLink('hidden md:flex')}
                     </div>
                 </nav>
                 <div className="max-w-7xl mx-auto px-6 py-10">{children}</div>
