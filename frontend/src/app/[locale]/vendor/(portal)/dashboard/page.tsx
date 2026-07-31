@@ -51,7 +51,7 @@ export default function VendorDashboardPage() {
                 </div>
             </div>
 
-            <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+            <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-x-auto">
                 <div className="px-6 py-4 border-b border-[#d4af37]/10 flex items-center gap-2">
                     <ReceiptText size={16} className="text-[#d4af37]" />
                     <h2 className="text-sm font-black text-[#f0e6d3] uppercase tracking-widest">עסקאות אחרונות</h2>

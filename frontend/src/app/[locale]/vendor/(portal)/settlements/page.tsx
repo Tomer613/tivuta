@@ -29,7 +29,7 @@ export default function VendorSettlementsPage() {
                     עדיין אין תקופות התחשבנות
                 </div>
             ) : (
-                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-x-auto">
                     <table className="w-full text-start">
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>

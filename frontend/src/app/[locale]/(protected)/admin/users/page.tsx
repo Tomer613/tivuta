@@ -143,7 +143,7 @@ export default function AdminUsersPage() {
             {loading ? (
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={32} />
             ) : (
-                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-x-auto">
                     <table className="w-full text-start">
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
@@ -208,7 +208,7 @@ export default function AdminUsersPage() {
 
             {showForm && (
                 <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={() => setShowForm(false)}>
-                    <form onSubmit={handleCreate} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-md space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <form onSubmit={handleCreate} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-2">
                             <h2 className="text-xl font-black text-[#f0e6d3]">הוסף משתמש</h2>
                             <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>

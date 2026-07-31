@@ -76,6 +76,8 @@ function CalendarView({ lines, onSendReminder, sendingIds }: { lines: FlatLine[]
                 <h3 className="font-black text-[#f0e6d3]">{monthLabel}</h3>
                 <button onClick={() => { setMonth((m) => m === 11 ? 0 : m + 1); if (month === 11) setYear((y) => y + 1); }} className="p-2 hover:bg-[#111a2f] rounded-xl transition-colors text-[#f0e6d3]/60"><ChevronLeft size={16} /></button>
             </div>
+            <div className="overflow-x-auto no-scrollbar -mx-2 px-2">
+            <div className="min-w-[420px]">
             <div className="grid grid-cols-7 gap-1 mb-1 text-center text-[10px] text-[#f0e6d3]/30 font-bold">
                 {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map((d) => <div key={d}>{d}</div>)}
             </div>
@@ -103,6 +105,8 @@ function CalendarView({ lines, onSendReminder, sendingIds }: { lines: FlatLine[]
                         </div>
                     );
                 })}
+            </div>
+            </div>
             </div>
         </div>
     );

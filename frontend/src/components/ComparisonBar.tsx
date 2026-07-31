@@ -37,43 +37,48 @@ export default function ComparisonBar({ products, locale, onRemove, onClear }: P
                 </div>
 
                 {/* product columns */}
-                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${products.length}, 1fr)` }}>
-                    {products.map((p) => {
-                        const title = p[`title_${localeKey}`] || p.title_he;
-                        const imgSrc = productImageUrl(p.image_url);
-                        return (
-                            <div key={p.id} className="bg-[#0e1628] rounded-xl border border-[#d4af37]/15 overflow-hidden">
-                                <div className="relative h-20">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={imgSrc} alt={title} className="w-full h-full object-cover" />
-                                    <button
-                                        onClick={() => onRemove(p.id)}
-                                        className="absolute top-1 left-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                                    >
-                                        <X size={10} className="text-white" />
-                                    </button>
+                <div className="max-h-[45vh] overflow-y-auto">
+                    <div
+                        className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory sm:grid sm:overflow-visible"
+                        style={{ gridTemplateColumns: `repeat(${products.length}, 1fr)` }}
+                    >
+                        {products.map((p) => {
+                            const title = p[`title_${localeKey}`] || p.title_he;
+                            const imgSrc = productImageUrl(p.image_url);
+                            return (
+                                <div key={p.id} className="bg-[#0e1628] rounded-xl border border-[#d4af37]/15 overflow-hidden w-[78vw] max-w-[220px] shrink-0 snap-start sm:w-auto sm:max-w-none sm:shrink">
+                                    <div className="relative h-14 sm:h-20">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={imgSrc} alt={title} className="w-full h-full object-cover" />
+                                        <button
+                                            onClick={() => onRemove(p.id)}
+                                            className="absolute top-1 left-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                                        >
+                                            <X size={10} className="text-white" />
+                                        </button>
+                                    </div>
+                                    <div className="p-2">
+                                        <p className="text-[11px] font-bold text-[#f0e6d3] line-clamp-1 mb-1">{title}</p>
+                                        <p className="text-[#d4af37] font-black text-sm mb-2">
+                                            {p.price ? `₪${p.price.toLocaleString()}` : 'לפי בקשה'}
+                                        </p>
+                                        {allAttrKeys.map((k) => {
+                                            const val = p.attributes?.[k];
+                                            const label = ATTR_LABELS[k]?.[locale] || ATTR_LABELS[k]?.he || k;
+                                            return (
+                                                <div key={k} className="flex justify-between text-[10px] border-b border-[#d4af37]/10 py-0.5">
+                                                    <span className="text-[#f0e6d3]/40">{label}</span>
+                                                    <span className={`font-semibold ${val != null ? 'text-[#f0e6d3]' : 'text-[#f0e6d3]/20'}`}>
+                                                        {val != null ? String(val) : '—'}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                                <div className="p-2">
-                                    <p className="text-[11px] font-bold text-[#f0e6d3] line-clamp-1 mb-1">{title}</p>
-                                    <p className="text-[#d4af37] font-black text-sm mb-2">
-                                        {p.price ? `₪${p.price.toLocaleString()}` : 'לפי בקשה'}
-                                    </p>
-                                    {allAttrKeys.map((k) => {
-                                        const val = p.attributes?.[k];
-                                        const label = ATTR_LABELS[k]?.[locale] || ATTR_LABELS[k]?.he || k;
-                                        return (
-                                            <div key={k} className="flex justify-between text-[10px] border-b border-[#d4af37]/10 py-0.5">
-                                                <span className="text-[#f0e6d3]/40">{label}</span>
-                                                <span className={`font-semibold ${val != null ? 'text-[#f0e6d3]' : 'text-[#f0e6d3]/20'}`}>
-                                                    {val != null ? String(val) : '—'}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         </div>

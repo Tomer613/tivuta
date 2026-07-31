@@ -111,38 +111,42 @@ export default function CartPage() {
                             {items.map((item) => {
                                 const title = item[`title_${localeKey}`] || item.title_he;
                                 return (
-                                    <div key={item.id} className="flex items-center gap-4 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-4">
-                                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#111a2f] shrink-0">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={productImageUrl(item.image_url)} alt={title || ''} className="w-full h-full object-cover" />
+                                    <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#111a2f] shrink-0">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={productImageUrl(item.image_url)} alt={title || ''} className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-[#f0e6d3] truncate">{title}</p>
+                                                <p className="text-xs text-[#f0e6d3]/40">{VERTICAL_LABEL[item.vertical] || item.vertical}</p>
+                                                <p className="text-[#d4af37] font-black mt-1">
+                                                    {item.price ? `₪${item.price.toLocaleString()}` : t.on_request}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-bold text-[#f0e6d3] truncate">{title}</p>
-                                            <p className="text-xs text-[#f0e6d3]/40">{VERTICAL_LABEL[item.vertical] || item.vertical}</p>
-                                            <p className="text-[#d4af37] font-black mt-1">
-                                                {item.price ? `₪${item.price.toLocaleString()}` : t.on_request}
-                                            </p>
+                                        <div className="flex items-center justify-between sm:justify-end gap-4 sm:shrink-0">
+                                            <div className="shrink-0">
+                                                <QuantityStepper
+                                                    qty={item.quantity}
+                                                    size="sm"
+                                                    decDisabled={item.quantity <= 1}
+                                                    incDisabled={item.quantity >= 99}
+                                                    decLabel={t.dec_qty}
+                                                    incLabel={t.inc_qty}
+                                                    onDec={() => updateQuantity(item.id, item.quantity - 1)}
+                                                    onInc={() => updateQuantity(item.id, item.quantity + 1)}
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                aria-label="הסר מהעגלה"
+                                                onClick={() => removeFromCart(item.id)}
+                                                className="text-[#f0e6d3]/30 hover:text-red-400 transition-colors shrink-0"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
                                         </div>
-                                        <div className="shrink-0">
-                                            <QuantityStepper
-                                                qty={item.quantity}
-                                                size="sm"
-                                                decDisabled={item.quantity <= 1}
-                                                incDisabled={item.quantity >= 99}
-                                                decLabel={t.dec_qty}
-                                                incLabel={t.inc_qty}
-                                                onDec={() => updateQuantity(item.id, item.quantity - 1)}
-                                                onInc={() => updateQuantity(item.id, item.quantity + 1)}
-                                            />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            aria-label="הסר מהעגלה"
-                                            onClick={() => removeFromCart(item.id)}
-                                            className="text-[#f0e6d3]/30 hover:text-red-400 transition-colors shrink-0"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
                                     </div>
                                 );
                             })}

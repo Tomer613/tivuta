@@ -14,8 +14,8 @@ interface QuantityStepperProps {
 }
 
 const SIZE_MAP = {
-    sm: { btn: 'w-7 h-7', icon: 12 },
-    md: { btn: 'w-8 h-8', icon: 14 },
+    sm: { btn: 'w-9 h-9 sm:w-7 sm:h-7', icon: 12 },
+    md: { btn: 'w-10 h-10 sm:w-8 sm:h-8', icon: 14 },
 };
 
 export default function QuantityStepper({ qty, onDec, onInc, decDisabled, incDisabled, size = 'md', decLabel, incLabel }: QuantityStepperProps) {

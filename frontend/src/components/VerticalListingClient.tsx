@@ -129,8 +129,8 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
 
     return (
         <>
-        <main className="min-h-screen bg-[#111a2f]">
-            <header className="bg-[#0e1628] border-b border-[#d4af37]/20 py-16 px-8">
+        <main className={`min-h-screen bg-[#111a2f] ${compareList.length > 0 ? 'pb-32 sm:pb-40' : ''}`}>
+            <header className="bg-[#0e1628] border-b border-[#d4af37]/20 px-4 py-8 md:px-8 md:py-16">
                 <div className="max-w-7xl mx-auto text-start">
                     <h1 className="text-4xl md:text-5xl font-black text-[#f0e6d3] mb-3">{title}</h1>
                     <p className="text-xl text-[#f0e6d3]/60 font-light">{subtitle}</p>
@@ -140,7 +140,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                 </div>
             </header>
 
-            <div className="max-w-7xl mx-auto py-12 px-8 flex flex-col lg:flex-row gap-12">
+            <div className="max-w-7xl mx-auto px-4 py-8 md:px-8 md:py-12 flex flex-col lg:flex-row gap-8 lg:gap-12">
                 <FilterSortSidebar
                     locale={locale}
                     sort={sort}

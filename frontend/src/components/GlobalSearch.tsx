@@ -122,16 +122,11 @@ export default function GlobalSearch({ locale }: Props) {
         <>
             {/* Dynamic Island pill — inline in header center */}
             <div
-                className={`relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#111a2f] border select-none ${
+                className={`relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#111a2f] border select-none max-w-[90vw] transition-all duration-[450ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
                     open
-                        ? 'border-[#d4af37]/50 shadow-[0_0_20px_rgba(212,175,55,0.15)] cursor-default'
-                        : 'border-[#d4af37]/20 cursor-pointer hover:border-[#d4af37]/40 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)]'
+                        ? 'w-full md:w-[360px] border-[#d4af37]/50 shadow-[0_0_20px_rgba(212,175,55,0.15)] cursor-default'
+                        : 'w-[130px] border-[#d4af37]/20 cursor-pointer hover:border-[#d4af37]/40 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)]'
                 }`}
-                style={{
-                    width: open ? '360px' : '130px',
-                    transition: 'width 0.45s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s, box-shadow 0.2s',
-                    maxWidth: '90vw',
-                }}
                 onClick={() => !open && setOpen(true)}
             >
                 <Search

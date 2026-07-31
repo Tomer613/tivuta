@@ -340,7 +340,7 @@ export default function AdminProductsPage() {
             </div>
 
             {showAnalytics && (
-                <div className="mb-8 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                <div className="mb-8 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-x-auto">
                     <div className="flex items-center justify-between p-4 border-b border-[#d4af37]/10">
                         <h2 className="text-[#d4af37] font-bold flex items-center gap-2"><BarChart3 size={16} /> ביצועי מוצרים</h2>
                         <div className="flex gap-2">
@@ -434,7 +434,7 @@ export default function AdminProductsPage() {
             {loading ? (
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={32} />
             ) : (
-                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-x-auto">
                     <table className="w-full text-start">
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
@@ -625,7 +625,7 @@ export default function AdminProductsPage() {
                         {verticalAttrs.length > 0 && (
                             <div>
                                 <label className="text-xs text-[#f0e6d3]/50 mb-3 block font-bold uppercase tracking-wider">מאפיינים ({VERTICAL_LABEL[form.vertical]})</label>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {verticalAttrs.map((field) => (
                                         <div key={field.key}>
                                             <label className="text-[11px] text-[#f0e6d3]/40 mb-1 block">{field.label}</label>

@@ -79,7 +79,7 @@ export default function NotificationBell({ token }: { token: string }) {
             </button>
 
             {open && (
-                <div className="absolute left-0 top-11 w-80 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl shadow-2xl z-[300] overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
+                <div className="absolute end-0 top-11 w-80 max-w-[90vw] bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl shadow-2xl z-[300] overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
                     <div className="flex items-center justify-between px-4 py-3 border-b border-[#d4af37]/10">
                         <span className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest">התראות</span>
                         <div className="flex items-center gap-2">

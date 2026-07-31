@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, Flame, Tag, Search, SlidersHorizontal, ListFilter } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Clock, Flame, Tag, Search, SlidersHorizontal, ListFilter } from 'lucide-react';
 import { VerticalAttributeField } from '@/lib/api';
 
 interface T {
@@ -15,13 +16,14 @@ interface T {
     price_range: string;
     price_min: string;
     price_max: string;
+    filter_sort: string;
 }
 
 const translations: Record<string, T> = {
-    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', filter_promo: 'סנן לפי מבצע', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום' },
-    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', filter_promo: 'Filter by promotion', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max' },
-    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', filter_promo: 'Filtrer par promotion', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max' },
-    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', filter_promo: 'פילטרירן', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום' },
+    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', filter_promo: 'סנן לפי מבצע', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'סינון ומיון' },
+    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', filter_promo: 'Filter by promotion', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Filter & Sort' },
+    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', filter_promo: 'Filtrer par promotion', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Trier et filtrer' },
+    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', filter_promo: 'פילטרירן', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'פילטער און סארטירן' },
 };
 
 export type SortOption = 'popularity' | 'newest' | 'price_asc' | 'price_desc';
@@ -65,6 +67,7 @@ export default function FilterSortSidebar({
     attrFilters?: Record<string, string>;
     onAttrFilterChange?: (key: string, value: string) => void;
 }) {
+    const [mobileOpen, setMobileOpen] = useState(false);
     const t = translations[locale] || translations.he;
     const isHe = locale === 'he' || locale === 'yi';
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
@@ -78,7 +81,16 @@ export default function FilterSortSidebar({
     ];
 
     return (
-        <aside className="lg:w-64 flex-shrink-0 space-y-8">
+        <aside className="lg:w-64 flex-shrink-0">
+            <button
+                type="button"
+                onClick={() => setMobileOpen((v) => !v)}
+                className="lg:hidden w-full flex items-center justify-between gap-2 bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-5 py-3 text-sm font-bold text-[#f0e6d3] mb-4"
+            >
+                <span className="flex items-center gap-2"><SlidersHorizontal size={16} /> {t.filter_sort}</span>
+                <ChevronDown size={16} className={`transition-transform ${mobileOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <div className={`${mobileOpen ? 'block' : 'hidden'} lg:block space-y-8`}>
             {/* Search */}
             <div>
                 <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-4 ps-2 flex items-center gap-2">
@@ -217,6 +229,7 @@ export default function FilterSortSidebar({
                         </button>
                     ))}
                 </div>
+            </div>
             </div>
         </aside>
     );

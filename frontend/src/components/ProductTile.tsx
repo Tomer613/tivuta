@@ -164,7 +164,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                 (e.currentTarget as HTMLDivElement).style.borderColor = '';
             }}
         >
-            <div className="h-48 w-full bg-[#111a2f] relative overflow-hidden">
+            <div className="h-40 sm:h-48 w-full bg-[#111a2f] relative overflow-hidden">
                 <Link href={detailHref} className="absolute inset-0 block">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={imagePath} alt={title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -184,7 +184,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                     </div>
                 )}
                 {/* Action buttons — top left */}
-                <div className="absolute top-2 left-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute top-2 left-2 flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
                     <button
                         type="button"
                         onClick={toggleFav}
@@ -204,7 +204,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                 </div>
             </div>
 
-            <div className="p-6 flex flex-col flex-grow items-start text-start">
+            <div className="p-4 sm:p-6 flex flex-col flex-grow items-start text-start">
                 <Link href={detailHref} className="contents">
                     <h3 className="text-xl font-bold text-[#f0e6d3] mb-2 line-clamp-1 w-full hover:text-[#d4af37] transition-colors">{title}</h3>
                     <p className="text-[#f0e6d3]/60 text-sm line-clamp-2 mb-2 leading-relaxed w-full font-light">{description}</p>
