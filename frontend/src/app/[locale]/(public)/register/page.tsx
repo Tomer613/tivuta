@@ -134,7 +134,7 @@ export default function RegisterPage() {
     };
 
     return (
-        <main className="min-h-screen bg-[#111a2f] flex items-center justify-center p-8 overflow-hidden">
+        <main className="min-h-screen bg-[#111a2f] flex items-center justify-center p-4 sm:p-8 overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-20">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#1e3a8a] blur-[120px] rounded-full" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400 blur-[120px] rounded-full" />
@@ -144,7 +144,7 @@ export default function RegisterPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="w-full max-w-md bg-[#0e1628]/80 backdrop-blur-xl p-12 rounded-[3rem] shadow-2xl border border-white relative z-10"
+                className="w-full max-w-md bg-[#0e1628]/80 backdrop-blur-xl p-6 sm:p-12 rounded-[3rem] shadow-2xl border border-white relative z-10"
             >
                 <div className="flex flex-col items-center mb-10">
                     <div className="w-16 h-16 bg-[#1e3a8a] text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg rotate-3">
@@ -165,7 +165,7 @@ export default function RegisterPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2 flex flex-col items-start">
                             <label className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest px-2">{t.fname}</label>
                             <input

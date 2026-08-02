@@ -39,8 +39,8 @@ export default function ForgotPasswordPage() {
     };
 
     return (
-        <main className="min-h-screen bg-[#111a2f] flex items-center justify-center p-8">
-            <div className="w-full max-w-md bg-[#0e1628]/80 backdrop-blur-xl p-12 rounded-[3rem] shadow-2xl border border-white">
+        <main className="min-h-screen bg-[#111a2f] flex items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-md bg-[#0e1628]/80 backdrop-blur-xl p-6 sm:p-12 rounded-[3rem] shadow-2xl border border-white">
                 <div className="flex flex-col items-center mb-10">
                     <div className="w-16 h-16 bg-[#1e3a8a] text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg">
                         <Mail size={32} />

@@ -147,11 +147,11 @@ export default function AppointmentModal({
 
     const modal = (
         <div
-            className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-6 overflow-y-auto"
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
             onClick={onClose}
         >
             <div
-                className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl shadow-2xl p-8 w-full max-w-md max-h-[90vh] overflow-y-auto my-8"
+                className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl shadow-2xl p-5 sm:p-8 w-full max-w-md max-h-[90vh] overflow-y-auto my-8"
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >
