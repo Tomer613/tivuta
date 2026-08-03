@@ -36,7 +36,11 @@ export default function RootHeader() {
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
             const target = e.target as Node;
-            if (headerMenuRef.current && !headerMenuRef.current.contains(target)) {
+            // Skip while search is active: GlobalSearch's results/backdrop render via a portal to
+            // document.body, so they're never "inside" headerMenuRef — without this guard, tapping
+            // anywhere in the results list (that isn't a navigating link) would force-close this
+            // wrapper and hide the still-open search pill living inside it.
+            if (!searchActive && headerMenuRef.current && !headerMenuRef.current.contains(target)) {
                 setShowMobileMenu(false);
             }
             if (langMenuRef.current && !langMenuRef.current.contains(target)) {
@@ -55,7 +59,7 @@ export default function RootHeader() {
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('keydown', handleEscape);
         };
-    }, []);
+    }, [searchActive]);
 
     const changeLanguage = (newLocale: string) => {
         // pathname looks like /{locale}/... — locale is segment index 1
