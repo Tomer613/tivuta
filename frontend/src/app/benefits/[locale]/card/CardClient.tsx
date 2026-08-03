@@ -196,7 +196,7 @@ function CardVisual() {
         /* LTR so left/right always map to visual left/right regardless of page direction */
         <div className="relative select-none" style={{ perspective: '1200px', direction: 'ltr' }}>
             {/* Diffused ground shadow */}
-            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-[280px] h-8 rounded-full"
+            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-[70vw] max-w-[280px] h-8 rounded-full"
                  style={{ background: 'rgba(0,0,0,0.45)', filter: 'blur(22px)' }} />
 
             <motion.div
@@ -206,7 +206,7 @@ function CardVisual() {
                     rotateX: [0, 3, 0],
                 }}
                 transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-                className="relative w-[340px] h-[214px] rounded-[22px] overflow-hidden"
+                className="relative w-[85vw] max-w-[340px] aspect-[340/214] rounded-[22px] overflow-hidden"
                 style={{
                     /* Rich multi-stop radial — bright light source top-right */
                     background: `

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, X } from 'lucide-react';
 import { searchProducts, productImageUrl, getVerticals, Vertical } from '@/lib/api';
@@ -12,7 +12,11 @@ interface Props {
     onOpenChange?: (open: boolean) => void;
 }
 
-export default function GlobalSearch({ locale, onOpenChange }: Props) {
+export interface GlobalSearchHandle {
+    close: () => void;
+}
+
+const GlobalSearch = forwardRef<GlobalSearchHandle, Props>(function GlobalSearch({ locale, onOpenChange }, ref) {
     const [open, setOpen] = useState(false);
     const [q, setQ] = useState('');
     const [results, setResults] = useState<any[]>([]);
@@ -47,6 +51,8 @@ export default function GlobalSearch({ locale, onOpenChange }: Props) {
     }, [q]);
 
     const close = () => { setOpen(false); setQ(''); setResults([]); onOpenChange?.(false); };
+
+    useImperativeHandle(ref, () => ({ close }));
 
     const hasResults = q.length >= 2;
 
@@ -160,4 +166,6 @@ export default function GlobalSearch({ locale, onOpenChange }: Props) {
             {portal}
         </>
     );
-}
+});
+
+export default GlobalSearch;

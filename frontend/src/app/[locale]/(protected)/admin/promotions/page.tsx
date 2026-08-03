@@ -490,7 +490,7 @@ export default function AdminPromotionsPage() {
             {/* Assign Products Modal */}
             {assignPromo && (
                 <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={() => setAssignPromo(null)}>
-                    <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-black text-[#f0e6d3]">שיוך מוצרים — {assignPromo.name_he}</h2>
                             <button onClick={() => setAssignPromo(null)}><X size={20} className="text-[#f0e6d3]/60" /></button>

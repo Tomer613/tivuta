@@ -7,7 +7,7 @@ import { useRouter, useParams, usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
-import GlobalSearch from '@/components/GlobalSearch';
+import GlobalSearch, { GlobalSearchHandle } from '@/components/GlobalSearch';
 import CartIcon from '@/components/CartIcon';
 
 const languages = [
@@ -23,6 +23,7 @@ export default function RootHeader() {
     const [searchActive, setSearchActive] = useState(false);
     const headerMenuRef = useRef<HTMLDivElement>(null);
     const langMenuRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<GlobalSearchHandle>(null);
     const router = useRouter();
     const params = useParams();
     const pathname = usePathname();
@@ -32,6 +33,13 @@ export default function RootHeader() {
     useEffect(() => {
         setShowMobileMenu(false);
     }, [pathname]);
+
+    useEffect(() => {
+        // GlobalSearch is only rendered while `user` is set; if it unmounts mid-search (e.g. on
+        // logout) it never gets a chance to call onOpenChange(false), which would otherwise leave
+        // searchActive stuck true and permanently hide the language switcher (not auth-gated).
+        if (!user) setSearchActive(false);
+    }, [user]);
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
@@ -51,6 +59,7 @@ export default function RootHeader() {
             if (e.key === 'Escape') {
                 setShowMobileMenu(false);
                 setShowLangMenu(false);
+                searchRef.current?.close();
             }
         }
         document.addEventListener('mousedown', handleClickOutside);
@@ -76,12 +85,11 @@ export default function RootHeader() {
                     <Logo light className="group-hover:scale-105" />
                 </Link>
 
-                <div className="relative flex items-center gap-2">
+                <div ref={headerMenuRef} className="relative flex items-center gap-2">
                     <div
-                        ref={headerMenuRef}
                         className={`${showMobileMenu ? 'flex absolute top-full inset-x-0 mt-2 flex-col items-start gap-3 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-4 shadow-xl z-40' : 'hidden'} md:flex md:static md:mt-0 md:flex-row md:items-center md:gap-2 md:bg-transparent md:border-0 md:p-0 md:shadow-none`}
                     >
-                        {user && <GlobalSearch locale={locale} onOpenChange={setSearchActive} />}
+                        {user && <GlobalSearch ref={searchRef} locale={locale} onOpenChange={setSearchActive} />}
                         <div className={searchActive ? 'hidden md:contents' : 'contents'}>
                             {token && <NotificationBell token={token} />}
                             <div ref={langMenuRef} className="relative">

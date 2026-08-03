@@ -184,7 +184,7 @@ export default function LoginPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(v => !v)}
-                                className="absolute inset-y-0 left-4 flex items-center px-3 text-[#f0e6d3]/60 hover:text-[#d4af37] transition-colors"
+                                className="absolute inset-y-0 left-1 flex items-center px-3 text-[#f0e6d3]/60 hover:text-[#d4af37] transition-colors"
                                 tabIndex={-1}
                                 aria-label={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
                             >

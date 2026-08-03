@@ -336,14 +336,14 @@ export default function AdminLoyaltyPage() {
                 ) : (
                     <div className="space-y-2">
                         {atRiskVendors.map((v) => (
-                            <div key={v.vendor_id} className="flex items-center justify-between gap-4 bg-[#111a2f] rounded-xl px-4 py-3">
-                                <div>
+                            <div key={v.vendor_id} className="flex flex-wrap items-center justify-between gap-4 bg-[#111a2f] rounded-xl px-4 py-3">
+                                <div className="min-w-0">
                                     <p className="text-sm font-semibold text-[#f0e6d3]">{v.name_he}</p>
                                     <p className="text-xs text-[#f0e6d3]/40 mt-0.5">
                                         {v.oldest_unsettled_days != null ? `העסקה הישנה ביותר שלא שולמה: ${v.oldest_unsettled_days} ימים` : 'אין עסקאות לא מסולקות'}
                                     </p>
                                 </div>
-                                <div className="text-end">
+                                <div className="text-end shrink-0">
                                     <p className="text-sm font-black text-[#d4af37]">₪{v.commission_owed_total.toLocaleString()}</p>
                                     {v.over_threshold && (
                                         <span className="text-[10px] font-bold text-red-400">מעל הסף</span>
