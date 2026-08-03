@@ -1086,10 +1086,13 @@ export default function ProfileClient() {
                                 { key: 'system', label: locale === 'he' ? 'הודעות מערכת' : 'System messages' },
                                 { key: 'promotions', label: locale === 'he' ? 'מבצעים והטבות' : 'Promotions & offers' },
                             ].map(({ key, label }) => (
-                                <label key={key} className="flex items-center justify-between gap-3 cursor-pointer">
+                                <label
+                                    key={key}
+                                    onClick={() => setNotifPrefs((p) => ({ ...p, [key]: !p[key] }))}
+                                    className="flex items-center justify-between gap-3 cursor-pointer"
+                                >
                                     <span className="text-sm text-[#f0e6d3]/80">{label}</span>
                                     <div
-                                        onClick={() => setNotifPrefs((p) => ({ ...p, [key]: !p[key] }))}
                                         className={`relative w-10 h-5 rounded-full transition-colors ${notifPrefs[key] ? 'bg-[#d4af37]' : 'bg-[#111a2f]'}`}
                                     >
                                         <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${notifPrefs[key] ? 'right-0.5' : 'left-0.5'}`} />

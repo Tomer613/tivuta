@@ -308,7 +308,7 @@ export default function AdminVerticalsPage() {
                         {/* Icon picker */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-2 block">אייקון</label>
-                            <div className="grid grid-cols-5 gap-2">
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                                 {VERTICAL_ICON_OPTIONS.map((iconKey) => {
                                     const Icon = getVerticalIcon(iconKey);
                                     return (
@@ -358,7 +358,7 @@ export default function AdminVerticalsPage() {
                             <div className="space-y-3">
                                 {form.attribute_fields.map((field, i) => (
                                     <div key={i} className="bg-[#111a2f] rounded-xl p-3 space-y-2">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <input
                                                 placeholder="מזהה (carat)"
                                                 dir="ltr"
@@ -375,11 +375,11 @@ export default function AdminVerticalsPage() {
                                                 <option value="number">מספר</option>
                                                 <option value="select">בחירה</option>
                                             </select>
-                                            <button type="button" onClick={() => removeAttrField(i)} className="text-red-400/50 hover:text-red-400 transition-colors shrink-0">
+                                            <button type="button" onClick={() => removeAttrField(i)} className="text-red-400/50 hover:text-red-400 transition-colors shrink-0 p-2 -m-2">
                                                 <Trash2 size={15} />
                                             </button>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             <input
                                                 placeholder="תווית בעברית"
                                                 value={field.label_he}

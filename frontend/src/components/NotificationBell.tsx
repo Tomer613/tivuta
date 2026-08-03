@@ -41,8 +41,15 @@ export default function NotificationBell({ token }: { token: string }) {
         const handler = (e: MouseEvent) => {
             if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
         };
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setOpen(false);
+        };
         document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        document.addEventListener('keydown', handleEscape);
+        return () => {
+            document.removeEventListener('mousedown', handler);
+            document.removeEventListener('keydown', handleEscape);
+        };
     }, []);
 
     const handleMarkRead = async (id: number) => {
@@ -68,7 +75,7 @@ export default function NotificationBell({ token }: { token: string }) {
         <div className="relative" ref={ref}>
             <button
                 onClick={() => setOpen((v) => !v)}
-                className="relative w-9 h-9 rounded-full bg-[#111a2f] border border-[#d4af37]/20 flex items-center justify-center hover:border-[#d4af37]/50 transition-colors"
+                className="relative w-10 h-10 rounded-full bg-[#111a2f] border border-[#d4af37]/20 flex items-center justify-center hover:border-[#d4af37]/50 transition-colors"
             >
                 <Bell size={17} className="text-[#f0e6d3]/70" />
                 {unread > 0 && (
