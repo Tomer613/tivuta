@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListProducts, adminCreateSurvey, adminListSurveys, adminUpdateSurvey, adminDeleteSurvey } from '@/lib/api';
+import { Product } from '@/components/ProductTile';
+import { Survey, SurveyOption } from '@/components/SurveyCard';
 import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle, Pencil, Check } from 'lucide-react';
 
 function MaxChoicesEditor({ value, onSave }: { value: number; onSave: (n: number) => Promise<void> }) {
@@ -60,8 +62,8 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 export default function AdminSurveysPage() {
     const { token } = useAuth();
-    const [surveys, setSurveys] = useState<any[]>([]);
-    const [products, setProducts] = useState<any[]>([]);
+    const [surveys, setSurveys] = useState<Survey[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [question, setQuestion] = useState('');
@@ -132,7 +134,7 @@ export default function AdminSurveysPage() {
             ) : (
                 <div className="flex flex-col gap-6">
                     {surveys.map((s) => {
-                        const total = s.options.reduce((sum: number, o: any) => sum + o.vote_count, 0) || 1;
+                        const total = s.options.reduce((sum: number, o: SurveyOption) => sum + o.vote_count, 0) || 1;
                         return (
                             <div key={s.id} className={`bg-[#0e1628] border rounded-3xl p-6 ${s.is_active ? 'border-[#d4af37]/20' : 'border-red-500/20 opacity-60'}`}>
                                 <div className="flex items-start justify-between mb-3 gap-4">
@@ -173,7 +175,7 @@ export default function AdminSurveysPage() {
                                     />
                                 </div>
                                 <div className="flex flex-col gap-3">
-                                    {s.options.map((opt: any) => {
+                                    {s.options.map((opt: SurveyOption) => {
                                         const pct = Math.round((opt.vote_count / total) * 100);
                                         return (
                                             <div key={opt.id} className="relative bg-[#111a2f] rounded-xl p-4 overflow-hidden">

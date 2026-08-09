@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, User } from '@/context/AuthContext';
 import {
     updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, productImageUrl,
-    getMyPointsHistory, createCardOrder, PointsLedgerEntry, ShippingAddress, MyOrder,
+    getMyPointsHistory, createCardOrder, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct,
 } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
@@ -15,6 +16,7 @@ import {
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
+import { useOutsideClick } from '@/lib/useOutsideClick';
 
 // ─── Translations ─────────────────────────────────────────────────────────────
 const tr: Record<string, Record<string, string>> = {
@@ -173,9 +175,9 @@ const ISRAELI_CITIES = [
     'תל אביב-יפו',
 ];
 
-const COMPLETION_FIELDS = ['phone', 'gender', 'city', 'birth_year', 'id_number', 'club_affiliation', 'membership_tracks'];
+const COMPLETION_FIELDS: (keyof User)[] = ['phone', 'gender', 'city', 'birth_year', 'id_number', 'club_affiliation', 'membership_tracks'];
 
-function computeCompletion(user: any) {
+function computeCompletion(user: User | null) {
     const missing = COMPLETION_FIELDS.filter((f) => {
         const v = user?.[f];
         return !v || (Array.isArray(v) && v.length === 0);
@@ -193,13 +195,7 @@ function CityInput({ value, onChange, placeholder }: { value: string; onChange: 
         ? ISRAELI_CITIES.filter(c => c.includes(value)).slice(0, 8)
         : [];
 
-    useEffect(() => {
-        function handleClick(e: MouseEvent) {
-            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-        }
-        document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
-    }, []);
+    useOutsideClick(ref, () => setOpen(false), { escape: false });
 
     return (
         <div ref={ref} className="relative">
@@ -251,7 +247,7 @@ export default function ProfileClient() {
     const [favorites, setFavorites] = useState<any[]>([]);
     const [removingFavId, setRemovingFavId] = useState<number | null>(null);
     const [appointments, setAppointments] = useState<any[]>([]);
-    const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
+    const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedProduct[]>([]);
     const [orders, setOrders] = useState<any[]>([]);
     const [myOrders, setMyOrders] = useState<MyOrder[]>([]);
     const [showNotifPrefs, setShowNotifPrefs] = useState(false);
@@ -376,8 +372,8 @@ export default function ProfileClient() {
             setCardOrderLeadOverride(lead);
             setShowCardOrderForm(false);
             setCardOrderState('idle');
-        } catch (err: any) {
-            setCardOrderError(err.message || (locale === 'he' ? 'שגיאה בשליחת הבקשה' : 'Failed to submit request'));
+        } catch (err) {
+            setCardOrderError(getErrorMessage(err, locale === 'he' ? 'שגיאה בשליחת הבקשה' : 'Failed to submit request'));
             setCardOrderState('error');
         }
     };
@@ -393,8 +389,8 @@ export default function ProfileClient() {
             setPwState('saved');
             setPwForm({ current: '', next: '', confirm: '' });
             setTimeout(() => { setPwState('idle'); setShowPasswordForm(false); }, 2000);
-        } catch (e: any) {
-            setPwError(e.message || 'שגיאה');
+        } catch (e) {
+            setPwError(getErrorMessage(e, 'שגיאה'));
             setPwState('error');
         }
     };
@@ -992,7 +988,7 @@ export default function ProfileClient() {
                             {locale === 'he' ? 'נצפו לאחרונה' : locale === 'fr' ? 'Récemment vus' : 'Recently Viewed'}
                         </h2>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            {recentlyViewed.slice(0, 8).map((p: any) => {
+                            {recentlyViewed.slice(0, 8).map((p: RecentlyViewedProduct) => {
                                 const imgSrc = productImageUrl(p.image_url);
                                 const href = `/${locale}/products?id=${p.id}`;
                                 return (

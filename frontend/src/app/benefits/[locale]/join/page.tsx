@@ -9,6 +9,7 @@ import { CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 
 interface JoinTranslation {
     title: string;
@@ -118,8 +119,8 @@ export default function JoinPage() {
         try {
             await signup(formData);
             router.push(`/benefits/${locale}/login`);
-        } catch (err: any) {
-            setError(err.message || 'Signup failed');
+        } catch (err) {
+            setError(getErrorMessage(err, 'Signup failed'));
         } finally {
             setIsLoading(false);
         }

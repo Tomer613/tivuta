@@ -50,7 +50,7 @@ function ResetPasswordForm() {
         try {
             await resetPassword(token, password);
             setDone(true);
-        } catch (err: any) {
+        } catch {
             setError(t.error);
         } finally {
             setIsLoading(false);

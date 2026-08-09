@@ -5,6 +5,7 @@ import { UserPlus, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
@@ -126,7 +127,7 @@ export default function RegisterPage() {
                 router.push(`/${locale}/login`);
             }
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : '';
+            const message = getErrorMessage(err, '');
             setError(message.includes('exists') || message.includes('already') ? t.error_email : t.error_generic);
         } finally {
             setIsLoading(false);

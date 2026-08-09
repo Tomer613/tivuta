@@ -1,0 +1,22 @@
+name: Prevent Workflow Deactivation
+
+on:
+  schedule:
+    # Run once a day at midnight
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Keepalive Workflow
+        uses: gautamkrishnar/keepalive-workflow@v2
+        with:
+          commit_message: "chore: auto-commit to prevent workflow deactivation [skip ci]"

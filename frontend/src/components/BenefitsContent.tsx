@@ -7,12 +7,12 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutGrid, Star, Calendar, Zap, ScrollText, Utensils, Shirt, ShoppingBasket, Palmtree, Smartphone, HeartPulse, PartyPopper, Home, Users, Landmark, Hammer, User, ChevronDown } from 'lucide-react';
+import { LayoutGrid, Star, Calendar, Zap, ScrollText, Utensils, Shirt, ShoppingBasket, Palmtree, Smartphone, HeartPulse, PartyPopper, Home, Users, Landmark, Hammer, User, ChevronDown, LucideIcon } from 'lucide-react';
 import ItemCard from '@/components/ItemCard';
 import BackButton from '@/components/BackButton';
 import { useAuth } from '@/context/AuthContext';
 
-const categoryIcons: Record<string, any> = {
+const categoryIcons: Record<string, LucideIcon> = {
     judaism: ScrollText,
     dining: Utensils,
     fashion: Shirt,

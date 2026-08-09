@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Search, X } from 'lucide-react';
 import { searchProducts, productImageUrl, getVerticals, Vertical } from '@/lib/api';
 import { getVerticalIcon } from '@/lib/verticalIcons';
+import { Product } from '@/components/ProductTile';
 import Link from 'next/link';
 
 interface Props {
@@ -19,7 +20,7 @@ export interface GlobalSearchHandle {
 const GlobalSearch = forwardRef<GlobalSearchHandle, Props>(function GlobalSearch({ locale, onOpenChange }, ref) {
     const [open, setOpen] = useState(false);
     const [q, setQ] = useState('');
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<Product[]>([]);
     const [loading, setLoading] = useState(false);
     const [verticals, setVerticals] = useState<Vertical[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);

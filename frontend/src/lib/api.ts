@@ -15,6 +15,16 @@ export function productImageUrl(filename: string | null | undefined): string {
     return `${BASE_URL}/images/products/${filename}`;
 }
 
+/** Matches the snapshot shape written to localStorage['tivuta_recent_v2'] by ProductDetailClient/
+ *  ProductTile on product-view — a narrow subset of Product, not the full read model. */
+export interface RecentlyViewedProduct {
+    id: number;
+    title_he: string;
+    image_url?: string | null;
+    price?: number | null;
+    vertical: string;
+}
+
 export interface VendorDayAvailability {
     enabled: boolean;
     start?: string | null;
@@ -37,6 +47,7 @@ export interface Vendor {
     specialty?: string | null;
     contact_phone?: string | null;
     contact_email?: string | null;
+    login_email?: string | null;
     is_active: boolean;
     availability?: VendorAvailability | null;
     commission_rate_percent?: number;

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Bell, X, CheckCheck } from 'lucide-react';
 import { getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead } from '@/lib/api';
+import { useOutsideClick } from '@/lib/useOutsideClick';
 
 interface Notification {
     id: number;
@@ -37,20 +38,7 @@ export default function NotificationBell({ token }: { token: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token]);
 
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-        };
-        const handleEscape = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setOpen(false);
-        };
-        document.addEventListener('mousedown', handler);
-        document.addEventListener('keydown', handleEscape);
-        return () => {
-            document.removeEventListener('mousedown', handler);
-            document.removeEventListener('keydown', handleEscape);
-        };
-    }, []);
+    useOutsideClick(ref, () => setOpen(false));
 
     const handleMarkRead = async (id: number) => {
         await markNotificationRead(token, id);

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListVerticals, adminCreateVertical, adminUpdateVertical, Vertical } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import { VERTICAL_ICON_OPTIONS, getVerticalIcon } from '@/lib/verticalIcons';
 import { Plus, X, Loader2, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Globe, PlusCircle, Trash2 } from 'lucide-react';
 
@@ -168,8 +169,8 @@ export default function AdminVerticalsPage() {
             }
             closeForm();
             load();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בשמירה', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בשמירה'), 'error');
         } finally {
             setSaving(false);
         }

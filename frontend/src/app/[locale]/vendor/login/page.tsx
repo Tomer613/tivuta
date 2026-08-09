@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Store, Loader2, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useVendorAuth } from '@/context/VendorAuthContext';
 import { vendorLogin } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import { useParams, useRouter } from 'next/navigation';
 
 interface T {
@@ -43,8 +44,8 @@ export default function VendorLoginPage() {
             const data = await vendorLogin(email, password);
             await login(data.access_token);
             router.push(`/${locale}/vendor/dashboard`);
-        } catch (err: any) {
-            setError(err.message || t.error_invalid);
+        } catch (err) {
+            setError(getErrorMessage(err, t.error_invalid));
         } finally {
             setIsLoading(false);
         }

@@ -14,6 +14,8 @@ import {
     adminRemoveProductFromPromotion,
     adminDrawPromotion,
 } from '@/lib/api';
+import { Product } from '@/components/ProductTile';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import { Plus, X, Loader2, Tag, Users, Shuffle, CheckCircle2, AlertCircle, Pencil, Trash2, Package } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -87,7 +89,7 @@ export default function AdminPromotionsPage() {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [assignPromo, setAssignPromo] = useState<any | null>(null);
-    const [allProducts, setAllProducts] = useState<any[]>([]);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [assignedIds, setAssignedIds] = useState<Set<number>>(new Set());
     const [assignLoading, setAssignLoading] = useState(false);
     const [drawingId, setDrawingId] = useState<number | null>(null);
@@ -206,7 +208,7 @@ export default function AdminPromotionsPage() {
             adminGetPromotionProducts(token, promo.id),
         ]);
         setAllProducts(products);
-        setAssignedIds(new Set(assigned.map((p: any) => p.id)));
+        setAssignedIds(new Set(assigned.map((p: Product) => p.id)));
         setAssignLoading(false);
     };
 
@@ -223,7 +225,7 @@ export default function AdminPromotionsPage() {
         if (!token || !assignPromo) return;
         setAssignLoading(true);
         const currentAssigned = await adminGetPromotionProducts(token, assignPromo.id);
-        const currentIds: Set<number> = new Set(currentAssigned.map((p: any) => p.id));
+        const currentIds: Set<number> = new Set(currentAssigned.map((p: Product) => p.id));
 
         const toAdd = [...assignedIds].filter((id) => !currentIds.has(id));
         const toRemove = [...currentIds].filter((id) => !assignedIds.has(id));
@@ -245,8 +247,8 @@ export default function AdminPromotionsPage() {
             const result = await adminDrawPromotion(token, promo.id);
             setDrawResult((prev) => ({ ...prev, [promo.id]: result.winner_name || 'הגרלה בוצעה' }));
             load();
-        } catch (err: any) {
-            setDrawError(err.message || 'שגיאה בביצוע הגרלה');
+        } catch (err) {
+            setDrawError(getErrorMessage(err, 'שגיאה בביצוע הגרלה'));
         } finally {
             setDrawingId(null);
         }

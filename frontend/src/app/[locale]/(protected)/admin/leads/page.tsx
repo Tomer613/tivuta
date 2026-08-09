@@ -8,6 +8,7 @@ import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
 import { useBulkSelection } from '@/lib/useBulkSelection';
 import BulkActionToolbar from '@/components/admin/BulkActionToolbar';
+import CalendarView from '@/components/admin/CalendarView';
 import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, CalendarDays, Download, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, ChevronLeft, ChevronRight, MessageSquare, Check, X, LayoutList, CalendarRange, Bell, History, Square, CheckSquare, Kanban } from 'lucide-react';
 
 const PAGE_SIZE = 50;
@@ -35,72 +36,6 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
         }`}>
             {type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
             {message}
-        </div>
-    );
-}
-
-function CalendarView({ leads, onSendReminder, sendingIds }: { leads: any[]; onSendReminder: (id: number) => void; sendingIds: Set<number> }) {
-    const today = new Date();
-    const [month, setMonth] = useState(today.getMonth());
-    const [year, setYear] = useState(today.getFullYear());
-
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
-
-    const byDay: Record<number, any[]> = {};
-    leads.forEach((l) => {
-        const d = new Date(l.scheduled_at);
-        if (d.getMonth() === month && d.getFullYear() === year) {
-            const day = d.getDate();
-            if (!byDay[day]) byDay[day] = [];
-            byDay[day].push(l);
-        }
-    });
-
-    const monthLabel = new Date(year, month, 1).toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
-
-    const cells: (number | null)[] = [...Array(firstDayOfWeek).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
-    while (cells.length % 7 !== 0) cells.push(null);
-
-    return (
-        <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-                <button onClick={() => { setMonth((m) => m === 0 ? 11 : m - 1); if (month === 0) setYear((y) => y - 1); }} className="p-2 hover:bg-[#111a2f] rounded-xl transition-colors text-[#f0e6d3]/60"><ChevronRight size={16} /></button>
-                <h3 className="font-black text-[#f0e6d3]">{monthLabel}</h3>
-                <button onClick={() => { setMonth((m) => m === 11 ? 0 : m + 1); if (month === 11) setYear((y) => y + 1); }} className="p-2 hover:bg-[#111a2f] rounded-xl transition-colors text-[#f0e6d3]/60"><ChevronLeft size={16} /></button>
-            </div>
-            <div className="overflow-x-auto no-scrollbar -mx-2 px-2">
-            <div className="min-w-[420px]">
-            <div className="grid grid-cols-7 gap-1 mb-1 text-center text-[10px] text-[#f0e6d3]/30 font-bold">
-                {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map((d) => <div key={d}>{d}</div>)}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-                {cells.map((day, i) => {
-                    if (!day) return <div key={i} />;
-                    const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-                    const appts = byDay[day] || [];
-                    return (
-                        <div key={i} className={`min-h-[64px] rounded-xl p-1.5 border transition-colors ${isToday ? 'border-[#d4af37]/50 bg-[#d4af37]/5' : 'border-[#d4af37]/5 hover:border-[#d4af37]/20'}`}>
-                            <div className={`text-[10px] font-bold mb-1 text-end ${isToday ? 'text-[#d4af37]' : 'text-[#f0e6d3]/30'}`}>{day}</div>
-                            {appts.map((l) => (
-                                <div key={l.id} className="group/cal bg-[#111a2f] rounded-lg px-1.5 py-1 mb-1 cursor-default">
-                                    <p className="text-[9px] text-[#f0e6d3]/80 font-semibold line-clamp-1">{l.user_name}</p>
-                                    <p className="text-[9px] text-[#f0e6d3]/40 line-clamp-1">{l.product_title_he}</p>
-                                    <button
-                                        onClick={() => onSendReminder(l.id)}
-                                        disabled={sendingIds.has(l.id)}
-                                        className="hidden group-hover/cal:flex items-center gap-1 text-[8px] text-[#d4af37] mt-0.5"
-                                    >
-                                        {sendingIds.has(l.id) ? <Loader2 size={8} className="animate-spin" /> : <><Bell size={8} /> תזכורת</>}
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    );
-                })}
-            </div>
-            </div>
-            </div>
         </div>
     );
 }
@@ -411,7 +346,7 @@ export default function AdminLeadsPage() {
             {loading ? (
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={32} />
             ) : view === 'calendar' ? (
-                <CalendarView leads={leads.filter((l) => l.lead_type === 'appointment' && l.scheduled_at)} onSendReminder={handleSendReminder} sendingIds={sendingReminderId} />
+                <CalendarView lines={leads.filter((l) => l.lead_type === 'appointment' && l.scheduled_at)} onSendReminder={handleSendReminder} sendingIds={sendingReminderId} />
             ) : view === 'kanban' ? (
                 <KanbanView leads={filtered} onStatusChange={handleStatusChange} updatingId={updatingId} />
             ) : (

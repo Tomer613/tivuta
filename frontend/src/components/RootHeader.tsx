@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
 import GlobalSearch, { GlobalSearchHandle } from '@/components/GlobalSearch';
 import CartIcon from '@/components/CartIcon';
+import { useOutsideClick } from '@/lib/useOutsideClick';
 
 const languages = [
     { code: 'he', label: 'עברית' },
@@ -41,34 +42,18 @@ export default function RootHeader() {
         if (!user) setSearchActive(false);
     }, [user]);
 
-    useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
-            const target = e.target as Node;
-            // Skip while search is active: GlobalSearch's results/backdrop render via a portal to
-            // document.body, so they're never "inside" headerMenuRef — without this guard, tapping
-            // anywhere in the results list (that isn't a navigating link) would force-close this
-            // wrapper and hide the still-open search pill living inside it.
-            if (!searchActive && headerMenuRef.current && !headerMenuRef.current.contains(target)) {
-                setShowMobileMenu(false);
-            }
-            if (langMenuRef.current && !langMenuRef.current.contains(target)) {
-                setShowLangMenu(false);
-            }
-        }
-        function handleEscape(e: KeyboardEvent) {
-            if (e.key === 'Escape') {
-                setShowMobileMenu(false);
-                setShowLangMenu(false);
-                searchRef.current?.close();
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        document.addEventListener('keydown', handleEscape);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            document.removeEventListener('keydown', handleEscape);
-        };
-    }, [searchActive]);
+    // Skip the header-menu outside-click check while search is active: GlobalSearch's
+    // results/backdrop render via a portal to document.body, so they're never "inside"
+    // headerMenuRef — without this guard, tapping anywhere in the results list (that isn't a
+    // navigating link) would force-close this wrapper and hide the still-open search pill living
+    // inside it. Escape isn't gated the same way (`enabled` only affects outside-click, per the
+    // hook's own contract) — it should still dismiss everything even mid-search, which is exactly
+    // why it also closes the search overlay via its imperative handle here.
+    useOutsideClick(headerMenuRef, () => setShowMobileMenu(false), {
+        enabled: !searchActive,
+        onEscape: () => { setShowMobileMenu(false); searchRef.current?.close(); },
+    });
+    useOutsideClick(langMenuRef, () => setShowLangMenu(false));
 
     const changeLanguage = (newLocale: string) => {
         // pathname looks like /{locale}/... — locale is segment index 1

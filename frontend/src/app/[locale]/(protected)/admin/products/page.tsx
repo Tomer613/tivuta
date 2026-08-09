@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, productImageUrl, Vendor, Vertical } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
+import { Product } from '@/components/ProductTile';
 import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3, ExternalLink } from 'lucide-react';
 
 const LANGS = [
@@ -42,7 +44,7 @@ export default function AdminProductsPage() {
     const params = useParams();
     const locale = (params?.locale as string) || 'he';
     const { token } = useAuth();
-    const [products, setProducts] = useState<any[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterVertical, setFilterVertical] = useState('');
     const [filterActive, setFilterActive] = useState('');
@@ -50,7 +52,7 @@ export default function AdminProductsPage() {
     const [togglingId, setTogglingId] = useState<number | null>(null);
     const [sortKey, setSortKey] = useState<'title_he' | 'price' | 'vertical'>('vertical');
     const [showForm, setShowForm] = useState(false);
-    const [editProduct, setEditProduct] = useState<any | null>(null);
+    const [editProduct, setEditProduct] = useState<Product | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [showBatchForm, setShowBatchForm] = useState(false);
     const [batchJson, setBatchJson] = useState('');
@@ -124,7 +126,7 @@ export default function AdminProductsPage() {
         return list;
     }, [products, filterVertical, filterActive, search, sortKey]);
 
-    const handleDuplicate = async (p: any) => {
+    const handleDuplicate = async (p: Product) => {
         if (!token) return;
         try {
             await adminDuplicateProduct(token, p.id);
@@ -135,7 +137,7 @@ export default function AdminProductsPage() {
         }
     };
 
-    const handleToggleActive = async (p: any) => {
+    const handleToggleActive = async (p: Product) => {
         if (!token) return;
         setTogglingId(p.id);
         try {
@@ -149,7 +151,7 @@ export default function AdminProductsPage() {
         }
     };
 
-    const openEditForm = (p: any) => {
+    const openEditForm = (p: Product) => {
         setEditProduct(p);
         const attrs: Record<string, string> = {};
         if (p.attributes) {
@@ -241,8 +243,8 @@ export default function AdminProductsPage() {
             setShowBatchForm(false);
             showToast(`${parsed.length} מוצרים הועלו בהצלחה ✓`);
             load();
-        } catch (err: any) {
-            setBatchError(err.message || 'Invalid JSON');
+        } catch (err) {
+            setBatchError(getErrorMessage(err, 'Invalid JSON'));
         }
     };
 
@@ -307,8 +309,8 @@ export default function AdminProductsPage() {
             setShowCsvModal(false);
             setCsvFile(null);
             showToast(`יובאו ${imported.length} מוצרים ✓`);
-        } catch (e: any) {
-            showToast(e.message || 'שגיאה בייבוא', 'error');
+        } catch (e) {
+            showToast(getErrorMessage(e, 'שגיאה בייבוא'), 'error');
         } finally {
             setImportingCsv(false);
         }
@@ -452,7 +454,7 @@ export default function AdminProductsPage() {
                                 <tr><td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין מוצרים עדיין</td></tr>
                             )}
                             {filtered.map((p) => {
-                                const translatedCount = ['en', 'fr', 'yi'].filter((l) => p[`title_${l}`]).length;
+                                const translatedCount = [p.title_en, p.title_fr, p.title_yi].filter(Boolean).length;
                                 return (
                                     <tr key={p.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
                                         <td className="p-3">

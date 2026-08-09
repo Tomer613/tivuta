@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { CheckCircle2, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { voteSurvey } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 
 export interface SurveyOption {
     id: number;
@@ -127,7 +128,7 @@ export default function SurveyCard({
             onVoted(updated);
             setExpanded(false);
         } catch (e) {
-            setError(e instanceof Error ? e.message : st.error);
+            setError(getErrorMessage(e, st.error));
         } finally {
             setSubmitting(false);
         }

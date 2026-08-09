@@ -12,6 +12,8 @@ import {
     adminListProducts,
     adminPreviewDistribution,
 } from '@/lib/api';
+import { Product } from '@/components/ProductTile';
+import { Survey } from '@/components/SurveyCard';
 import { Plus, Loader2, X, Send, Mail, MessageCircle, RefreshCw, CheckCircle2, AlertCircle, Trash2, Calendar, Eye, Users, Filter } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -31,8 +33,8 @@ const BASE_SITE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'h
 export default function AdminDistributionPage() {
     const { token } = useAuth();
     const [distributions, setDistributions] = useState<any[]>([]);
-    const [surveys, setSurveys] = useState<any[]>([]);
-    const [products, setProducts] = useState<any[]>([]);
+    const [surveys, setSurveys] = useState<Survey[]>([]);
+    const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [showPreview, setShowPreview] = useState(false);

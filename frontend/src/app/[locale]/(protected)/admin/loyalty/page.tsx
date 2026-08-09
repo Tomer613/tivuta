@@ -8,6 +8,7 @@ import {
     adminListAtRiskVendors, adminCheckUnsettledDeactivation, VendorAtRisk,
     adminListVendors, Vendor,
 } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import { ShieldAlert, Loader2, CheckCircle2, AlertCircle, Settings, Flag, Wallet, Check, Undo2, ReceiptText, Send } from 'lucide-react';
 
 function newIdempotencyKey(): string {
@@ -94,8 +95,8 @@ export default function AdminLoyaltyPage() {
         try {
             await adminUpdateSettings(token, settings);
             showToast('ההגדרות נשמרו ✓');
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בשמירת ההגדרות', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בשמירת ההגדרות'), 'error');
         } finally {
             setSavingSettings(false);
         }
@@ -108,8 +109,8 @@ export default function AdminLoyaltyPage() {
             await adminReviewSale(token, saleId, action);
             showToast(action === 'confirm' ? 'העסקה אושרה ✓' : 'העסקה בוטלה');
             setFlaggedSales((prev) => prev.filter((s) => s.id !== saleId));
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בעדכון העסקה', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בעדכון העסקה'), 'error');
         } finally {
             setReviewingId(null);
         }
@@ -136,8 +137,8 @@ export default function AdminLoyaltyPage() {
             setManualIdempotencyKey(newIdempotencyKey());
             loadFlaggedSales();
             loadAtRisk();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה ברישום העסקה', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה ברישום העסקה'), 'error');
         } finally {
             setSubmittingManualSale(false);
         }
@@ -154,8 +155,8 @@ export default function AdminLoyaltyPage() {
                 showToast(`נבדקו ${result.checked} ספקים — אף אחד לא הושבת`);
             }
             loadAtRisk();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בבדיקה', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בבדיקה'), 'error');
         } finally {
             setCheckingDeactivation(false);
         }

@@ -65,8 +65,8 @@ export default function CartPage() {
             setOrderNumber(orderId ? `ORD-${String(orderId).padStart(6, '0')}` : null);
             setStatus('done');
             clearCart();
-        } catch (err: any) {
-            setErrorMessage(err?.message || null);
+        } catch (err) {
+            setErrorMessage(err instanceof Error ? err.message : null);
             setStatus('error');
         }
     };

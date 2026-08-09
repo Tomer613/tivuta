@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ReceiptText, Loader2, CheckCircle2, AlertCircle, Send } from 'lucide-react';
 import { useVendorAuth } from '@/context/VendorAuthContext';
 import { vendorCreateSale } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t); }, [onClose]);
@@ -53,8 +54,8 @@ export default function VendorReportSalePage() {
             setProductId('');
             setIdempotencyKey(newIdempotencyKey());
             refresh();
-        } catch (err: any) {
-            setToast({ message: err.message || 'שגיאה בדיווח העסקה', type: 'error' });
+        } catch (err) {
+            setToast({ message: getErrorMessage(err, 'שגיאה בדיווח העסקה'), type: 'error' });
         } finally {
             setSubmitting(false);
         }

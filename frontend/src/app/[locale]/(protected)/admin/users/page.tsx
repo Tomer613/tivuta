@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, User } from '@/context/AuthContext';
 import { adminListUsers, adminCreateUser, adminSetUserRole, adminDeleteUser } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import { Plus, Loader2, X, ShieldCheck, ShieldOff, Trash2, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -19,7 +20,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 export default function AdminUsersPage() {
     const { token } = useAuth();
-    const [users, setUsers] = useState<any[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [filterRole, setFilterRole] = useState('');
@@ -56,7 +57,7 @@ export default function AdminUsersPage() {
         member: users.filter((u) => u.role === 'member').length,
     }), [users]);
 
-    const toggleRole = async (u: any) => {
+    const toggleRole = async (u: User) => {
         if (!token) return;
         const nextRole = u.role === 'admin' ? 'member' : 'admin';
         try {
@@ -69,15 +70,15 @@ export default function AdminUsersPage() {
         setConfirmRoleId(null);
     };
 
-    const handleDelete = async (u: any) => {
+    const handleDelete = async (u: User) => {
         if (!token) return;
         try {
             await adminDeleteUser(token, u.id);
             setDeletingId(null);
             showToast(`${u.first_name} נמחק`);
             load();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה במחיקה', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה במחיקה'), 'error');
         }
     };
 
@@ -90,8 +91,8 @@ export default function AdminUsersPage() {
             setShowForm(false);
             showToast('המשתמש נוצר בהצלחה ✓');
             load();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה ביצירת המשתמש', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה ביצירת המשתמש'), 'error');
         }
     };
 

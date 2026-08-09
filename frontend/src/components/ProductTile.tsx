@@ -35,6 +35,8 @@ export interface Product {
     view_count?: number;
     popularity_score?: number;
     vendor?: Vendor | null;
+    vendor_id?: number | null;
+    is_active?: boolean;
 }
 
 export function promotionLabel(promo: PromotionBrief): string {

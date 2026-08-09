@@ -6,8 +6,10 @@ import { useAuth } from '@/context/AuthContext';
 import {
     getProduct, getPromotionStatus, enterPromotion, productImageUrl, getVerticals, Vertical,
     getFavoriteIds, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView,
+    RecentlyViewedProduct,
 } from '@/lib/api';
-import { PromotionBrief, promotionLabel } from '@/components/ProductTile';
+import { getErrorMessage } from '@/lib/getErrorMessage';
+import { Product, PromotionBrief, promotionLabel } from '@/components/ProductTile';
 import ProductActionButtons from '@/components/ProductActionButtons';
 import { useAttrLabels } from '@/lib/useVerticals';
 import { CheckCircle2, Loader2, Trophy, Users, Tag, ArrowRight, Heart, Share2, Star } from 'lucide-react';
@@ -244,7 +246,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const router = useRouter();
     const t = T[locale] || T.he;
 
-    const [product, setProduct] = useState<any>(null);
+    const [product, setProduct] = useState<Product | null>(null);
     const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [promoStatuses, setPromoStatuses] = useState<Record<number, PromotionStatus>>({});
     const [loading, setLoading] = useState(true);
@@ -299,7 +301,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
         try {
             const key = 'tivuta_recent_v2';
             const raw = localStorage.getItem(key);
-            const recent: any[] = raw ? JSON.parse(raw) : [];
+            const recent: RecentlyViewedProduct[] = raw ? JSON.parse(raw) : [];
             const snap = { id: product.id, title_he: product.title_he, image_url: product.image_url, price: product.price, vertical: product.vertical };
             const updated = [snap, ...recent.filter((s) => s.id !== product.id)].slice(0, 8);
             localStorage.setItem(key, JSON.stringify(updated));
@@ -336,8 +338,8 @@ export default function ProductDetailClient({ productId }: { productId: number }
             await enterPromotion(token, promo.id, product.id);
             const s = await getPromotionStatus(token, promo.id);
             setPromoStatuses((prev) => ({ ...prev, [promo.id]: s }));
-        } catch (err: any) {
-            alert(err.message || 'שגיאה');
+        } catch (err) {
+            alert(getErrorMessage(err, 'שגיאה'));
         }
     };
 
@@ -413,7 +415,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
                             <div className="flex items-center gap-1.5 -mt-4">
                                 <div className="flex gap-0.5">
                                     {[1, 2, 3, 4, 5].map((i) => (
-                                        <Star key={i} size={14} fill={i <= Math.round(product.avg_rating) ? '#d4af37' : 'none'} className={i <= Math.round(product.avg_rating) ? 'text-[#d4af37]' : 'text-[#f0e6d3]/20'} />
+                                        <Star key={i} size={14} fill={i <= Math.round(product.avg_rating ?? 0) ? '#d4af37' : 'none'} className={i <= Math.round(product.avg_rating ?? 0) ? 'text-[#d4af37]' : 'text-[#f0e6d3]/20'} />
                                     ))}
                                 </div>
                                 <span className="text-[#d4af37] text-sm font-bold">{product.avg_rating}</span>

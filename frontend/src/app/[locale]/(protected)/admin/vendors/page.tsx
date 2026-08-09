@@ -6,8 +6,9 @@ import {
     adminListVendors, adminCreateVendor, adminUpdateVendor, adminDeleteVendor, adminSetVendorPortalAccess,
     adminListSettlements, adminOpenSettlementPeriod, adminSettlePeriod, adminListVerticals, CommissionSettlementPeriod, Vertical,
     adminListOrders, adminListVendorBatches, adminCreateVendorBatch, adminUpdateVendorBatchStatus,
-    CustomerOrder, VendorPurchaseBatch,
+    CustomerOrder, VendorPurchaseBatch, Vendor, VendorDayAvailability,
 } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import { openPrintableTable, downloadCsv } from '@/lib/printDocument';
 import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet, Boxes, Printer, Download, Square, CheckSquare } from 'lucide-react';
 
@@ -33,7 +34,9 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
     );
 }
 
-function emptyWeekly() {
+type WeeklyDay = { enabled: boolean; start: string; end: string };
+
+function emptyWeekly(): Record<string, WeeklyDay> {
     return Object.fromEntries(
         Array.from({ length: 7 }, (_, i) => [String(i), { enabled: false, start: '10:00', end: '18:00' }])
     );
@@ -49,7 +52,7 @@ const emptyForm = () => ({
     contact_phone: '',
     contact_email: '',
     is_active: true,
-    weekly: emptyWeekly() as Record<string, { enabled: boolean; start: string; end: string }>,
+    weekly: emptyWeekly(),
     slot_minutes: 30,
     commission_rate_percent: 0,
     points_rate_percent: '',
@@ -57,27 +60,27 @@ const emptyForm = () => ({
 
 export default function AdminVendorsPage() {
     const { token } = useAuth();
-    const [vendors, setVendors] = useState<any[]>([]);
+    const [vendors, setVendors] = useState<Vendor[]>([]);
     const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterVertical, setFilterVertical] = useState('');
     const [showForm, setShowForm] = useState(false);
-    const [editVendor, setEditVendor] = useState<any | null>(null);
+    const [editVendor, setEditVendor] = useState<Vendor | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [form, setForm] = useState(emptyForm());
-    const [portalAccessVendor, setPortalAccessVendor] = useState<any | null>(null);
+    const [portalAccessVendor, setPortalAccessVendor] = useState<Vendor | null>(null);
     const [portalEmail, setPortalEmail] = useState('');
     const [portalPassword, setPortalPassword] = useState('');
     const [savingPortalAccess, setSavingPortalAccess] = useState(false);
-    const [settlementsVendor, setSettlementsVendor] = useState<any | null>(null);
+    const [settlementsVendor, setSettlementsVendor] = useState<Vendor | null>(null);
     const [settlements, setSettlements] = useState<CommissionSettlementPeriod[]>([]);
     const [loadingSettlements, setLoadingSettlements] = useState(false);
     const [newPeriodStart, setNewPeriodStart] = useState('');
     const [newPeriodEnd, setNewPeriodEnd] = useState('');
     const [savingSettlement, setSavingSettlement] = useState(false);
     const [orders, setOrders] = useState<CustomerOrder[]>([]);
-    const [batchesVendor, setBatchesVendor] = useState<any | null>(null);
+    const [batchesVendor, setBatchesVendor] = useState<Vendor | null>(null);
     const [batches, setBatches] = useState<VendorPurchaseBatch[]>([]);
     const [loadingBatches, setLoadingBatches] = useState(false);
     const [selectedLeadIds, setSelectedLeadIds] = useState<Set<number>>(new Set());
@@ -116,9 +119,16 @@ export default function AdminVendorsPage() {
         setShowForm(true);
     };
 
-    const openEditForm = (vendor: any) => {
+    const openEditForm = (vendor: Vendor) => {
         setEditVendor(vendor);
-        const weekly = { ...emptyWeekly(), ...(vendor.availability?.weekly || {}) };
+        const weekly = emptyWeekly();
+        Object.entries(vendor.availability?.weekly || {}).forEach(([day, d]) => {
+            // Tolerate malformed/partial stored availability (e.g. a null day entry) the same way
+            // the plain object-spread merge this replaced did — skip it and keep emptyWeekly()'s
+            // default for that day, rather than throwing on d.enabled of a null/undefined d.
+            if (!d) return;
+            weekly[day] = { enabled: d.enabled, start: d.start ?? '', end: d.end ?? '' };
+        });
         setForm({
             vertical: vendor.vertical,
             name_he: vendor.name_he,
@@ -191,8 +201,8 @@ export default function AdminVendorsPage() {
             }
             closeForm();
             load();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בשמירת הספק', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בשמירת הספק'), 'error');
         }
     };
 
@@ -208,7 +218,7 @@ export default function AdminVendorsPage() {
         }
     };
 
-    const openPortalAccessForm = (vendor: any) => {
+    const openPortalAccessForm = (vendor: Vendor) => {
         setPortalAccessVendor(vendor);
         setPortalEmail(vendor.login_email || '');
         setPortalPassword('');
@@ -229,8 +239,8 @@ export default function AdminVendorsPage() {
             showToast('פרטי הכניסה לפורטל הספק עודכנו ✓');
             closePortalAccessForm();
             load();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בעדכון פרטי הכניסה', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בעדכון פרטי הכניסה'), 'error');
         } finally {
             setSavingPortalAccess(false);
         }
@@ -242,7 +252,7 @@ export default function AdminVendorsPage() {
         adminListSettlements(token, vendorId).then(setSettlements).finally(() => setLoadingSettlements(false));
     };
 
-    const openSettlementsPanel = (vendor: any) => {
+    const openSettlementsPanel = (vendor: Vendor) => {
         setSettlementsVendor(vendor);
         setNewPeriodStart('');
         setNewPeriodEnd('');
@@ -265,8 +275,8 @@ export default function AdminVendorsPage() {
             setNewPeriodEnd('');
             loadSettlements(settlementsVendor.id);
             load();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בפתיחת תקופה', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בפתיחת תקופה'), 'error');
         } finally {
             setSavingSettlement(false);
         }
@@ -279,8 +289,8 @@ export default function AdminVendorsPage() {
             showToast('התקופה סומנה כשולמה ✓');
             loadSettlements(settlementsVendor.id);
             load();
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בסימון תשלום', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בסימון תשלום'), 'error');
         }
     };
 
@@ -316,7 +326,7 @@ export default function AdminVendorsPage() {
         adminListVendorBatches(token, vendorId).then(setBatches).finally(() => setLoadingBatches(false));
     };
 
-    const openBatchesPanel = (vendor: any) => {
+    const openBatchesPanel = (vendor: Vendor) => {
         setBatchesVendor(vendor);
         setSelectedLeadIds(new Set());
         setDocsBatchId(null);
@@ -360,8 +370,8 @@ export default function AdminVendorsPage() {
             setSelectedLeadIds(new Set());
             loadBatches(batchesVendor.id);
             adminListOrders(token).then(setOrders).catch(() => {});
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בפתיחת אצווה', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בפתיחת אצווה'), 'error');
         } finally {
             setSavingBatch(false);
         }
@@ -374,8 +384,8 @@ export default function AdminVendorsPage() {
             await adminUpdateVendorBatchStatus(token, batchesVendor.id, batch.id, nextStatus);
             showToast('סטטוס האצווה עודכן ✓');
             loadBatches(batchesVendor.id);
-        } catch (err: any) {
-            showToast(err.message || 'שגיאה בעדכון סטטוס', 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בעדכון סטטוס'), 'error');
         } finally {
             setUpdatingBatchId(null);
         }
@@ -469,7 +479,7 @@ export default function AdminVendorsPage() {
                                 </tr>
                             )}
                             {filtered.map((vendor) => {
-                                const activeDays = Object.values(vendor.availability?.weekly || {}).filter((d: any) => d.enabled).length;
+                                const activeDays = Object.values(vendor.availability?.weekly || {}).filter((d: VendorDayAvailability) => d.enabled).length;
                                 return (
                                     <tr key={vendor.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
                                         <td className="p-4 text-sm text-[#d4af37] font-bold" dir="ltr">{vendor.vendor_code}</td>
