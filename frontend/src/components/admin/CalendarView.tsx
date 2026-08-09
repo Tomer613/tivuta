@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Loader2, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
+import { buildMonthGridCells } from '@/lib/monthGrid';
 
 /**
  * Extracted from two byte-identical copies (admin/orders and admin/leads pages) that had already
@@ -21,9 +22,6 @@ export default function CalendarView({ lines, onSendReminder, sendingIds }: { li
     const [month, setMonth] = useState(today.getMonth());
     const [year, setYear] = useState(today.getFullYear());
 
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const firstDayOfWeek = new Date(year, month, 1).getDay();
-
     const byDay: Record<number, CalendarItem[]> = {};
     lines.forEach((l) => {
         // Both current callers pre-filter to items with a real scheduled_at, but this component
@@ -38,7 +36,7 @@ export default function CalendarView({ lines, onSendReminder, sendingIds }: { li
     });
 
     const monthLabel = new Date(year, month, 1).toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
-    const cells: (number | null)[] = [...Array(firstDayOfWeek).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+    const cells = buildMonthGridCells(year, month, (day) => day);
     while (cells.length % 7 !== 0) cells.push(null);
 
     return (

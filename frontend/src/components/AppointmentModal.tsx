@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, CalendarCheck, Loader2, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Vendor } from '@/lib/api';
+import { buildMonthGridCells } from '@/lib/monthGrid';
 
 interface T {
     title: string;
@@ -130,17 +131,11 @@ export default function AppointmentModal({
 
     const isPrevDisabled = viewMonth.getFullYear() === tomorrow.getFullYear() && viewMonth.getMonth() === tomorrow.getMonth();
 
-    // Build the 7-column day grid, padded with leading blanks so the 1st lands under its real weekday.
+    // 7-column day grid, padded with leading blanks so the 1st lands under its real weekday.
     const gridCells = useMemo(() => {
         const year = viewMonth.getFullYear();
         const month = viewMonth.getMonth();
-        const firstDay = new Date(year, month, 1);
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const cells: (Date | null)[] = Array(firstDay.getDay()).fill(null);
-        for (let d = 1; d <= daysInMonth; d++) {
-            cells.push(new Date(year, month, d));
-        }
-        return cells;
+        return buildMonthGridCells(year, month, (day) => new Date(year, month, day));
     }, [viewMonth]);
 
     const slots = selectedDate ? slotsForDate(selectedDate) : [];
