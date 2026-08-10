@@ -75,6 +75,13 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
         setAttrFilters({});
     }, [vertical]);
 
+    useEffect(() => {
+        if (!title) return;
+        const previous = document.title;
+        document.title = `${title} | Tivuta`;
+        return () => { document.title = previous; };
+    }, [title]);
+
     const toggleCompare = (product: Product) => {
         setCompareList((prev) => {
             if (prev.some((p) => p.id === product.id)) return prev.filter((p) => p.id !== product.id);

@@ -308,6 +308,14 @@ export default function ProductDetailClient({ productId }: { productId: number }
         } catch { /* ignore */ }
     }, [product]);
 
+    useEffect(() => {
+        if (!product) return;
+        const productTitle = product[`title_${locale}`] || product.title_he;
+        const previous = document.title;
+        document.title = `${productTitle} | Tivuta`;
+        return () => { document.title = previous; };
+    }, [product, locale]);
+
     const toggleFav = async () => {
         if (!token || !product || favLoading) return;
         setFavLoading(true);

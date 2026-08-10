@@ -1,4 +1,5 @@
 import "../globals.css";
+import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import RootHeader from "@/components/RootHeader";
 import SiteFooter from "@/components/SiteFooter";
@@ -20,10 +21,62 @@ const heebo = localFont({
     variable: '--font-heebo',
 });
 
-export const metadata = {
-    title: "TIVUTA",
-    description: "TIVUTA - a curated marketplace of worlds for our members.",
+const SITE_URL = 'https://www.tivuta.co.il';
+
+type Locale = 'he' | 'en' | 'fr' | 'yi';
+
+const LOCALE_META: Record<Locale, { title: string; description: string; ogLocale: string }> = {
+    he: {
+        title: 'טיוטה — יהלומים, רכבים, ביטוח ועוד עולמות קנייה לחברי הקהילה',
+        description: 'טיוטה הוא מרקטפלייס רב-עולמות לחברי הקהילה החרדית: יהלומים, רכבים, ביטוח ועוד, עם הטבות בלעדיות ומועדון נאמנות.',
+        ogLocale: 'he_IL',
+    },
+    en: {
+        title: 'Tivuta — Diamonds, Cars, Insurance & More for Our Community',
+        description: 'Tivuta is a curated multi-vertical marketplace for the community: diamonds, cars, insurance and more, with exclusive member benefits and a loyalty program.',
+        ogLocale: 'en_US',
+    },
+    fr: {
+        title: 'Tivuta — Diamants, Voitures, Assurance et Plus pour Notre Communauté',
+        description: 'Tivuta est une marketplace multi-univers pour la communauté : diamants, voitures, assurance et plus, avec des avantages exclusifs et un programme de fidélité.',
+        ogLocale: 'fr_FR',
+    },
+    yi: {
+        title: 'טיוטה — דימענטן, אויטאס, אינשורענס און מער פאר אונדזער קהילה',
+        description: 'טיוטה איז א מולטי-וועלט מארקעטפלעיס פאר דער קהילה: דימענטן, אויטאס, אינשורענס און מער, מיט עקסקלוסיווע מיטגלידער בענעפיטן.',
+        ogLocale: 'yi',
+    },
 };
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+    const { locale: rawLocale } = await params;
+    const locale = (['he', 'en', 'fr', 'yi'].includes(rawLocale) ? rawLocale : 'he') as Locale;
+    const meta = LOCALE_META[locale];
+
+    return {
+        metadataBase: new URL(SITE_URL),
+        title: { template: '%s | Tivuta', default: meta.title },
+        description: meta.description,
+        openGraph: {
+            title: meta.title,
+            description: meta.description,
+            siteName: 'Tivuta',
+            locale: meta.ogLocale,
+            type: 'website',
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: meta.title,
+            description: meta.description,
+        },
+        verification: {
+            // TODO: replace with the real token once the www.tivuta.co.il property is
+            // verified in Google Search Console (DNS TXT verification is recommended
+            // instead of relying on this meta tag — see CLAUDE.md's SEO plan notes).
+            google: 'REPLACE_WITH_SEARCH_CONSOLE_TOKEN',
+        },
+    };
+}
 
 export function generateStaticParams() {
     return [
@@ -44,11 +97,27 @@ export default async function RootLayout({
     const { locale } = await params;
     const isRTL = locale === 'he' || locale === 'yi';
 
+    const organizationJsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Tivuta',
+        url: SITE_URL,
+        logo: `${SITE_URL}/branding/logo.svg`,
+        contactPoint: {
+            '@type': 'ContactPoint',
+            email: 'support@tivuta.co.il',
+            contactType: 'customer service',
+        },
+    };
+
     return (
         <html lang={locale} dir={isRTL ? 'rtl' : 'ltr'} className="scroll-smooth notranslate" translate="no" suppressHydrationWarning>
             <head>
                 <meta name="google" content="notranslate" />
-                <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+                />
             </head>
             <body className={`${heebo.variable} font-sans antialiased bg-[#111a2f] min-h-screen flex flex-col`} suppressHydrationWarning>
                 <AccessibilityProvider>

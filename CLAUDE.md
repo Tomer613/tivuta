@@ -1069,6 +1069,94 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 
 ---
 
+## Technical SEO Foundation (session 2026-08-10)
+
+An audit found the site had **zero SEO infrastructure**: no `robots.txt`, no sitemap, no
+structured data, one identical static `<title>`/description across all 4 locales, and no
+canonical/hreflang tags. Fixed with quick, non-architectural wins (deliberately no change to the
+query-param routing decision — see "Query-param routes" below — so individual products still
+don't get their own indexed search-result page; that was an explicit, discussed trade-off).
+
+- **`frontend/src/app/robots.ts`** and **`frontend/src/app/sitemap.ts`** — Next's file-convention
+  metadata routes (`MetadataRoute.Robots`/`MetadataRoute.Sitemap`). Both need
+  `export const dynamic = 'force-static'` or the `output: 'export'` build fails — same requirement
+  applies to any file-based image/OG/icon route. `sitemap.ts` lists home/login/register/cart ×4
+  locales, the legacy `/benefits` tree ×4 locales, and every **active** vertical's `/world?slug=`
+  page ×4 locales (56 URLs total today) — reusing `getVerticals()` (`lib/api.ts`), which already
+  has its own build-time fallback list, so an unreachable backend during the GitHub Actions build
+  degrades gracefully instead of breaking the sitemap. Individual products are intentionally not
+  listed (same trade-off as above).
+- **`frontend/src/app/[locale]/layout.tsx`** — the old static `export const metadata` (identical
+  English string for all 4 locales) was replaced with `generateMetadata({params})` reading
+  `locale` and returning a per-locale `LOCALE_META` entry (title/description/OG-locale), each
+  written to actually mention the verticals (diamonds/cars/insurance) in that language — this is
+  what targets "rank for terms we deal with," since before this every locale showed the identical
+  generic sentence regardless of language. Also added: `title: {template: '%s | Tivuta', default:
+  ...}`, `openGraph`/`twitter` blocks, and a `verification.google` field left as a clearly-marked
+  placeholder string (`REPLACE_WITH_SEARCH_CONSOLE_TOKEN`) — **no real token was ever available to
+  fill in**, so replace it once the domain is verified in Search Console (DNS TXT method
+  recommended — see below).
+- **Organization JSON-LD** (`@type: Organization`, name/url/logo/contactPoint) added as a
+  `<script type="application/ld+json">` directly in `[locale]/layout.tsx`'s `<head>` — the
+  highest-leverage single addition for a bare "tivuta" brand-name query.
+- **Found and fixed a real, pre-existing bug while doing this**: `frontend/src/app/icon.svg` — a
+  proper, on-brand, square navy "T" monogram — has existed since the very first commit of the
+  frontend, in exactly the right Next.js file-convention location to be auto-detected as the
+  site's favicon. It was being silently shadowed the entire time by a manually hardcoded
+  `<link rel="icon" href="data:;base64,iVBORw0KGgo=">` (a literal blank 1×1 image) directly in
+  `layout.tsx`'s `<head>` JSX. Deleting that dead manual tag was enough to make the real icon take
+  effect — **do not re-add a manual favicon `<link>` here**; the file-convention `icon.svg` (or a
+  future `icon.tsx`/`apple-icon.tsx`) is auto-wired by Next and takes priority.
+- **`frontend/src/app/apple-icon.tsx`** and **`frontend/src/app/opengraph-image.tsx`** — code-generated
+  via `next/og`'s `ImageResponse` (navy `#111a2f` background, gold `#d4af37` text, matching the
+  site's existing theme) rather than hand-made image assets — no designer/asset needed, stays
+  in-repo, and (per the point above) works alongside the pre-existing `icon.svg` without conflict
+  since they're different route conventions (`icon` vs `apple-icon` vs `opengraph-image`).
+- **Canonical + hreflang tags were deliberately NOT added to the shared `[locale]/layout.tsx`**,
+  even though the approved plan for this session originally called for that. Reasoning found
+  during implementation: a layout wraps every route under `[locale]/*`, so a single
+  `alternates.canonical` value there would be **wrong** for every page except the one it happens
+  to match — e.g. if set to `/{locale}`, then `/he/login`, `/he/cart`, `/he/world`, etc. would all
+  falsely declare themselves duplicates of the homepage, which risks Google actually dropping
+  those pages from its index in favor of consolidating everything into `/`. That's actively
+  harmful, not just imprecise, so it was skipped at the layout level entirely.
+- **Where canonical/hreflang WAS added**: only on the two pages where it's both correct and
+  already low-risk to add — `(protected)/world/page.tsx` and `(protected)/products/page.tsx`.
+  Both were already thin server-component wrappers (`export default function WorldPage() { return
+  <VerticalQueryPage /> }` — same established pattern as `ProductQueryPage`), so adding
+  `generateMetadata` with a fixed, correct `alternates.canonical`/`languages` pointing at their own
+  base path (ignoring the `?slug=`/`?id=` query string, which is standard practice for
+  query-param-driven pages) required no refactor and no new risk. **Home (`(protected)/page.tsx`)
+  and `login`/`register` were NOT similarly wrapped** — their `page.tsx` files are `'use client'`
+  directly (not a thin server wrapper like `world`/`products`), so adding page-specific metadata
+  to them would require the same client/server split refactor those two already have — a
+  meaningfully bigger, unreviewed change that was intentionally left out of this session's scope.
+  If per-page metadata on those is wanted later, that split is the established pattern to copy.
+- **`document.title` effects added to `VerticalListingClient.tsx` and `ProductDetailClient.tsx`**
+  — since these pages are 100% client-rendered (the actual vertical/product comes from a runtime
+  `?slug=`/`?id=` fetch, not build-time data), the static HTML title can never be
+  vertical/product-specific. Each component now sets `document.title` once its data loads, and
+  restores whatever the previous title was on unmount. This is **not equivalent to real per-page
+  metadata** — it only helps Googlebot's JS-execution rendering pass (which Google does perform,
+  but treats as a materially weaker signal than metadata present in the initial HTML) and
+  improves the browser tab / share-preview UX. It does nothing for the sitemap, canonical tags, or
+  OG image per item.
+- **Google Analytics/GTM was deliberately NOT added.** `googletagmanager.com` is an external CDN
+  domain, and the "Haredi Internet Filter Compatibility" principle above explicitly calls out
+  Google's domains as commonly blocked by kosher filters, with a standing rule against introducing
+  external CDN scripts. Recommendation instead: verify the Search Console property via a **DNS TXT
+  record** (no script ever loads, filter-safe) rather than the meta-tag method — this is a manual
+  step in the domain registrar, not something this repo can do. If traffic analytics are wanted
+  later, that's a separate, deliberately-deferred decision (e.g. a self-hosted/privacy-respecting
+  option), not bundled into this SEO work.
+- **Not done, and explicitly out of scope for this session** (found in the same audit, kept as a
+  backlog item): zero automated tests, no rate limiting on `/auth/login`/password-reset, no
+  CSP/HSTS/X-Frame-Options headers, no error monitoring (Sentry or similar), no lint/test step in
+  the GitHub Actions CI workflow. None of these affect search ranking, which is why they were left
+  out of this pass — worth a dedicated future session.
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
