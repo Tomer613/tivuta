@@ -11,7 +11,13 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 from .database import SessionLocal
 
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "tivuta_secret_key_change_in_production")
+_env_jwt_secret = os.environ.get("JWT_SECRET_KEY")
+if not _env_jwt_secret and os.environ.get("DATABASE_URL"):
+    # DATABASE_URL set (a real Postgres/Supabase backend, per this codebase's existing
+    # local-SQLite-vs-real-DB convention) but no JWT secret configured — refuse to start
+    # rather than silently issuing tokens signed with a guessable, publicly-known default.
+    raise RuntimeError("JWT_SECRET_KEY must be set when DATABASE_URL is configured (production).")
+SECRET_KEY = _env_jwt_secret or "tivuta_secret_key_change_in_production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
 

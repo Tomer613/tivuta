@@ -2,11 +2,12 @@ import os
 import secrets
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
+from ..rate_limit import limiter
 from ..security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
@@ -23,7 +24,8 @@ RESET_TOKEN_EXPIRE_MINUTES = 60
 
 
 @router.post("/signup", response_model=schemas.UserRead)
-def signup(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("10/hour")
+def signup(request: Request, user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == user_in.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -44,7 +46,8 @@ def signup(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=schemas.Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -59,7 +62,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 @router.post("/forgot-password")
-def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("3/hour")
+def forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     if user:
         token = secrets.token_urlsafe(32)
@@ -81,7 +85,8 @@ def forgot_password(payload: schemas.ForgotPasswordRequest, db: Session = Depend
 
 
 @router.post("/reset-password")
-def reset_password(payload: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def reset_password(request: Request, payload: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.reset_token == payload.token).first()
     if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")

@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
+from ..rate_limit import limiter
 from ..security import get_current_admin, get_current_user, get_db, get_password_hash, verify_password
 
 router = APIRouter(tags=["users"])
@@ -165,7 +166,9 @@ def admin_member_count(db: Session = Depends(get_db)):
 
 
 @router.patch("/users/me/password")
+@limiter.limit("5/minute")
 def change_my_password(
+    request: Request,
     payload: schemas.PasswordChangeRequest,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),

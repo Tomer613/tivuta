@@ -1069,6 +1069,65 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 
 ---
 
+## Backend Security Hardening (session 2026-08-10)
+
+Follow-up to the SEO session's audit, which flagged (but deferred) two backend gaps: no rate
+limiting on auth endpoints, and no security response headers. Fixed both, plus one closely-related
+issue found along the way.
+
+- **`backend/app/rate_limit.py`** (new, tiny module) — `limiter = Limiter(key_func=get_remote_address)`,
+  the shared `slowapi` limiter instance. Kept in its own module rather than defined in `main.py`
+  because `main.py` imports every router at module load time — a router importing `limiter` back
+  from `main.py` would be a circular import. `main.py` and any router needing `@limiter.limit(...)`
+  both import from `rate_limit.py` instead.
+- **`backend/app/main.py`** — registers the limiter (`app.state.limiter`, `RateLimitExceeded`
+  exception handler, `SlowAPIMiddleware`) and a custom `security_headers` HTTP middleware adding
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Strict-Transport-Security`, and
+  `Content-Security-Policy: default-src 'none'` to every response. **`/docs`, `/redoc`, and
+  `/openapi.json` are exempted from the CSP header** (checked by path inside the middleware) —
+  FastAPI's built-in Swagger/ReDoc UI loads CDN-hosted JS/CSS and would break under
+  `default-src 'none'`; verified live that Swagger UI still renders correctly there while every
+  other route gets the full header set.
+- **Rate limits applied** (`@limiter.limit(...)`, each endpoint needed a `request: Request` param
+  added — slowapi's decorator requires it): `POST /auth/login` and `POST /vendor-auth/login` at
+  `5/minute` (primary brute-force targets, two separate principals — see the vendor-auth
+  architecture note above), `POST /auth/signup` at `10/hour`, `POST /auth/forgot-password` at
+  `3/hour` (prevents email-bombing a victim via repeated reset requests), `POST /auth/reset-password`
+  at `5/minute`, `PATCH /users/me/password` at `5/minute` (protects the current-password check from
+  being brute-forced via a leaked/stolen JWT). All keyed per-IP (`get_remote_address`) — the
+  standard first line of defense; per-account lockout (locking a specific email regardless of IP)
+  would need a new DB column + migration and was left as a possible future enhancement.
+- **In-memory rate-limit storage is correct here specifically because `backend/Procfile` runs
+  plain `uvicorn` with no `--workers` flag** (single process per Render instance) — confirmed by
+  reading the Procfile. If Render is ever scaled to multiple instances/replicas, an in-memory
+  limiter would under-count (each instance tracks separately); Render's instance count isn't
+  visible from the repo, so this is a known, documented limitation rather than a verified non-issue.
+  A Redis-backed limiter would fix it but was judged unnecessary complexity/cost for a
+  single-instance pre-launch app.
+- **`backend/app/security.py`** — found during this audit: `SECRET_KEY` had a hardcoded, publicly-
+  known fallback (`"tivuta_secret_key_change_in_production"`) used whenever `JWT_SECRET_KEY` was
+  unset, with nothing to stop a real deployment from silently running on it. Fixed by raising a
+  `RuntimeError` at import time if `DATABASE_URL` is set (this codebase's existing convention for
+  "this is a real Postgres/Supabase deployment, not local SQLite dev" — see the Deployment section
+  above) but `JWT_SECRET_KEY` is not — verified live that `DATABASE_URL` set without
+  `JWT_SECRET_KEY` now fails to start with a clear error, `DATABASE_URL`+`JWT_SECRET_KEY` both set
+  starts fine, and plain local dev (neither set) is completely unaffected. This can't currently
+  fire on Render (the env var is already set there) — it's a guardrail against a future
+  misconfiguration (e.g. a new staging environment), not a fix for a currently-broken deployment.
+- **Verified end-to-end** locally: 6 rapid bad-credential attempts against `/auth/login` and
+  `/vendor-auth/login` each returned five `401`s then a `429`; 4 rapid `/auth/forgot-password`
+  calls returned three `200`s then a `429`; all 5 security headers confirmed present via `curl -i`
+  on a normal route and absent-CSP-only on `/docs`; a real signup+login at normal (non-abusive)
+  request rates still succeeded end-to-end; test data cleaned up afterward.
+- **Explicitly out of scope, noted for a future session**: frontend security headers (GitHub
+  Pages static hosting has no server-side config to set custom HTTP headers at all — a
+  `<meta http-equiv="Content-Security-Policy">` tag is technically possible but can't carry
+  `frame-ancestors`/HSTS and risks breaking existing inline styles across the app for uncertain
+  benefit), per-account lockout counters, and a CORS policy review (`allow_methods=["*"]`/
+  `allow_headers=["*"]` — not part of what was flagged, left untouched).
+
+---
+
 ## Technical SEO Foundation (session 2026-08-10)
 
 An audit found the site had **zero SEO infrastructure**: no `robots.txt`, no sitemap, no

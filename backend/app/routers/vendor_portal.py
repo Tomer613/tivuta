@@ -1,12 +1,13 @@
 from datetime import timedelta
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
+from ..rate_limit import limiter
 from ..security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     create_access_token,
@@ -21,7 +22,8 @@ router = APIRouter(tags=["vendor-portal"])
 
 
 @router.post("/vendor-auth/login", response_model=schemas.Token)
-def vendor_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     vendor = db.query(models.Vendor).filter(models.Vendor.login_email == form_data.username).first()
     if not vendor or not vendor.hashed_password or not verify_password(form_data.password, vendor.hashed_password):
         raise HTTPException(

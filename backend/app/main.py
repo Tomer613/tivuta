@@ -1,12 +1,36 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
+from .rate_limit import limiter
 from .routers import auth, catalog, distributions, favorites, leads, notifications, products, promotions, reviews, sales, surveys, translate, users, vendor_portal, vendors, verticals
 
 app = FastAPI(title="Tivuta - The Working Haredi Ecosystem")
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# Paths that serve FastAPI's own Swagger/ReDoc UI, which loads CDN-hosted JS/CSS —
+# a strict CSP would break them, so they're excluded from that one header below.
+_CSP_EXEMPT_PATHS = {"/docs", "/redoc", "/openapi.json"}
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    if request.url.path not in _CSP_EXEMPT_PATHS:
+        response.headers["Content-Security-Policy"] = "default-src 'none'"
+    return response
 
 # Serve uploaded product images — in prod set IMAGES_DIR env var to the actual upload path
 _IMAGES_DIR = os.environ.get(
