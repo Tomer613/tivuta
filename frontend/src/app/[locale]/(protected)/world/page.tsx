@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import VerticalQueryPage from '@/components/VerticalQueryPage';
+import { normalizeLocale, generateStaticParams } from '@/lib/locales';
 
-export function generateStaticParams() {
-    return [{ locale: 'he' }, { locale: 'en' }, { locale: 'fr' }, { locale: 'yi' }];
-}
+export { generateStaticParams };
 
 const TITLE: Record<string, string> = {
     he: 'עולמות הקנייה — יהלומים, רכבים, ביטוח ועוד',
@@ -14,7 +13,7 @@ const TITLE: Record<string, string> = {
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale: rawLocale } = await params;
-    const locale = ['he', 'en', 'fr', 'yi'].includes(rawLocale) ? rawLocale : 'he';
+    const locale = normalizeLocale(rawLocale);
     return {
         title: TITLE[locale],
         alternates: {

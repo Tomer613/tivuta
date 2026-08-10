@@ -7,6 +7,7 @@ import AccessibilityWidget from "@/components/AccessibilityWidget";
 import { AuthProvider } from "@/context/AuthContext";
 import { AccessibilityProvider } from "@/context/AccessibilityContext";
 import { CartProvider } from "@/context/CartContext";
+import { normalizeLocale, type Locale, generateStaticParams } from "@/lib/locales";
 
 const heebo = localFont({
     src: [
@@ -22,8 +23,6 @@ const heebo = localFont({
 });
 
 const SITE_URL = 'https://www.tivuta.co.il';
-
-type Locale = 'he' | 'en' | 'fr' | 'yi';
 
 const LOCALE_META: Record<Locale, { title: string; description: string; ogLocale: string }> = {
     he: {
@@ -50,8 +49,14 @@ const LOCALE_META: Record<Locale, { title: string; description: string; ogLocale
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
     const { locale: rawLocale } = await params;
-    const locale = (['he', 'en', 'fr', 'yi'].includes(rawLocale) ? rawLocale : 'he') as Locale;
+    const locale = normalizeLocale(rawLocale);
     const meta = LOCALE_META[locale];
+
+    // Only set once the www.tivuta.co.il property is verified in Google Search Console
+    // (DNS TXT verification is recommended over this meta tag — see CLAUDE.md's SEO plan
+    // notes) and NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION is set in the build environment.
+    // Left unset otherwise so production HTML never ships a dead placeholder value.
+    const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
 
     return {
         metadataBase: new URL(SITE_URL),
@@ -69,23 +74,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
             title: meta.title,
             description: meta.description,
         },
-        verification: {
-            // TODO: replace with the real token once the www.tivuta.co.il property is
-            // verified in Google Search Console (DNS TXT verification is recommended
-            // instead of relying on this meta tag — see CLAUDE.md's SEO plan notes).
-            google: 'REPLACE_WITH_SEARCH_CONSOLE_TOKEN',
-        },
+        ...(googleVerification ? { verification: { google: googleVerification } } : {}),
     };
 }
 
-export function generateStaticParams() {
-    return [
-        { locale: 'he' },
-        { locale: 'en' },
-        { locale: 'fr' },
-        { locale: 'yi' },
-    ];
-}
+export { generateStaticParams };
 
 export default async function RootLayout({
     children,

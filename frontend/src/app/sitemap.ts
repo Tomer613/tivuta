@@ -1,10 +1,9 @@
 import type { MetadataRoute } from 'next';
-import { getVerticals } from '@/lib/api';
+import { LOCALES } from '@/lib/locales';
 
 export const dynamic = 'force-static';
 
 const SITE_URL = 'https://www.tivuta.co.il';
-const LOCALES = ['he', 'en', 'fr', 'yi'] as const;
 
 // Static, locale-repeated routes that exist regardless of live product/vertical data.
 const STATIC_PATHS = [
@@ -53,19 +52,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         }
     }
 
-    // getVerticals() already falls back to a known static list if the backend is
-    // unreachable at build time, so this can never break the GitHub Actions build.
-    const verticals = await getVerticals();
-    for (const vertical of verticals.filter((v) => v.is_active)) {
-        for (const locale of LOCALES) {
-            entries.push({
-                url: `${SITE_URL}/${locale}/world?slug=${vertical.slug}`,
-                changeFrequency: 'daily',
-                priority: 0.8,
-                alternates: { languages: languageAlternates((l) => `/${l}/world?slug=${vertical.slug}`) },
-            });
-        }
-    }
+    // /world and /products are intentionally NOT listed here: both routes are wrapped in
+    // AuthGate (see AuthGate.tsx), so an anonymous crawler with no stored token is served
+    // only a loading spinner that client-redirects to /login — there is no actual content
+    // behind those URLs to index. Listing them would just waste crawl budget on empty
+    // shells. If browsing ever becomes public without login, add them back here.
 
     return entries;
 }

@@ -1081,24 +1081,46 @@ don't get their own indexed search-result page; that was an explicit, discussed 
   metadata routes (`MetadataRoute.Robots`/`MetadataRoute.Sitemap`). Both need
   `export const dynamic = 'force-static'` or the `output: 'export'` build fails — same requirement
   applies to any file-based image/OG/icon route. `sitemap.ts` lists home/login/register/cart ×4
-  locales, the legacy `/benefits` tree ×4 locales, and every **active** vertical's `/world?slug=`
-  page ×4 locales (56 URLs total today) — reusing `getVerticals()` (`lib/api.ts`), which already
-  has its own build-time fallback list, so an unreachable backend during the GitHub Actions build
-  degrades gracefully instead of breaking the sitemap. Individual products are intentionally not
-  listed (same trade-off as above).
+  locales and the legacy `/benefits` tree ×4 locales (44 URLs today). `/world` and `/products` are
+  deliberately **not** listed — see the AuthGate finding below.
+- **`frontend/src/lib/locales.ts`** gained `LOCALES` (the canonical `['he','en','fr','yi']` array)
+  and `normalizeLocale(raw)` (validates + falls back to `'he'`) — `[locale]/layout.tsx`,
+  `world/page.tsx`, `products/page.tsx`, and `sitemap.ts` all import these instead of each
+  re-declaring their own copy of the same locale list/fallback logic, so adding a 5th locale later
+  is a one-file change instead of a "did I remember every copy" risk.
 - **`frontend/src/app/[locale]/layout.tsx`** — the old static `export const metadata` (identical
   English string for all 4 locales) was replaced with `generateMetadata({params})` reading
   `locale` and returning a per-locale `LOCALE_META` entry (title/description/OG-locale), each
   written to actually mention the verticals (diamonds/cars/insurance) in that language — this is
   what targets "rank for terms we deal with," since before this every locale showed the identical
   generic sentence regardless of language. Also added: `title: {template: '%s | Tivuta', default:
-  ...}`, `openGraph`/`twitter` blocks, and a `verification.google` field left as a clearly-marked
-  placeholder string (`REPLACE_WITH_SEARCH_CONSOLE_TOKEN`) — **no real token was ever available to
-  fill in**, so replace it once the domain is verified in Search Console (DNS TXT method
-  recommended — see below).
+  ...}` and `openGraph`/`twitter` blocks. `verification.google` is only included when
+  `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` is set in the build environment — **a first draft of this
+  shipped a hardcoded placeholder string unconditionally to production HTML, caught in
+  post-implementation review and fixed**; set that env var (once the domain is verified in Search
+  Console — DNS TXT method recommended, see below) to actually enable the tag, or leave it unset
+  to omit it entirely rather than ship dead markup.
 - **Organization JSON-LD** (`@type: Organization`, name/url/logo/contactPoint) added as a
   `<script type="application/ld+json">` directly in `[locale]/layout.tsx`'s `<head>` — the
   highest-leverage single addition for a bare "tivuta" brand-name query.
+- **Important limitation found in post-implementation review, not fixed here because it's a
+  product decision, not a bug**: the homepage (`(protected)/page.tsx`), `/world`, and `/products`
+  are all wrapped in `AuthGate` (`components/AuthGate.tsx`), which checks `AuthContext`'s `user`/
+  `isLoading` — both of which start `null`/`true` for any visitor with no stored
+  `tivuta_token`, Googlebot included. That means an anonymous crawler hitting `/he`, `/he/world`,
+  or `/he/products` sees **only a loading spinner that client-redirects to `/login`** — no actual
+  marketplace content is reachable without an account. This was true before this session and is
+  unrelated to the SEO changes themselves, but it caps what any SEO work on those routes can
+  achieve: the raw HTML `<head>` (title/description/OG/JSON-LD/canonical) IS real and IS seen by a
+  first-pass crawl regardless of the login wall, which is why that metadata work still has value
+  for a bare brand-name query — but Google's JS-rendering pass will likely see the client redirect
+  to `/login` and treat the page accordingly (at best ignoring it, at worst indexing `/login`
+  instead of the real page). **This is why `sitemap.ts` does not list `/world`/`/products`**:
+  advertising `changefreq: daily`/high-priority URLs that are 100% empty shells for anonymous
+  visitors would waste crawl budget and risks a "soft redirect" flag in Search Console. If public
+  (no-login) browsing of the catalog is ever wanted — e.g. to let search traffic actually land on
+  real product/vertical content — that's a real product decision (loosening `AuthGate` on those
+  three routes) that needs to be made deliberately, not a "quick SEO win."
 - **Found and fixed a real, pre-existing bug while doing this**: `frontend/src/app/icon.svg` — a
   proper, on-brand, square navy "T" monogram — has existed since the very first commit of the
   frontend, in exactly the right Next.js file-convention location to be auto-detected as the
