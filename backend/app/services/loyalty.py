@@ -22,6 +22,10 @@ DEFAULT_SETTINGS = {
     "max_customer_vendor_sales_per_day": "5",
     "max_unsettled_ils_before_deactivate": "5000",
     "unsettled_grace_days": "14",
+    # Per-account login lockout (security hardening) — same "tunable threshold" shape as the
+    # fraud-resistance settings above, reused rather than building a second settings mechanism.
+    "max_failed_login_attempts": "5",
+    "lockout_duration_minutes": "15",
 }
 
 # Settings that must parse as a STRICTLY positive float — enforced on write so a bad admin
@@ -43,6 +47,10 @@ NON_NEGATIVE_FLOAT_SETTINGS = {
     "max_customer_vendor_sales_per_day",
     "max_unsettled_ils_before_deactivate",
     "unsettled_grace_days",
+    # 0 is a legitimate (if aggressive/degenerate) policy value for both: 0 attempts = lock on
+    # the very first failure, 0 minutes = lock but expire immediately (effectively no lockout).
+    "max_failed_login_attempts",
+    "lockout_duration_minutes",
 }
 
 

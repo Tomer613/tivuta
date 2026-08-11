@@ -72,9 +72,13 @@ if extra_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # Confirmed by an exhaustive survey of every frontend fetch call site: no request anywhere
+    # in the app sets credentials: 'include' (auth is a Bearer token in localStorage, never
+    # cookies), and only these methods/headers are ever actually used — narrowed from ["*"] and
+    # allow_credentials=True, which were both unused permissiveness, not load-bearing.
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 

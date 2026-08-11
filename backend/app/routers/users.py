@@ -147,6 +147,21 @@ def admin_set_user_role(user_id: int, payload: schemas.UserRoleUpdate, db: Sessi
     return user
 
 
+@router.patch("/admin/users/{user_id}/unlock", response_model=schemas.UserRead, dependencies=[Depends(get_current_admin)])
+def admin_unlock_user(user_id: int, db: Session = Depends(get_db)):
+    """Immediately lifts a login lockout — for when the account/password is fine and an admin
+    just wants to skip the (short, tunable via SystemSetting) wait rather than block someone
+    who's calling for help. Harmless no-op if the user wasn't locked."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.delete("/admin/users/{user_id}", dependencies=[Depends(get_current_admin)])
 def admin_delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id == user_id).first()

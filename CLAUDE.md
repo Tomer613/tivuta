@@ -69,7 +69,8 @@ tivuta/
 │   │       ├── c2f8a4e1b6d0_fix_diamonds_shape_typo.py
 │   │       ├── 861a4db9d155_add_customer_orders.py
 │   │       ├── bbcdc94e0e14_add_vendor_purchase_batches.py
-│   │       └── 50da6b936e9b_add_vendor_specialty_contact_fields.py  ← newest (head)
+│   │       ├── 50da6b936e9b_add_vendor_specialty_contact_fields.py
+│   │       └── 1d4d53ad9e19_add_login_lockout_fields.py            ← newest (head)
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │
@@ -121,7 +122,7 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 
 | Table | Purpose |
 |---|---|
-| `users` | Auth accounts; `role`: `member` \| `admin` |
+| `users` | Auth accounts; `role`: `member` \| `admin`; `failed_login_attempts`/`locked_until` drive per-account login lockout (see "Per-Account Login Lockout" below) |
 | `categories` | Top-level benefits categories (slug-based routing) |
 | `sub_categories` | Nested under categories |
 | `items` | Legacy benefits catalog (linked to sub_categories) |
@@ -140,7 +141,7 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `favorites` | User wishlist; `UniqueConstraint(user_id, product_id)`; CASCADE deletes |
 | `notifications` | In-app notifications per user; `type`: `lead_status` \| `appointment_reminder` \| `system` \| `followup` \| `points_earned`; `is_read`, `link` fields |
 | `reviews` | Product rating (1–5) + comment; `UniqueConstraint(user_id, product_id)` — upsert semantics |
-| `vendors` | Physical store/supplier per vertical; products optionally belong to one via `Product.vendor_id`; also carries loyalty-program fields (see below); `vendor_code` is a computed property (`{id:03d}`), not a column; `specialty`/`contact_phone`/`contact_email` are separate from `login_email` (portal auth) |
+| `vendors` | Physical store/supplier per vertical; products optionally belong to one via `Product.vendor_id`; also carries loyalty-program fields (see below); `vendor_code` is a computed property (`{id:03d}`), not a column; `specialty`/`contact_phone`/`contact_email` are separate from `login_email` (portal auth); `failed_login_attempts`/`locked_until` mirror the same lockout fields on `users` |
 | `system_settings` | Flat key/value config (e.g. `point_value_ils`) — see Loyalty Program section |
 | `sale_transactions` | Ledger of in-store sales reported for a vendor+customer(+product); drives points + commission |
 | `points_ledger_entries` | Append-only per-user points history (accrual/redemption/adjustment/clawback) |
@@ -1427,7 +1428,8 @@ issue found along the way.
   `<meta http-equiv="Content-Security-Policy">` tag is technically possible but can't carry
   `frame-ancestors`/HSTS and risks breaking existing inline styles across the app for uncertain
   benefit), per-account lockout counters, and a CORS policy review (`allow_methods=["*"]`/
-  `allow_headers=["*"]` — not part of what was flagged, left untouched).
+  `allow_headers=["*"]` — not part of what was flagged, left untouched). **Both of the latter two
+  were completed in the Per-Account Login Lockout + CORS Review session below.**
 
 ---
 
@@ -1545,6 +1547,103 @@ don't get their own indexed search-result page; that was an explicit, discussed 
 
 ---
 
+## Per-Account Login Lockout + CORS Review (session 2026-08-11)
+
+The last remaining item from the Backend Security Hardening session's deferred backlog: rate
+limiting there was **per-IP only** (`5/minute` via `slowapi`, see that section above) — an attacker
+spreading login attempts across multiple IPs/proxies was never slowed down for a *specific*
+account — and CORS still allowed every method/header (`allow_methods=["*"]`,
+`allow_headers=["*"]`, `allow_credentials=True`).
+
+- **`failed_login_attempts`/`locked_until` columns on both `User` and `Vendor`**
+  (`backend/app/models.py`, migration `1d4d53ad9e19_add_login_lockout_fields.py`, `batch_alter_table`
+  since these are NOT-NULL-with-default columns — same shape as the one prior precedent,
+  `655114dc8ce0_add_product_popularity_score.py`) — mirrors the existing `reset_token`/
+  `reset_token_expires` pattern already on `User`. Two fully separate login principals (`User` via
+  `/auth/login`, `Vendor` via `/vendor-auth/login` — see the Loyalty Program's Phase 3 vendor-auth
+  architecture note) each get their own lockout state.
+- **Two new tunable settings reuse the existing generic `SystemSetting` mechanism** (originally
+  built for the loyalty program's fraud thresholds) instead of a new settings system:
+  `max_failed_login_attempts` (default `"5"`), `lockout_duration_minutes` (default `"15"`) —
+  `services/loyalty.py`'s `DEFAULT_SETTINGS`/`NON_NEGATIVE_FLOAT_SETTINGS` (0 is a legitimate, if
+  aggressive, policy value for both — same reasoning as the Phase 5 loyalty thresholds). Both are
+  editable for free in the existing `admin/loyalty` settings editor — no new admin UI needed just to
+  tune them.
+- **Three shared helper functions in `backend/app/security.py`** — `check_account_lock()`,
+  `record_failed_login()`, `record_successful_login()` — operate identically on both `User` and
+  `Vendor` via duck-typing (both declare the same `hashed_password`/`failed_login_attempts`/
+  `locked_until` column names), used by both `auth.py`'s `login` and `vendor_portal.py`'s
+  `vendor_login`. A locked account gets **HTTP 423** (distinct from 401 wrong-password and 429
+  rate-limited) before the password is even checked — skips a wasted bcrypt comparison and lets the
+  frontend show a specific message. Wrong password increments the counter and locks on threshold
+  (counter resets to 0 once locked); correct password clears both fields.
+- **Any successful password change also clears lockout state**, not just a correct login:
+  `auth.py`'s `reset_password` (forgotten-password flow) and `vendors.py`'s existing `PATCH
+  /admin/vendors/{id}/portal-access` (admin-issued vendor credential reset) both now clear
+  `failed_login_attempts`/`locked_until` — a fresh password can't stay stuck behind an old lockout.
+- **Deliberate email-enumeration trade-off**: an explicit 423 message ("Too many failed login
+  attempts...") is distinguishable from a generic wrong-password 401, which could in principle leak
+  whether an email is registered. Judged acceptable because `POST /auth/signup` **already** leaks
+  this — it returns a distinct "Email already registered" response on a duplicate — so this app
+  already had a cheaper, faster enumeration oracle than anything the lockout message adds.
+  `forgot_password`'s existing anti-enumeration behavior itself was left untouched.
+- **Admin unlock — users only, not a separate vendor UI**: `PATCH /admin/users/{id}/unlock`
+  (`users.py`) clears both fields immediately, for when an admin wants to skip the (short, tunable)
+  wait rather than block someone asking for help. `admin/users/page.tsx` gained a red "נעול" (locked)
+  badge + "בטל נעילה" unlock button, shown only while `isLocked(u)` is true. **Vendors deliberately
+  don't get a separate unlock control** — the admin's existing portal-access reset action already
+  clears vendor lockout as a side effect (see above), which was judged sufficient for a small,
+  admin-curated set of vendor accounts.
+- **Frontend: two of three login surfaces needed a fix to actually show the new message.**
+  `vendorLogin()` in `api.ts` already propagated `err.detail` correctly — zero change needed there.
+  But `(public)/login/page.tsx` and the legacy `benefits/[locale]/login/page.tsx` both did a raw
+  inline `fetch()` with a hardcoded generic error string regardless of the real response status;
+  both now check `response.status === 423` and show the backend's specific message, falling back to
+  the existing generic message for anything else — a narrow, additive fix, not a rewrite.
+- **CORS narrowed in `main.py`**: `allow_methods` → `["GET", "POST", "PATCH", "PUT", "DELETE"]` and
+  `allow_headers` → `["Authorization", "Content-Type"]` (both confirmed, by an exhaustive grep of
+  every frontend fetch call site, to be the complete set actually used — multipart file-upload calls
+  never set a custom `Content-Type`, letting the browser set its own boundary, so narrowing this was
+  confirmed safe). `allow_credentials` → `False` (confirmed no fetch call anywhere in the frontend
+  sets `credentials: 'include'` — this app authenticates via a Bearer token in `localStorage`, never
+  cookies, so the old `True` was unused permissiveness, not load-bearing).
+- **A real timezone bug found during manual browser verification, fixed same session**: the new
+  `isLocked()` helper on `admin/users/page.tsx` initially did `new Date(u.locked_until).getTime() >
+  Date.now()` directly. `locked_until` comes from the backend as a **naive-UTC** ISO string with no
+  `Z`/offset suffix (e.g. `"2026-08-11T12:35:46.381768"`, from Python's `datetime.utcnow()`) —
+  JavaScript's `Date` parses a date-*time* string with no timezone designator as **local time**, not
+  UTC (unlike a bare date string, which JS does treat as UTC — an easy-to-miss asymmetry). On a
+  browser whose local timezone is ahead of UTC, this silently shifted the parsed instant earlier
+  than the real deadline, making an actually-still-locked account appear already-unlocked (reachable
+  live: the admin-users locked badge and unlock button didn't render for a confirmed-still-locked
+  test account). Fixed by appending `Z` before parsing whenever the string lacks its own timezone
+  designator, isolated entirely to `isLocked()` in `admin/users/page.tsx` — no other frontend code
+  reads `locked_until`. This doesn't contradict this codebase's general "naive-UTC timestamps,
+  displayed as-is, no timezone conversion" convention (see `confirmed_at`'s handling in the Loyalty
+  Program section) — that convention is safe for *display*, but `isLocked()` does a numeric
+  comparison against `Date.now()` (a true universal instant), which is a fundamentally different
+  operation that the naive-string convention doesn't cover.
+- **Verified end-to-end**: backend `pytest` 18/18 (13 pre-existing + 5 new lockout tests covering
+  lock-after-threshold, lockout rejecting even the correct password, successful-login resetting the
+  counter, expired-lockout allowing login again, `reset_password` clearing lockout, and admin unlock);
+  Alembic migration applied cleanly to the local dev DB; manual `curl` confirmed the exact 423
+  response body and narrowed CORS preflight headers (`Access-Control-Allow-Credentials` header
+  confirmed absent); `npm run build` (242 routes, matching baseline) and `npm run test` (Vitest, 7/7)
+  both green. Real-browser (Playwright) verification confirmed, after the timezone fix: the specific
+  lockout message renders on the real login form once actually locked; the admin/users page shows
+  the locked badge and unlock button for a genuinely-locked account and not otherwise; clicking
+  unlock clears the badge server-side; the previously-locked member can log in again immediately
+  after an admin unlock. Test accounts and dev-server processes used for verification were cleaned
+  up afterward (dev DB confirmed back at baseline: 4 users, 4 `customer_orders`, 5 `leads`).
+- **Explicitly out of scope, deferred**: a dedicated vendor unlock button (folded into the existing
+  portal-access reset instead, see above), a live countdown in the lockout message (it names the
+  configured static duration, not an exact remaining-time string), per-account rate limiting via
+  `slowapi` (this uses a separate DB-column mechanism that stacks with, not replaces, the existing
+  per-IP `slowapi` limiter), and further restricting `signup`/`forgot_password`'s existing
+  anti-enumeration behavior.
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -1578,6 +1677,9 @@ don't get their own indexed search-result page; that was an explicit, discussed 
 - **Flag, don't block, on velocity limits**: exceeding `max_vendor_sales_per_hour`/`max_customer_vendor_sales_per_day` routes a sale to `status="flagged"` (effects deferred, pending admin review) rather than rejecting the request outright — a genuinely busy store shouldn't be punished with a hard error, but the pattern still needs a human to look at it before it earns anyone anything.
 - **A sale's effects are realized through exactly one code path**: `_apply_realized_sale_effects()` in `services/loyalty.py` is the only place that increments `points_balance`/`commission_owed_total`/`popularity_score` and writes the `PointsLedgerEntry`+`Notification`. Both the synchronous-confirm path (`create_sale_transaction`) and the admin flagged-review confirm path (`review_sale`) call into it, rather than each having their own copy — the alternative (duplicate the increment logic in two places) is exactly the kind of drift a fraud-sensitive ledger can't afford.
 - **Clawback respects settlement, doesn't fight it**: reversing an already-`confirmed` sale claws back points and popularity unconditionally, but only touches `Vendor.commission_owed_total` if the sale hasn't already been linked to a `settled` `CommissionSettlementPeriod`. Once money has changed hands outside the app, silently adjusting the in-app running balance would misstate reality rather than correct it — that case is left for manual admin reconciliation instead.
+- **Naive-UTC timestamps are safe to display as-is, but never safe to compare against `Date.now()` without converting first**: this codebase stores/serializes datetimes as naive UTC everywhere (no timezone offset in the ISO string — same convention `confirmed_at`'s timezone-naive `datetime-local` admin inputs already rely on). That's fine for *display*. But JS's `Date` parses a date-*time* string with no timezone designator as **local time**, not UTC — a real bug this way was found and fixed in `isLocked()` (`admin/users/page.tsx`, Per-Account Login Lockout session): comparing a naive `locked_until` string directly against `Date.now()` silently mis-evaluated lock state depending on the browser's local timezone offset. Any future frontend code that needs to numerically compare a backend timestamp against "now" (not just render it) must append `Z` first.
+- **Per-account lockout is a separate, stacking layer from per-IP rate limiting, not a replacement**: `slowapi`'s `5/minute` per-IP limit (Backend Security Hardening session) and the DB-column-based per-account lockout (Per-Account Login Lockout session) both guard `/auth/login`/`/vendor-auth/login` simultaneously — the first throttles bursts from one IP regardless of account, the second locks one specific account regardless of IP. Both defaulting to the same threshold (5) is coincidental, not a shared setting; they're tuned independently (`SystemSetting` for lockout, in-code decorator args for rate limiting).
+- **An explicit lockout message is an acceptable, deliberate email-enumeration trade-off**: HTTP 423 with a specific "too many attempts" message is distinguishable from a generic wrong-password 401, which could in principle confirm an email is registered. Accepted because `POST /auth/signup` already discloses this via "Email already registered" on a duplicate — a cheaper, faster oracle than anything the lockout message adds. Don't use this same reasoning to justify *new* enumeration surfaces elsewhere without re-checking whether an equivalent cheaper leak already exists there too.
 
 ---
 

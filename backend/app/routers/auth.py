@@ -10,9 +10,12 @@ from .. import models, schemas
 from ..rate_limit import limiter
 from ..security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    check_account_lock,
     create_access_token,
     get_db,
     get_password_hash,
+    record_failed_login,
+    record_successful_login,
     verify_password,
 )
 from ..services import get_email_sender
@@ -49,12 +52,17 @@ def signup(request: Request, user_in: schemas.UserCreate, db: Session = Depends(
 @limiter.limit("5/minute")
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    if user:
+        check_account_lock(db, user)
     if not user or not verify_password(form_data.password, user.hashed_password):
+        if user:
+            record_failed_login(db, user)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    record_successful_login(db, user)
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(data={"sub": user.email, "typ": "user"}, expires_delta=access_token_expires)
@@ -94,5 +102,8 @@ def reset_password(request: Request, payload: schemas.ResetPasswordRequest, db: 
     user.hashed_password = get_password_hash(payload.new_password)
     user.reset_token = None
     user.reset_token_expires = None
+    # A fresh password shouldn't stay stuck behind an old lockout from the forgotten one.
+    user.failed_login_attempts = 0
+    user.locked_until = None
     db.commit()
     return {"message": "Password updated successfully."}

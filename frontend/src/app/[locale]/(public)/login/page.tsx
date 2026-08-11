@@ -114,6 +114,11 @@ export default function LoginPage() {
                 await login(data.access_token);
                 const redirectTo = new URLSearchParams(window.location.search).get('redirect');
                 router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : `/${locale}`);
+            } else if (response.status === 423) {
+                // Account temporarily locked (too many failed attempts) — distinct from a plain
+                // wrong password, so show the backend's specific message instead of the generic one.
+                const data = await response.json().catch(() => ({}));
+                setError(data.detail || t.error_invalid);
             } else {
                 setError(t.error_invalid);
             }

@@ -2,9 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth, User } from '@/context/AuthContext';
-import { adminListUsers, adminCreateUser, adminSetUserRole, adminDeleteUser } from '@/lib/api';
+import { adminListUsers, adminCreateUser, adminSetUserRole, adminDeleteUser, adminUnlockUser } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
-import { Plus, Loader2, X, ShieldCheck, ShieldOff, Trash2, CheckCircle2, AlertCircle, Search } from 'lucide-react';
+import { Plus, Loader2, X, ShieldCheck, ShieldOff, Trash2, CheckCircle2, AlertCircle, Search, Lock, Unlock } from 'lucide-react';
+
+function isLocked(u: User): boolean {
+    if (!u.locked_until) return false;
+    // Backend sends a naive-UTC timestamp with no timezone designator (e.g. "2026-08-11T12:35:46").
+    // JS's Date parses that as local time, not UTC — append 'Z' so the comparison against
+    // Date.now() (a true UTC instant) isn't silently offset by the browser's local timezone.
+    const iso = /[zZ]|[+-]\d\d:\d\d$/.test(u.locked_until) ? u.locked_until : `${u.locked_until}Z`;
+    return new Date(iso).getTime() > Date.now();
+}
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -68,6 +77,17 @@ export default function AdminUsersPage() {
             showToast('שגיאה בשינוי הרשאה', 'error');
         }
         setConfirmRoleId(null);
+    };
+
+    const handleUnlock = async (u: User) => {
+        if (!token) return;
+        try {
+            await adminUnlockUser(token, u.id);
+            showToast(`הנעילה על ${u.first_name} הוסרה ✓`);
+            load();
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בהסרת הנעילה'), 'error');
+        }
     };
 
     const handleDelete = async (u: User) => {
@@ -165,12 +185,26 @@ export default function AdminUsersPage() {
                                     <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{u.email}</td>
                                     <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{u.phone || '—'}</td>
                                     <td className="p-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${u.role === 'admin' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]/60'}`}>
-                                            {u.role === 'admin' ? 'מנהל' : 'חבר'}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${u.role === 'admin' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]/60'}`}>
+                                                {u.role === 'admin' ? 'מנהל' : 'חבר'}
+                                            </span>
+                                            {isLocked(u) && (
+                                                <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-red-500/15 text-red-400" title="חשבון נעול עקב ניסיונות התחברות כושלים">
+                                                    <Lock size={12} /> נעול
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="p-4">
                                         <div className="flex items-center gap-4">
+                                            {/* Unlock — only shown while actually locked */}
+                                            {isLocked(u) && (
+                                                <button onClick={() => handleUnlock(u)} className="flex items-center gap-1 text-xs font-bold text-red-400/70 hover:text-red-400 transition-colors" title="הסר נעילה">
+                                                    <Unlock size={14} />
+                                                    בטל נעילה
+                                                </button>
+                                            )}
                                             {/* Role toggle */}
                                             {confirmRoleId === u.id ? (
                                                 <div className="flex items-center gap-2 text-xs">

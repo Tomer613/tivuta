@@ -756,6 +756,15 @@ export async function adminSetUserRole(token: string, userId: number, role: stri
     return res.json();
 }
 
+export async function adminUnlockUser(token: string, userId: number) {
+    const res = await fetch(`${BASE_URL}/admin/users/${userId}/unlock`, {
+        method: 'PATCH',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to unlock user');
+    return res.json();
+}
+
 export async function adminListProducts(token: string) {
     const res = await fetch(`${BASE_URL}/admin/products`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load products');

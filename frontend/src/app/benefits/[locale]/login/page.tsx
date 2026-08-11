@@ -98,6 +98,11 @@ export default function LoginPage() {
                 const data = await response.json();
                 await login(data.access_token);
                 router.push(`/benefits/${locale}/dashboard`);
+            } else if (response.status === 423) {
+                // Account temporarily locked (too many failed attempts) — distinct from a plain
+                // wrong password, so show the backend's specific message instead of the generic one.
+                const data = await response.json().catch(() => ({}));
+                setError(data.detail || t.error_invalid);
             } else {
                 setError(t.error_invalid);
             }

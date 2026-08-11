@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 from .database import SessionLocal
+from .services import loyalty
 
 _env_jwt_secret = os.environ.get("JWT_SECRET_KEY")
 if not _env_jwt_secret and os.environ.get("DATABASE_URL"):
@@ -41,6 +42,41 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
+
+
+# Per-account login lockout — shared by both login principals (User via auth.py, Vendor via
+# vendor_portal.py) so a fraud-sensitive check like this has exactly one implementation rather
+# than two that could drift. Works on either model via duck-typing: both declare the same
+# `hashed_password`/`failed_login_attempts`/`locked_until` columns.
+def check_account_lock(db: Session, account) -> None:
+    """Raises 423 if `account` is currently locked. Call BEFORE verifying the password, so a
+    locked account never even pays for a bcrypt comparison."""
+    if account.locked_until and account.locked_until > datetime.utcnow():
+        lockout_minutes = int(loyalty.get_setting_float(db, "lockout_duration_minutes"))
+        raise HTTPException(
+            status_code=423,
+            detail=f"Too many failed login attempts. Try again in {lockout_minutes} minute(s).",
+        )
+
+
+def record_failed_login(db: Session, account) -> None:
+    """Increments the failure counter and locks the account once it reaches the configured
+    threshold. Commits — callers don't need to commit again for this part of the request."""
+    account.failed_login_attempts += 1
+    max_attempts = loyalty.get_setting_float(db, "max_failed_login_attempts")
+    if account.failed_login_attempts >= max_attempts:
+        lockout_minutes = loyalty.get_setting_float(db, "lockout_duration_minutes")
+        account.locked_until = datetime.utcnow() + timedelta(minutes=lockout_minutes)
+        account.failed_login_attempts = 0
+    db.commit()
+
+
+def record_successful_login(db: Session, account) -> None:
+    """Clears any lockout state on a successful login — old failed attempts never carry over."""
+    if account.failed_login_attempts or account.locked_until:
+        account.failed_login_attempts = 0
+        account.locked_until = None
+        db.commit()
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):

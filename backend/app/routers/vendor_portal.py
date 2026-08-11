@@ -10,9 +10,12 @@ from .. import models, schemas
 from ..rate_limit import limiter
 from ..security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    check_account_lock,
     create_access_token,
     get_current_vendor,
     get_db,
+    record_failed_login,
+    record_successful_login,
     verify_password,
 )
 from ..services import loyalty
@@ -25,12 +28,17 @@ router = APIRouter(tags=["vendor-portal"])
 @limiter.limit("5/minute")
 def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     vendor = db.query(models.Vendor).filter(models.Vendor.login_email == form_data.username).first()
+    if vendor:
+        check_account_lock(db, vendor)
     if not vendor or not vendor.hashed_password or not verify_password(form_data.password, vendor.hashed_password):
+        if vendor:
+            record_failed_login(db, vendor)
         raise HTTPException(
             status_code=401,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    record_successful_login(db, vendor)
     if not vendor.is_active:
         raise HTTPException(status_code=403, detail="Vendor account is inactive")
 

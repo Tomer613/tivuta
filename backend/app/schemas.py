@@ -75,6 +75,7 @@ class UserRead(UserBase):
     notification_prefs: Optional[dict] = None
     customer_number: Optional[str] = None
     points_balance: int = 0
+    locked_until: Optional[datetime] = None
 
     class Config:
         from_attributes = True

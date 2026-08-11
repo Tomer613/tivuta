@@ -84,6 +84,9 @@ def admin_set_vendor_portal_access(vendor_id: int, payload: schemas.VendorPortal
 
     vendor.login_email = payload.login_email
     vendor.hashed_password = get_password_hash(payload.password)
+    # A fresh admin-issued password shouldn't stay stuck behind an old lockout.
+    vendor.failed_login_attempts = 0
+    vendor.locked_until = None
     db.commit()
     db.refresh(vendor)
     return vendor

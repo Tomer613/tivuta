@@ -20,6 +20,7 @@ export interface User {
     notification_prefs?: Record<string, boolean> | null;
     customer_number?: string | null;
     points_balance?: number;
+    locked_until?: string | null;
 }
 
 interface AuthContextType {
