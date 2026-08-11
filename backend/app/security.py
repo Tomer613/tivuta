@@ -61,14 +61,24 @@ def check_account_lock(db: Session, account) -> None:
 
 def record_failed_login(db: Session, account) -> None:
     """Increments the failure counter and locks the account once it reaches the configured
-    threshold. Commits — callers don't need to commit again for this part of the request."""
-    account.failed_login_attempts += 1
+    threshold. The increment itself is an atomic SQL update (same pattern already used for
+    Vendor.commission_owed_total / User.points_balance / Product.popularity_score) rather than a
+    Python `+= 1` on an already-loaded object, so concurrent failed attempts against the same
+    account (e.g. spread across IPs to dodge the per-IP rate limiter) can't lose an increment.
+    Commits — callers don't need to commit again for this part of the request."""
+    model = type(account)
+    db.query(model).filter(model.id == account.id).update(
+        {model.failed_login_attempts: model.failed_login_attempts + 1}
+    )
+    db.commit()
+    db.refresh(account)
+
     max_attempts = loyalty.get_setting_float(db, "max_failed_login_attempts")
     if account.failed_login_attempts >= max_attempts:
         lockout_minutes = loyalty.get_setting_float(db, "lockout_duration_minutes")
         account.locked_until = datetime.utcnow() + timedelta(minutes=lockout_minutes)
         account.failed_login_attempts = 0
-    db.commit()
+        db.commit()
 
 
 def record_successful_login(db: Session, account) -> None:
