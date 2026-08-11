@@ -10,6 +10,17 @@ from slowapi.middleware import SlowAPIMiddleware
 from .rate_limit import limiter
 from .routers import auth, catalog, distributions, favorites, leads, notifications, products, promotions, reviews, sales, surveys, translate, users, vendor_portal, vendors, verticals
 
+# Error monitoring — inert until SENTRY_DSN is set (same "skip until configured" pattern as
+# get_email_sender()/get_image_storage()). No traces_sample_rate: errors only, no APM/tracing.
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment="production" if os.environ.get("DATABASE_URL") else "development",
+    )
+
 app = FastAPI(title="Tivuta - The Working Haredi Ecosystem")
 
 app.state.limiter = limiter

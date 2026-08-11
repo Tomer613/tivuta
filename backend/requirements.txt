@@ -12,3 +12,4 @@ httpx
 anthropic
 slowapi
 pytest
+sentry-sdk

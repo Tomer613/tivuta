@@ -1069,6 +1069,96 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 
 ---
 
+## Error Monitoring (Sentry) (session 2026-08-11)
+
+Every session since the SEO pass flagged the same gap: production failures were completely
+silent — no error monitoring on either side. Added Sentry to both, following this codebase's
+existing "skip until configured" provider pattern (`get_email_sender()`, `get_image_storage()`,
+`deploy_trigger.py`) — the code ships fully inert until real DSNs are set.
+
+- **Deliberately used `@sentry/browser`, not `@sentry/nextjs`.** Confirmed via Sentry's own
+  GitHub issue tracker that `@sentry/nextjs`'s webpack plugin has real, still-open compatibility
+  friction with `output: 'export'` specifically (uploads irrelevant Node/Edge artifact bundles,
+  history of build errors under static-export configs) — friction that exists because that
+  package is built around instrumenting a Next.js *server* (SSR, API routes, middleware, edge
+  functions), none of which this app has or can have under static export. Since only browser-side
+  error capture is possible here anyway, `@sentry/browser` avoids that friction entirely: no
+  webpack plugin, no `sentry.server.config.ts`/`sentry.edge.config.ts` for a server that doesn't
+  exist at runtime.
+- **`backend/app/main.py`** — `SENTRY_DSN = os.environ.get("SENTRY_DSN", "")`; if set,
+  `sentry_sdk.init(dsn=..., environment=...)` before `app = FastAPI(...)` is constructed. The
+  FastAPI integration auto-enables from `fastapi` already being installed — no explicit
+  `integrations=[...]` needed. `environment` reuses the same "does `DATABASE_URL` exist" signal
+  already established for the JWT fail-fast check (security-hardening session) to separate local
+  dev noise from real production errors, no new env var needed for that. `traces_sample_rate` is
+  deliberately left unset (errors only, no APM/performance tracing — keeps this focused and
+  avoids burning Sentry's free-tier quota on non-error telemetry). `send_default_pii` is left at
+  its default `False` (Sentry already excludes user ids/emails/IPs/cookies/auth headers).
+- **`frontend/src/lib/sentry.ts`** (new) — `initSentry()`/`reportError()`, both funneling through
+  one memoized `loadSentry()` that dynamically `import()`s `@sentry/browser` only if
+  `NEXT_PUBLIC_SENTRY_DSN` is set. The dynamic import means the SDK is its own lazy-loaded chunk —
+  zero added bytes to the main bundle when unconfigured, and it never blocks initial paint even
+  when configured. Memoizing the init promise (not just a boolean flag) means whichever caller
+  reaches it first — `SentryInit`'s mount effect (the normal case) or an error boundary reporting
+  before that effect has had a chance to fire (an edge case) — both correctly share one real
+  `Sentry.init()` call instead of racing or double-initializing.
+- **`frontend/src/components/SentryInit.tsx`** (new) — a non-rendering client component, mounted
+  once in `[locale]/layout.tsx` alongside `<AccessibilityWidget />`, that calls `initSentry()` in
+  a `useEffect` (guaranteed browser-only, never runs during static-export prerendering — a
+  browser-only SDK executing during the Node.js build step would be a real bug this pattern
+  avoids entirely).
+- **Filter-compatibility reasoning, checked against CLAUDE.md's own documented rule** (see "Haredi
+  Internet Filter Compatibility" above): the rule as written — "No external CDN scripts — All
+  JS/CSS comes from the Next.js bundle" — is about where JS/CSS is *served from* (own bundle vs.
+  an external `<script src>` tag), not about outbound runtime network calls made by same-bundle
+  code. `@sentry/browser` is npm-installed and bundled into the app's own output, so it doesn't
+  violate that rule. It does make outbound calls to Sentry's ingestion domain to report errors; if
+  a kosher filter blocks that specific domain, the practical effect is just that one error report
+  silently fails to send (Sentry's transport swallows the failure) — nothing about the app's
+  actual functionality depends on it either way. This is a materially different risk profile than
+  Google Analytics (declined in the SEO session), where the entire feature's value depends on a
+  script successfully loading from Google's domain.
+- **Added `error.tsx`/`global-error.tsx` — necessary for real coverage, not scope creep.** Zero
+  error boundaries existed anywhere in the app before this. Without one, a React rendering error
+  never reaches `window.onerror` at all (React's default behavior swallows it into a blank tree),
+  so `@sentry/browser`'s automatic instrumentation alone would miss that entire class of real
+  errors. `frontend/src/app/[locale]/error.tsx` (new) is a locale-aware, on-brand fallback
+  (reusing `.btn-primary`, matching the rest of the site) covering the vast majority of routes;
+  `frontend/src/app/global-error.tsx` (new) is Next's required fallback for an error in the root
+  layout itself — per Next.js convention it must render its own `<html>`/`<body>` and explicitly
+  imports `./globals.css` itself (a layout-replacing file doesn't inherit CSS from the layout it's
+  replacing), kept deliberately simple/Hebrew-only since it's the last-resort path for when
+  something above it — potentially the locale routing/layout machinery itself — has failed.
+- **`.github/workflows/deploy.yml`** — `NEXT_PUBLIC_SENTRY_DSN: ${{ vars.NEXT_PUBLIC_SENTRY_DSN }}`
+  added to the `build` job's env, alongside the existing `NEXT_PUBLIC_API_URL`, since
+  `NEXT_PUBLIC_*` values are inlined at build time and the DSN needs to reach the GitHub Actions
+  build step, not just Render (which only runs the backend). Uses a repository **variable**, not a
+  secret — `NEXT_PUBLIC_*` values end up in client-visible bundled JS regardless, so `vars.` is
+  the honest designation, matching how `NEXT_PUBLIC_API_URL` itself is already set up.
+- **Verified**: backend imports cleanly both with `SENTRY_DSN` unset and with a syntactically
+  valid fake DSN set (confirms `sentry_sdk.init()` never blocks/crashes startup); full `pytest`
+  suite still green; `npm run lint` clean on every new/touched file; `npm run build` succeeds with
+  `@sentry/browser` installed and the DSN unset (the exact failure mode `@sentry/nextjs` would
+  have risked, and the reason it wasn't used); `npm run dev` boots and serves a normal page with
+  zero console/server errors; full Vitest suite still green. Actual error delivery to a real
+  Sentry project, and a live browser render of the `error.tsx` fallback UI, were **not** verified
+  end-to-end — the former needs a real Sentry DSN this session doesn't have (same limitation as
+  the SEO session's Search Console token), the latter would need interactive browser tooling not
+  available in this session; both rest on the code review + successful build/lint/test/dev-boot
+  checks above instead.
+- **Manual steps still needed, outside the repo**: create a Sentry account/org, create two
+  projects (frontend, backend — separate DSNs, standard practice), set `SENTRY_DSN` in Render's
+  dashboard and `NEXT_PUBLIC_SENTRY_DSN` as a GitHub Actions repository variable, then redeploy.
+  Until then this entire feature is inert, same as every other "ships dark until configured"
+  integration in this codebase.
+- **Explicitly out of scope, deferred**: performance/APM tracing, Session Replay, source map
+  upload (would give fully-readable non-minified stack traces, but needs a Sentry auth token as a
+  CI secret plus a build-step plugin — the exact complexity avoided by using `@sentry/browser`
+  directly; stack traces are still usable, just against minified code), and release tracking
+  (tagging errors with a git SHA).
+
+---
+
 ## Automated Tests + CI Gate (session 2026-08-11)
 
 Follow-up to the SEO and security-hardening sessions' audits, both of which flagged zero test

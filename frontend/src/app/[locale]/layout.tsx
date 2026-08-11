@@ -4,6 +4,7 @@ import localFont from 'next/font/local';
 import RootHeader from "@/components/RootHeader";
 import SiteFooter from "@/components/SiteFooter";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
+import SentryInit from "@/components/SentryInit";
 import { AuthProvider } from "@/context/AuthContext";
 import { AccessibilityProvider } from "@/context/AccessibilityContext";
 import { CartProvider } from "@/context/CartContext";
@@ -125,6 +126,7 @@ export default async function RootLayout({
                     </AuthProvider>
                     <AccessibilityWidget />
                 </AccessibilityProvider>
+                <SentryInit />
             </body>
         </html>
     );
