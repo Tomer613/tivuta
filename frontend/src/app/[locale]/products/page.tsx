@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
 import ProductQueryPage from '@/components/ProductQueryPage';
 import { normalizeLocale, generateStaticParams } from '@/lib/locales';
 
@@ -29,6 +31,18 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     };
 }
 
+function ProductsFallback() {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-[#111a2f]">
+            <Loader2 className="animate-spin text-[#d4af37]" size={40} />
+        </div>
+    );
+}
+
 export default function ProductsIndexPage() {
-    return <ProductQueryPage />;
+    return (
+        <Suspense fallback={<ProductsFallback />}>
+            <ProductQueryPage />
+        </Suspense>
+    );
 }

@@ -9,6 +9,8 @@ import {
     RecentlyViewedProduct,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
+import { requireLogin } from '@/lib/requireLogin';
+import { shareProductOnWhatsApp } from '@/lib/share';
 import { Product, PromotionBrief, promotionLabel } from '@/components/ProductTile';
 import ProductActionButtons from '@/components/ProductActionButtons';
 import { useAttrLabels } from '@/lib/useVerticals';
@@ -276,8 +278,10 @@ export default function ProductDetailClient({ productId }: { productId: number }
     }, [product, productVertical]);
 
     useEffect(() => {
-        if (!token) return;
-        Promise.all([getProduct(token, productId), getVerticals(), getFavoriteIds(token)])
+        // Product/vertical reads are public at the API level (no login required to view) —
+        // only favorites are user-specific, so that call is skipped entirely when logged out
+        // rather than gating the whole fetch on having a token.
+        Promise.all([getProduct(token, productId), getVerticals(), token ? getFavoriteIds(token) : Promise.resolve([])])
             .then(([p, v, favIds]) => { setProduct(p); setVerticals(v); setFav(favIds.includes(productId)); })
             .finally(() => setLoading(false));
     }, [token, productId]);
@@ -317,7 +321,8 @@ export default function ProductDetailClient({ productId }: { productId: number }
     }, [product, locale]);
 
     const toggleFav = async () => {
-        if (!token || !product || favLoading) return;
+        if (!product || favLoading) return;
+        if (!requireLogin(token, router, locale, `/${locale}/products?id=${product.id}`)) return;
         setFavLoading(true);
         try {
             if (fav) {
@@ -333,11 +338,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
 
     const shareWhatsApp = () => {
         if (!product) return;
-        const titleText = product[`title_${locale}`] || product.title_he;
-        const price = product.price ? `₪${product.price.toLocaleString()}` : '';
-        const productUrl = `https://tivuta.co.il/${locale}/products?id=${product.id}`;
-        const text = encodeURIComponent(`${titleText}${price ? ' — ' + price : ''}\n${productUrl}`);
-        window.open(`https://wa.me/?text=${text}`, '_blank');
+        shareProductOnWhatsApp(product, locale);
     };
 
     const handleEnter = async (promo: PromotionBrief) => {

@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { CalendarCheck, MessageCircle, ShoppingCart, CheckCircle2, Send } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
 import QuantityStepper from '@/components/QuantityStepper';
 import { createLead, cartCheckout, Vendor } from '@/lib/api';
 import { useCart, CartItem } from '@/context/CartContext';
+import { requireLogin } from '@/lib/requireLogin';
 
 interface ProductActionButtonsProps {
     product: Omit<CartItem, 'quantity'>;
@@ -29,9 +31,14 @@ interface ProductActionButtonsProps {
 
 export default function ProductActionButtons({ product, title, locale, actionType, token, vendor, compact, labels }: ProductActionButtonsProps) {
     const { items, addToCart, updateQuantity } = useCart();
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [showModal, setShowModal] = useState(false);
     const [status, setStatus] = useState<'idle' | 'choosing' | 'submitting' | 'done'>('idle');
     const [contactQty, setContactQty] = useState(1);
+
+    const currentPath = `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`;
 
     const cartQty = items.find((i) => i.id === product.id)?.quantity ?? 0;
     const sizeClass = compact ? '!text-sm' : '';
@@ -59,7 +66,7 @@ export default function ProductActionButtons({ product, title, locale, actionTyp
 
     const handleContactSend = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!token) return;
+        if (!requireLogin(token, router, locale, currentPath)) return;
         setStatus('submitting');
         try {
             await cartCheckout(token, { items: [{ product_id: product.id, quantity: contactQty }], locale });
@@ -70,7 +77,7 @@ export default function ProductActionButtons({ product, title, locale, actionTyp
     };
 
     const handleScheduled = async (date: Date) => {
-        if (!token) return;
+        if (!requireLogin(token, router, locale, currentPath)) return;
         setStatus('submitting');
         try {
             await createLead(token, { product_id: product.id, scheduled_at: date.toISOString(), locale });
@@ -92,7 +99,7 @@ export default function ProductActionButtons({ product, title, locale, actionTyp
                     </div>
                 ) : actionType === 'appointment' ? (
                     <button
-                        onClick={(e) => { e.stopPropagation(); setShowModal(true); }}
+                        onClick={(e) => { e.stopPropagation(); if (requireLogin(token, router, locale, currentPath)) setShowModal(true); }}
                         disabled={status === 'submitting'}
                         className={`btn-primary w-full flex items-center justify-center gap-2 ${sizeClass} disabled:opacity-60`}
                     >
@@ -130,7 +137,7 @@ export default function ProductActionButtons({ product, title, locale, actionTyp
                     </div>
                 ) : (
                     <button
-                        onClick={(e) => { e.stopPropagation(); setContactQty(1); setStatus('choosing'); }}
+                        onClick={(e) => { e.stopPropagation(); if (requireLogin(token, router, locale, currentPath)) { setContactQty(1); setStatus('choosing'); } }}
                         className={`btn-primary w-full flex items-center justify-center gap-2 ${sizeClass}`}
                     >
                         <MessageCircle size={iconSize} />

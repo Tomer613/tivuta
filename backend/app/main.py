@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from .rate_limit import limiter
-from .routers import auth, catalog, distributions, favorites, leads, notifications, products, promotions, reviews, sales, surveys, translate, users, vendor_portal, vendors, verticals
+from .routers import auth, catalog, distributions, favorites, leads, notifications, products, promotions, reviews, sales, share, surveys, translate, users, vendor_portal, vendors, verticals
 
 # Error monitoring — inert until SENTRY_DSN is set (same "skip until configured" pattern as
 # get_email_sender()/get_image_storage()). No traces_sample_rate: errors only, no APM/tracing.
@@ -30,6 +30,10 @@ app.add_middleware(SlowAPIMiddleware)
 # Paths that serve FastAPI's own Swagger/ReDoc UI, which loads CDN-hosted JS/CSS —
 # a strict CSP would break them, so they're excluded from that one header below.
 _CSP_EXEMPT_PATHS = {"/docs", "/redoc", "/openapi.json"}
+# The /share/* unfurl pages (routers/share.py) set their own, narrower CSP directly on the
+# response — they need an inline <style> block for their branded look, which the blanket
+# default-src 'none' below would otherwise strip out.
+_CSP_EXEMPT_PREFIXES = ("/share/",)
 
 
 @app.middleware("http")
@@ -39,7 +43,8 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
-    if request.url.path not in _CSP_EXEMPT_PATHS:
+    path = request.url.path
+    if path not in _CSP_EXEMPT_PATHS and not path.startswith(_CSP_EXEMPT_PREFIXES):
         response.headers["Content-Security-Policy"] = "default-src 'none'"
     return response
 
@@ -94,3 +99,4 @@ app.include_router(vendors.router)
 app.include_router(sales.router)
 app.include_router(vendor_portal.router)
 app.include_router(verticals.router)
+app.include_router(share.router)

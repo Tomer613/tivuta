@@ -1069,6 +1069,105 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 
 ---
 
+## Public Product-Sharing: view-only product page + WhatsApp preview (session 2026-08-11)
+
+Tivuta stays members-only by deliberate choice (see the AuthGate limitation note above) — this
+session did **not** open up `/world` or home. It resolved a narrower, real problem: sharing a
+product link on WhatsApp showed a generic preview card (never the actual product photo, since a
+static export can't vary `og:image` per `?id=`) and landed the recipient on a bare login wall
+instead of the product they were sent. Both are fixed for the **product detail page specifically**;
+browsing the rest of the catalog still requires login exactly as before.
+
+- **`/products?id=` is now viewable without login** — `frontend/src/app/[locale]/products/page.tsx`
+  was moved out of `(protected)/` to a top-level route (the same location `cart/page.tsx` already
+  established for "public page, gated actions"). Zero changes were needed to `world/page.tsx` or
+  home — `(protected)/layout.tsx` is the only place `AuthGate` gets applied, and route groups don't
+  create URL segments, so moving one page out doesn't touch the others.
+- **A real, previously-latent bug had to be fixed for this to work**:
+  `ProductDetailClient.tsx`'s fetch `useEffect` used to start with `if (!token) return;` — since
+  `setLoading(false)` only ran inside that same effect's `.finally()`, a logged-out visitor would
+  have seen the loading spinner **forever**, never reaching the product. Fixed by always calling
+  `getProduct()`/`getVerticals()` (both already public-tolerant — `getProduct`'s own code comment
+  already documented "Reads (products/surveys) are public at the API level") and only calling
+  `getFavoriteIds()` when a token exists. Verified live with Playwright (see below) — this was not
+  a theoretical fix, the infinite-spinner bug was real and reproducible before it.
+- **A related UX gap was fixed too**: `ProductActionButtons.tsx`'s contact/schedule handlers
+  already guarded with `if (!token) return` but did nothing else — invisible before because those
+  buttons only ever rendered for a logged-in user (the whole page was gated). Once the page went
+  public, that would have been a silent dead click. New shared `frontend/src/lib/requireLogin.ts`
+  (a TypeScript type-predicate — `token is string` — so callers get real type-narrowing, not just a
+  boolean) now redirects to `/login?redirect=<path>` instead, applied to contact/schedule (both the
+  initial button click, not just final submit — so a logged-out user isn't led through the whole
+  quantity-picker/date-picker before being told to log in) and to `ProductDetailClient.tsx`'s
+  favorite-heart `toggleFav`. "Add to Cart" is deliberately unguarded — it's local-only, matching
+  how the cart page itself has always worked without requiring login.
+- **A build-time-only regression surfaced during verification, unrelated to the auth logic**:
+  moving the page out of `(protected)` made Next.js's static-export prerendering newly enforce
+  "`useSearchParams()` must be wrapped in Suspense" for `ProductQueryPage` — a requirement that had
+  apparently been masked the whole time by `AuthGate`'s own client-only rendering swallowing the
+  page's effective render path. Fixed with the standard Next.js pattern: wrapped
+  `<ProductQueryPage />` in `<Suspense>` with the same navy/gold spinner `AuthGate` already uses as
+  the fallback. Confirmed the exact route/page count (242) is unchanged after the fix.
+- **New backend endpoint, `GET /share/products/{id}`** (`backend/app/routers/share.py`) — since a
+  static frontend genuinely cannot serve correct per-product `og:image` tags, this server-rendered
+  HTML page (the first use of `fastapi.responses.HTMLResponse` in this codebase) does it instead:
+  `html.escape()`-d title/description (product text is admin-entered and now interpolated directly
+  into raw HTML for the first time — escaping is the load-bearing XSS guard, not a nicety),
+  `og:image` pointing at the real product photo, and a `<meta http-equiv="refresh">` sending a real
+  browser on to `https://www.tivuta.co.il/{locale}/products?id={id}` instantly (link-preview bots
+  don't execute meta-refresh, they just scrape the static tags — exactly the split in behavior
+  needed). `Product.image_url` is already a full Supabase URL in production, used as-is; the
+  local-dev-only bare-filename case is resolved via `request.base_url` rather than a hardcoded
+  domain, so it stays correct regardless of which hostname reaches the service.
+- **Domain choice was deliberate, not incidental**: the backend has no custom domain today (it's
+  reached at the raw `tivuta.onrender.com`, confirmed via the two workflow files that reference it —
+  `CLAUDE.md` itself never states this domain). Pointing shared links directly at that would put an
+  unfamiliar third-party hosting domain in the human-facing click path — exactly the kind of
+  unrecognized-domain hop the "Haredi Internet Filter Compatibility" section above warns could be
+  flagged or blocked by a kosher filter's categorization, which would have defeated the entire
+  point. Instead, share links use a new **`share.tivuta.co.il` custom domain** (DNS CNAME → the
+  same existing Render service) — the link a human actually clicks reads as part of the
+  already-trusted `tivuta.co.il` domain. **This requires manual setup that hasn't happened yet**:
+  Render dashboard → the backend service → Custom Domains → add `share.tivuta.co.il`, plus the DNS
+  CNAME record wherever `tivuta.co.il` is managed. Unlike this session's other "ships dark until
+  configured" work, this one isn't fully inert in the meantime — the frontend immediately starts
+  generating `share.tivuta.co.il` links once deployed, so they won't resolve until that DNS step is
+  done.
+- **CSP handling for the new route**: the global CSP middleware (`main.py`) applies
+  `default-src 'none'` to every response except a fixed exempt-path set. The share page needs a
+  small inline `<style>` block for its branded look (Tivuta wordmark, navy/gold, "מעביר אותך
+  למוצר..." message, a real fallback `<a href>` link) — rather than widen the blanket exemption,
+  `main.py` now also skips the strict CSP for any path starting with `/share/`, and the route sets
+  its own tailored one directly (`default-src 'self'; style-src 'unsafe-inline'`). No product image
+  is ever loaded by the page itself (only referenced in the `og:image` *tag*, which bots fetch
+  independently) — keeps its own resource footprint at zero. Also sets `X-Robots-Tag: noindex`,
+  since this is a redirect shim, not content worth a search engine indexing separately.
+- **`frontend/src/lib/share.ts`** (new) replaces two verbatim-duplicated WhatsApp-share
+  implementations in `ProductTile.tsx` and `ProductDetailClient.tsx` — both had hardcoded
+  `https://tivuta.co.il/...` (missing the `www.` the real CNAME actually uses, confirmed in the SEO
+  session) — now both call one `shareProductOnWhatsApp()` building the `share.tivuta.co.il` link.
+- **`backend/tests/test_share.py`** (new, 4 tests) — correct title/image/escaping for a real
+  product, an HTML-special-characters-in-title case as an explicit XSS regression guard, a
+  nonexistent product still returning a valid redirect page, and invalid-locale fallback to Hebrew.
+- **Verified end-to-end with a real headless browser (Playwright), not just curl** — curl can only
+  ever see the pre-hydration static shell for this page (the product itself loads via
+  client-side `useEffect`, invisible to curl regardless of dev vs. build mode), so confirming the
+  actual fix required real JS execution. No project-level run skill existed yet for this repo, so a
+  scratch Playwright install (not added to the project's own dependencies) drove real Chromium
+  against the local dev server: confirmed the product page renders full real content (title,
+  attributes, ₪38,000 price, action buttons) for a logged-out session with zero console errors and
+  no spinner; confirmed clicking "Schedule Viewing" and the favorite heart both correctly redirect
+  to `/login?redirect=...`; confirmed `/world` and home are completely unaffected, still redirecting
+  to login exactly as before. Screenshots reviewed directly, not just asserted from DOM queries.
+- **Explicitly out of scope, deferred**: `/products` was not added to `sitemap.xml` — the reasoning
+  in the AuthGate note above no longer fully applies now that the page is public, but proactively
+  pursuing search-engine discovery of the catalog is a separate, bigger decision this session didn't
+  make; no rate limiting on the new share endpoint (read-only, no PII beyond what the existing
+  public `/products/{id}` JSON endpoint already exposes); no product image rendered directly on the
+  interstitial page itself, only referenced in its `og:image` meta tag.
+
+---
+
 ## Dependency Security Audit — Next.js Upgrade (session 2026-08-11)
 
 `npm audit` (first surfaced during the tests/CI session, deliberately deferred there) showed 6
@@ -1384,6 +1483,10 @@ don't get their own indexed search-result page; that was an explicit, discussed 
   (no-login) browsing of the catalog is ever wanted — e.g. to let search traffic actually land on
   real product/vertical content — that's a real product decision (loosening `AuthGate` on those
   three routes) that needs to be made deliberately, not a "quick SEO win."
+  **Update (session 2026-08-11, see "Public Product-Sharing" below): this decision was made for
+  `/products` specifically** (not `/world`, not home) — the product detail page is now viewable
+  without login, driven by a WhatsApp-sharing need rather than a general SEO push.
+  `sitemap.ts` was deliberately **not** updated to list it — see that section for why.
 - **Found and fixed a real, pre-existing bug while doing this**: `frontend/src/app/icon.svg` — a
   proper, on-brand, square navy "T" monogram — has existed since the very first commit of the
   frontend, in exactly the right Next.js file-convention location to be auto-detected as the

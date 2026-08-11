@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Info, Heart, Share2, Star, Clock } from 'lucide-react';
 import { addFavorite, removeFavorite, productImageUrl, Vendor } from '@/lib/api';
+import { shareProductOnWhatsApp } from '@/lib/share';
 import ProductActionButtons from '@/components/ProductActionButtons';
 
 export interface PromotionBrief {
@@ -140,11 +141,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
 
     const shareWhatsApp = (e: React.MouseEvent) => {
         e.stopPropagation();
-        const titleText = product[`title_${locale as 'he' | 'en' | 'fr' | 'yi'}`] || product.title_he;
-        const price = product.price ? `₪${product.price.toLocaleString()}` : '';
-        const productUrl = `https://tivuta.co.il/${locale}/products?id=${product.id}`;
-        const text = encodeURIComponent(`${titleText}${price ? ' — ' + price : ''}\n${productUrl}`);
-        window.open(`https://wa.me/?text=${text}`, '_blank');
+        shareProductOnWhatsApp(product, locale as 'he' | 'en' | 'fr' | 'yi');
     };
 
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
