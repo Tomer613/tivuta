@@ -5,3 +5,6 @@ env/
 .vscode/
 .env
 backend/.env
+.pytest_cache/
+htmlcov/
+coverage/

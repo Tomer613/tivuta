@@ -1069,6 +1069,74 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 
 ---
 
+## Automated Tests + CI Gate (session 2026-08-11)
+
+Follow-up to the SEO and security-hardening sessions' audits, both of which flagged zero test
+coverage anywhere and no lint/test step in the GitHub Actions deploy workflow. This session added
+a starter (not exhaustive) test suite on both sides plus a real CI gate — a failing test or lint
+error now blocks the GitHub Pages deploy, where previously every push to `main` deployed
+unconditionally. This was a deliberate, explicitly-confirmed scope decision, not an accidental
+side effect.
+
+- **`backend/tests/conftest.py`** — a single shared in-memory SQLite engine (`StaticPool`,
+  FastAPI's own documented testing pattern) with `Base.metadata.create_all()`/`drop_all()` per
+  test (isolation over speed; the suite is small enough that this costs nothing meaningful),
+  `get_db` overridden via `app.dependency_overrides`, and `make_user`/`make_vendor` factory
+  fixtures. **A real interaction with the security-hardening session's work**: the `slowapi`
+  limiter is process-global state, and `TestClient` has no real IP, so every test request shares
+  one rate-limit bucket unless reset — the `client` fixture calls `limiter.reset()` before every
+  test for exactly this reason. `pytest` runs with no `DATABASE_URL` set, so the JWT fail-fast
+  guard from that same session doesn't fire in CI (correct — a throwaway test run isn't
+  "production" by that check's own definition).
+- **Three backend test files**, chosen for being the two things CLAUDE.md itself calls
+  highest-stakes: `test_auth.py` (signup/login success+failure, and the exact rate-limit behavior
+  manually `curl`-verified last session, now automated), `test_loyalty.py` (exercises
+  `services/loyalty.py`'s `create_sale_transaction()` directly: normal sale credits
+  points/commission/popularity, a duplicate `idempotency_key` doesn't double-credit, a
+  velocity-flagged sale defers its effects until confirmed), and `test_cart_checkout.py` — a direct
+  regression test for the real historical stale-quantity bug documented in the Back-Office Orders
+  Phase 1 section above (every cart line item once silently got tagged with the *last* item's
+  quantity); checks out 3 products at 3 different quantities and asserts each `Lead.quantity`
+  matches its own product.
+- **`frontend/vitest.config.mts`** — Next 16's own bundled docs recommend Vitest for the App
+  Router but are explicit that it **cannot** unit-test `async` Server Components (e.g.
+  `world/page.tsx`'s `generateMetadata`) — E2E is their own recommendation there instead. Given
+  most of this codebase is `'use client'` components tightly coupled to routing/auth-context/live
+  API calls, this pass targets pure/isolated logic rather than full component trees. Uses Vitest's
+  native `resolve.tsconfigPaths: true` (not the separate `vite-tsconfig-paths` plugin the Next docs
+  show — Vitest 4 now supports this directly, one fewer dependency, confirmed working identically).
+- **Two frontend test files**: `getErrorMessage.test.ts` (the shared API-error-extraction helper
+  used across ~20 call sites, previously completely unverified) and `useBulkSelection.test.ts` —
+  the latter specifically pins down the exact bug this hook was built to fix (documented in the
+  Back-Office Orders Phase 2 post-review section above): selection must clear when `resetKey`
+  changes, so a bulk action can never silently fire against now-invisible, filtered-out rows.
+- **`.github/workflows/deploy.yml`** — added `backend-tests` (Python 3.10, matching the committed
+  `.venv`, `pip install -r requirements.txt` + `pytest`) and `frontend-checks` (`npm run lint` +
+  `npm run test`) jobs; the existing `build` job now has `needs: [backend-tests, frontend-checks]`.
+  Verified the YAML directly (via `js-yaml`, already present as a transitive dependency) rather
+  than assuming the edit was correct — confirmed `build.needs` resolves to both new jobs and
+  `deploy.needs` still correctly points at `build`.
+- **Verified end-to-end**: full pytest suite green (9 tests); deliberately broke one assertion,
+  confirmed 2 tests correctly failed, reverted; the rate-limit test passes identically run alone vs.
+  as part of the full suite (proves no cross-test rate-limit bleed); full Vitest suite green (7
+  tests); `npm run lint` and `npm run build` both still pass unchanged.
+- **Explicitly out of scope, deferred**: Playwright/Cypress E2E (would need a live backend +
+  frontend + seeded DB running inside CI — every verification this session and the prior two did
+  with Playwright was manual, not automated); testing async Server Components; full coverage of
+  either codebase (this is a foundation plus a small number of genuinely high-value tests, not a
+  completeness attempt); GitHub branch-protection/required-status-check settings (a repo-settings
+  change, not something committable — gating `deploy.yml` itself already achieves "broken code
+  doesn't auto-deploy" without needing this).
+- **Found incidentally, NOT fixed (out of scope for this session)**: `npm audit` shows pre-existing
+  high-severity transitive vulnerabilities unrelated to anything added here — most notably the
+  pinned `next@16.2.4` itself has several known advisories with a fix only available via
+  `npm audit fix --force` (which would bump to `next@16.3.0`, outside the currently pinned range).
+  Given `frontend/AGENTS.md`'s explicit warning that this Next major version has breaking changes
+  vs. typical assumptions, upgrading it is a real, separate decision that needs its own session —
+  not something to do as a side effect of adding a test runner.
+
+---
+
 ## Backend Security Hardening (session 2026-08-10)
 
 Follow-up to the SEO session's audit, which flagged (but deferred) two backend gaps: no rate
