@@ -1069,6 +1069,52 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 
 ---
 
+## Dependency Security Audit — Next.js Upgrade (session 2026-08-11)
+
+`npm audit` (first surfaced during the tests/CI session, deliberately deferred there) showed 6
+vulnerabilities: `next@16.2.4` itself plus its own bundled `postcss`/`sharp`, and 3 unrelated
+dev-tooling-only transitive deps (`@babel/core`, `brace-expansion`, `js-yaml`). Resolved to 0.
+
+- **`next`/`eslint-config-next` bumped 16.2.4 → 16.3.0** (kept in lockstep, matching the existing
+  exact-pin convention). `npm audit`'s own JSON output flagged this fix as `isSemVerMajor: false`
+  — a minor bump within the same major, not the risky major-version jump the tests/CI session
+  cautiously deferred. Checked Next's actual 16.3.0 changelog directly rather than assuming: none
+  of its listed deprecations (edge runtime, `experimental.useCache`, custom server middleware,
+  `moduleResolution: "node"`) apply to this app — no edge runtime, no `useCache`, no custom server
+  (this is `output: 'export'`, no Node server exists at runtime at all), and `tsconfig.json`
+  already used `"moduleResolution": "bundler"`. Peer deps (`react`/`react-dom` `^19.0.0`, `eslint
+  >=9.0.0`) were already satisfied. This single bump resolved `next`/`postcss`/`sharp` (3 of 6).
+- **The remaining 3 (`@babel/core`, `brace-expansion`, `js-yaml`) resolved via plain
+  `npm audit fix`** (no `--force` needed this time — confirmed via a dry pre-check that each said
+  "fix available via `npm audit fix`", not "...`--force`") — all dev/lint/test tooling only, never
+  shipped to a real visitor, so lower stakes than `next` itself but cleared for free regardless.
+  `git diff package.json` confirmed only the two intended lines (`next`, `eslint-config-next`)
+  changed — `npm audit fix` only touched the lockfile's transitive resolutions, no other direct
+  dependency drifted unexpectedly.
+- **A real, disclosed side effect surfaced during verification, not swept under the rug**: running
+  `npm run dev` under 16.3.0 regenerated `frontend/AGENTS.md` with expanded content — confirmed
+  this is genuine, intentional Next.js framework behavior (the regenerated file's own text now
+  says "This block is written and re-added by `next dev` — verify at
+  `node_modules/next/dist/server/lib/generate-agent-files.js`... committing it with your work
+  keeps the tree clean"), not a stray edit or (as an earlier session's subagent had speculated
+  without this context) a prompt injection — it's auto-generated tooling output that Next itself
+  expects to be committed. Left as-is rather than reverted, since `next dev` would just regenerate
+  the same content again on the next run.
+- **Verified end-to-end using the exact CI infrastructure the last two sessions built** (the whole
+  point of having built it): `npm run lint` unchanged (184 pre-existing problems, none new,
+  confirmed by diffing against the pre-upgrade baseline count); full Vitest suite green (7 tests);
+  a clean `npm run build` produced **exactly 242 static pages, matching the pre-upgrade baseline
+  count precisely**; spot-checked `sitemap.xml` (44 URLs, unchanged), `robots.txt`, and the
+  homepage `<title>` all byte-identical to before; `npm run dev` booted and served a real page
+  (`/he/login/`) with zero console/server errors; `pytest` still green (backend untouched, sanity
+  check only). `npm audit` now reports 0 vulnerabilities, down from 6.
+- **Not done, deliberately**: no Next 16.3 features were adopted (instant-navigation helpers, root
+  params, Turbopack filesystem build cache) — they're on by default per the changelog, so the app
+  gets any safe, zero-code-change performance benefit without this session deliberately opting
+  into anything new. This was a security/dependency pass, not a feature-adoption one.
+
+---
+
 ## Error Monitoring (Sentry) (session 2026-08-11)
 
 Every session since the SEO pass flagged the same gap: production failures were completely
