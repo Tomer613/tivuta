@@ -227,8 +227,20 @@ npm run dev    # → http://localhost:3000
 npm run build  # static export to /out
 ```
 
+### E2E tests (Playwright — see "E2E Test Automation" session below for full design)
+```bash
+cd backend
+DATABASE_URL="sqlite:///./e2e_tivuta.db" JWT_SECRET_KEY="<any-value>" .venv\Scripts\alembic upgrade head
+DATABASE_URL="sqlite:///./e2e_tivuta.db" JWT_SECRET_KEY="<any-value>" .venv\Scripts\python -m scripts.seed_e2e
+cd frontend
+npx playwright test           # reuses already-running dev servers if present, else launches fresh ones (needs CI=1 + the same DATABASE_URL/JWT_SECRET_KEY exported first if nothing's already running, since `uvicorn` must resolve to this project's venv, not any other global install)
+```
+Always seed a **fresh** `e2e_tivuta.db` before a run — `auth.spec.ts` locks a test account for 15
+real minutes, and reusing a DB within that window changes the spec's starting state.
+
 ### Environment variables
-- Backend: `JWT_SECRET_KEY`, `CORS_ORIGINS`, `DATABASE_URL` (defaults to SQLite `./tivuta.db`)
+- Backend: `JWT_SECRET_KEY`, `CORS_ORIGINS`, `DATABASE_URL` (defaults to SQLite `./tivuta.db`),
+  `LOGIN_RATE_LIMIT` (defaults to `"5/minute"` — only ever overridden by the E2E test run)
 - Frontend: `NEXT_PUBLIC_API_URL` (defaults to `http://127.0.0.1:8000`), `NEXT_PUBLIC_BASE_PATH`
 
 ---
@@ -1719,6 +1731,102 @@ gap: a small in-app contact form for logged-in members.
   `if user and product` skip in `admin_update_lead_status`'s status-change email (already silently
   skips for product-less `card_order` leads today — `general_inquiry` leads inherit the same
   limitation, not a new gap introduced here).
+
+---
+
+## E2E Test Automation (session 2026-08-12)
+
+Every feature session up to this point ended with real, valuable manual browser verification via
+a scratch (never committed) Playwright install — and it repeatedly caught regressions unit tests
+structurally cannot: the `isLocked()` timezone bug (Per-Account Lockout session, only visible by
+rendering a real DOM against a real server clock) and the cart-checkout stale-quantity bug
+(Back-Office Orders Phase 1 — its pytest regression test posts a JSON body directly, so it can't
+catch a regression in the actual quantity-stepper UI that builds that payload). This session turns
+three of those into a permanent, CI-gated suite. **Starter set, not exhaustive** — three specs,
+each chosen because it maps to a real historical bug or a just-shipped feature, Chromium only.
+
+- **`@playwright/test` added as a `frontend/` devDependency**, `frontend/playwright.config.ts`
+  (new). Uses Playwright's **`webServer` array** (it supports launching multiple processes) so
+  `npx playwright test` alone brings up both `uvicorn` and `next dev` and tears them down —
+  `reuseExistingServer: !process.env.CI` (Playwright's own default) means a developer's
+  already-running local servers are reused unchanged, and only CI launches fresh ones.
+- **`workers: 1` and a 15s `expect.timeout`, not defaults** — found live, not assumed: an initial
+  run with default parallelism showed 2 of 3 specs failing at "still on `/he/login/`" after
+  successful backend logins (confirmed via a scratch debug spec with console/network logging — the
+  login itself always succeeded). Root cause: `next dev` compiles each route on first visit, and
+  multiple spec files hitting different not-yet-compiled routes **concurrently** exceeded the
+  default 5s assertion timeout. Serializing execution (`workers: 1`) also removes a second,
+  separate class of flakiness for free — all 3 specs share one real backend process, so its
+  rate-limiter state and DB are genuinely shared across files, not just within one.
+- **`LOGIN_RATE_LIMIT` env var added to `backend/app/routers/auth.py`** (defaults to the unchanged
+  `"5/minute"`), overridden to `100/minute` only in `playwright.config.ts`'s `webServer` env for
+  the backend process it launches. Necessary because `slowapi`'s per-IP limit on `/auth/login`
+  counts **every** request regardless of which account, and the 3 specs collectively make ~7 login
+  requests across different accounts within one run — comfortably past 5/minute even after the
+  per-account isolation below. Every real deployment (Render, local dev) is unaffected by leaving
+  it unset.
+- **A dedicated `E2E_LOCKOUT_EMAIL`, separate from `E2E_MEMBER_EMAIL`** — `auth.spec.ts` locks its
+  test account for real; using the same account the other two specs log in as would break them
+  whenever they happen to run after it (spec files have no guaranteed order).
+- **Unique-per-run subject text in `contact-us.spec.ts`** (`` `שאלה בדיקת E2E ${Date.now()}` ``),
+  found live via the plan's own "deliberately break one assertion" sanity check: a CI retry
+  re-submits the whole test from scratch, and a fixed subject string would create a second lead
+  with identical text, turning the final `getByText(SUBJECT)` assertion into a **strict-mode
+  "multiple elements matched" failure** instead of a clean pass on the retry that was supposed to
+  recover — a retry that couldn't actually recover.
+- **`data-testid={`product-tile-${product.title_he}`}`** added to `ProductTile.tsx`'s root
+  element — the only production-code change purely for testability. Needed because the card is an
+  unstyled/unlabeled `<div>`, and scoping "the Add to Cart button *for this specific product*"
+  without it would require fragile DOM-ancestor traversal across a page that can render several
+  product cards at once.
+- **`backend/scripts/seed_e2e.py`** (new) — idempotent (query by natural key before insert, same
+  shape as `seed.py`'s own idempotency check), creates exactly what the 3 specs need: one active
+  `Vertical`, 2 `Product`s, three `User`s (member, admin, dedicated lockout account), and lowers
+  `max_failed_login_attempts` to `3` via `SystemSetting` so the lockout spec's 4-request sequence
+  stays under the rate limit even before the `LOGIN_RATE_LIMIT` fix above. Run via `python -m
+  scripts.seed_e2e` after a **real** `alembic upgrade head` (not `conftest.py`'s
+  `metadata.create_all()`) against a dedicated `DATABASE_URL` — this also means every E2E run is
+  incidental extra confidence that the full migration chain applies cleanly. `backend/app/seed.py`
+  (the pre-existing legacy seed script) was confirmed to only cover the benefits catalog — no
+  `Vertical`/`Product`/`Vendor` rows — so it wasn't reusable here.
+- **`security.py`'s `JWT_SECRET_KEY`-required-when-`DATABASE_URL`-is-set fail-fast guard
+  (Backend Security Hardening session) fires for the E2E DB too** — found live the first time the
+  seed script was run (`DATABASE_URL` set, `JWT_SECRET_KEY` not), since the guard's "is this a real
+  deployment" signal is exactly `DATABASE_URL` being set, regardless of whether the DB is actually
+  a throwaway local SQLite file. Both env vars are set together everywhere the E2E DB is touched
+  (CI job env, the "How to Run" commands above).
+- **New `e2e-tests` job in `.github/workflows/deploy.yml`**, `needs: [backend-tests,
+  frontend-checks]` (don't spend E2E time on a branch that fails cheaper checks first); `build`'s
+  `needs:` extended to include it, so a broken E2E flow blocks deploy with the same power unit
+  tests already have. Steps: install backend+frontend deps, `playwright install --with-deps
+  chromium`, `alembic upgrade head` + `seed_e2e.py` against a job-scoped `DATABASE_URL`, `npx
+  playwright test` (its `webServer` launches both processes fresh since nothing's already
+  listening in a clean runner), Playwright HTML report uploaded as a build artifact on failure.
+- **`frontend/vitest.config.mts`** gained `test.exclude: [...configDefaults.exclude, 'e2e/**']` —
+  without it, Vitest's default glob would also try to collect and run the new Playwright specs
+  (different `test`/`expect` globals, would fail immediately).
+- **Verified end-to-end, three separate ways**: (1) against already-running local dev servers
+  pointed at a freshly seeded `e2e_tivuta.db` — 3/3 pass; (2) a full CI-style dry run letting
+  Playwright's own `webServer` launch both processes fresh (`CI=1`, venv's `uvicorn` prepended onto
+  `PATH` to avoid a stale, unrelated global `uvicorn` 0.16.0/Python 3.6 install shadowing this
+  project's — a real, documented local-only caveat, irrelevant in CI's clean venv-less `pip
+  install`) — 3/3 pass, and confirmed Playwright tears down both spawned processes cleanly
+  afterward; (3) the plan's own "deliberately break one assertion" check — broke
+  `contact-us.spec.ts`'s final assertion, confirmed a real failure (which is what surfaced the
+  strict-mode retry bug above), reverted, confirmed green again. `npm run test` (Vitest) still 2
+  files/7 tests, unaffected. `pytest` still 19/19 (the `LOGIN_RATE_LIMIT` env var defaults to the
+  unchanged `"5/minute"` when unset, which it is in the pytest environment). `js-yaml` confirmed
+  `build.needs` includes `e2e-tests` and `e2e-tests.needs` includes both existing jobs.
+  `frontend/.gitignore` gained `test-results/`, `playwright-report/`, `blob-report/`,
+  `playwright/.cache/` — Playwright's own generated-artifact directories.
+- **Explicitly out of scope, deferred**: testing against the real static export (`next build` +
+  serving `/out`) rather than `next dev` — matches every manual verification already done in this
+  project, a reasonable future upgrade rather than a blocker for this starter pass; Firefox/WebKit
+  projects; exhaustive flow coverage (admin bulk actions, vendor portal, loyalty/sales,
+  distributions) — 3 specs chosen for mapping to real bugs/features, not full coverage; a
+  `webServer` command that resolves `.venv`'s `uvicorn` automatically on a developer's machine
+  (documented caveat instead, falls back correctly via `reuseExistingServer` in the common case of
+  an already-running local backend).
 
 ---
 

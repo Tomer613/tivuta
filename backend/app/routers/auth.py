@@ -25,6 +25,14 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 RESET_TOKEN_EXPIRE_MINUTES = 60
 
+# Overridable only so the E2E test suite (frontend/e2e/) can raise this well above its own
+# default — the suite's specs collectively make several /auth/login requests across different
+# accounts within the same test run, all counted against the same per-IP bucket regardless of
+# account (unlike the separate per-account lockout, which IS account-scoped). Every real
+# deployment (Render, local dev) is unaffected: unset LOGIN_RATE_LIMIT and this is exactly the
+# "5/minute" it always was.
+LOGIN_RATE_LIMIT = os.environ.get("LOGIN_RATE_LIMIT", "5/minute")
+
 
 @router.post("/signup", response_model=schemas.UserRead)
 @limiter.limit("10/hour")
@@ -49,7 +57,7 @@ def signup(request: Request, user_in: schemas.UserCreate, db: Session = Depends(
 
 
 @router.post("/login", response_model=schemas.Token)
-@limiter.limit("5/minute")
+@limiter.limit(LOGIN_RATE_LIMIT)
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
     if user:

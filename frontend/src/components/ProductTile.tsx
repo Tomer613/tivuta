@@ -151,6 +151,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
 
     return (
         <div className="group flex flex-col h-full bg-[#0e1628] rounded-2xl border border-[#d4af37]/20 overflow-hidden shadow-sm text-start"
+            data-testid={`product-tile-${product.title_he}`}
             style={{ transition: 'transform 0.45s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.4s ease, border-color 0.3s ease' }}
             onMouseEnter={e => {
                 (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-8px)';
