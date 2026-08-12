@@ -933,3 +933,9 @@ class DashboardData(BaseModel):
     total_savings: float
     monthly_expenses: float
     recent_orders: List[OrderRead]
+
+class PageViewCreate(BaseModel):
+    path: str = Field(..., max_length=255)
+    locale: Optional[str] = Field(None, max_length=5)
+    visitor_id: Optional[str] = Field(None, max_length=40)
+    referrer: Optional[str] = Field(None, max_length=500)

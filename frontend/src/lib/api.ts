@@ -1266,6 +1266,35 @@ export async function trackProductView(productId: number) {
     fetch(`${BASE_URL}/products/${productId}/view`, { method: 'POST' }).catch(() => {});
 }
 
+// First-party pageview analytics — see CLAUDE.md's "Self-Hosted Analytics" session
+export function trackPageview(path: string, locale: string, visitorId: string, referrer: string) {
+    fetch(`${BASE_URL}/analytics/pageview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, locale, visitor_id: visitorId, referrer }),
+    }).catch(() => {});
+}
+
+export interface AnalyticsSummary {
+    trend: { date: string; count: number }[];
+    totals: {
+        pageviews_today: number;
+        pageviews_7d: number;
+        pageviews_30d: number;
+        unique_visitors_today: number;
+        unique_visitors_7d: number;
+        unique_visitors_30d: number;
+    };
+    top_pages: { path: string; count: number }[];
+    locale_breakdown: Record<string, number>;
+}
+
+export async function adminGetAnalyticsSummary(token: string, days: number = 14): Promise<AnalyticsSummary> {
+    const res = await fetch(`${BASE_URL}/admin/analytics/summary?days=${days}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load analytics');
+    return res.json();
+}
+
 // My orders
 export async function getMyOrders(token: string) {
     const res = await fetch(`${BASE_URL}/orders/me`, { headers: authHeaders(token) });

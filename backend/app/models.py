@@ -464,6 +464,20 @@ class SystemSetting(Base):
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 
+class PageView(Base):
+    """First-party, anonymous pageview log — see CLAUDE.md's 'Self-Hosted Analytics' session.
+    No IP address, no PII, no cross-site cookie; visitor_id is a client-generated random UUID
+    stored in localStorage, purely for approximate unique-visitor counts."""
+    __tablename__ = "page_views"
+
+    id = Column(Integer, primary_key=True, index=True)
+    path = Column(String(255), nullable=False, index=True)
+    locale = Column(String(5), nullable=True)
+    visitor_id = Column(String(40), nullable=True, index=True)
+    referrer = Column(String(500), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class SaleTransaction(Base):
     """
     Source of truth for an in-store sale reported by a vendor on behalf of a Tivuta member.

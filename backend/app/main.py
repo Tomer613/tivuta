@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from .rate_limit import limiter
-from .routers import auth, catalog, distributions, favorites, leads, notifications, products, promotions, reviews, sales, share, surveys, translate, users, vendor_portal, vendors, verticals
+from .routers import analytics, auth, catalog, distributions, favorites, leads, notifications, products, promotions, reviews, sales, share, surveys, translate, users, vendor_portal, vendors, verticals
 
 # Error monitoring — inert until SENTRY_DSN is set (same "skip until configured" pattern as
 # get_email_sender()/get_image_storage()). No traces_sample_rate: errors only, no APM/tracing.
@@ -104,3 +104,4 @@ app.include_router(sales.router)
 app.include_router(vendor_portal.router)
 app.include_router(verticals.router)
 app.include_router(share.router)
+app.include_router(analytics.router)

@@ -71,7 +71,8 @@ tivuta/
 │   │       ├── bbcdc94e0e14_add_vendor_purchase_batches.py
 │   │       ├── 50da6b936e9b_add_vendor_specialty_contact_fields.py
 │   │       ├── 1d4d53ad9e19_add_login_lockout_fields.py
-│   │       └── 1093f7288549_add_lead_subject_message.py            ← newest (head)
+│   │       ├── 1093f7288549_add_lead_subject_message.py
+│   │       └── 4edae04e4800_add_page_views.py                      ← newest (head)
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │
@@ -148,6 +149,7 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `points_ledger_entries` | Append-only per-user points history (accrual/redemption/adjustment/clawback) |
 | `commission_settlement_periods` | Admin-driven periodic reconciliation of vendor commission owed |
 | `vendor_purchase_batches` | Consolidates `Lead` line items from many different `customer_orders` that share a vendor into one procurement action; `batch_number` computed from `id`, not stored (see "Back-Office Orders Phase 2") |
+| `page_views` | First-party, anonymous pageview log — `visitor_id` is a client-generated random UUID (localStorage, not a cookie), no IP address stored (see "Self-Hosted Analytics" below) |
 
 ---
 
@@ -1552,7 +1554,8 @@ don't get their own indexed search-result page; that was an explicit, discussed 
   record** (no script ever loads, filter-safe) rather than the meta-tag method — this is a manual
   step in the domain registrar, not something this repo can do. If traffic analytics are wanted
   later, that's a separate, deliberately-deferred decision (e.g. a self-hosted/privacy-respecting
-  option), not bundled into this SEO work.
+  option), not bundled into this SEO work. **Update (session 2026-08-12): built — see "Self-Hosted
+  Analytics" below.**
 - **Not done, and explicitly out of scope for this session** (found in the same audit, kept as a
   backlog item): zero automated tests, no rate limiting on `/auth/login`/password-reset, no
   CSP/HSTS/X-Frame-Options headers, no error monitoring (Sentry or similar), no lint/test step in
@@ -1902,6 +1905,79 @@ Two of the three "deliberately not changed" items above were small enough to jus
   the job graph and new step names resolve as intended. The caching behavior itself (actual
   cache-hit speedup) can only be observed on a real GitHub Actions run, not locally — expected to
   show up as a faster `e2e-tests` job on the *second* run after this change ships, not the first.
+
+---
+
+## Self-Hosted Analytics (session 2026-08-12)
+
+The SEO session explicitly rejected Google Analytics: `googletagmanager.com` is an external CDN
+domain, and this project's own "Haredi Internet Filter Compatibility" principle warns that kosher
+content filters commonly block exactly that class of external script/domain. The result was zero
+traffic visibility into the live site since launch. Built a minimal **first-party** analytics
+feature entirely inside the existing stack instead of standing up a separate self-hosted tool
+(Plausible, Umami, etc.) — those would need their own hosting + database, a bigger infra lift
+than this single-Render-service architecture currently supports. Every piece deliberately reuses
+an already-established pattern rather than introducing a new one:
+
+- **`page_views` table** (`backend/app/models.py`) — `path`, `locale`, `visitor_id` (a
+  client-generated random UUID stored in `localStorage`, not a cookie, never sent cross-site — no
+  IP address is ever stored), `referrer`, `created_at`. New migration
+  (`4edae04e4800_add_page_views.py`), plain `op.create_table`, no backfill.
+- **`POST /analytics/pageview`** (`backend/app/routers/analytics.py`) — no auth, mirrors
+  `POST /products/{id}/view` exactly (plain insert, no validation beyond the schema, never fails
+  loudly). `trackPageview()` (`frontend/src/lib/api.ts`) mirrors `trackProductView()`'s exact
+  fire-and-forget shape: `fetch(...).catch(() => {})`, never awaited.
+- **`GET /admin/analytics/summary?days=N`** — one query, one response: loads every `PageView` row
+  in the window once and aggregates trend/totals/top-pages/locale-breakdown from that same result
+  set in Python, matching `GET /admin/leads/stats`'s exact "load everything, bucket in code, no
+  SQL `GROUP BY`" shape (chosen there originally for cross-DB portability between SQLite dev and
+  Postgres prod). No `response_model` either, matching that endpoint's convention of returning a
+  plain dict for stats-shaped responses.
+- **`top_pages` groups on the path with its query string stripped** (`path.split("?")[0]`) — the
+  full path (with query) is still stored per-row for fidelity, but an ungrouped top-pages list
+  would otherwise fragment into one row per individual `?id=`/`?slug=` value and be useless as a
+  "top pages" view. Verified live: two `/he/products?id=1` hits correctly collapsed into one
+  `/he/products` entry with count 2.
+- **`PageviewTracker`** (`frontend/src/components/PageviewTracker.tsx`) — `'use client'`,
+  `usePathname()`/`useSearchParams()`, fires on mount and every client-side route change (there's
+  no server-side request log to instrument under `output: 'export'`, so every real pageview is
+  necessarily a client-side event — and, as a free side effect, classic non-JS crawlers/bots never
+  trigger anything, since nothing server-side observes their hits at all). Mounted in
+  `[locale]/layout.tsx` alongside `<SentryInit />`, wrapped in `<Suspense>` — the same requirement
+  `ProductQueryPage` already hit for `useSearchParams()` under static export (Public
+  Product-Sharing session).
+- **`getOrCreateVisitorId()`** (`frontend/src/lib/visitorId.ts`) — `crypto.randomUUID()` under
+  `localStorage['tivuta_visitor_id']`, the same client-side-UUID pattern already established by
+  the vendor portal's idempotency-key generation (Loyalty Phase 3). Verified live: the same id
+  persists across a page reload.
+- **New admin page `admin/analytics/page.tsx`** (new "תנועה" nav tab in `admin/layout.tsx`) — stat
+  cards (pageviews + unique visitors, today/7d/30d), a 14/30/90-day trend chart reusing
+  `LeadsChart`'s exact hand-rolled `<div>` flex-bar visual (not `recharts` — confirmed that
+  dependency is only actually used by the unrelated legacy `benefits/[locale]/dashboard`, so
+  introducing it here would've meant maintaining two charting approaches for no reason), a
+  top-pages table, and a locale breakdown. Single `adminGetAnalyticsSummary(token, days)` call per
+  page load, matching `admin/loyalty/page.tsx`'s established self-contained single-file shape.
+- **Verified end-to-end** with a real browser session (Playwright): a logged-out visit to the
+  public `/products?id=` page correctly tracked a pageview; `visitor_id` confirmed stable across a
+  reload; browsing across `he`/`en` locales and multiple routes while logged in produced a
+  dashboard that correctly showed matching pageview/unique-visitor totals, a trend bar on the
+  right day, top pages grouped and counted correctly, and a locale breakdown matching the actual
+  mix of pages visited — zero console errors throughout. Backend: 21/21 tests pass (2 new,
+  covering pageview creation and every aggregation bucket — today/7d/30d totals, unique-visitor
+  dedup, top-pages grouping, locale breakdown — against directly-seeded rows with controlled
+  `created_at` values). Frontend: build (new `/admin/analytics` route confirmed built for all 4
+  locales), Vitest (7/7) both green; lint added exactly one new instance of this codebase's
+  pre-existing `setLoading(true)`-inside-`useEffect` pattern (already present, unfixed, in 9+
+  other admin pages — matching that established convention was the deliberate choice here, not an
+  oversight of a new problem).
+- **Explicitly out of scope, deferred**: no `user_id` attribution (v1 stays purely anonymous — an
+  optional-auth dependency doesn't exist anywhere in `security.py` today, confirmed absent during
+  the Public Product-Sharing session too; adding one just for this would be more new surface than
+  a traffic-visibility MVP needs); no admin/internal-traffic exclusion (would need the same
+  user-attribution mechanism); no data-retention/pruning job (the table grows unbounded for now —
+  revisit if row count ever becomes a real query-time or storage concern); the legacy
+  `benefits/[locale]/*` sub-app is not instrumented, consistent with every recent session treating
+  it as frozen.
 
 ---
 

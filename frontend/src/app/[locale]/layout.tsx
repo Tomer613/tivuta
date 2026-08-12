@@ -1,10 +1,12 @@
 import "../globals.css";
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import localFont from 'next/font/local';
 import RootHeader from "@/components/RootHeader";
 import SiteFooter from "@/components/SiteFooter";
 import AccessibilityWidget from "@/components/AccessibilityWidget";
 import SentryInit from "@/components/SentryInit";
+import PageviewTracker from "@/components/PageviewTracker";
 import { AuthProvider } from "@/context/AuthContext";
 import { AccessibilityProvider } from "@/context/AccessibilityContext";
 import { CartProvider } from "@/context/CartContext";
@@ -127,6 +129,9 @@ export default async function RootLayout({
                     <AccessibilityWidget />
                 </AccessibilityProvider>
                 <SentryInit />
+                <Suspense fallback={null}>
+                    <PageviewTracker />
+                </Suspense>
             </body>
         </html>
     );
