@@ -2093,6 +2093,91 @@ not turning anything on.
 
 ---
 
+## PDF Export for Vendor Purchase-Batch Documents (session 2026-08-12)
+
+The Vendor Purchase Batches session (Back-Office Orders Phase 2) built print + CSV export for the
+picking/packing-list documents an admin uses when a consolidated vendor order arrives, explicitly
+noting "a 3rd 'PDF' document option is planned for later, not built now." This session built it —
+one-click direct `.pdf` download, no browser print dialog, alongside the existing print/CSV
+buttons.
+
+- **New dependencies**: `jspdf` + `jspdf-autotable`, dynamically imported inside `exportPdf()`
+  (`await import('jspdf')`/`await import('jspdf-autotable')`) rather than a top-level static
+  import — same lazy-load pattern as `lib/sentry.ts`'s `loadSentry()`, so the library only enters
+  the bundle when an admin actually clicks a PDF button.
+- **`frontend/src/lib/printDocument.ts`'s new `exportPdf(title, filename, headers, rows)`** —
+  same signature shape as the pre-existing `openPrintableTable()`/`downloadCsv()`, so all three
+  buttons share one already-computed `{headers, rows}` per document. Embeds the site's existing
+  self-hosted `Heebo-Regular.ttf` (fetched from `/fonts/`, base64-encoded, registered via jsPDF's
+  `addFileToVFS`/`addFont`) since jsPDF's built-in fonts have no Hebrew glyphs.
+- **`admin/vendors/page.tsx`** — factored each document type's row computation into
+  `getPickingListData(batch)`/`getPackingListData(batch)` (each returning `{headers, rows}`),
+  reused by that type's print, CSV, *and* new PDF handler instead of each button recomputing an
+  identical array independently (previously duplicated once per button; a 3rd button was the
+  natural point to stop tripling it). Added a `FileText`-icon "PDF" button next to the existing
+  print/CSV buttons for both the picking list and packing list.
+
+### The RTL rendering bug — full account, so a future session doesn't re-tread this
+Getting this to actually *look* correct in Hebrew took several wrong turns, each disproven only by
+rendering real output and looking at it — **PDF text-extraction order does not reliably reflect
+visual rendering for RTL content**, so the `Read` tool run directly on a `.pdf` file is not a valid
+way to check this; a downloaded PDF was rasterized to PNG via a throwaway
+`ubuntu:22.04` + `poppler-utils`(`pdftoppm`) Docker container and inspected as an image instead
+(Playwright can't help here either — `page.goto('file://*.pdf')` triggers a browser download, not
+a render, confirmed via `Error: page.goto: Download is starting`).
+
+- **Font-fallback garbage glyphs**: `jspdf-autotable`'s `headStyles.fontStyle` defaults to
+  `'bold'`; only the `'normal'` Heebo weight was ever registered via `addFont`, so a bold header
+  cell silently fell back to a built-in font with no Hebrew glyphs at all (visual garbage, not
+  just wrong order). Fixed by forcing `fontStyle: 'normal'` everywhere text uses the Heebo font.
+- **`doc.setR2L(true)` reverses *any* string passed to `doc.text()`, but `jspdf-autotable`'s own
+  per-cell rendering only needs that reversal for cells that actually contain Hebrew** — a cell
+  mixing Hebrew and Latin (a product name like "טבעת PDF בדיקה") renders correctly on its own once
+  `setR2L(true)` is active (some internal run-aware handling kicks in once Hebrew is detected), but
+  a cell that's *purely* Latin/digit (an order number, a phone number) gets no such handling and is
+  reversed character-by-character as one blob — confirmed via a rasterized screenshot showing
+  `ORD-000005` rendered as `500000-DRO` and `0501112222` as `2222111050`. **Fix**: `fixRtlCell()`
+  in `printDocument.ts` pre-reverses any cell whose content contains no Hebrew Unicode-range
+  character (`/[֐-׿]/`) before handing it to `autoTable` — its own reversal then lands
+  it back in correct reading order. A Hebrew-containing cell passes through untouched.
+  - **Column order is still reversed separately** (`[...headers].reverse()`) to match RTL reading
+    order — `jspdf-autotable` lays columns out left-to-right positionally with no RTL table option
+    of its own; this is independent of, and composes with, `fixRtlCell`.
+- **The title/timestamp lines (drawn via direct `doc.text()`, not through the table) needed a
+  different fix for the same root cause**: a title like `"רשימת ליקוט — PB-002-000001"` mixes a
+  Hebrew phrase with a Latin/digit identifier in one string, but unlike a table cell there's no
+  per-string Hebrew-detection happening for direct `doc.text()` — the whole string gets reversed
+  as one blob regardless. `drawLabelledLine(label, value, y)` splits the two into separate
+  `doc.text()` calls: the Hebrew `label` is drawn normally (benefits from `setR2L(true)`'s
+  reversal, same as a Hebrew-containing cell would), while the Latin/digit `value` is drawn with
+  `setR2L(false)` toggled just for that one call (then immediately restored to `true`) so it's
+  never reversed in the first place — positioned immediately left of the label via
+  `doc.getTextWidth(label)`.
+- **False leads ruled out along the way, kept here so they aren't retried**: a hand-rolled
+  bidi/run-splitting reversal function (abandoned — reinvented a worse version of what `setR2L`
+  already does for the cases it does handle); routing the title through `autoTable` as its own
+  single-cell/colSpan header row instead of direct `doc.text()` (inconsistent — still reversed the
+  identifier in some content shapes); removing `setR2L` entirely and routing title+timestamp+table
+  all through one `autoTable` call (this *regressed* the previously-correct table rendering too —
+  disproving the theory that `autoTable`'s per-cell handling is bidi-safe independent of `setR2L`;
+  it turned out to depend on `setR2L(true)` being active, just handling Hebrew-containing cells
+  more gracefully than direct `doc.text()` does under the same setting).
+- **Verified end-to-end** via the Docker/poppler rasterization method above: a real picking-list
+  PDF (title with embedded batch number, timestamp, 2-row table mixing Hebrew product names with
+  "PDF" substrings) and a real packing-list PDF (5-column table including pure-digit order numbers
+  and phone numbers) both confirmed pixel-correct after the `fixRtlCell` fix — Hebrew right-to-left
+  throughout, embedded Latin/digit identifiers left-to-right and unreversed, correct RTL column
+  order, zero console errors during generation. Existing print/CSV buttons re-confirmed unaffected
+  by the row-computation refactor (same `{headers, rows}` feeds all three). `npx tsc --noEmit`,
+  `npm run lint` (no new issues in touched files), and `npm run build` all clean.
+- **Explicitly out of scope, deferred**: backend-generated PDFs (stays entirely client-side,
+  consistent with this codebase's existing "no HTML-string-building backend endpoints" decision for
+  these documents); PDF export anywhere else in the app (scoped to the two vendor purchase-batch
+  documents this was explicitly deferred for); custom page headers/footers/logos/branding inside
+  the PDF (a plain title + table, matching the existing print/CSV documents' own plainness).
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -2131,6 +2216,7 @@ not turning anything on.
 - **An explicit lockout message is an acceptable, deliberate email-enumeration trade-off**: HTTP 423 with a specific "too many attempts" message is distinguishable from a generic wrong-password 401, which could in principle confirm an email is registered. Accepted because `POST /auth/signup` already discloses this via "Email already registered" on a duplicate — a cheaper, faster oracle than anything the lockout message adds. Don't use this same reasoning to justify *new* enumeration surfaces elsewhere without re-checking whether an equivalent cheaper leak already exists there too.
 - **A lead's `customer_order_id` is the switch between two admin tabs, not just a nullable FK**: `NULL` means "surface in `/admin/leads`" (today, exclusively `general_inquiry`), non-`NULL` means "surface in `/admin/orders`." Any future new `lead_type` needs a deliberate choice of which tab it belongs in, not just a schema addition — get it wrong and the lead either vanishes from both tabs or double-counts logic that assumes one or the other.
 - **Customer-submitted free text and admin-authored free text are never the same column, even when both are just strings**: `Lead.subject`/`Lead.message` (customer's original inquiry) are kept separate from `Lead.notes` (admin's follow-up remarks, overwritten via `PATCH /admin/leads/{id}/notes` with no audit trail on overwrite) for the same reason `shipping_address` was already kept separate from `notes` for `card_order` leads — an admin's edit to "their" field should never be able to silently destroy the customer's original words.
+- **jsPDF's `setR2L(true)` only handles RTL reversal correctly for strings that actually contain a Hebrew character** — a table cell or line mixing Hebrew and Latin/digits (a product name with an embedded "PDF") is fine on its own once `setR2L(true)` is active, but a *purely* Latin/digit string (an order number, a phone number) gets blindly reversed character-by-character with no Hebrew-detection safety net. `printDocument.ts`'s `fixRtlCell()` pre-reverses any Hebrew-free table cell before it reaches `jspdf-autotable` so the library's own reversal cancels back out; direct `doc.text()` calls (the title/timestamp lines) instead toggle `setR2L(false)` off just long enough to draw a pure-Latin/digit value, then restore it to `true`. Any future PDF export in this codebase mixing Hebrew and Latin/digit content needs one of these two techniques, not a fresh assumption that `setR2L(true)` "just works."
 
 ---
 

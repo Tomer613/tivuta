@@ -9,8 +9,8 @@ import {
     CustomerOrder, VendorPurchaseBatch, Vendor, VendorDayAvailability,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
-import { openPrintableTable, downloadCsv } from '@/lib/printDocument';
-import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet, Boxes, Printer, Download, Square, CheckSquare } from 'lucide-react';
+import { openPrintableTable, downloadCsv, exportPdf } from '@/lib/printDocument';
+import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet, Boxes, Printer, Download, FileText, Square, CheckSquare } from 'lucide-react';
 
 const BATCH_STATUS_LABEL: Record<string, string> = { open: 'פתוחה', ordered: 'הוזמנה', received: 'התקבלה' };
 const BATCH_STATUS_COLOR: Record<string, string> = {
@@ -391,46 +391,59 @@ export default function AdminVendorsPage() {
         }
     };
 
-    const printPickingList = (batch: VendorPurchaseBatch) => {
+    // Computed once per document type, reused by that type's print/CSV/PDF buttons — previously
+    // each button independently recomputed the identical rows; a 3rd (PDF) consumer was the
+    // natural point to stop tripling it.
+    const getPickingListData = (batch: VendorPurchaseBatch) => {
         const byProduct = new Map<string, number>();
         batch.items.forEach((i) => {
             const key = i.product_title_he || '—';
             byProduct.set(key, (byProduct.get(key) || 0) + (i.quantity || 1));
         });
-        const rows = Array.from(byProduct.entries()).map(([product, qty]) => [product, qty]);
-        openPrintableTable(`רשימת ליקוט — ${batch.batch_number}`, ['מוצר', 'כמות כוללת'], rows);
+        return { headers: ['מוצר', 'כמות כוללת'], rows: Array.from(byProduct.entries()).map(([product, qty]) => [product, qty] as (string | number)[]) };
+    };
+
+    const getPackingListData = (batch: VendorPurchaseBatch) => ({
+        headers: ['הזמנה', 'לקוח', 'יצירת קשר', 'מוצר', 'כמות'],
+        rows: batch.items.map((i) => [
+            i.order_number || '—',
+            i.user_name || '—',
+            i.user_phone || i.user_email || '—',
+            i.product_title_he || '—',
+            i.quantity || 1,
+        ] as (string | number)[]),
+    });
+
+    const printPickingList = (batch: VendorPurchaseBatch) => {
+        const { headers, rows } = getPickingListData(batch);
+        openPrintableTable(`רשימת ליקוט — ${batch.batch_number}`, headers, rows);
     };
 
     const exportPickingListCsv = (batch: VendorPurchaseBatch) => {
-        const byProduct = new Map<string, number>();
-        batch.items.forEach((i) => {
-            const key = i.product_title_he || '—';
-            byProduct.set(key, (byProduct.get(key) || 0) + (i.quantity || 1));
-        });
-        const rows = Array.from(byProduct.entries()).map(([product, qty]) => [product, qty]);
-        downloadCsv(`picking-list-${batch.batch_number}.csv`, ['מוצר', 'כמות כוללת'], rows);
+        const { headers, rows } = getPickingListData(batch);
+        downloadCsv(`picking-list-${batch.batch_number}.csv`, headers, rows);
+    };
+
+    const exportPickingListPdf = (batch: VendorPurchaseBatch) => {
+        const { headers, rows } = getPickingListData(batch);
+        exportPdf(`רשימת ליקוט — ${batch.batch_number}`, `picking-list-${batch.batch_number}.pdf`, headers, rows)
+            .catch((err) => showToast(getErrorMessage(err, 'שגיאה ביצירת PDF'), 'error'));
     };
 
     const printPackingList = (batch: VendorPurchaseBatch) => {
-        const rows = batch.items.map((i) => [
-            i.order_number || '—',
-            i.user_name || '—',
-            i.user_phone || i.user_email || '—',
-            i.product_title_he || '—',
-            i.quantity || 1,
-        ]);
-        openPrintableTable(`רשימת חלוקה — ${batch.batch_number}`, ['הזמנה', 'לקוח', 'יצירת קשר', 'מוצר', 'כמות'], rows);
+        const { headers, rows } = getPackingListData(batch);
+        openPrintableTable(`רשימת חלוקה — ${batch.batch_number}`, headers, rows);
     };
 
     const exportPackingListCsv = (batch: VendorPurchaseBatch) => {
-        const rows = batch.items.map((i) => [
-            i.order_number || '—',
-            i.user_name || '—',
-            i.user_phone || i.user_email || '—',
-            i.product_title_he || '—',
-            i.quantity || 1,
-        ]);
-        downloadCsv(`packing-list-${batch.batch_number}.csv`, ['הזמנה', 'לקוח', 'יצירת קשר', 'מוצר', 'כמות'], rows);
+        const { headers, rows } = getPackingListData(batch);
+        downloadCsv(`packing-list-${batch.batch_number}.csv`, headers, rows);
+    };
+
+    const exportPackingListPdf = (batch: VendorPurchaseBatch) => {
+        const { headers, rows } = getPackingListData(batch);
+        exportPdf(`רשימת חלוקה — ${batch.batch_number}`, `packing-list-${batch.batch_number}.pdf`, headers, rows)
+            .catch((err) => showToast(getErrorMessage(err, 'שגיאה ביצירת PDF'), 'error'));
     };
 
     return (
@@ -920,6 +933,9 @@ export default function AdminVendorsPage() {
                                                             <button onClick={() => exportPickingListCsv(b)} className="p-1.5 rounded-lg bg-[#0e1628] text-[#d4af37]/70 hover:text-[#d4af37]" title="CSV">
                                                                 <Download size={13} />
                                                             </button>
+                                                            <button onClick={() => exportPickingListPdf(b)} className="p-1.5 rounded-lg bg-[#0e1628] text-[#d4af37]/70 hover:text-[#d4af37]" title="PDF">
+                                                                <FileText size={13} />
+                                                            </button>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center justify-between">
@@ -930,6 +946,9 @@ export default function AdminVendorsPage() {
                                                             </button>
                                                             <button onClick={() => exportPackingListCsv(b)} className="p-1.5 rounded-lg bg-[#0e1628] text-[#d4af37]/70 hover:text-[#d4af37]" title="CSV">
                                                                 <Download size={13} />
+                                                            </button>
+                                                            <button onClick={() => exportPackingListPdf(b)} className="p-1.5 rounded-lg bg-[#0e1628] text-[#d4af37]/70 hover:text-[#d4af37]" title="PDF">
+                                                                <FileText size={13} />
                                                             </button>
                                                         </div>
                                                     </div>
