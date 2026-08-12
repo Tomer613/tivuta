@@ -70,7 +70,8 @@ tivuta/
 │   │       ├── 861a4db9d155_add_customer_orders.py
 │   │       ├── bbcdc94e0e14_add_vendor_purchase_batches.py
 │   │       ├── 50da6b936e9b_add_vendor_specialty_contact_fields.py
-│   │       └── 1d4d53ad9e19_add_login_lockout_fields.py            ← newest (head)
+│   │       ├── 1d4d53ad9e19_add_login_lockout_fields.py
+│   │       └── 1093f7288549_add_lead_subject_message.py            ← newest (head)
 │   ├── alembic.ini
 │   └── .venv/             Python virtual environment
 │
@@ -132,7 +133,7 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `promotions` | Promotion definitions: type, channel, config JSON, dates |
 | `product_promotions` | Junction table linking products ↔ promotions (many-to-many) |
 | `customer_orders` | One row per checkout/appointment/card-order — the customer-facing order; `order_number` is computed from `id` (`ORD-{id:06d}`), not stored (see "Back-Office Orders" below) |
-| `leads` | Line items within a `customer_order` (appointment/contact-request/club-signup/card-order); `assigned_to FK→users.id` for admin assignment; `customer_order_id FK→customer_orders.id`; `quantity`/`cart_group_id` populated when created via cart checkout (see "Back-Office Orders" below) |
+| `leads` | Line items within a `customer_order` (appointment/contact-request/club-signup/card-order), **plus** `general_inquiry` leads which deliberately have `customer_order_id = NULL` (see "General Contact Us Feature" below); `assigned_to FK→users.id` for admin assignment; `customer_order_id FK→customer_orders.id`; `quantity`/`cart_group_id` populated when created via cart checkout (see "Back-Office Orders" below); `subject`/`message` populated only on `general_inquiry` leads — kept separate from the admin-editable `notes` field so an admin's follow-up remarks never overwrite the customer's original message |
 | `surveys` | Polls shown to users |
 | `survey_options` | Options within a survey (each links to a product) |
 | `survey_votes` | One vote per user per survey |
@@ -595,9 +596,9 @@ shipped the same session — see the section right below this one) builds direct
 - **Every current lead-creating path now wraps its lead(s) in a `CustomerOrder`** — not just cart
   checkouts. This was a deliberate, explicit correction from the user during planning: appointments
   and card-order requests are "orders" too, same as a product purchase; only a true general
-  "contact us" inquiry (which doesn't exist anywhere in the code yet — confirmed by search, and
-  `club_signup` is a documented `lead_type` that's never actually created) belongs in the
-  now-mostly-empty "פניות" tab going forward.
+  "contact us" inquiry belongs in the "פניות" tab. **Update (session 2026-08-12): that inquiry type
+  was built — see "General Contact Us Feature" below** (`lead_type="general_inquiry"`,
+  `customer_order_id=NULL`). `club_signup` remains a documented but never-created `lead_type`.
 - **Product-purchase creation is unified into a single code path**: `POST /leads/cart-checkout`
   (`routers/leads.py`) is now the *only* way a `contact_request` lead gets created — both "add to
   cart" (do it later) and the single-product "contact me now" button now call it (the latter with
@@ -1644,6 +1645,83 @@ account — and CORS still allowed every method/header (`allow_methods=["*"]`,
 
 ---
 
+## General Contact Us Feature (session 2026-08-12)
+
+The Back-Office Orders (Phase 1) session narrowed `GET /admin/leads` to `customer_order_id IS
+NULL` and left its own docstring noting the "פניות" (Leads/Inquiries) tab was "reserved for a
+future general 'contact us' inquiry that isn't tied to any order" — that inquiry type had never
+actually been built, so the tab had shown zero rows since that session shipped. This closes the
+gap: a small in-app contact form for logged-in members.
+
+- **New `lead_type="general_inquiry"`, deliberately NOT wrapped in a `CustomerOrder`** — the one
+  exception to every other lead-creating path in the app. `POST /leads/contact`
+  (`backend/app/routers/leads.py`) creates the `Lead` directly with `customer_order_id=None`,
+  `product_id=None`, `user_id=current_user.id`. Requires login (`get_current_user`), matching every
+  other lead-creation endpoint — **a deliberate scope decision, confirmed with the user**: an
+  anonymous/logged-out contact path would have needed new name/email/phone form fields, an
+  optional-auth dependency (no such pattern exists anywhere else in `security.py`), and
+  spam/rate-limiting design this pass didn't take on. Anonymous visitors keep using the
+  pre-existing footer `tel:`/`mailto:` links, unchanged.
+- **`Lead.subject`/`Lead.message`** (both `nullable`, new columns, `general_inquiry`-only) —
+  deliberately **not** stored in the existing `Lead.notes` field, even though `notes` was already
+  free-text and already gets set from customer input on the *appointment* creation path
+  (`payload.notes` → `Lead.notes` in `create_lead`). The reason: `notes` is also the field an admin
+  overwrites via the pre-existing `PATCH /admin/leads/{lead_id}/notes` with no history/audit kept
+  on overwrite — reusing it for the customer's original message would risk an admin's first
+  follow-up note silently destroying the inquiry that started the whole thread. Same reasoning as
+  why `shipping_address` (customer-submitted structured data) has always been kept separate from
+  `notes` (admin remarks) for `card_order` leads.
+- **Confirmation + admin-notification emails, wrapped in try/except** — `create_contact_us_lead`
+  sends both (new `CONTACT_CONFIRMATION_BODY`/`_contact_admin_notification_body()` helpers,
+  `backend/app/routers/leads.py`, same HTML-snippet style as the existing
+  `_confirmation_body`/`_admin_notification_body`). The try/except follows `create_card_order`'s
+  defensive convention (an email-provider hiccup never fails lead creation) rather than
+  `create_lead`'s/`cart_checkout`'s unguarded sends — those two pre-existing inconsistencies were
+  left alone, not retroactively "fixed" as a side effect of this feature.
+- **New page `frontend/src/app/[locale]/(protected)/contact/page.tsx`** — subject + message form,
+  modeled directly on `(public)/forgot-password/page.tsx`'s centered-card layout (same classes,
+  same icon-in-rounded-square header, same success-state pattern) rather than inventing a new
+  visual style. Being under `(protected)/`, it's automatically login-gated by the existing
+  `AuthGate` — no new auth plumbing needed; verified live that a logged-out visit redirects to
+  `/login?redirect=/contact`.
+- **`SiteFooter.tsx`'s "שלח פנייה" CTA** repointed from a plain `mailto:support@tivuta.co.il` link
+  to `<Link href={`/${locale}/contact`}>` — the `tel:`/`mailto:` info lines elsewhere in that footer
+  column are untouched, still an always-available fallback for anyone who prefers email/phone
+  directly (or who isn't logged in, since the CTA now routes them through the login wall like any
+  other protected link).
+- **Admin `admin/leads/page.tsx`**: `TYPE_LABEL` gained `general_inquiry: 'פנייה כללית'`; the
+  product column gained a third branch (alongside the existing product-title and `card_order`
+  shipping-address branches) rendering `subject` (bold) + a truncated `message` line for
+  `general_inquiry` leads instead of falling through to the `—` placeholder. The free-text search
+  box's haystack and the CSV export's "מוצר" column were both extended to include
+  `subject`/`message` too — a small, necessary addition beyond the original plan's scope, since a
+  general inquiry that couldn't be found via search or seen in an export would have undermined the
+  point of surfacing it in the admin queue at all. No other admin-page changes were needed — status
+  transitions, assignment, notes-editing, bulk actions, and the calendar/kanban views all already
+  work generically off `lead_type`/`status` and don't special-case product-bearing leads.
+- **Verified end-to-end** with a real browser session (Playwright): a logged-out visit to
+  `/he/contact` redirected to `/login?redirect=/he/contact`; a logged-in member clicking the
+  footer's "שלח פנייה" CTA landed on the new form, submitted a subject+message, and saw the inline
+  success state; logging in as admin and opening `/admin/leads` — previously always empty — showed
+  the new inquiry with the correct subject/message/type-label; the same inquiry correctly did
+  **not** appear on `/admin/orders`, confirming it stayed order-less as designed. Zero console
+  errors throughout. Backend: 19/19 tests pass (1 new, asserting the order-less-ness end-to-end
+  via both `/admin/leads` and `/admin/orders`). Frontend: build (new `/contact` route confirmed
+  built for all 4 locales), lint (184 pre-existing problems, unchanged — zero new issues), and
+  Vitest (7/7) all green. Test data cleaned up afterward (dev DB confirmed back at baseline: 4
+  users, 4 `customer_orders`, 5 `leads`).
+- **Explicitly out of scope, deferred**: anonymous/logged-out submission (confirmed with the user
+  as a deliberate scope decision, not an oversight); touching the legacy, decorative
+  `benefits/[locale]/contact/page.tsx` form (different sub-app, different footer/theme, its
+  `handleSubmit` still doesn't call any API — left as-is); a `Notification` row at creation time
+  (no existing lead-creation path creates one at creation, only on admin status-change, so this
+  follows the same convention rather than introducing a new one); fixing the pre-existing
+  `if user and product` skip in `admin_update_lead_status`'s status-change email (already silently
+  skips for product-less `card_order` leads today — `general_inquiry` leads inherit the same
+  limitation, not a new gap introduced here).
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -1680,6 +1758,8 @@ account — and CORS still allowed every method/header (`allow_methods=["*"]`,
 - **Naive-UTC timestamps are safe to display as-is, but never safe to compare against `Date.now()` without converting first**: this codebase stores/serializes datetimes as naive UTC everywhere (no timezone offset in the ISO string — same convention `confirmed_at`'s timezone-naive `datetime-local` admin inputs already rely on). That's fine for *display*. But JS's `Date` parses a date-*time* string with no timezone designator as **local time**, not UTC — a real bug this way was found and fixed in `isLocked()` (`admin/users/page.tsx`, Per-Account Login Lockout session): comparing a naive `locked_until` string directly against `Date.now()` silently mis-evaluated lock state depending on the browser's local timezone offset. Any future frontend code that needs to numerically compare a backend timestamp against "now" (not just render it) must append `Z` first.
 - **Per-account lockout is a separate, stacking layer from per-IP rate limiting, not a replacement**: `slowapi`'s `5/minute` per-IP limit (Backend Security Hardening session) and the DB-column-based per-account lockout (Per-Account Login Lockout session) both guard `/auth/login`/`/vendor-auth/login` simultaneously — the first throttles bursts from one IP regardless of account, the second locks one specific account regardless of IP. Both defaulting to the same threshold (5) is coincidental, not a shared setting; they're tuned independently (`SystemSetting` for lockout, in-code decorator args for rate limiting).
 - **An explicit lockout message is an acceptable, deliberate email-enumeration trade-off**: HTTP 423 with a specific "too many attempts" message is distinguishable from a generic wrong-password 401, which could in principle confirm an email is registered. Accepted because `POST /auth/signup` already discloses this via "Email already registered" on a duplicate — a cheaper, faster oracle than anything the lockout message adds. Don't use this same reasoning to justify *new* enumeration surfaces elsewhere without re-checking whether an equivalent cheaper leak already exists there too.
+- **A lead's `customer_order_id` is the switch between two admin tabs, not just a nullable FK**: `NULL` means "surface in `/admin/leads`" (today, exclusively `general_inquiry`), non-`NULL` means "surface in `/admin/orders`." Any future new `lead_type` needs a deliberate choice of which tab it belongs in, not just a schema addition — get it wrong and the lead either vanishes from both tabs or double-counts logic that assumes one or the other.
+- **Customer-submitted free text and admin-authored free text are never the same column, even when both are just strings**: `Lead.subject`/`Lead.message` (customer's original inquiry) are kept separate from `Lead.notes` (admin's follow-up remarks, overwritten via `PATCH /admin/leads/{id}/notes` with no audit trail on overwrite) for the same reason `shipping_address` was already kept separate from `notes` for `card_order` leads — an admin's edit to "their" field should never be able to silently destroy the customer's original words.
 
 ---
 

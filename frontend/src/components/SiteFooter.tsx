@@ -145,12 +145,12 @@ export default function SiteFooter() {
                 <div className="bg-[#0e1628] p-6 rounded-2xl border border-[#d4af37]/20 flex flex-col items-start">
                     <h3 className="text-[#f0e6d3] font-bold mb-2 text-sm">{t.service_center}</h3>
                     <p className="text-xs opacity-60 mb-5 leading-relaxed">{t.service_desc}</p>
-                    <a
-                        href="mailto:support@tivuta.co.il"
+                    <Link
+                        href={`/${locale}/contact`}
                         className="w-full bg-[#d4af37] text-[#080d1f] py-3 rounded-2xl font-bold hover:bg-[#f5d061] transition-all text-center text-sm block"
                     >
                         {t.open_ticket}
-                    </a>
+                    </Link>
                 </div>
             </div>
 

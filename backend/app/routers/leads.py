@@ -39,6 +39,27 @@ def _admin_notification_body(user: models.User, product_title: str, lead_type: s
     </div>"""
 
 
+CONTACT_CONFIRMATION_BODY = {
+    "he": "<p>תודה על פנייתך. קיבלנו את ההודעה שלך ונציג שלנו ייצור איתך קשר בהקדם.</p>",
+    "en": "<p>Thank you for your message. We've received it and a representative will get back to you shortly.</p>",
+    "fr": "<p>Merci pour votre message. Nous l'avons bien reçu et un représentant vous recontactera sous peu.</p>",
+    "yi": "<p>אַ דאַנק פֿאַר אײַער מעלדונג. מיר האָבן עס באַקומען און וועלן זיך אײַך אָנרופֿן באַלד.</p>",
+}
+
+
+def _contact_admin_notification_body(user: models.User, subject: str, message: str) -> str:
+    return f"""
+    <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
+      <h2 style="color:#b8860b;">פנייה כללית חדשה ב-TIVUTA 📩</h2>
+      <p><strong>נושא:</strong> {subject}</p>
+      <p><strong>הודעה:</strong> {message}</p>
+      <hr/>
+      <p><strong>שם:</strong> {user.first_name} {user.last_name}</p>
+      <p><strong>מייל:</strong> <a href="mailto:{user.email}">{user.email}</a></p>
+      <p><strong>טלפון:</strong> {user.phone or '—'}</p>
+    </div>"""
+
+
 STATUS_EMAIL_SUBJECT: dict[str, dict[str, str]] = {
     "confirmed": {"he": "הפנייה שלך אושרה — TIVUTA", "en": "Your request confirmed — TIVUTA", "fr": "Votre demande confirmée — TIVUTA", "yi": "אייער פנייה איז באשטעטיגט — TIVUTA"},
     "contacted": {"he": "הפנייה שלך טופלה — TIVUTA", "en": "Your request handled — TIVUTA", "fr": "Votre demande traitée — TIVUTA", "yi": "אייער פנייה איז באהאנדלט — TIVUTA"},
@@ -325,6 +346,51 @@ def create_card_order(
     return new_lead
 
 
+@router.post("/leads/contact", response_model=schemas.LeadRead)
+def create_contact_us_lead(
+    payload: schemas.ContactUsCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Creates a general inquiry — deliberately NOT wrapped in a CustomerOrder (unlike every other
+    lead-creating path here), so it surfaces in GET /admin/leads instead of /admin/orders. This is
+    the one lead type that isn't "an order" in any sense."""
+    locale = payload.locale or "he"
+
+    new_lead = models.Lead(
+        user_id=current_user.id,
+        product_id=None,
+        customer_order_id=None,
+        lead_type="general_inquiry",
+        status="new",
+        channel="web",
+        locale=locale,
+        subject=payload.subject,
+        message=payload.message,
+    )
+    db.add(new_lead)
+    db.commit()
+    db.refresh(new_lead)
+
+    try:
+        get_email_sender().send(
+            to=current_user.email,
+            subject=CONFIRMATION_SUBJECT.get(locale, CONFIRMATION_SUBJECT["he"]),
+            html_body=CONTACT_CONFIRMATION_BODY.get(locale, CONTACT_CONFIRMATION_BODY["he"]),
+            locale=locale,
+        )
+        get_email_sender().send(
+            to=ADMIN_NOTIFICATION_EMAIL,
+            subject=f"פנייה כללית: {payload.subject} — {current_user.first_name} {current_user.last_name}",
+            html_body=_contact_admin_notification_body(current_user, payload.subject, payload.message),
+            locale="he",
+        )
+    except Exception:
+        pass
+
+    return new_lead
+
+
 @router.get("/users/me/activity", response_model=List[schemas.LeadHistoryRead])
 def my_activity(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     leads = (
@@ -353,9 +419,9 @@ def my_activity(db: Session = Depends(get_db), current_user: models.User = Depen
 
 @router.get("/admin/leads", response_model=List[schemas.AdminLeadRead], dependencies=[Depends(get_current_admin)])
 def admin_list_leads(db: Session = Depends(get_db)):
-    """Every current lead-creating path wraps its lead(s) in a CustomerOrder (see /admin/orders),
-    so this intentionally returns nothing today — it's reserved for a future general "contact us"
-    inquiry that isn't tied to any order."""
+    """Every order-like lead-creating path wraps its lead(s) in a CustomerOrder (see /admin/orders);
+    this returns only the ones that aren't — today, exclusively `general_inquiry` leads from
+    POST /leads/contact."""
     leads = (
         db.query(models.Lead)
         .options(
@@ -393,6 +459,8 @@ def admin_list_leads(db: Session = Depends(get_db)):
             shipping_address=lead.shipping_address,
             quantity=lead.quantity,
             cart_group_id=lead.cart_group_id,
+            subject=lead.subject,
+            message=lead.message,
         ))
     return result
 

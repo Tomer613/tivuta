@@ -306,11 +306,13 @@ class Lead(Base):
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     customer_order_id = Column(Integer, ForeignKey("customer_orders.id"), nullable=True, index=True)
     vendor_batch_id = Column(Integer, ForeignKey("vendor_purchase_batches.id"), nullable=True, index=True)
-    lead_type = Column(String(30), nullable=False)  # 'appointment' | 'contact_request' | 'club_signup' | 'card_order'
+    lead_type = Column(String(30), nullable=False)  # 'appointment' | 'contact_request' | 'club_signup' | 'card_order' | 'general_inquiry'
     scheduled_at = Column(DateTime, nullable=True)
     status = Column(String(20), default="new")  # new | confirmed | contacted | closed | cancelled
     channel = Column(String(20), default="web")
     notes = Column(Text, nullable=True)
+    subject = Column(String(200), nullable=True)  # 'general_inquiry' leads only — customer-submitted, distinct from admin-editable `notes`
+    message = Column(Text, nullable=True)  # 'general_inquiry' leads only — customer-submitted, distinct from admin-editable `notes`
     locale = Column(String(5), nullable=True)
     history = Column(JSON, nullable=True, default=list)  # audit trail [{ts, actor, action, from, to}]
     shipping_address = Column(JSON, nullable=True)  # {full_name, street, city, zip_code, phone} — 'card_order' leads only

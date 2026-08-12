@@ -20,7 +20,7 @@ const STATUSES = [
     { value: 'closed',    label: 'סגורה',   color: 'bg-[#111a2f] text-[#f0e6d3]/30' },
 ];
 
-const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס' };
+const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס', general_inquiry: 'פנייה כללית' };
 
 function VerticalIcon({ v }: { v: string }) {
     const verticals = useVerticals();
@@ -172,7 +172,7 @@ export default function AdminLeadsPage() {
             if (filterVertical && l.product_vertical !== filterVertical) return false;
             if (search) {
                 const q = search.toLowerCase();
-                const hay = `${l.user_name} ${l.user_email} ${l.product_title_he}`.toLowerCase();
+                const hay = `${l.user_name} ${l.user_email} ${l.product_title_he} ${l.subject} ${l.message}`.toLowerCase();
                 if (!hay.includes(q)) return false;
             }
             return true;
@@ -206,7 +206,7 @@ export default function AdminLeadsPage() {
             l.user_name ?? '',
             l.user_email ?? '',
             l.user_phone ?? '',
-            l.product_title_he ?? '',
+            l.product_title_he ?? l.subject ?? '',
             VERTICAL_LABEL[l.product_vertical] ?? l.product_vertical ?? '',
             TYPE_LABEL[l.lead_type] ?? l.lead_type,
             STATUSES.find((s) => s.value === l.status)?.label ?? l.status,
@@ -433,6 +433,11 @@ export default function AdminLeadsPage() {
                                                     <p className="font-semibold text-[#f0e6d3]">{lead.shipping_address.full_name}</p>
                                                     <p>{lead.shipping_address.street}, {lead.shipping_address.city} {lead.shipping_address.zip_code || ''}</p>
                                                     <p dir="ltr" className="text-[#d4af37]/70">{lead.shipping_address.phone}</p>
+                                                </div>
+                                            ) : lead.lead_type === 'general_inquiry' && lead.subject ? (
+                                                <div className="text-xs text-[#f0e6d3]/70 space-y-0.5 max-w-xs">
+                                                    <p className="font-semibold text-[#f0e6d3]">{lead.subject}</p>
+                                                    {lead.message && <p className="truncate" title={lead.message}>{lead.message}</p>}
                                                 </div>
                                             ) : <span className="text-[#f0e6d3]/25">—</span>}
                                         </td>

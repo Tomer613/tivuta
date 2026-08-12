@@ -1340,6 +1340,19 @@ export async function createCardOrder(token: string, shippingAddress: ShippingAd
     return res.json();
 }
 
+export async function submitContactUs(token: string, payload: { subject: string; message: string; locale?: string }) {
+    const res = await fetch(`${BASE_URL}/leads/contact`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to submit your message');
+    }
+    return res.json();
+}
+
 // Notification preferences
 export async function updateNotificationPrefs(token: string, prefs: Record<string, boolean>) {
     const res = await fetch(`${BASE_URL}/users/me/notification-prefs`, {

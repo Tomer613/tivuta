@@ -462,6 +462,11 @@ class CardOrderCreate(BaseModel):
     shipping_address: ShippingAddress
     locale: Optional[str] = None
 
+class ContactUsCreate(BaseModel):
+    subject: str = Field(..., max_length=200)
+    message: str = Field(..., min_length=1, max_length=5000)
+    locale: Optional[str] = None
+
 class CartCheckoutItem(BaseModel):
     product_id: int
     quantity: int = Field(1, ge=1, le=99)
@@ -482,6 +487,8 @@ class LeadRead(BaseModel):
     quantity: Optional[int] = None
     cart_group_id: Optional[str] = None
     customer_order_id: Optional[int] = None
+    subject: Optional[str] = None
+    message: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -516,6 +523,8 @@ class AdminLeadRead(BaseModel):
     shipping_address: Optional[dict] = None
     quantity: Optional[int] = None
     cart_group_id: Optional[str] = None
+    subject: Optional[str] = None
+    message: Optional[str] = None
 
     class Config:
         from_attributes = True
