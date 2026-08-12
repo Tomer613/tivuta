@@ -51,7 +51,9 @@ export default defineConfig({
             // process. Only takes effect when Playwright itself starts the backend (fresh in CI,
             // or locally when nothing's already listening on :8000); a separately-started local
             // backend needs this set manually before it starts to get the same fix.
-            env: { ...process.env, LOGIN_RATE_LIMIT: '100/minute' },
+            // VENDOR_LOGIN_RATE_LIMIT is the same fix for /vendor-auth/login — a separate
+            // principal with its own per-IP bucket (see vendor_portal.py).
+            env: { ...process.env, LOGIN_RATE_LIMIT: '100/minute', VENDOR_LOGIN_RATE_LIMIT: '100/minute' },
         },
         {
             command: 'npm run dev',

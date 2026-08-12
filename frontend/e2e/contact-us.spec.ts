@@ -30,6 +30,9 @@ test('member contact-us submission appears in the admin leads queue', async ({ p
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
     await page.goto('/he/admin/leads');
-    await expect(page.getByText(SUBJECT)).toBeVisible();
-    await expect(page.getByText('פנייה כללית')).toBeVisible();
+    // Scoped to this row specifically, not a page-wide text match — admin-bulk-actions.spec.ts
+    // also creates general_inquiry leads in the same shared DB, so a blanket
+    // getByText('פנייה כללית') can resolve to multiple rows once more than one spec has run.
+    const row = page.locator('tr', { has: page.getByText(SUBJECT) });
+    await expect(row.getByText('פנייה כללית')).toBeVisible();
 });

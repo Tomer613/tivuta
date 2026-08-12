@@ -26,6 +26,8 @@ E2E_ADMIN_PASSWORD = "e2eAdminPass123"
 # as a member and don't run in any guaranteed order relative to the lockout spec.
 E2E_LOCKOUT_EMAIL = "e2e_lockout@tivuta.test"
 E2E_LOCKOUT_PASSWORD = "e2eLockoutPass123"
+E2E_VENDOR_LOGIN_EMAIL = "e2e_vendor@tivuta.test"
+E2E_VENDOR_LOGIN_PASSWORD = "e2eVendorPass123"
 E2E_VERTICAL_SLUG = "diamonds"
 
 ModelT = TypeVar("ModelT")
@@ -56,12 +58,13 @@ def set_setting(db: Session, key: str, value: str) -> None:
 def seed_e2e():
     db = SessionLocal()
     try:
+        member = None
         for email, password, role in [
             (E2E_MEMBER_EMAIL, E2E_MEMBER_PASSWORD, "member"),
             (E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "admin"),
             (E2E_LOCKOUT_EMAIL, E2E_LOCKOUT_PASSWORD, "member"),
         ]:
-            get_or_create(
+            user = get_or_create(
                 db,
                 models.User,
                 {"email": email},
@@ -72,6 +75,24 @@ def seed_e2e():
                     "role": role,
                 },
             )
+            if email == E2E_MEMBER_EMAIL:
+                member = user
+
+        # Every real production user gets one at signup (see loyalty.py); the vendor-portal spec
+        # needs to report a sale against a real customer_number, so the seeded member needs one too.
+        if member is not None and member.customer_number is None:
+            member.customer_number = loyalty.generate_customer_number(db)
+
+        get_or_create(
+            db,
+            models.Vendor,
+            {"login_email": E2E_VENDOR_LOGIN_EMAIL},
+            {
+                "vertical": E2E_VERTICAL_SLUG,
+                "name_he": "ספק בדיקות E2E",
+                "hashed_password": get_password_hash(E2E_VENDOR_LOGIN_PASSWORD),
+            },
+        )
 
         get_or_create(
             db,

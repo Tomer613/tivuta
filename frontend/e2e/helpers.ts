@@ -1,6 +1,6 @@
 import { Page, APIRequestContext, expect } from '@playwright/test';
 
-const API_BASE_URL = 'http://127.0.0.1:8000';
+export const API_BASE_URL = 'http://127.0.0.1:8000';
 
 export async function login(page: Page, email: string, password: string) {
     await page.goto('/he/login');
@@ -8,6 +8,14 @@ export async function login(page: Page, email: string, password: string) {
     await page.fill('input[type="password"]', password);
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL(/\/he\/?(\?.*)?$/);
+}
+
+// Member/admin login via the real HTTP endpoint (not the UI) — for specs that only need a bearer
+// token to set up fixture data via the API, not to test the login form itself.
+export async function apiLogin(request: APIRequestContext, username: string, password: string): Promise<string> {
+    const res = await request.post(`${API_BASE_URL}/auth/login`, { form: { username, password } });
+    const data = await res.json();
+    return data.access_token;
 }
 
 // Looks up a seeded product's real id by its known title — GET /products is public, no auth

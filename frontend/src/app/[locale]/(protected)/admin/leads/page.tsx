@@ -355,7 +355,7 @@ export default function AdminLeadsPage() {
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
                                 <th className="p-4 text-start w-8">
-                                    <button onClick={() => toggleSelectAll(paginated.map((l: any) => l.id))} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
+                                    <button data-testid="select-all-leads" onClick={() => toggleSelectAll(paginated.map((l: any) => l.id))} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
                                         {selectedIds.size === paginated.length && paginated.length > 0 ? <CheckSquare size={14} /> : <Square size={14} />}
                                     </button>
                                 </th>
@@ -385,7 +385,7 @@ export default function AdminLeadsPage() {
                                     <tr className={`border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/50 transition-colors ${isSelected ? 'bg-[#d4af37]/5' : ''} ${isSlaBreached ? 'border-l-2 border-l-red-500/60' : ''}`}>
                                         {/* Checkbox */}
                                         <td className="p-4">
-                                            <button onClick={() => toggleSelect(lead.id)} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
+                                            <button data-testid={`select-lead-${lead.id}`} onClick={() => toggleSelect(lead.id)} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
                                                 {isSelected ? <CheckSquare size={14} className="text-[#d4af37]" /> : <Square size={14} />}
                                             </button>
                                         </td>

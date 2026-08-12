@@ -1826,9 +1826,10 @@ each chosen because it maps to a real historical bug or a just-shipped feature, 
 - **Explicitly out of scope, deferred**: testing against the real static export (`next build` +
   serving `/out`) rather than `next dev` — matches every manual verification already done in this
   project, a reasonable future upgrade rather than a blocker for this starter pass; Firefox/WebKit
-  projects; exhaustive flow coverage (admin bulk actions, vendor portal, loyalty/sales,
-  distributions) — 3 specs chosen for mapping to real bugs/features, not full coverage; a
-  `webServer` command that resolves `.venv`'s `uvicorn` automatically on a developer's machine
+  projects; exhaustive flow coverage (loyalty/sales beyond a single sale report, distributions) —
+  3 specs chosen for mapping to real bugs/features, not full coverage (**update: admin bulk
+  actions and the vendor portal were added in a later pass — see "Broader E2E Coverage" below**);
+  a `webServer` command that resolves `.venv`'s `uvicorn` automatically on a developer's machine
   (documented caveat instead, falls back correctly via `reuseExistingServer` in the common case of
   an already-running local backend).
 
@@ -1905,6 +1906,56 @@ Two of the three "deliberately not changed" items above were small enough to jus
   the job graph and new step names resolve as intended. The caching behavior itself (actual
   cache-hit speedup) can only be observed on a real GitHub Actions run, not locally — expected to
   show up as a faster `e2e-tests` job on the *second* run after this change ships, not the first.
+
+### Broader E2E Coverage: Vendor Portal + Admin Bulk Actions (same session, later pass)
+Two more specs, chosen for the same "maps to something real" reasoning as the original 3: the
+vendor portal because `VENDOR_LOGIN_RATE_LIMIT` was added specifically for a future spec that
+never arrived until now; admin bulk actions because `useBulkSelection`'s `resetKey` bug (Back-
+Office Orders Phase 2 review) only had a unit test for the hook in isolation, never the real
+toolbar wired to the real table.
+- **`vendor-portal.spec.ts`** — vendor logs in (a separate principal/localStorage key,
+  `tivuta_vendor_token`, from member/admin — not forced into the shared `login()` helper, which
+  asserts a member/admin-specific post-login URL), reports a sale against the seeded member's
+  `customer_number` (looked up live via `GET /users/me`, not hardcoded — `generate_customer_number()`
+  produces a random value per fresh seed), confirms it appears in the vendor's own dashboard with
+  the right amount and `אושרה` (confirmed) status.
+- **`admin-bulk-actions.spec.ts`** — creates 3 `general_inquiry` leads via a direct authenticated
+  `POST /leads/contact` call (not the UI — that submission flow is already covered by
+  `contact-us.spec.ts`), searches `/admin/leads` by a unique-per-run subject prefix to isolate
+  exactly those 3 rows, bulk-selects and bulk-status-changes them, confirms all 3 updated.
+- **`seed_e2e.py`**: the seeded member now gets a real `customer_number` via
+  `loyalty.generate_customer_number(db)` — every real production user has one from signup, but the
+  original E2E seed didn't, since nothing needed it until this pass. New seeded `Vendor`
+  (`e2e_vendor@tivuta.test`) with portal credentials set directly (mirrors what
+  `PATCH /admin/vendors/{id}/portal-access` does, without needing a live API call at seed time).
+- **`data-testid` added to two more places**, same minimal pattern as `ProductTile.tsx`'s earlier
+  fix: `admin/leads/page.tsx`'s select-all and per-row checkbox toggles (plain unlabeled
+  `<button>`s wrapping lucide icons — no accessible name existed before), and
+  `BulkActionToolbar.tsx`'s two `<select>`s and execute button. The toolbar is shared with
+  `admin/orders/page.tsx`, which gets the same testability for free without being in this pass's
+  spec scope.
+- **`playwright.config.ts`** — `VENDOR_LOGIN_RATE_LIMIT: '100/minute'` added alongside the
+  existing `LOGIN_RATE_LIMIT` override in the backend `webServer` entry's `env`.
+- **Found and fixed a real cross-spec bug while running the full suite together**:
+  `contact-us.spec.ts`'s final assertion, `getByText('פנייה כללית')`, was an unscoped page-wide
+  text match — safe when it was the only spec creating `general_inquiry` leads, but a strict-mode
+  "4 elements matched" failure once `admin-bulk-actions.spec.ts` (which runs first alphabetically)
+  started leaving its own 3 leads of the same type in the shared DB. This was a latent fragility
+  in the *original* spec, only exposed by adding a second spec of the same lead type — fixed by
+  scoping the assertion to the specific table row containing that test's own unique subject
+  (`page.locator('tr', { has: page.getByText(SUBJECT) })`), the same "don't blanket-match text
+  that could appear more than once" lesson `ProductTile`'s `data-testid` fix already established.
+- **Proactively avoided a repeat of the earlier login-sequence duplication finding**: rather than
+  inline a raw `fetch('/auth/login', ...)` in each new spec (which a prior review round flagged as
+  duplicated 3x across the original specs), both new specs use a new shared `apiLogin()` helper
+  (`frontend/e2e/helpers.ts`, alongside the existing `login()`/`getProductId()`) — an
+  HTTP-API-only login for specs that need a bearer token to set up fixture data, not to test the
+  login form itself.
+- **Verified end-to-end**: all 5 specs pass together, twice — once against already-running local
+  dev servers, once via a fresh CI-style run where Playwright's own `webServer` launches both
+  processes (confirming `VENDOR_LOGIN_RATE_LIMIT` actually takes effect, not just that it's wired
+  up). `pytest` 22/22, Vitest 7/7, lint unchanged from the post-analytics baseline (185 — no new
+  problems from any file touched this pass).
 
 ---
 
