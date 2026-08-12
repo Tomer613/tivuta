@@ -31,7 +31,10 @@ def admin_analytics_summary(days: int = 14, db: Session = Depends(get_db)):
     Python, matching the same shape as GET /admin/leads/stats rather than issuing several
     separate SQL GROUP BY queries."""
     now = datetime.utcnow()
-    since = now - timedelta(days=days)
+    # The totals below always cover fixed 7d/30d windows regardless of `days` (the trend chart's
+    # own length) — the row-loading window must cover whichever is larger, or a `days` value
+    # smaller than 30 would silently exclude rows the 30-day totals still need to see.
+    since = now - timedelta(days=max(days, 30))
     rows = db.query(models.PageView).filter(models.PageView.created_at >= since).all()
 
     trend_counts: dict = {}

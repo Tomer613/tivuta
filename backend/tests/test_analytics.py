@@ -62,3 +62,30 @@ def test_admin_analytics_summary_aggregates_correctly(client, db_session, make_u
 
     # Trend covers exactly `days` entries, zero-filled for days with no traffic.
     assert len(data["trend"]) == 30
+
+
+def test_admin_analytics_summary_30d_totals_correct_even_with_shorter_trend_window(client, db_session, make_user):
+    """Regression test: the 7d/30d totals must always cover their fixed windows regardless of the
+    `days` query param (which only controls the trend chart's length, and defaults to 14 on the
+    admin page) — the row-loading window has to cover whichever is larger, or a `days=14` request
+    would silently exclude rows the 30-day totals still need to see."""
+    make_user(email="analyticsadmin2@example.com", password="adminpass123", role="admin")
+    login = client.post("/auth/login", data={"username": "analyticsadmin2@example.com", "password": "adminpass123"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    now = datetime.utcnow()
+    db_session.add_all([
+        models.PageView(path="/he/", locale="he", visitor_id="v1", created_at=now),
+        # 20 days ago — outside a 14-day trend window, but must still count toward pageviews_30d.
+        models.PageView(path="/he/", locale="he", visitor_id="v2", created_at=now - timedelta(days=20)),
+    ])
+    db_session.commit()
+
+    resp = client.get("/admin/analytics/summary?days=14", headers=headers)  # the frontend's actual default
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["totals"]["pageviews_30d"] == 2
+    assert data["totals"]["unique_visitors_30d"] == 2
+    assert len(data["trend"]) == 14

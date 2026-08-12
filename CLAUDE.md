@@ -1970,6 +1970,14 @@ an already-established pattern rather than introducing a new one:
   pre-existing `setLoading(true)`-inside-`useEffect` pattern (already present, unfixed, in 9+
   other admin pages — matching that established convention was the deliberate choice here, not an
   oversight of a new problem).
+- **Post-implementation review found and fixed a real bug**: the row-loading window used
+  `since = now - timedelta(days=days)`, so the admin page's default `days=14` request silently
+  excluded any row 15–30 days old from the "30-day" stat cards — invisible in the original test,
+  which only ever called the endpoint with `?days=30`. Fixed to
+  `since = now - timedelta(days=max(days, 30))` (the totals always cover fixed 7d/30d windows
+  regardless of the trend chart's own length) and added a regression test that calls the endpoint
+  with the actual frontend default (`days=14`) and asserts a 20-day-old row is still counted —
+  confirmed it fails without the fix and passes with it.
 - **Explicitly out of scope, deferred**: no `user_id` attribution (v1 stays purely anonymous — an
   optional-auth dependency doesn't exist anywhere in `security.py` today, confirmed absent during
   the Public Product-Sharing session too; adding one just for this would be more new surface than
