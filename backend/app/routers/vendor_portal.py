@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from typing import List
 
@@ -23,9 +24,15 @@ from .sales import _sale_read
 
 router = APIRouter(tags=["vendor-portal"])
 
+# Same escape hatch as auth.py's LOGIN_RATE_LIMIT, and for the same reason: a future E2E spec
+# exercising the vendor portal would hit the identical per-IP slowapi collision that
+# LOGIN_RATE_LIMIT was added to fix for /auth/login (see that file's comment). Unset in every
+# real deployment, so this is exactly the "5/minute" it always was until a spec actually needs it.
+VENDOR_LOGIN_RATE_LIMIT = os.environ.get("VENDOR_LOGIN_RATE_LIMIT", "5/minute")
+
 
 @router.post("/vendor-auth/login", response_model=schemas.Token)
-@limiter.limit("5/minute")
+@limiter.limit(VENDOR_LOGIN_RATE_LIMIT)
 def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     vendor = db.query(models.Vendor).filter(models.Vendor.login_email == form_data.username).first()
     if vendor:

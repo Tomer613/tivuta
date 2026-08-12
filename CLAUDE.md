@@ -1872,14 +1872,36 @@ each chosen because it maps to a real historical bug or a just-shipped feature, 
   Windows syntax). `VAR="x"` isn't valid PowerShell — pasted literally, it fails to set anything
   and can trip `security.py`'s fail-fast guard or silently target the real dev DB. Fixed to
   `$env:VAR = "x"`.
-- **Deliberately not changed**: `vendor_portal.py`'s `/vendor-auth/login` has no equivalent
-  `LOGIN_RATE_LIMIT`-style override — flagged as a likely future problem (a vendor-portal E2E spec
-  would hit the identical per-IP collision), but no current spec exercises it, so adding the
-  override now would be speculative. Revisit when a vendor-portal spec is actually written.
-  `.github/workflows/deploy.yml`'s `e2e-tests` job was left fully serialized behind
-  `backend-tests`/`frontend-checks` (a wall-clock-vs-CI-minutes trade-off already made deliberately
-  in the original design, not an oversight) and without `pip`/Playwright-browser caching (a real,
-  low-risk future win, but more CI-config surface than this pass's scope).
+- **Deliberately not changed at the time**: `.github/workflows/deploy.yml`'s `e2e-tests` job
+  staying fully serialized behind `backend-tests`/`frontend-checks` — a wall-clock-vs-CI-minutes
+  trade-off made deliberately in the original design (don't spend E2E time/browser-download on a
+  branch that fails cheaper checks first), not an oversight; left as-is.
+
+### Follow-up: vendor rate-limit override + CI caching (same session)
+Two of the three "deliberately not changed" items above were small enough to just do:
+- **`VENDOR_LOGIN_RATE_LIMIT` added to `backend/app/routers/vendor_portal.py`**, mirroring
+  `auth.py`'s `LOGIN_RATE_LIMIT` exactly (env var, defaults to the unchanged `"5/minute"`, applied
+  to `/vendor-auth/login`'s `@limiter.limit(...)`). Not wired into `playwright.config.ts` or the
+  CI job — no vendor-portal E2E spec exists yet, so there's nothing to configure it for today; this
+  just means the *next* vendor-portal spec won't need another production-code change to avoid the
+  same per-IP collision `LOGIN_RATE_LIMIT` was built to fix.
+- **`backend-tests` and `e2e-tests` jobs gained `cache: "pip"`** on their `actions/setup-python`
+  step (`cache-dependency-path: backend/requirements.txt`), matching the `cache: "npm"` pattern
+  already used on every Node setup step in this workflow.
+- **`e2e-tests` gained Playwright browser caching** — `actions/cache@v4` keyed on
+  `${{ runner.os }}-playwright-<installed @playwright/test version>` for `~/.cache/ms-playwright`.
+  A cache hit skips the browser *download* (`playwright install --with-deps`) but still runs
+  `playwright install-deps` (OS-level apt packages only, not part of the cached path, cheap
+  either way) — a cache miss falls back to the original full `--with-deps` install. Version
+  extracted via `node -e "console.log(require('@playwright/test/package.json').version)"` from
+  the already-`npm install`-ed `frontend/`, so the cache key auto-invalidates whenever the pinned
+  Playwright version changes, no manual bump needed.
+- **Verified**: `pytest` 19/19 (confirms `vendor_portal.py` still imports and runs cleanly, and
+  the existing vendor rate-limit test still exercises the unchanged `"5/minute"` default); the
+  Playwright-version lookup command confirmed working standalone (`1.62.1`); `js-yaml` confirmed
+  the job graph and new step names resolve as intended. The caching behavior itself (actual
+  cache-hit speedup) can only be observed on a real GitHub Actions run, not locally — expected to
+  show up as a faster `e2e-tests` job on the *second* run after this change ships, not the first.
 
 ---
 
