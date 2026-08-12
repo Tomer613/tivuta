@@ -8,9 +8,14 @@ Idempotent by natural key (email / slug / setting key) so it's safe to re-run ag
 Usage (from backend/, after `alembic upgrade head`):
     python -m scripts.seed_e2e
 """
+from typing import Type, TypeVar
+
+from sqlalchemy.orm import Session
+
 from app.database import SessionLocal
 from app import models
 from app.security import get_password_hash
+from app.services import loyalty
 
 E2E_MEMBER_EMAIL = "e2e_member@tivuta.test"
 E2E_MEMBER_PASSWORD = "e2eMemberPass123"
@@ -23,62 +28,24 @@ E2E_LOCKOUT_EMAIL = "e2e_lockout@tivuta.test"
 E2E_LOCKOUT_PASSWORD = "e2eLockoutPass123"
 E2E_VERTICAL_SLUG = "diamonds"
 
+ModelT = TypeVar("ModelT")
 
-def get_or_create_user(db, email: str, password: str, role: str) -> models.User:
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if user:
-        return user
-    user = models.User(
-        email=email,
-        hashed_password=get_password_hash(password),
-        first_name="E2E",
-        last_name=role.capitalize(),
-        role=role,
-    )
-    db.add(user)
+
+def get_or_create(db: Session, model: Type[ModelT], lookup: dict, defaults: dict) -> ModelT:
+    """Query by `lookup` (the natural key); if found, return it as-is (no field updates on a
+    re-run — a developer's already-seeded DB shouldn't get silently mutated). Otherwise construct
+    with `lookup | defaults`, flush, and return."""
+    instance = db.query(model).filter_by(**lookup).first()
+    if instance:
+        return instance
+    instance = model(**lookup, **defaults)
+    db.add(instance)
     db.flush()
-    return user
+    return instance
 
 
-def get_or_create_vertical(db) -> models.Vertical:
-    vertical = db.query(models.Vertical).filter(models.Vertical.slug == E2E_VERTICAL_SLUG).first()
-    if vertical:
-        return vertical
-    vertical = models.Vertical(
-        slug=E2E_VERTICAL_SLUG,
-        label_he="יהלומים",
-        label_en="Diamonds",
-        icon="Gem",
-        supports_appointments=True,
-        is_active=True,
-    )
-    db.add(vertical)
-    db.flush()
-    return vertical
-
-
-def get_or_create_product(db, title_he: str, price: float) -> models.Product:
-    product = (
-        db.query(models.Product)
-        .filter(models.Product.vertical == E2E_VERTICAL_SLUG, models.Product.title_he == title_he)
-        .first()
-    )
-    if product:
-        return product
-    product = models.Product(
-        vertical=E2E_VERTICAL_SLUG,
-        title_he=title_he,
-        title_en=title_he,
-        description_he="מוצר לבדיקות E2E",
-        price=price,
-        is_active=True,
-    )
-    db.add(product)
-    db.flush()
-    return product
-
-
-def set_setting(db, key: str, value: str) -> None:
+def set_setting(db: Session, key: str, value: str) -> None:
+    loyalty.validate_setting_value(key, value)
     row = db.query(models.SystemSetting).filter(models.SystemSetting.key == key).first()
     if row:
         row.value = value
@@ -89,12 +56,49 @@ def set_setting(db, key: str, value: str) -> None:
 def seed_e2e():
     db = SessionLocal()
     try:
-        get_or_create_user(db, E2E_MEMBER_EMAIL, E2E_MEMBER_PASSWORD, "member")
-        get_or_create_user(db, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "admin")
-        get_or_create_user(db, E2E_LOCKOUT_EMAIL, E2E_LOCKOUT_PASSWORD, "member")
-        get_or_create_vertical(db)
-        get_or_create_product(db, "טבעת יהלום E2E", 5000.0)
-        get_or_create_product(db, "עגילי יהלום E2E", 3000.0)
+        for email, password, role in [
+            (E2E_MEMBER_EMAIL, E2E_MEMBER_PASSWORD, "member"),
+            (E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "admin"),
+            (E2E_LOCKOUT_EMAIL, E2E_LOCKOUT_PASSWORD, "member"),
+        ]:
+            get_or_create(
+                db,
+                models.User,
+                {"email": email},
+                {
+                    "hashed_password": get_password_hash(password),
+                    "first_name": "E2E",
+                    "last_name": role.capitalize(),
+                    "role": role,
+                },
+            )
+
+        get_or_create(
+            db,
+            models.Vertical,
+            {"slug": E2E_VERTICAL_SLUG},
+            {
+                "label_he": "יהלומים",
+                "label_en": "Diamonds",
+                "icon": "Gem",
+                "supports_appointments": True,
+                "is_active": True,
+            },
+        )
+
+        for title_he, price in [("טבעת יהלום E2E", 5000.0), ("עגילי יהלום E2E", 3000.0)]:
+            get_or_create(
+                db,
+                models.Product,
+                {"vertical": E2E_VERTICAL_SLUG, "title_he": title_he},
+                {
+                    "title_en": title_he,
+                    "description_he": "מוצר לבדיקות E2E",
+                    "price": price,
+                    "is_active": True,
+                },
+            )
+
         # Keeps the lockout spec's 3-wrong-attempts-then-1-correct sequence (4 requests total)
         # safely under slowapi's 5/minute per-IP limit on /auth/login.
         set_setting(db, "max_failed_login_attempts", "3")

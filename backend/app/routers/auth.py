@@ -31,6 +31,11 @@ RESET_TOKEN_EXPIRE_MINUTES = 60
 # account (unlike the separate per-account lockout, which IS account-scoped). Every real
 # deployment (Render, local dev) is unaffected: unset LOGIN_RATE_LIMIT and this is exactly the
 # "5/minute" it always was.
+# Read once at import time (slowapi decorator args are static) — a pytest fixture resetting this
+# would run too late to matter. If you manually export LOGIN_RATE_LIMIT in a shell to start the
+# backend for local E2E runs (see CLAUDE.md "How to Run"), use a separate terminal for `pytest`,
+# or the rate-limit test (test_login_rate_limit_blocks_after_five_attempts) will see the wrong
+# threshold and fail confusingly.
 LOGIN_RATE_LIMIT = os.environ.get("LOGIN_RATE_LIMIT", "5/minute")
 
 

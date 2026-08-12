@@ -16,7 +16,14 @@ export default defineConfig({
     // (this is what actually caused the two observed failures below, not a real login bug —
     // confirmed by an isolated single-test run passing cleanly at the default timeout).
     expect: { timeout: 15_000 },
-    retries: process.env.CI ? 1 : 0,
+    // Deliberately 0, even in CI: every spec mutates real, shared backend state (locks an
+    // account, creates a real lead/order) against one DB with no reset between attempts. A retry
+    // doesn't get a clean slate — it replays the same steps against already-mutated state, so it
+    // either fails for a *different*, more confusing reason (e.g. auth.spec.ts's account is
+    // already locked from attempt 1, so the retry's first assertion checks for the wrong error
+    // message) or reproduces the original failure with extra noise. A single clear failure beats
+    // a retry that can only mask or compound it.
+    retries: 0,
     reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
     use: {
         baseURL: 'http://localhost:3000',

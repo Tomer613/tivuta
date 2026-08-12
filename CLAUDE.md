@@ -228,12 +228,13 @@ npm run build  # static export to /out
 ```
 
 ### E2E tests (Playwright — see "E2E Test Automation" session below for full design)
-```bash
+```powershell
 cd backend
-DATABASE_URL="sqlite:///./e2e_tivuta.db" JWT_SECRET_KEY="<any-value>" .venv\Scripts\alembic upgrade head
-DATABASE_URL="sqlite:///./e2e_tivuta.db" JWT_SECRET_KEY="<any-value>" .venv\Scripts\python -m scripts.seed_e2e
-cd frontend
-npx playwright test           # reuses already-running dev servers if present, else launches fresh ones (needs CI=1 + the same DATABASE_URL/JWT_SECRET_KEY exported first if nothing's already running, since `uvicorn` must resolve to this project's venv, not any other global install)
+$env:DATABASE_URL = "sqlite:///./e2e_tivuta.db"; $env:JWT_SECRET_KEY = "<any-value>"
+.venv\Scripts\alembic upgrade head
+.venv\Scripts\python -m scripts.seed_e2e
+cd ..\frontend
+npx playwright test           # reuses already-running dev servers if present, else launches fresh ones (needs $env:CI="1" + the same DATABASE_URL/JWT_SECRET_KEY still set in this shell if nothing's already running, since `uvicorn` must resolve to this project's venv, not any other global install)
 ```
 Always seed a **fresh** `e2e_tivuta.db` before a run — `auth.spec.ts` locks a test account for 15
 real minutes, and reusing a DB within that window changes the spec's starting state.
@@ -1827,6 +1828,58 @@ each chosen because it maps to a real historical bug or a just-shipped feature, 
   `webServer` command that resolves `.venv`'s `uvicorn` automatically on a developer's machine
   (documented caveat instead, falls back correctly via `reuseExistingServer` in the common case of
   an already-running local backend).
+
+### Post-implementation review fixes (same session, after an 8-angle code review)
+- **`retries` set to `0` unconditionally, not `process.env.CI ? 1 : 0` as originally shipped.**
+  Every spec mutates real, shared backend state (locks an account, creates a real lead/order)
+  with no reset between attempts — a CI retry doesn't get a clean slate, it replays the same steps
+  against already-mutated state. This was caught concretely, not just in theory: the review found
+  `auth.spec.ts`'s own retry would hit an *already-locked* account and fail on the wrong assertion
+  (masking the real failure), and `contact-us.spec.ts`'s retry-safety fix below had a real bug that
+  a retry would have exposed.
+- **Found and fixed a real bug in the retry-safety fix itself**: `contact-us.spec.ts`'s unique
+  `SUBJECT` (`` `שאלה בדיקת E2E ${Date.now()}` ``) was computed at **module scope**, which
+  JS/Playwright evaluates once per worker process, not once per test invocation — so a retry would
+  have reused the exact same subject and reproduced the identical strict-mode "multiple elements
+  matched" failure the fix was written to prevent. Moved inside the `test()` callback; correct
+  regardless of the `retries: 0` fix above, since a future change re-enabling retries shouldn't
+  silently reintroduce this.
+- **`data-testid` switched from `product.title_he` to `product.id`** (`ProductTile.tsx`) — two
+  independent review angles flagged that `title_he` has no uniqueness constraint anywhere
+  (`admin_create_product`/CSV import only require non-empty, and the existing "Duplicate Product"
+  admin feature deliberately creates a near-identical title). `cart-checkout.spec.ts` now looks up
+  each seeded product's real `id` via an unauthenticated `GET /products?vertical=` call (new
+  `frontend/e2e/helpers.ts`) instead of depending on title uniqueness.
+- **Extracted `frontend/e2e/helpers.ts`** (`login()`, `getProductId()`) — the same 5-line
+  goto/fill/fill/click/assert login sequence was duplicated 3 times across `cart-checkout.spec.ts`
+  and `contact-us.spec.ts` (member + admin); `auth.spec.ts`'s failed-login loop is a genuinely
+  different flow and wasn't forced into the same helper.
+- **`backend/scripts/seed_e2e.py`'s three near-identical `get_or_create_user`/`_vertical`/
+  `_product` functions collapsed into one generic `get_or_create(db, model, lookup, defaults)`** —
+  flagged independently by two review angles as the same copy-pasted query/construct/flush shape
+  three times in one file. `set_setting()` also now runs `loyalty.validate_setting_value()` before
+  writing, matching the real admin settings endpoint's validation instead of silently bypassing it.
+- **`auth.py`'s `LOGIN_RATE_LIMIT` comment now documents a real, narrow footgun**: since slowapi
+  decorator args are evaluated once at module import time, no pytest fixture can reset it the way
+  `conftest.py` already resets the limiter's bucket state — a developer who exports
+  `LOGIN_RATE_LIMIT` in a shell to start the backend for local E2E work and then runs `pytest` in
+  that *same* shell would get a confusingly-wrong result from
+  `test_login_rate_limit_blocks_after_five_attempts`. Not fixable via a fixture (too late by the
+  time it runs); documented instead — use a separate terminal.
+- **CLAUDE.md's own E2E "How to Run" snippet was wrong** — written in bash inline-env-var syntax
+  (`VAR="x" command`) despite sitting next to Windows `.venv\Scripts\...` paths in a project whose
+  primary shell is PowerShell (confirmed: every other command in this section already uses plain
+  Windows syntax). `VAR="x"` isn't valid PowerShell — pasted literally, it fails to set anything
+  and can trip `security.py`'s fail-fast guard or silently target the real dev DB. Fixed to
+  `$env:VAR = "x"`.
+- **Deliberately not changed**: `vendor_portal.py`'s `/vendor-auth/login` has no equivalent
+  `LOGIN_RATE_LIMIT`-style override — flagged as a likely future problem (a vendor-portal E2E spec
+  would hit the identical per-IP collision), but no current spec exercises it, so adding the
+  override now would be speculative. Revisit when a vendor-portal spec is actually written.
+  `.github/workflows/deploy.yml`'s `e2e-tests` job was left fully serialized behind
+  `backend-tests`/`frontend-checks` (a wall-clock-vs-CI-minutes trade-off already made deliberately
+  in the original design, not an oversight) and without `pip`/Playwright-browser caching (a real,
+  low-risk future win, but more CI-config surface than this pass's scope).
 
 ---
 
