@@ -206,7 +206,7 @@ export default function AdminLeadsPage() {
             l.user_name ?? '',
             l.user_email ?? '',
             l.user_phone ?? '',
-            l.product_title_he ?? l.subject ?? '',
+            l.product_title_he ?? (l.subject ? (l.message ? `${l.subject} — ${l.message}` : l.subject) : ''),
             VERTICAL_LABEL[l.product_vertical] ?? l.product_vertical ?? '',
             TYPE_LABEL[l.lead_type] ?? l.lead_type,
             STATUSES.find((s) => s.value === l.status)?.label ?? l.status,

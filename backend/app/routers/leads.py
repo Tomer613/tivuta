@@ -372,14 +372,18 @@ def create_contact_us_lead(
     db.commit()
     db.refresh(new_lead)
 
+    email_sender = get_email_sender()
     try:
-        get_email_sender().send(
+        email_sender.send(
             to=current_user.email,
             subject=CONFIRMATION_SUBJECT.get(locale, CONFIRMATION_SUBJECT["he"]),
             html_body=CONTACT_CONFIRMATION_BODY.get(locale, CONTACT_CONFIRMATION_BODY["he"]),
             locale=locale,
         )
-        get_email_sender().send(
+    except Exception:
+        pass
+    try:
+        email_sender.send(
             to=ADMIN_NOTIFICATION_EMAIL,
             subject=f"פנייה כללית: {payload.subject} — {current_user.first_name} {current_user.last_name}",
             html_body=_contact_admin_notification_body(current_user, payload.subject, payload.message),
