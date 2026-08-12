@@ -243,7 +243,9 @@ real minutes, and reusing a DB within that window changes the spec's starting st
 
 ### Environment variables
 - Backend: `JWT_SECRET_KEY`, `CORS_ORIGINS`, `DATABASE_URL` (defaults to SQLite `./tivuta.db`),
-  `LOGIN_RATE_LIMIT` (defaults to `"5/minute"` — only ever overridden by the E2E test run)
+  `LOGIN_RATE_LIMIT` (defaults to `"5/minute"` — only ever overridden by the E2E test run),
+  `REDIS_URL` (optional — unset means in-memory rate-limit storage, exactly as before; see
+  "Redis-Backed Rate Limiter" below)
 - Frontend: `NEXT_PUBLIC_API_URL` (defaults to `http://127.0.0.1:8000`), `NEXT_PUBLIC_BASE_PATH`
 
 ---
@@ -1421,9 +1423,10 @@ issue found along the way.
   plain `uvicorn` with no `--workers` flag** (single process per Render instance) — confirmed by
   reading the Procfile. If Render is ever scaled to multiple instances/replicas, an in-memory
   limiter would under-count (each instance tracks separately); Render's instance count isn't
-  visible from the repo, so this is a known, documented limitation rather than a verified non-issue.
-  A Redis-backed limiter would fix it but was judged unnecessary complexity/cost for a
-  single-instance pre-launch app.
+  visible from the repo, so this was a known, documented limitation rather than a verified
+  non-issue. **Update (session 2026-08-12): a Redis-backed alternative now exists, opt-in via
+  `REDIS_URL` — see "Redis-Backed Rate Limiter" below.** Still defaults to in-memory everywhere
+  the env var isn't set, so nothing changes until it's deliberately turned on.
 - **`backend/app/security.py`** — found during this audit: `SECRET_KEY` had a hardcoded, publicly-
   known fallback (`"tivuta_secret_key_change_in_production"`) used whenever `JWT_SECRET_KEY` was
   unset, with nothing to stop a real deployment from silently running on it. Fixed by raising a
@@ -2037,6 +2040,56 @@ an already-established pattern rather than introducing a new one:
   revisit if row count ever becomes a real query-time or storage concern); the legacy
   `benefits/[locale]/*` sub-app is not instrumented, consistent with every recent session treating
   it as frozen.
+
+---
+
+## Redis-Backed Rate Limiter (session 2026-08-12)
+
+The Backend Security Hardening session's `slowapi` rate limiter used in-memory storage with an
+explicit, documented caveat: correct only because `backend/Procfile` runs a single Uvicorn
+process (no `--workers`); if Render is ever scaled to multiple instances, each would track its
+own separate counters and under-count the real total. This adds the opt-in fix — capability only,
+not turning anything on.
+
+- **`backend/app/rate_limit.py`** — `REDIS_URL = os.environ.get("REDIS_URL", "")`, then
+  `Limiter(key_func=get_remote_address, storage_uri=REDIS_URL or None)`. Same "ships dark until
+  configured" presence-check shape as `main.py`'s `SENTRY_DSN` (one alternative, not a named-
+  provider switch like `get_email_sender()`/`get_image_storage()`) — `slowapi.Limiter` already
+  accepts `storage_uri` and defaults internally to `"memory://"` when not given, so this is the
+  entire change; nothing else in `main.py`'s limiter registration (`app.state.limiter`, the
+  exception handler, `SlowAPIMiddleware`) needed to change.
+- **`backend/requirements.txt`** — added `redis<8.0.0`. Confirmed live during implementation that
+  a bare, unpinned `pip install redis` pulls `redis==8.1.0`, which violates `limits==5.8.0`'s
+  (slowapi's own pinned dependency) own compatibility constraint (`redis!=4.5.2,!=4.5.3,<8.0.0,>3`)
+  — installed `7.4.1` instead and pinned the same ceiling in `requirements.txt` so a fresh install
+  anywhere else (Render included) can't silently repeat the same mismatch.
+- **`conftest.py`'s `limiter.reset()` needed no changes** — confirmed both `MemoryStorage.reset()`
+  and `RedisStorage.reset()` exist and are called through the same `Limiter.reset()` method, and
+  `REDIS_URL` is never set in the pytest/CI environment, so tests keep exercising in-memory
+  storage exactly as before.
+- **Verified end-to-end with a real, temporary Redis** (Docker was available on this machine;
+  Docker Desktop wasn't running and was started first) — started the backend with
+  `REDIS_URL=redis://localhost:6379`, confirmed it connects cleanly, fired 6 rapid bad-credential
+  requests at `/auth/login` and got five `401`s then a `429` exactly as with in-memory storage,
+  then inspected Redis directly (`redis-cli keys '*'`) and found a real
+  `LIMITS:LIMITER/127.0.0.1//auth/login/5/1/minute` key, confirming the counters are genuinely
+  stored there and not in the process's memory. **Went further and proved the actual motivating
+  scenario**: started a *second*, fully independent backend process on a different port against
+  the same Redis — its very first request came back `429` immediately, because it shares the same
+  Redis-backed counter the first process had already exhausted. This is exactly the multi-instance
+  under-counting problem the feature exists to fix, confirmed working, not just wired up.
+  `pytest` 22/22 with `REDIS_URL` unset (zero regression); `pip install -r requirements.txt`
+  installs cleanly with the new pin. Docker container and both verification backend processes
+  torn down afterward.
+- **Explicitly out of scope, deferred**: actually provisioning Redis on Render (creating a Render
+  Redis instance or an external provider like Upstash, setting `REDIS_URL` in Render's dashboard)
+  — an infra/ops step outside this repo, matching every other "ships dark until configured"
+  integration here (Sentry, Resend, Supabase image storage); a dedicated automated test (the
+  change is a one-line presence-check with no branching logic worth a regression test in
+  isolation, and a real Redis-in-CI setup is a bigger, separate decision not currently justified
+  by this small a change — the Docker-based manual verification above was judged sufficient);
+  `--workers`/multi-process Uvicorn on Render itself (this only removes the blocker for doing that
+  safely later, doesn't do it).
 
 ---
 

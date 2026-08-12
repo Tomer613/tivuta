@@ -11,5 +11,6 @@ python-dotenv
 httpx
 anthropic
 slowapi
+redis<8.0.0
 pytest
 sentry-sdk
