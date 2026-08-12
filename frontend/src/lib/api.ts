@@ -1295,6 +1295,12 @@ export async function adminGetAnalyticsSummary(token: string, days: number = 14)
     return res.json();
 }
 
+export async function adminPruneAnalytics(token: string): Promise<{ deleted: number; retention_days: number }> {
+    const res = await fetch(`${BASE_URL}/admin/analytics/prune`, { method: 'POST', headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to prune analytics data');
+    return res.json();
+}
+
 // My orders
 export async function getMyOrders(token: string) {
     const res = await fetch(`${BASE_URL}/orders/me`, { headers: authHeaders(token) });

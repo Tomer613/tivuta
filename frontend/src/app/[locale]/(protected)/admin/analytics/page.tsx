@@ -1,11 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LineChart, Loader2, TrendingUp, Users, Globe2 } from 'lucide-react';
+import { LineChart, Loader2, TrendingUp, Users, Globe2, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { adminGetAnalyticsSummary, AnalyticsSummary } from '@/lib/api';
+import { adminGetAnalyticsSummary, adminPruneAnalytics, AnalyticsSummary } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 
 const LOCALE_LABEL: Record<string, string> = { he: 'עברית', en: 'אנגלית', fr: 'צרפתית', yi: 'יידיש' };
+
+function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
+    useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, [onClose]);
+    return (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold ${
+            type === 'success' ? 'bg-[#0e1628] border border-green-500/50 text-green-400' : 'bg-[#0e1628] border border-red-500/50 text-red-400'
+        }`}>
+            {type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            {message}
+        </div>
+    );
+}
 
 function TrendChart({ trend }: { trend: { date: string; count: number }[] }) {
     if (!trend.length) return null;
@@ -49,15 +62,38 @@ export default function AdminAnalyticsPage() {
     const [days, setDays] = useState(14);
     const [data, setData] = useState<AnalyticsSummary | null>(null);
     const [loading, setLoading] = useState(true);
+    const [pruning, setPruning] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
-    useEffect(() => {
+    const loadSummary = () => {
         if (!token) return;
         setLoading(true);
         adminGetAnalyticsSummary(token, days)
             .then(setData)
             .catch(() => setData(null))
             .finally(() => setLoading(false));
-    }, [token, days]);
+    };
+
+    useEffect(loadSummary, [token, days]);
+
+    const handlePruneNow = async () => {
+        if (!token) return;
+        setPruning(true);
+        try {
+            const result = await adminPruneAnalytics(token);
+            showToast(
+                result.deleted > 0
+                    ? `נמחקו ${result.deleted} רשומות (ישנות מ-${result.retention_days} יום)`
+                    : `לא נמצאו רשומות למחיקה (ישנות מ-${result.retention_days} יום)`
+            );
+            loadSummary();
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בניקוי הנתונים'), 'error');
+        } finally {
+            setPruning(false);
+        }
+    };
 
     const statCards = data ? [
         { label: 'צפיות היום', value: data.totals.pageviews_today, sub: `${data.totals.unique_visitors_today} מבקרים ייחודיים` },
@@ -67,6 +103,8 @@ export default function AdminAnalyticsPage() {
 
     return (
         <div>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
             <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
                 <div className="flex items-center gap-3">
                     <LineChart size={28} className="text-[#d4af37]" />
@@ -86,9 +124,26 @@ export default function AdminAnalyticsPage() {
                     ))}
                 </div>
             </div>
-            <p className="text-[#f0e6d3]/40 text-sm mb-10">
+            <p className="text-[#f0e6d3]/40 text-sm mb-6">
                 נתונים אנונימיים לחלוטין — נאספים ומאוחסנים ישירות במערכת, ללא צד שלישי
             </p>
+
+            <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-6 mb-10 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h2 className="text-sm font-black text-[#f0e6d3] uppercase tracking-widest mb-1">ניקוי נתונים ישנים</h2>
+                    <p className="text-xs text-[#f0e6d3]/40">
+                        רשומות תנועה נמחקות אוטומטית מדי יום לפי תקופת השמירה המוגדרת (ניתנת לעריכה בהגדרות הנאמנות וההונאות)
+                    </p>
+                </div>
+                <button
+                    onClick={handlePruneNow}
+                    disabled={pruning}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-red-500/15 text-red-400 hover:bg-red-500/25 transition-colors disabled:opacity-50 shrink-0"
+                >
+                    {pruning ? <Loader2 className="animate-spin" size={13} /> : <Trash2 size={13} />}
+                    מחק נתונים ישנים כעת
+                </button>
+            </div>
 
             {loading ? (
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto mt-20" size={32} />

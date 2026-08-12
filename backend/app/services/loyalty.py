@@ -26,6 +26,8 @@ DEFAULT_SETTINGS = {
     # fraud-resistance settings above, reused rather than building a second settings mechanism.
     "max_failed_login_attempts": "5",
     "lockout_duration_minutes": "15",
+    # Self-hosted analytics retention — same "tunable threshold" shape again.
+    "page_view_retention_days": "180",
 }
 
 # Settings that must parse as a STRICTLY positive float — enforced on write so a bad admin
@@ -51,6 +53,8 @@ NON_NEGATIVE_FLOAT_SETTINGS = {
     # the very first failure, 0 minutes = lock but expire immediately (effectively no lockout).
     "max_failed_login_attempts",
     "lockout_duration_minutes",
+    # 0 means "keep nothing" — an extreme but legitimate retention policy, not an error.
+    "page_view_retention_days",
 }
 
 

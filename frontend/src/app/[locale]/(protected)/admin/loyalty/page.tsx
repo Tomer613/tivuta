@@ -25,6 +25,7 @@ const SETTING_LABELS: Record<string, string> = {
     max_customer_vendor_sales_per_day: 'מקסימום עסקאות ללקוח-ספק ביום',
     max_unsettled_ils_before_deactivate: 'סף חוב להשבתה אוטומטית (₪)',
     unsettled_grace_days: 'ימי חסד לפני השבתה',
+    page_view_retention_days: 'תקופת שמירת נתוני תנועה (ימים)',
 };
 const SETTING_ORDER = Object.keys(SETTING_LABELS);
 

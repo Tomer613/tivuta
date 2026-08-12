@@ -2036,10 +2036,9 @@ an already-established pattern rather than introducing a new one:
   optional-auth dependency doesn't exist anywhere in `security.py` today, confirmed absent during
   the Public Product-Sharing session too; adding one just for this would be more new surface than
   a traffic-visibility MVP needs); no admin/internal-traffic exclusion (would need the same
-  user-attribution mechanism); no data-retention/pruning job (the table grows unbounded for now —
-  revisit if row count ever becomes a real query-time or storage concern); the legacy
-  `benefits/[locale]/*` sub-app is not instrumented, consistent with every recent session treating
-  it as frozen.
+  user-attribution mechanism); the legacy `benefits/[locale]/*` sub-app is not instrumented,
+  consistent with every recent session treating it as frozen. **Update (session 2026-08-12): the
+  data-retention/pruning gap was closed — see "Data Retention / Pruning for page_views" below.**
 
 ---
 
@@ -2175,6 +2174,57 @@ a render, confirmed via `Error: page.goto: Download is starting`).
   these documents); PDF export anywhere else in the app (scoped to the two vendor purchase-batch
   documents this was explicitly deferred for); custom page headers/footers/logos/branding inside
   the PDF (a plain title + table, matching the existing print/CSV documents' own plainness).
+
+---
+
+## Data Retention / Pruning for page_views (session 2026-08-12)
+
+The Self-Hosted Analytics session shipped `page_views` with an explicitly noted gap: no
+data-retention/pruning job, so the table grows unbounded. This closes it with a configurable
+retention window, an automatic daily cron, and a manual admin "prune now" button.
+
+- **New `SystemSetting`, `page_view_retention_days` (default `"180"`)** — reuses the existing
+  generic settings mechanism (`services/loyalty.py`'s `DEFAULT_SETTINGS`/
+  `NON_NEGATIVE_FLOAT_SETTINGS`/`validate_setting_value`) rather than inventing a new one. `0` is
+  accepted as a legitimate (if extreme) policy value — "keep nothing" — same reasoning already
+  applied to `unsettled_grace_days=0`. It's editable for free via the existing generic settings
+  editor on `admin/loyalty/page.tsx` (just a new `SETTING_LABELS` entry) — no new settings UI.
+- **One shared pruning helper, two entry points** — `routers/analytics.py`'s
+  `_prune_old_pageviews(db)` computes the cutoff from the setting and does a single atomic bulk
+  delete (`db.query(PageView).filter(created_at < cutoff).delete(synchronize_session=False)`, no
+  ORM per-row loop), returning `(deleted_count, retention_days)`. Both callers share it, matching
+  this codebase's established "shared core, multiple callers" convention (e.g.
+  `loyalty.create_sale_transaction` behind both admin and vendor sale-reporting):
+  - `POST /admin/analytics/prune` (`get_current_admin`) — the manual trigger.
+  - `POST /api/analytics/prune-old-pageviews` — no admin dependency; copies
+    `process_scheduled_distributions`'s inline `Authorization: Bearer <CRON_SECRET>` check verbatim
+    (500 if `CRON_SECRET` isn't configured on the server, 401 if missing/wrong), since a cron run
+    has no admin JWT to present.
+- **`.github/workflows/prune-analytics.yml`** (new) — a daily cron (`17 3 * * *`, deliberately not
+  piggybacked onto `schedule.yml`'s every-15-minutes distributions job, since pruning is a
+  once-a-day housekeeping concern, not a time-sensitive one) with one `curl` step, reusing the
+  already-configured `CRON_SECRET` repo secret `schedule.yml` already uses — no new secret to
+  provision.
+- **`admin/analytics/page.tsx`** gained a "ניקוי נתונים ישנים" card (prune-now button + its own
+  local `Toast`, matching the established per-admin-page pattern — 11 other admin pages already
+  keep their own `Toast` copy rather than sharing one, since no review has ever found that specific
+  duplication actually drifting) showing the result via toast (e.g. "נמחקו 2 רשומות (ישנות מ-180
+  יום)") and refreshing the summary afterward.
+- **Verified end-to-end**: `pytest` 25/25 (3 new — admin-triggered prune deletes only rows past the
+  retention cutoff and is idempotent on a second call with nothing left to prune, non-admin gets
+  403, the cron endpoint's 500/401/200 CRON_SECRET behavior); `tsc`/`lint`/`build` all clean. Real
+  browser session (Playwright): seeded old/recent `PageView` rows directly in the dev DB, confirmed
+  the new setting is visible and editable on `/admin/loyalty`, clicked "מחק נתונים ישנים כעת" on
+  `/admin/analytics` and got the correct toast + DB state (both old rows gone, the recent one
+  survived), zero console errors. Manual `curl` against the cron endpoint confirmed all three
+  states (unconfigured → 500, wrong/missing secret → 401, correct secret → 200 with a real
+  `{deleted, retention_days}` body). Test rows/users and dev-server processes cleaned up
+  afterward, DB confirmed back at documented baseline (4 users, 4 `customer_orders`, 5 `leads`).
+- **Explicitly out of scope, deferred**: no automated test for the CRON_SECRET-protected endpoint's
+  actual GitHub Actions trigger (matches `process-scheduled`'s own precedent — verified manually,
+  same as that endpoint always was); no admin-configurable cron *frequency* (only the retention
+  *window* is tunable — a fixed daily schedule is enough); provisioning nothing new is required on
+  Render (`CRON_SECRET` already exists there for `schedule.yml`'s job).
 
 ---
 

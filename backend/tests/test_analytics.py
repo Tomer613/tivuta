@@ -89,3 +89,63 @@ def test_admin_analytics_summary_30d_totals_correct_even_with_shorter_trend_wind
     assert data["totals"]["pageviews_30d"] == 2
     assert data["totals"]["unique_visitors_30d"] == 2
     assert len(data["trend"]) == 14
+
+
+def test_admin_prune_deletes_only_rows_older_than_retention_setting(client, db_session, make_user):
+    make_user(email="pruneadmin@example.com", password="adminpass123", role="admin")
+    login = client.post("/auth/login", data={"username": "pruneadmin@example.com", "password": "adminpass123"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    now = datetime.utcnow()
+    # Default retention is 180 days — one row clearly past it, one comfortably within it (a
+    # couple of days short of the cutoff, not placed exactly on it — the cutoff itself is
+    # computed against wall-clock time at request time, so an exact-boundary row would be racy).
+    old_row = models.PageView(path="/he/", locale="he", visitor_id="old", created_at=now - timedelta(days=200))
+    kept_row = models.PageView(path="/he/", locale="he", visitor_id="kept", created_at=now - timedelta(days=178))
+    recent_row = models.PageView(path="/he/", locale="he", visitor_id="recent", created_at=now - timedelta(days=10))
+    db_session.add_all([old_row, kept_row, recent_row])
+    db_session.commit()
+
+    resp = client.post("/admin/analytics/prune", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["deleted"] == 1
+    assert body["retention_days"] == 180.0
+
+    remaining = {row.visitor_id for row in db_session.query(models.PageView).all()}
+    assert remaining == {"kept", "recent"}
+
+    # A second call with nothing left to prune is a clean no-op, not an error.
+    resp2 = client.post("/admin/analytics/prune", headers=headers)
+    assert resp2.status_code == 200
+    assert resp2.json()["deleted"] == 0
+
+
+def test_admin_prune_requires_admin(client, db_session, make_user):
+    make_user(email="prunemember@example.com", password="memberpass123", role="member")
+    login = client.post("/auth/login", data={"username": "prunemember@example.com", "password": "memberpass123"})
+    token = login.json()["access_token"]
+
+    resp = client.post("/admin/analytics/prune", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 403
+
+
+def test_cron_prune_endpoint_requires_cron_secret(client, db_session, monkeypatch):
+    monkeypatch.setenv("CRON_SECRET", "test-secret-123")
+
+    resp = client.post("/api/analytics/prune-old-pageviews")
+    assert resp.status_code == 401
+
+    resp = client.post(
+        "/api/analytics/prune-old-pageviews",
+        headers={"Authorization": "Bearer wrong-secret"},
+    )
+    assert resp.status_code == 401
+
+    resp = client.post(
+        "/api/analytics/prune-old-pageviews",
+        headers={"Authorization": "Bearer test-secret-123"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 0, "retention_days": 180.0}

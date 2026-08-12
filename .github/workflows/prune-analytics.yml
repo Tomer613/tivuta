@@ -1,0 +1,16 @@
+name: Prune Old Analytics Data
+
+on:
+  schedule:
+    # Runs once a day — a housekeeping job, not a time-sensitive one, so it doesn't need the
+    # every-15-minutes cadence schedule.yml uses for scheduled distributions.
+    - cron: '17 3 * * *'
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call FastAPI backend to prune old page_views rows
+        run: |
+          curl -s -X POST "https://tivuta.onrender.com/api/analytics/prune-old-pageviews" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
