@@ -756,7 +756,9 @@ class PointsLedgerEntryRead(BaseModel):
 # Loyalty program: vendor self-service portal
 class VendorPortalAccessUpdate(BaseModel):
     login_email: str
-    password: str = Field(..., min_length=8)
+    # Omitted (or null) → the vendor is emailed an invite link to set their own first password
+    # instead of the admin picking one on their behalf. See admin_set_vendor_portal_access.
+    password: Optional[str] = Field(None, min_length=8)
 
 class VendorMeRead(BaseModel):
     id: int

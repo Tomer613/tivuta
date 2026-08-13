@@ -1031,7 +1031,7 @@ Full design plan: see `.claude/plans` history or ask for the "sparkling-swimming
 - **Vendor is a fully separate auth principal from `User`/`role`**, not a third role value. Rationale: a vendor is a store, not a person — it has no favorites/orders/dashboard, and giving it a `User` row would risk it satisfying `role != 'admin'` checks meant for real members. `Vendor.login_email`/`hashed_password` (added in Phase 1, unused until now) are the vendor's own credential.
 - **JWT `typ` claim separates the two token types**: member/admin tokens now carry `{"sub": user.email, "typ": "user"}` (`routers/auth.py`); vendor tokens carry `{"sub": vendor.login_email, "typ": "vendor"}` (`routers/vendor_portal.py`). `security.get_current_user` explicitly rejects `typ="vendor"` tokens (but still accepts tokens with no `typ` at all, so pre-existing member sessions issued before this change aren't force-logged-out); `security.get_current_vendor` requires `typ="vendor"` strictly and additionally checks `Vendor.is_active`. Verified end-to-end that a vendor token 401s against `/users/me` and a member/admin token 401s against `/vendor/me`.
 - **`backend/app/routers/vendor_portal.py`** (new router): `POST /vendor-auth/login` (separate token endpoint from `/auth/login`), `GET /vendor/me`, `GET/POST /vendor/sales`, `GET /vendor/settlements`. `POST /vendor/sales` takes **no `vendor_id` in the body at all** — the vendor's identity comes only from `get_current_vendor`, so a vendor can never report a sale as a different vendor.
-- **Admin issues/resets vendor portal credentials**: `PATCH /admin/vendors/{id}/portal-access` (`routers/vendors.py`) sets `login_email`+`hashed_password`. Cross-checks that the email isn't already a member's `User.email` or another vendor's `login_email` — keeps the two principal types' emails disjoint even though the `typ` claim already prevents any auth confusion. No vendor self-service signup/password-reset yet (small, known set of vendors; admin-issued is enough for v1).
+- **Admin issues/resets vendor portal credentials**: `PATCH /admin/vendors/{id}/portal-access` (`routers/vendors.py`) sets `login_email`+`hashed_password`. Cross-checks that the email isn't already a member's `User.email` or another vendor's `login_email` — keeps the two principal types' emails disjoint even though the `typ` claim already prevents any auth confusion. **Update (session 2026-08-13): self-service signup (invite-based) and password-reset were built — see "Vendor Portal Self-Service Signup/Password-Reset" below.** Vendors are still exclusively admin-curated (no open registration) — this endpoint remains the only way a `Vendor` row ever gets portal credentials at all.
 - **Commission settlement lifecycle, now fully wired**: `POST /admin/vendors/{id}/settlements` opens a period by running a single atomic `UPDATE ... WHERE settlement_period_id IS NULL` to claim unsettled confirmed transactions within `[period_start, period_end]` (by `confirmed_at`), then sums whatever actually got claimed — deliberately *not* "SELECT rows in Python, then set attributes," because that read-then-write shape would let two concurrent opens (e.g. an admin double-clicking) both read the same unclaimed rows and double-count them before either commits. Verified live: opening two overlapping periods back-to-back gives the second period `total_amount_ils=0`, not a duplicate of the first. `PATCH /admin/vendors/{id}/settlements/{period_id}/settle` marks it paid, decrements `Vendor.commission_owed_total` by the period total (atomic update), and rejects settling an already-settled period. Vendors see their own history read-only via `GET /vendor/settlements`.
 - **Admin vendors page** (`frontend/.../admin/vendors/page.tsx`) gained: commission/points rate % inputs in the create/edit form, a commission-owed column in the table, a key-icon modal to issue/reset portal login credentials, and a wallet-icon modal for the full settlement workflow (open a period via `datetime-local` inputs — deliberately timezone-naive to match `confirmed_at`'s naive-UTC storage — list history, mark open periods settled).
 - **New vendor-facing route tree** at `frontend/src/app/[locale]/vendor/`: `layout.tsx` mounts `VendorAuthProvider` (separate localStorage key `tivuta_vendor_token` — a vendor and member session must never collide in the same browser); `login/page.tsx` is unguarded; a `(portal)` route group (mirrors the existing `(protected)/admin` two-tier pattern) wraps `dashboard/`, `report/`, `settlements/` in `VendorGuard` + a nav bar. `report/page.tsx` generates a client-side `idempotency_key` (via `crypto.randomUUID()`) once per logical submission and **reuses it across retries** of the same attempt, only rotating to a fresh key after a confirmed success — this is what makes the backend's idempotency guarantee actually reachable from a flaky connection, not just a server-side nicety.
@@ -2353,6 +2353,75 @@ to the exact unlock instant.
   silently drift if either ever needed a fix). `toUtcIso` is now exported and `isLocked()` imports
   it instead of re-declaring its own copy. Re-verified live: the admin users page's locked badge
   and unlock button still render correctly for a genuinely-locked test account.
+
+---
+
+## Vendor Portal Self-Service Signup/Password-Reset (session 2026-08-13)
+
+Loyalty Phase 3 deliberately shipped admin-issued-only vendor portal credentials — an admin had to
+pick and type a password on the vendor's behalf, with no vendor-facing self-service, explicitly
+noted as a v1 scope cut for "a small, known set of vendors."
+
+**Scope decision, confirmed with the user before building**: vendors stay admin-curated — this is
+a B2B portal tied to a fraud-sensitive commission/points ledger (see the Loyalty Program's fraud-
+resistance design decisions), and open self-registration would let anyone create a "vendor" and
+start reporting fake sales. "Self-service" here means two things, both reusing one token-based
+"set your password" mechanism, neither opening account creation to the public: (1) a vendor who
+already has portal access can reset a forgotten password themselves via an emailed link, and (2)
+an admin can invite a *new* vendor by setting just their login email — the vendor then chooses
+their own first password via the same link, instead of the admin inventing and manually sharing
+one.
+
+- **`Vendor.reset_token`/`reset_token_expires`** (new columns, migration
+  `14eafd54db52_add_vendor_reset_token.py`, plain nullable `op.add_column`s, no batch mode needed
+  — same shape as `50da6b936e9b`'s vendor-column precedent) mirror `User`'s existing reset-token
+  fields exactly.
+- **`POST /vendor-auth/forgot-password`/`POST /vendor-auth/reset-password`** (`vendor_portal.py`)
+  are near-verbatim ports of `auth.py`'s member `forgot_password`/`reset_password` — same
+  `secrets.token_urlsafe(32)` + 60-minute expiry, same anti-enumeration "always return success"
+  response, same rate limits (`3/hour`/`5/minute`), same lockout-clearing on a successful reset.
+  Both reuse the existing generic `schemas.ForgotPasswordRequest`/`ResetPasswordRequest` — no new
+  schemas needed, since neither is principal-specific in shape.
+- **`PATCH /admin/vendors/{id}/portal-access`'s `password` field is now `Optional`** — this single
+  change *is* the invite mechanism. Password given → unchanged existing behavior (admin sets it
+  directly, any pending reset token is cleared). Password omitted → the endpoint generates a reset
+  token/expiry (the same fields the self-service flow uses) and emails an invite to the same
+  `/vendor/reset-password?token=...` link. Works identically whether the vendor is brand new
+  (`hashed_password` was never set — they literally cannot log in until they complete the link) or
+  already active (this becomes an admin-triggered alternative to the vendor resetting it
+  themselves — useful if a vendor is locked out and can't receive email, for instance).
+  `RESET_TOKEN_EXPIRE_MINUTES` is defined once in `vendor_portal.py` and imported into
+  `vendors.py` rather than duplicated as a second magic number.
+- **New frontend pages** `vendor/forgot-password/page.tsx` and `vendor/reset-password/page.tsx` —
+  structural copies of the member `(public)/forgot-password`/`reset-password` pages (same card
+  layout, same `<Suspense>` wrapper on the reset page for `useSearchParams()` under static export)
+  restyled with the vendor portal's existing gold/`Store` visual language instead of the member
+  pages' navy/`LogIn` styling, linking back to `/vendor/login`. `vendor/login/page.tsx` gained a
+  "שכחתי סיסמה" link (it never had one before — the member login page did, vendor login didn't).
+- **`admin/vendors/page.tsx`'s portal-access modal**: the password field is now optional with
+  updated hint text ("leave blank to email an invite instead"), and both the submit button label
+  and the success toast branch on whether a password was actually typed.
+- **Verified end-to-end**: `pytest` 32/32 (7 new — forgot-password creates a token and the
+  anti-enumeration response holds for a nonexistent email, reset-password updates the hash/clears
+  lockout/rejects an invalid token and the vendor can then log in with the new password, the admin
+  endpoint's two branches — invite-sends-email-no-password-set vs. direct-password-set — both
+  produce the expected `Vendor` state, non-admin gets 403); `tsc`/lint/build all clean (both new
+  routes confirmed built for all 4 locales). Real browser session (Playwright), full loop both
+  ways: admin invited a brand-new vendor (email only) → real invite email captured from the
+  console email sender's log, containing a working reset link → vendor completed the link, chose
+  their own first password, and logged into the vendor dashboard successfully; separately, that
+  same now-active vendor clicked "שכחתי סיסמה" on the login page → completed a fresh self-service
+  reset with a newly-generated token (confirmed distinct from the invite token) → logged in with
+  the self-chosen replacement password. Zero console errors throughout. Test admin/vendor and
+  dev-server processes cleaned up afterward, DB confirmed back at documented baseline (4 users, 1
+  vendor).
+- **Explicitly out of scope, deferred**: open public vendor self-registration (confirmed with the
+  user as a deliberate scope decision — vendors stay admin-curated); a dedicated vendor unlock
+  button (separate, already-identified deferred item; the invite/reset flow incidentally gives
+  admins a second way to unstick a locked-out vendor, but that's a side effect, not a redesign of
+  unlock itself); automated E2E coverage for the new flow (no `VENDOR_FORGOT_PASSWORD_RATE_LIMIT`-
+  style env override added preemptively, matching `VENDOR_LOGIN_RATE_LIMIT`'s own precedent of
+  only adding that override once a real spec needed it).
 
 ---
 

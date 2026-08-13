@@ -7,6 +7,7 @@ import { vendorLogin, LockedAccountError } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { useParams, useRouter } from 'next/navigation';
 import LockoutCountdown from '@/components/LockoutCountdown';
+import Link from 'next/link';
 
 interface T {
     title: string;
@@ -15,13 +16,14 @@ interface T {
     password: string;
     submit: string;
     error_invalid: string;
+    forgot: string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'פורטל ספקים - TIVUTA', subtitle: 'דיווח עסקאות לתוכנית הנאמנות', email: 'כתובת אימייל', password: 'סיסמה', submit: 'התחברות', error_invalid: 'אימייל או סיסמה שגויים' },
-    en: { title: 'TIVUTA Vendor Portal', subtitle: 'Report sales for the loyalty program', email: 'Email Address', password: 'Password', submit: 'Login', error_invalid: 'Invalid email or password' },
-    fr: { title: 'Portail Fournisseur TIVUTA', subtitle: 'Signaler des ventes pour le programme de fidélité', email: 'E-mail', password: 'Mot de passe', submit: 'Connexion', error_invalid: 'Identifiants invalides' },
-    yi: { title: 'TIVUTA פארטאל פאר פארקויפער', subtitle: 'רעפארטירן פארקויפן', email: 'ע-פאסט', password: 'סיסמה', submit: 'אריינלאגן', error_invalid: 'טעות אין אימייל אדער סיסמה' },
+    he: { title: 'פורטל ספקים - TIVUTA', subtitle: 'דיווח עסקאות לתוכנית הנאמנות', email: 'כתובת אימייל', password: 'סיסמה', submit: 'התחברות', error_invalid: 'אימייל או סיסמה שגויים', forgot: 'שכחתי סיסמה' },
+    en: { title: 'TIVUTA Vendor Portal', subtitle: 'Report sales for the loyalty program', email: 'Email Address', password: 'Password', submit: 'Login', error_invalid: 'Invalid email or password', forgot: 'Forgot Password?' },
+    fr: { title: 'Portail Fournisseur TIVUTA', subtitle: 'Signaler des ventes pour le programme de fidélité', email: 'E-mail', password: 'Mot de passe', submit: 'Connexion', error_invalid: 'Identifiants invalides', forgot: 'Mot de passe oublié ?' },
+    yi: { title: 'TIVUTA פארטאל פאר פארקויפער', subtitle: 'רעפארטירן פארקויפן', email: 'ע-פאסט', password: 'סיסמה', submit: 'אריינלאגן', error_invalid: 'טעות אין אימייל אדער סיסמה', forgot: 'פארגעסן סיסמה?' },
 };
 
 export default function VendorLoginPage() {
@@ -93,7 +95,10 @@ export default function VendorLoginPage() {
                         />
                     </div>
                     <div className="space-y-2 flex flex-col items-start">
-                        <label className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest px-2">{t.password}</label>
+                        <div className="w-full flex justify-between items-center px-2">
+                            <label className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest">{t.password}</label>
+                            <Link href={`/${locale}/vendor/forgot-password`} className="text-xs font-bold text-[#d4af37]/70 hover:text-[#d4af37] transition-colors">{t.forgot}</Link>
+                        </div>
                         <div className="relative w-full">
                             <input
                                 type={showPassword ? 'text' : 'password'}

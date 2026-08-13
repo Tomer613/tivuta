@@ -1,5 +1,6 @@
 import os
-from datetime import timedelta
+import secrets
+from datetime import datetime, timedelta
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,11 +16,12 @@ from ..security import (
     create_access_token,
     get_current_vendor,
     get_db,
+    get_password_hash,
     record_failed_login,
     record_successful_login,
     verify_password,
 )
-from ..services import loyalty
+from ..services import get_email_sender, loyalty
 from .sales import _sale_read
 
 router = APIRouter(tags=["vendor-portal"])
@@ -54,6 +56,51 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+RESET_TOKEN_EXPIRE_MINUTES = 60  # matches auth.py's RESET_TOKEN_EXPIRE_MINUTES for members
+
+
+@router.post("/vendor-auth/forgot-password")
+@limiter.limit("3/hour")
+def vendor_forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Self-service password reset for a vendor who already has portal access. Mirrors
+    auth.py's forgot_password exactly (same token/expiry shape, same anti-enumeration response)."""
+    vendor = db.query(models.Vendor).filter(models.Vendor.login_email == payload.email).first()
+    if vendor:
+        token = secrets.token_urlsafe(32)
+        vendor.reset_token = token
+        vendor.reset_token_expires = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+        db.commit()
+
+        base_url = os.environ.get("APP_BASE_URL", "http://localhost:3000")
+        locale = payload.locale or "he"
+        reset_link = f"{base_url}/{locale}/vendor/reset-password?token={token}"
+        get_email_sender().send(
+            to=vendor.login_email,
+            subject="איפוס סיסמה - פורטל ספקים TIVUTA",
+            html_body=f"<p>לאיפוס הסיסמה שלך לפורטל הספקים, לחץ/י על הקישור הבא (בתוקף לשעה):</p><p><a href=\"{reset_link}\">{reset_link}</a></p>",
+        )
+
+    # Always return success regardless of whether the email exists, to avoid email enumeration.
+    return {"message": "If that email exists, a reset link has been sent."}
+
+
+@router.post("/vendor-auth/reset-password")
+@limiter.limit("5/minute")
+def vendor_reset_password(request: Request, payload: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
+    vendor = db.query(models.Vendor).filter(models.Vendor.reset_token == payload.token).first()
+    if not vendor or not vendor.reset_token_expires or vendor.reset_token_expires < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    vendor.hashed_password = get_password_hash(payload.new_password)
+    vendor.reset_token = None
+    vendor.reset_token_expires = None
+    # A fresh password shouldn't stay stuck behind an old lockout from the forgotten one.
+    vendor.failed_login_attempts = 0
+    vendor.locked_until = None
+    db.commit()
+    return {"message": "Password updated successfully."}
 
 
 @router.get("/vendor/me", response_model=schemas.VendorMeRead)

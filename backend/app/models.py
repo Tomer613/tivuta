@@ -189,6 +189,8 @@ class Vendor(Base):
     # Loyalty program: vendor portal login (separate principal from `users`/role, a vendor is a store, not a person)
     login_email = Column(String(150), unique=True, index=True, nullable=True)
     hashed_password = Column(String(255), nullable=True)
+    reset_token = Column(String(255), nullable=True)
+    reset_token_expires = Column(DateTime, nullable=True)
     failed_login_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(DateTime, nullable=True)
     commission_rate_percent = Column(Float, default=0.0, nullable=False)  # % of each sale owed to Tivuta

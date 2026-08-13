@@ -103,11 +103,11 @@ export async function adminDeleteVendor(token: string, id: number) {
     return res.json();
 }
 
-export async function adminSetVendorPortalAccess(token: string, id: number, loginEmail: string, password: string): Promise<Vendor> {
+export async function adminSetVendorPortalAccess(token: string, id: number, loginEmail: string, password?: string): Promise<Vendor> {
     const res = await fetch(`${BASE_URL}/admin/vendors/${id}/portal-access`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login_email: loginEmail, password }),
+        body: JSON.stringify({ login_email: loginEmail, password: password || null }),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -686,6 +686,28 @@ export async function forgotPassword(email: string, locale: string) {
 
 export async function resetPassword(token: string, new_password: string) {
     const res = await fetch(`${BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, new_password }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to reset password');
+    }
+    return res.json();
+}
+
+export async function vendorForgotPassword(email: string, locale: string) {
+    const res = await fetch(`${BASE_URL}/vendor-auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, locale }),
+    });
+    return res.ok;
+}
+
+export async function vendorResetPassword(token: string, new_password: string) {
+    const res = await fetch(`${BASE_URL}/vendor-auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, new_password }),

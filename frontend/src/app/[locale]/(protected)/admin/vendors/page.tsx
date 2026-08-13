@@ -235,8 +235,8 @@ export default function AdminVendorsPage() {
         if (!token || !portalAccessVendor) return;
         setSavingPortalAccess(true);
         try {
-            await adminSetVendorPortalAccess(token, portalAccessVendor.id, portalEmail, portalPassword);
-            showToast('פרטי הכניסה לפורטל הספק עודכנו ✓');
+            await adminSetVendorPortalAccess(token, portalAccessVendor.id, portalEmail, portalPassword || undefined);
+            showToast(portalPassword ? 'פרטי הכניסה לפורטל הספק עודכנו ✓' : 'הזמנה לקביעת סיסמה נשלחה לספק במייל ✓');
             closePortalAccessForm();
             load();
         } catch (err) {
@@ -707,7 +707,7 @@ export default function AdminVendorsPage() {
                             </h2>
                             <button type="button" onClick={closePortalAccessForm}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
-                        <p className="text-xs text-[#f0e6d3]/50">הזן/י אימייל וסיסמה שהספק ישתמש בהם כדי להתחבר לפורטל דיווח העסקאות שלו.</p>
+                        <p className="text-xs text-[#f0e6d3]/50">הזן/י את כתובת המייל שהספק ישתמש בה כדי להתחבר לפורטל דיווח העסקאות שלו.</p>
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">אימייל כניסה</label>
                             <input
@@ -720,21 +720,23 @@ export default function AdminVendorsPage() {
                             />
                         </div>
                         <div>
-                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סיסמה חדשה (8 תווים לפחות)</label>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סיסמה (אופציונלי, 8 תווים לפחות)</label>
                             <input
-                                required
                                 type="text"
                                 minLength={8}
                                 value={portalPassword}
                                 onChange={(e) => setPortalPassword(e.target.value)}
-                                placeholder="••••••••"
+                                placeholder="השאר ריק כדי לשלוח לספק הזמנה במייל"
                                 className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
                                 dir="ltr"
                             />
+                            <p className="text-[10px] text-[#f0e6d3]/40 mt-1">
+                                אם תשאיר/י ריק, יישלח לספק מייל עם קישור לקביעת סיסמה בעצמו.
+                            </p>
                         </div>
                         <button type="submit" disabled={savingPortalAccess} className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60">
                             {savingPortalAccess ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
-                            שמור פרטי כניסה
+                            {portalPassword ? 'שמור פרטי כניסה' : 'שלח הזמנה במייל'}
                         </button>
                     </form>
                 </div>
