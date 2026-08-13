@@ -53,7 +53,12 @@ export default defineConfig({
             // backend needs this set manually before it starts to get the same fix.
             // VENDOR_LOGIN_RATE_LIMIT is the same fix for /vendor-auth/login — a separate
             // principal with its own per-IP bucket (see vendor_portal.py).
-            env: { ...process.env, LOGIN_RATE_LIMIT: '100/minute', VENDOR_LOGIN_RATE_LIMIT: '100/minute' },
+            // CRON_SECRET is unrelated to rate limiting — distribution-scheduling.spec.ts calls
+            // POST /api/distributions/process-scheduled directly, which 500s immediately if this
+            // is unset (verify_cron_secret in security.py). Same "only takes effect when
+            // Playwright launches the backend" caveat as the two rate-limit overrides above — a
+            // separately-started local backend needs this exported manually before it starts.
+            env: { ...process.env, LOGIN_RATE_LIMIT: '100/minute', VENDOR_LOGIN_RATE_LIMIT: '100/minute', CRON_SECRET: 'e2e-test-cron-secret' },
         },
         {
             command: 'npm run dev',

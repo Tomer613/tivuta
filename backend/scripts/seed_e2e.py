@@ -28,6 +28,15 @@ E2E_LOCKOUT_EMAIL = "e2e_lockout@tivuta.test"
 E2E_LOCKOUT_PASSWORD = "e2eLockoutPass123"
 E2E_VENDOR_LOGIN_EMAIL = "e2e_vendor@tivuta.test"
 E2E_VENDOR_LOGIN_PASSWORD = "e2eVendorPass123"
+# Dedicated to distribution-scheduling.spec.ts's audience segmentation test — each has exactly
+# one of city/membership_tracks set, and no other seeded user shares either value, so a filtered
+# send's sent_count directly proves the filter worked rather than just that *a* send happened.
+E2E_DIST_CITY_MEMBER_EMAIL = "e2e_dist_city@tivuta.test"
+E2E_DIST_CITY_MEMBER_PASSWORD = "e2eDistCityPass123"
+E2E_DIST_CITY = "ירושלים"
+E2E_DIST_TRACK_MEMBER_EMAIL = "e2e_dist_track@tivuta.test"
+E2E_DIST_TRACK_MEMBER_PASSWORD = "e2eDistTrackPass123"
+E2E_DIST_TRACK = "gold_track"
 E2E_VERTICAL_SLUG = "diamonds"
 
 ModelT = TypeVar("ModelT")
@@ -59,10 +68,12 @@ def seed_e2e():
     db = SessionLocal()
     try:
         member = None
-        for email, password, role in [
-            (E2E_MEMBER_EMAIL, E2E_MEMBER_PASSWORD, "member"),
-            (E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "admin"),
-            (E2E_LOCKOUT_EMAIL, E2E_LOCKOUT_PASSWORD, "member"),
+        for email, password, role, extra in [
+            (E2E_MEMBER_EMAIL, E2E_MEMBER_PASSWORD, "member", {}),
+            (E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD, "admin", {}),
+            (E2E_LOCKOUT_EMAIL, E2E_LOCKOUT_PASSWORD, "member", {}),
+            (E2E_DIST_CITY_MEMBER_EMAIL, E2E_DIST_CITY_MEMBER_PASSWORD, "member", {"city": E2E_DIST_CITY}),
+            (E2E_DIST_TRACK_MEMBER_EMAIL, E2E_DIST_TRACK_MEMBER_PASSWORD, "member", {"membership_tracks": [E2E_DIST_TRACK]}),
         ]:
             user = get_or_create(
                 db,
@@ -73,6 +84,7 @@ def seed_e2e():
                     "first_name": "E2E",
                     "last_name": role.capitalize(),
                     "role": role,
+                    **extra,
                 },
             )
             if email == E2E_MEMBER_EMAIL:

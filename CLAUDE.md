@@ -1960,6 +1960,44 @@ toolbar wired to the real table.
   up). `pytest` 22/22, Vitest 7/7, lint unchanged from the post-analytics baseline (185 — no new
   problems from any file touched this pass).
 
+### Broader E2E Coverage: Distribution Scheduling (session 2026-08-13)
+A 6th spec, closing the last gap explicitly noted when the original suite shipped: the scheduled-
+distribution cron path (`POST /api/distributions/process-scheduled`) and its audience segmentation
+filters (`filter_city`/`filter_membership_track`) had real, shipped logic in `_send_distribution`
+with zero test coverage — only ever manually curl-verified.
+- **`distribution-scheduling.spec.ts`** — creates two `daily_deal` distributions via a direct
+  authenticated `POST /admin/distributions` call (the admin create-form's own field-wiring isn't
+  the risk here; the cron trigger and segmentation logic are), one filtered by `filter_city`, one
+  by `filter_membership_track`, both `scheduled_at` ~5 minutes in the past. Calls
+  `POST /api/distributions/process-scheduled` directly with the same `Authorization: Bearer
+  <CRON_SECRET>` header GitHub Actions sends every 15 minutes, then polls `GET
+  /admin/distributions` (`expect(...).toPass({timeout})`, since `_send_distribution` runs as a
+  background task) until both distributions show `status: 'sent'` — asserting `sent_count === 1`
+  on **each** is the real proof segmentation worked (a filter bug would show `2`, not `1`), not
+  just that *a* send happened. Finishes by logging into the real admin UI and confirming both
+  distribution titles render on `/admin/distribution`.
+- **`seed_e2e.py`** gained two more dedicated members, matching the established
+  "dedicated account per spec need" pattern (`E2E_LOCKOUT_EMAIL`'s own precedent): one with
+  `city="ירושלים"` and nothing else, one with `membership_tracks=["gold_track"]` and nothing
+  else — no other seeded user has either field set, so each filter is guaranteed to isolate
+  exactly its own member.
+- **`playwright.config.ts`** — `CRON_SECRET: 'e2e-test-cron-secret'` added to the backend
+  `webServer`'s `env`, same "only takes effect when Playwright itself launches the backend"
+  caveat already documented for `LOGIN_RATE_LIMIT`/`VENDOR_LOGIN_RATE_LIMIT` — a separately-started
+  local backend needs this exported manually before it starts, or this spec's cron call 500s
+  immediately (`verify_cron_secret` in `security.py`).
+- **Verified end-to-end, three ways**: all 6 specs pass together against already-running local dev
+  servers (after clearing a stale `.next` cache and pre-warming every route via `curl -L` first —
+  the documented cold-compile gotcha, worse than usual here since this was a fresh `next dev`
+  process hitting 6 different route trees back-to-back); all 6 pass again via a fresh CI-style run
+  (`CI=1`, Playwright's own `webServer` launching both processes, confirming `CRON_SECRET` actually
+  takes effect through that path and not just when manually exported); and the plan's own "prove
+  the test can catch the bug it claims to catch" check — temporarily asserted `sent_count === 2`
+  on the city-filtered distribution, confirmed a real failure (`Expected: 2, Received: 1`), then
+  reverted and confirmed green again. `pytest` 25/25 unaffected (no backend production code changed
+  this pass, only the seed script); Vitest 7/7; `tsc`/lint/build all clean. Throwaway `e2e_tivuta.db`
+  and dev-server processes cleaned up afterward.
+
 ---
 
 ## Self-Hosted Analytics (session 2026-08-12)
