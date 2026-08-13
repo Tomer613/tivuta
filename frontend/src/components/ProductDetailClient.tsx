@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -14,6 +14,7 @@ import { shareProductOnWhatsApp } from '@/lib/share';
 import { Product, PromotionBrief, promotionLabel } from '@/components/ProductTile';
 import ProductActionButtons from '@/components/ProductActionButtons';
 import { useAttrLabels } from '@/lib/useVerticals';
+import { useCountdown } from '@/lib/useCountdown';
 import { CheckCircle2, Loader2, Trophy, Users, Tag, ArrowRight, Heart, Share2, Star } from 'lucide-react';
 
 interface PromotionStatus {
@@ -94,30 +95,6 @@ function StarRating({ rating, onChange }: { rating: number; onChange?: (v: numbe
             ))}
         </div>
     );
-}
-
-function useCountdown(endDate: string | null) {
-    const [remaining, setRemaining] = useState<{ d: number; h: number; m: number; s: number } | null>(null);
-    const ref = useRef<ReturnType<typeof setInterval> | null>(null);
-
-    useEffect(() => {
-        if (!endDate) return;
-        const calc = () => {
-            const diff = new Date(endDate).getTime() - Date.now();
-            if (diff <= 0) { setRemaining({ d: 0, h: 0, m: 0, s: 0 }); return; }
-            setRemaining({
-                d: Math.floor(diff / 86400000),
-                h: Math.floor((diff % 86400000) / 3600000),
-                m: Math.floor((diff % 3600000) / 60000),
-                s: Math.floor((diff % 60000) / 1000),
-            });
-        };
-        calc();
-        ref.current = setInterval(calc, 1000);
-        return () => { if (ref.current) clearInterval(ref.current); };
-    }, [endDate]);
-
-    return remaining;
 }
 
 function CountdownDisplay({ endDate, locale }: { endDate: string; locale: Locale }) {

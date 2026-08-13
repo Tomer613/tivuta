@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import LockoutCountdown from '@/components/LockoutCountdown';
 
 interface LoginTranslation {
     title: string;
@@ -80,6 +81,7 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [showSlowMessage, setShowSlowMessage] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [lockedUntil, setLockedUntil] = useState<string | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -99,6 +101,7 @@ export default function LoginPage() {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
+        setLockedUntil(null);
         try {
             const formData = new FormData();
             formData.append('username', email);
@@ -116,9 +119,13 @@ export default function LoginPage() {
                 router.push(redirectTo && redirectTo.startsWith('/') ? redirectTo : `/${locale}`);
             } else if (response.status === 423) {
                 // Account temporarily locked (too many failed attempts) — distinct from a plain
-                // wrong password, so show the backend's specific message instead of the generic one.
+                // wrong password. locked_until drives a live countdown instead of a static message.
                 const data = await response.json().catch(() => ({}));
-                setError(data.detail || t.error_invalid);
+                if (data.locked_until) {
+                    setLockedUntil(data.locked_until);
+                } else {
+                    setError(data.detail || t.error_invalid);
+                }
             } else {
                 setError(t.error_invalid);
             }
@@ -150,7 +157,15 @@ export default function LoginPage() {
                     <p className="text-[#f0e6d3]/60 font-medium text-center leading-relaxed">{t.subtitle}</p>
                 </div>
 
-                {error && (
+                {lockedUntil ? (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="w-full p-4 mb-8 bg-red-50 text-red-600 rounded-2xl text-sm font-bold border border-red-100 text-center"
+                    >
+                        <LockoutCountdown lockedUntil={lockedUntil} locale={locale} />
+                    </motion.div>
+                ) : error && (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}

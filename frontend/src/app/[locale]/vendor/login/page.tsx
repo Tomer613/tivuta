@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { Store, Loader2, Eye, EyeOff, LogIn } from 'lucide-react';
 import { useVendorAuth } from '@/context/VendorAuthContext';
-import { vendorLogin } from '@/lib/api';
+import { vendorLogin, LockedAccountError } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { useParams, useRouter } from 'next/navigation';
+import LockoutCountdown from '@/components/LockoutCountdown';
 
 interface T {
     title: string;
@@ -30,6 +31,7 @@ export default function VendorLoginPage() {
     const { login } = useVendorAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [lockedUntil, setLockedUntil] = useState<string | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -40,12 +42,17 @@ export default function VendorLoginPage() {
         e.preventDefault();
         setIsLoading(true);
         setError(null);
+        setLockedUntil(null);
         try {
             const data = await vendorLogin(email, password);
             await login(data.access_token);
             router.push(`/${locale}/vendor/dashboard`);
         } catch (err) {
-            setError(getErrorMessage(err, t.error_invalid));
+            if (err instanceof LockedAccountError) {
+                setLockedUntil(err.lockedUntil);
+            } else {
+                setError(getErrorMessage(err, t.error_invalid));
+            }
         } finally {
             setIsLoading(false);
         }
@@ -62,7 +69,11 @@ export default function VendorLoginPage() {
                     <p className="text-[#f0e6d3]/60 font-medium text-center leading-relaxed">{t.subtitle}</p>
                 </div>
 
-                {error && (
+                {lockedUntil ? (
+                    <div className="w-full p-4 mb-8 bg-red-500/10 text-red-400 rounded-2xl text-sm font-bold border border-red-500/30 text-center">
+                        <LockoutCountdown lockedUntil={lockedUntil} locale={locale} />
+                    </div>
+                ) : error && (
                     <div className="w-full p-4 mb-8 bg-red-500/10 text-red-400 rounded-2xl text-sm font-bold border border-red-500/30 text-center">
                         {error}
                     </div>

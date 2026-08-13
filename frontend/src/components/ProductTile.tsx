@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Info, Heart, Share2, Star, Clock } from 'lucide-react';
 import { addFavorite, removeFavorite, productImageUrl, Vendor } from '@/lib/api';
 import { shareProductOnWhatsApp } from '@/lib/share';
 import ProductActionButtons from '@/components/ProductActionButtons';
+import { useCountdown } from '@/lib/useCountdown';
 
 export interface PromotionBrief {
     id: number;
@@ -71,27 +72,6 @@ const translations: Record<string, T> = {
     fr: { schedule: 'Planifier une visite', contact: 'Me contacter', requested: 'Demande envoyée, nous vous contacterons bientôt', scheduled: 'Rendez-vous confirmé ! Email envoyé', price_label: 'Prix', on_request: 'Sur demande', add_to_cart: 'Ajouter au panier', send: 'Envoyer', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité' },
     yi: { schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן מיר', requested: 'געשיקט, מיר וועלן זיך פארבינדן', scheduled: 'באגעגעניש איז באשטעטיגט!', price_label: 'פרייז', on_request: 'אויף פארלאנג', add_to_cart: 'צולייגן אין קארב', send: 'שיקן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות' },
 };
-
-function useCountdown(endDate: string | null | undefined) {
-    const calc = useCallback(() => {
-        if (!endDate) return null;
-        const diff = new Date(endDate).getTime() - Date.now();
-        if (diff <= 0) return null;
-        return {
-            d: Math.floor(diff / 86400000),
-            h: Math.floor((diff % 86400000) / 3600000),
-            m: Math.floor((diff % 3600000) / 60000),
-            s: Math.floor((diff % 60000) / 1000),
-        };
-    }, [endDate]);
-    const [remaining, setRemaining] = useState(calc);
-    useEffect(() => {
-        if (!endDate) return;
-        const id = setInterval(() => setRemaining(calc()), 1000);
-        return () => clearInterval(id);
-    }, [endDate, calc]);
-    return remaining;
-}
 
 function FlashCountdown({ endDate, locale }: { endDate: string; locale: string }) {
     const r = useCountdown(endDate);

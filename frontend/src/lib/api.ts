@@ -334,6 +334,16 @@ export interface CommissionSettlementPeriod {
     note?: string | null;
 }
 
+// Thrown instead of a plain Error when a 423 response carries a locked_until timestamp, so a
+// caller can render a live countdown instead of just the static message string.
+export class LockedAccountError extends Error {
+    lockedUntil: string;
+    constructor(message: string, lockedUntil: string) {
+        super(message);
+        this.lockedUntil = lockedUntil;
+    }
+}
+
 export async function vendorLogin(loginEmail: string, password: string): Promise<{ access_token: string; token_type: string }> {
     const formData = new URLSearchParams();
     formData.set('username', loginEmail);
@@ -345,6 +355,9 @@ export async function vendorLogin(loginEmail: string, password: string): Promise
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (res.status === 423 && err.locked_until) {
+            throw new LockedAccountError(err.detail || 'Login failed', err.locked_until);
+        }
         throw new Error(err.detail || 'Login failed');
     }
     return res.json();

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -61,14 +62,33 @@ def get_password_hash(password):
 # vendor_portal.py) so a fraud-sensitive check like this has exactly one implementation rather
 # than two that could drift. Works on either model via duck-typing: both declare the same
 # `hashed_password`/`failed_login_attempts`/`locked_until` columns.
+class AccountLockedError(Exception):
+    """Raised by check_account_lock when an account is currently locked out. Carries the real
+    `locked_until` instant (not just the configured duration) so the client can render a live
+    countdown to the exact unlock moment rather than a static "X minutes" string that goes stale
+    the instant a page refresh happens partway through the lockout."""
+
+    def __init__(self, message: str, locked_until: datetime):
+        self.message = message
+        self.locked_until = locked_until
+        super().__init__(message)
+
+
+async def account_locked_handler(request: Request, exc: AccountLockedError) -> JSONResponse:
+    return JSONResponse(
+        status_code=423,
+        content={"detail": exc.message, "locked_until": exc.locked_until.isoformat()},
+    )
+
+
 def check_account_lock(db: Session, account) -> None:
-    """Raises 423 if `account` is currently locked. Call BEFORE verifying the password, so a
-    locked account never even pays for a bcrypt comparison."""
+    """Raises AccountLockedError if `account` is currently locked. Call BEFORE verifying the
+    password, so a locked account never even pays for a bcrypt comparison."""
     if account.locked_until and account.locked_until > datetime.utcnow():
         lockout_minutes = int(loyalty.get_setting_float(db, "lockout_duration_minutes"))
-        raise HTTPException(
-            status_code=423,
-            detail=f"Too many failed login attempts. Try again in {lockout_minutes} minute(s).",
+        raise AccountLockedError(
+            f"Too many failed login attempts. Try again in {lockout_minutes} minute(s).",
+            account.locked_until,
         )
 
 

@@ -51,6 +51,8 @@ def test_login_rate_limit_blocks_after_five_attempts(client, make_user):
 
 
 def test_account_locks_after_max_failed_attempts_and_rejects_correct_password(client, make_user):
+    from datetime import datetime, timedelta
+
     from app.rate_limit import limiter
 
     make_user(email="lockout1@example.com", password="correcthorse")
@@ -63,6 +65,12 @@ def test_account_locks_after_max_failed_attempts_and_rejects_correct_password(cl
     limiter.reset()
     resp = client.post("/auth/login", data={"username": "lockout1@example.com", "password": "correcthorse"})
     assert resp.status_code == 423
+    # locked_until drives the frontend's live countdown — must be a real, near-future timestamp,
+    # not just a static "try again in N minutes" string.
+    body = resp.json()
+    locked_until = datetime.fromisoformat(body["locked_until"])
+    assert locked_until > datetime.utcnow()
+    assert locked_until <= datetime.utcnow() + timedelta(minutes=16)
 
 
 def test_successful_login_resets_failed_attempt_counter(client, make_user, db_session):

@@ -2293,6 +2293,63 @@ retention window, an automatic daily cron, and a manual admin "prune now" button
 
 ---
 
+## Live Countdown in the Lockout Message (session 2026-08-13)
+
+The Per-Account Login Lockout session shipped a static 423 message naming the *configured*
+lockout duration ("Try again in 15 minute(s).") rather than the actual remaining time, explicitly
+deferring a live countdown as future polish. The static message was also literally wrong the
+moment a locked-out user refreshed the page mid-lockout — it always showed the full configured
+duration, never how much time was actually left. This session replaces it with a real countdown
+to the exact unlock instant.
+
+- **`security.py`'s new `AccountLockedError`** carries the real `locked_until` timestamp, not just
+  a duration string. `check_account_lock` raises it instead of a plain `HTTPException`; a new
+  `account_locked_handler` (registered in `main.py` via `app.add_exception_handler`, same pattern
+  already used for `RateLimitExceeded`) returns the 423 response with **both** the existing
+  `detail` string (unchanged shape, so every existing string-only consumer of `err.detail` keeps
+  working) **and** a new sibling `locked_until` field the frontend uses to compute the countdown.
+- **New shared `frontend/src/lib/useCountdown.ts`**, extracted from `ProductTile.tsx`'s
+  previously-private `useCountdown` hook — now also used by the new lockout countdown. Along the
+  way it gained a `Z`-append normalization step (same regex already proven in `admin/users/page.tsx`'s
+  `isLocked()`) for naive-UTC input, since backend timestamps have no timezone designator and JS's
+  `Date` otherwise parses them as local time, not UTC.
+- **Found and fixed two real, independent copies of the same latent timezone bug while extracting
+  this hook** — not just the one being replaced. `ProductTile.tsx`'s flash-sale countdown and
+  `ProductDetailClient.tsx`'s raffle/first-n "closes in" countdown (`CountdownDisplay`, a third,
+  separately-written `useCountdown` nobody had connected to the first one) both fed a naive-UTC
+  `Promotion.end_date` straight into `new Date(endDate).getTime() - Date.now()` with no `Z`-append —
+  silently mis-displaying remaining time by the browser's local UTC offset on every non-UTC
+  timezone. Both now import the one shared, `Z`-safe hook; `ProductDetailClient.tsx`'s local copy
+  was deleted outright. Confirmed live on this dev machine (UTC+3): a flash-sale promo seeded to
+  end in ~2 hours showed `01:55:13` (correct) before the fix would have shown something in the
+  `04:5x:xx` range.
+- **`frontend/src/components/LockoutCountdown.tsx`** (new) — the shared "too many attempts, try
+  again in mm:ss" widget, switching to "you can try again now" once the countdown hits zero
+  (mirrors `FlashCountdown`'s own expired-state handling). Built-in 4-locale strings, matching this
+  codebase's no-shared-i18n-library convention.
+- **All three login surfaces updated**: `(public)/login/page.tsx` and
+  `benefits/[locale]/login/page.tsx` both already special-cased `response.status === 423` from a
+  raw inline `fetch()` — they now read `data.locked_until` into a new `lockedUntil` state and
+  render `<LockoutCountdown>` instead of the plain error string when set.
+  `vendor/login/page.tsx` goes through `vendorLogin()` in `lib/api.ts`, which previously only ever
+  threw a plain `Error(err.detail)` — a new exported `LockedAccountError` subclass (carrying
+  `lockedUntil`) is thrown instead when the 423 body has `locked_until`, and the page's `catch`
+  block checks `err instanceof LockedAccountError` before falling back to the existing
+  `getErrorMessage` path for every other failure.
+- **Verified end-to-end**: `pytest` 25/25 (the existing lockout test now also asserts
+  `locked_until` parses as a real near-future timestamp, not just checking the 423 status code);
+  `tsc`/lint/build all clean. Real browser session (Playwright): locked a member account and a
+  vendor account (5 wrong passwords each, simulated via direct DB seed for speed), confirmed both
+  login pages show a live, ticking countdown (two readings 2.5s apart differed, proving it's not a
+  static string); confirmed the flash-sale and raffle countdown fixes above with real seeded
+  promotions. Test accounts/promotions and dev-server processes cleaned up afterward, DB confirmed
+  back at documented baseline (4 users, 1 vendor, 4 `customer_orders`, 5 `leads`, 0 promotions).
+- **Explicitly out of scope, deferred**: `admin/users/page.tsx`'s `isLocked()` badge (already
+  correct, not touched); a dedicated vendor-side backend lockout test (`check_account_lock` is
+  shared and already covered by the member-side test).
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -2326,7 +2383,7 @@ retention window, an automatic daily cron, and a manual admin "prune now" button
 - **Flag, don't block, on velocity limits**: exceeding `max_vendor_sales_per_hour`/`max_customer_vendor_sales_per_day` routes a sale to `status="flagged"` (effects deferred, pending admin review) rather than rejecting the request outright — a genuinely busy store shouldn't be punished with a hard error, but the pattern still needs a human to look at it before it earns anyone anything.
 - **A sale's effects are realized through exactly one code path**: `_apply_realized_sale_effects()` in `services/loyalty.py` is the only place that increments `points_balance`/`commission_owed_total`/`popularity_score` and writes the `PointsLedgerEntry`+`Notification`. Both the synchronous-confirm path (`create_sale_transaction`) and the admin flagged-review confirm path (`review_sale`) call into it, rather than each having their own copy — the alternative (duplicate the increment logic in two places) is exactly the kind of drift a fraud-sensitive ledger can't afford.
 - **Clawback respects settlement, doesn't fight it**: reversing an already-`confirmed` sale claws back points and popularity unconditionally, but only touches `Vendor.commission_owed_total` if the sale hasn't already been linked to a `settled` `CommissionSettlementPeriod`. Once money has changed hands outside the app, silently adjusting the in-app running balance would misstate reality rather than correct it — that case is left for manual admin reconciliation instead.
-- **Naive-UTC timestamps are safe to display as-is, but never safe to compare against `Date.now()` without converting first**: this codebase stores/serializes datetimes as naive UTC everywhere (no timezone offset in the ISO string — same convention `confirmed_at`'s timezone-naive `datetime-local` admin inputs already rely on). That's fine for *display*. But JS's `Date` parses a date-*time* string with no timezone designator as **local time**, not UTC — a real bug this way was found and fixed in `isLocked()` (`admin/users/page.tsx`, Per-Account Login Lockout session): comparing a naive `locked_until` string directly against `Date.now()` silently mis-evaluated lock state depending on the browser's local timezone offset. Any future frontend code that needs to numerically compare a backend timestamp against "now" (not just render it) must append `Z` first.
+- **Naive-UTC timestamps are safe to display as-is, but never safe to compare against `Date.now()` without converting first**: this codebase stores/serializes datetimes as naive UTC everywhere (no timezone offset in the ISO string — same convention `confirmed_at`'s timezone-naive `datetime-local` admin inputs already rely on). That's fine for *display*. But JS's `Date` parses a date-*time* string with no timezone designator as **local time**, not UTC — a real bug this way was found and fixed in `isLocked()` (`admin/users/page.tsx`, Per-Account Login Lockout session): comparing a naive `locked_until` string directly against `Date.now()` silently mis-evaluated lock state depending on the browser's local timezone offset. The same bug was independently found a second and third time (the Live Countdown session) in two separate hand-rolled `useCountdown` implementations (`ProductTile.tsx`'s flash-sale timer, `ProductDetailClient.tsx`'s raffle timer) — both silently mis-displayed remaining time by the browser's UTC offset. **`frontend/src/lib/useCountdown.ts` is now the one shared, `Z`-safe countdown hook** — any future countdown/remaining-time UI should use it rather than writing a fourth copy of this same bug.
 - **Per-account lockout is a separate, stacking layer from per-IP rate limiting, not a replacement**: `slowapi`'s `5/minute` per-IP limit (Backend Security Hardening session) and the DB-column-based per-account lockout (Per-Account Login Lockout session) both guard `/auth/login`/`/vendor-auth/login` simultaneously — the first throttles bursts from one IP regardless of account, the second locks one specific account regardless of IP. Both defaulting to the same threshold (5) is coincidental, not a shared setting; they're tuned independently (`SystemSetting` for lockout, in-code decorator args for rate limiting).
 - **An explicit lockout message is an acceptable, deliberate email-enumeration trade-off**: HTTP 423 with a specific "too many attempts" message is distinguishable from a generic wrong-password 401, which could in principle confirm an email is registered. Accepted because `POST /auth/signup` already discloses this via "Email already registered" on a duplicate — a cheaper, faster oracle than anything the lockout message adds. Don't use this same reasoning to justify *new* enumeration surfaces elsewhere without re-checking whether an equivalent cheaper leak already exists there too.
 - **A lead's `customer_order_id` is the switch between two admin tabs, not just a nullable FK**: `NULL` means "surface in `/admin/leads`" (today, exclusively `general_inquiry`), non-`NULL` means "surface in `/admin/orders`." Any future new `lead_type` needs a deliberate choice of which tab it belongs in, not just a schema addition — get it wrong and the lead either vanishes from both tabs or double-counts logic that assumes one or the other.

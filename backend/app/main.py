@@ -9,6 +9,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from .rate_limit import limiter
 from .routers import analytics, auth, catalog, distributions, favorites, leads, notifications, products, promotions, reviews, sales, share, surveys, translate, users, vendor_portal, vendors, verticals
+from .security import AccountLockedError, account_locked_handler
 
 # Error monitoring — inert until SENTRY_DSN is set (same "skip until configured" pattern as
 # get_email_sender()/get_image_storage()). No traces_sample_rate: errors only, no APM/tracing.
@@ -25,6 +26,7 @@ app = FastAPI(title="Tivuta - The Working Haredi Ecosystem")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(AccountLockedError, account_locked_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 # Paths that serve FastAPI's own Swagger/ReDoc UI, which loads CDN-hosted JS/CSS —
