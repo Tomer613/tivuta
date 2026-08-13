@@ -127,6 +127,22 @@ def admin_set_vendor_portal_access(vendor_id: int, payload: schemas.VendorPortal
     return vendor
 
 
+@router.patch("/admin/vendors/{vendor_id}/unlock", response_model=schemas.VendorRead, dependencies=[Depends(get_current_admin)])
+def admin_unlock_vendor(vendor_id: int, db: Session = Depends(get_db)):
+    """Immediately lifts a login lockout — mirrors admin_unlock_user (users.py). Portal-access
+    edits deliberately no longer clear lockout as a side effect (see the Vendor Portal
+    Self-Service review), so this is the only direct way to unlock a vendor without also
+    resetting their password. Harmless no-op if the vendor wasn't locked."""
+    vendor = db.query(models.Vendor).filter(models.Vendor.id == vendor_id).first()
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    vendor.failed_login_attempts = 0
+    vendor.locked_until = None
+    db.commit()
+    db.refresh(vendor)
+    return vendor
+
+
 @router.get(
     "/admin/vendors/{vendor_id}/settlements",
     response_model=List[schemas.CommissionSettlementPeriodRead],

@@ -1656,8 +1656,11 @@ account — and CORS still allowed every method/header (`allow_methods=["*"]`,
   after an admin unlock. Test accounts and dev-server processes used for verification were cleaned
   up afterward (dev DB confirmed back at baseline: 4 users, 4 `customer_orders`, 5 `leads`).
 - **Explicitly out of scope, deferred**: a dedicated vendor unlock button (folded into the existing
-  portal-access reset instead, see above), a live countdown in the lockout message (it names the
-  configured static duration, not an exact remaining-time string), per-account rate limiting via
+  portal-access reset instead, see above — **update (session 2026-08-13): built as a real,
+  separate control once the portal-access reset stopped clearing lockout as a side effect — see
+  "Dedicated Vendor Unlock Button" below**), a live countdown in the lockout message (it names the
+  configured static duration, not an exact remaining-time string — **update (session 2026-08-13):
+  built, see "Live Countdown in the Lockout Message" below**), per-account rate limiting via
   `slowapi` (this uses a separate DB-column mechanism that stacks with, not replaces, the existing
   per-IP `slowapi` limiter), and further restricting `signup`/`forgot_password`'s existing
   anti-enumeration behavior.
@@ -2481,6 +2484,37 @@ actually needed to distinguish three.
   correctly changing the emailed link's locale segment; confirmed the rate-limit path now shows
   the real, localized error message instead of a false success state. Test data and dev-server
   processes cleaned up afterward, DB confirmed back at baseline (4 users, 1 vendor).
+
+---
+
+## Dedicated Vendor Unlock Button (session 2026-08-13)
+
+The Per-Account Login Lockout session gave admins a one-click unlock for locked-out *member*
+accounts but skipped an equivalent for vendors, reasoning that the existing portal-access-reset
+action "already clears vendor lockout as a side effect." The Vendor Portal Self-Service review
+(same day) correctly fixed that action so a plain email edit on an already-active vendor no longer
+touches lockout state at all — which was the right fix for that bug, but it also quietly removed
+the *only* way an admin had to unlock a vendor without also resetting their password. This session
+closes that gap with a real, dedicated control, mirroring the member one exactly.
+
+- **`PATCH /admin/vendors/{vendor_id}/unlock`** (`routers/vendors.py`) is a straight port of
+  `admin_unlock_user` (`users.py`): clears `failed_login_attempts`/`locked_until`, 404 if the
+  vendor doesn't exist, harmless no-op if it wasn't locked. `VendorRead` gained a `locked_until`
+  field (it already had `login_email` from the review session) so the frontend can know a vendor
+  is locked at all.
+- **`admin/vendors/page.tsx`** gained the same `isLocked()`/badge/button trio as
+  `admin/users/page.tsx` — a red "נעול" badge in the status column, an `Unlock`-icon button in the
+  actions column (both shown only while actually locked), and `handleUnlockVendor` calling the new
+  `adminUnlockVendor` API helper. `isLocked()` imports the shared `toUtcIso` from
+  `lib/useCountdown.ts` (the Live Countdown session's dedup fix) rather than re-inlining the
+  naive-UTC-to-Z regex a third time.
+- **Verified end-to-end**: `pytest` 38/38 (3 new — unlock clears lockout and the vendor can log in
+  immediately afterward, non-admin gets 403, unknown vendor id gets 404); `tsc`/lint (185,
+  unchanged baseline)/build all clean. Real browser session (Playwright): confirmed the badge and
+  unlock button appear only for a genuinely-locked vendor, clicking unlock clears both and shows
+  the correct toast, the vendor can log in again immediately after, and a non-locked vendor shows
+  neither control. Test data and dev-server processes cleaned up afterward, DB confirmed back at
+  baseline (4 users, 1 vendor).
 
 ---
 

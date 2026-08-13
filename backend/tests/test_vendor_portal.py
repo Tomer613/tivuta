@@ -173,3 +173,46 @@ def test_reset_password_rejects_short_new_password(client, make_vendor, db_sessi
 
     db_session.refresh(vendor)
     assert vendor.reset_token == "weak-pass-token"  # rejected before consuming the token
+
+
+def test_admin_unlock_vendor_clears_lockout(client, make_user, make_vendor, db_session):
+    make_user(email="vendorunlockadmin@example.com", password="adminpass123", role="admin")
+    login = client.post("/auth/login", data={"username": "vendorunlockadmin@example.com", "password": "adminpass123"})
+    token = login.json()["access_token"]
+
+    vendor = make_vendor(
+        login_email="lockedvendor@example.com",
+        hashed_password=get_password_hash("correcthorse"),
+        locked_until=datetime.utcnow() + timedelta(minutes=15),
+        failed_login_attempts=5,
+    )
+
+    resp = client.patch(f"/admin/vendors/{vendor.id}/unlock", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 200
+    assert resp.json()["locked_until"] is None
+
+    db_session.refresh(vendor)
+    assert vendor.locked_until is None
+    assert vendor.failed_login_attempts == 0
+
+    login_resp = client.post("/vendor-auth/login", data={"username": "lockedvendor@example.com", "password": "correcthorse"})
+    assert login_resp.status_code == 200
+
+
+def test_admin_unlock_vendor_requires_admin(client, make_user, make_vendor):
+    make_user(email="vendorunlockmember@example.com", password="memberpass123", role="member")
+    login = client.post("/auth/login", data={"username": "vendorunlockmember@example.com", "password": "memberpass123"})
+    token = login.json()["access_token"]
+
+    vendor = make_vendor()
+    resp = client.patch(f"/admin/vendors/{vendor.id}/unlock", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 403
+
+
+def test_admin_unlock_vendor_404_for_unknown_id(client, make_user):
+    make_user(email="vendorunlockadmin2@example.com", password="adminpass123", role="admin")
+    login = client.post("/auth/login", data={"username": "vendorunlockadmin2@example.com", "password": "adminpass123"})
+    token = login.json()["access_token"]
+
+    resp = client.patch("/admin/vendors/999999/unlock", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 404

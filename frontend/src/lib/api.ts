@@ -48,6 +48,7 @@ export interface Vendor {
     contact_phone?: string | null;
     contact_email?: string | null;
     login_email?: string | null;
+    locked_until?: string | null;
     is_active: boolean;
     availability?: VendorAvailability | null;
     commission_rate_percent?: number;
@@ -113,6 +114,15 @@ export async function adminSetVendorPortalAccess(token: string, id: number, logi
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'Failed to set vendor portal access');
     }
+    return res.json();
+}
+
+export async function adminUnlockVendor(token: string, vendorId: number): Promise<Vendor> {
+    const res = await fetch(`${BASE_URL}/admin/vendors/${vendorId}/unlock`, {
+        method: 'PATCH',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to unlock vendor');
     return res.json();
 }
 

@@ -188,6 +188,7 @@ class VendorRead(VendorBase):
     vendor_code: str
     commission_owed_total: float = 0.0
     login_email: Optional[str] = None
+    locked_until: Optional[datetime] = None
 
     class Config:
         from_attributes = True
