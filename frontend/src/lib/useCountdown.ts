@@ -11,9 +11,11 @@ export interface CountdownParts {
 
 // Backend timestamps are naive-UTC (no timezone designator, e.g. "2026-08-13T12:35:46") — JS's
 // Date parses that as local time, not UTC, so a numeric comparison against Date.now() (a true
-// UTC instant) would be silently offset by the browser's local timezone. Same fix already
-// established in admin/users/page.tsx's isLocked().
-function toUtcIso(value: string): string {
+// UTC instant) would be silently offset by the browser's local timezone. Exported so any other
+// code needing to numerically compare a backend timestamp against "now" (e.g.
+// admin/users/page.tsx's isLocked()) shares this one implementation instead of a second copy
+// that could drift.
+export function toUtcIso(value: string): string {
     return /[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`;
 }
 

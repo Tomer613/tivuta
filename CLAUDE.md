@@ -2344,9 +2344,15 @@ to the exact unlock instant.
   static string); confirmed the flash-sale and raffle countdown fixes above with real seeded
   promotions. Test accounts/promotions and dev-server processes cleaned up afterward, DB confirmed
   back at documented baseline (4 users, 1 vendor, 4 `customer_orders`, 5 `leads`, 0 promotions).
-- **Explicitly out of scope, deferred**: `admin/users/page.tsx`'s `isLocked()` badge (already
-  correct, not touched); a dedicated vendor-side backend lockout test (`check_account_lock` is
-  shared and already covered by the member-side test).
+- **Explicitly out of scope, deferred**: a dedicated vendor-side backend lockout test
+  (`check_account_lock` is shared and already covered by the member-side test).
+- **Post-implementation review fix (same session)**: `lib/useCountdown.ts`'s `toUtcIso()` helper
+  was written with a comment noting it matched "the fix already established in
+  `admin/users/page.tsx`'s `isLocked()`" — but left that page's own inline copy of the same regex
+  in place instead of consolidating. A review caught the duplication risk (the two copies could
+  silently drift if either ever needed a fix). `toUtcIso` is now exported and `isLocked()` imports
+  it instead of re-declaring its own copy. Re-verified live: the admin users page's locked badge
+  and unlock button still render correctly for a genuinely-locked test account.
 
 ---
 

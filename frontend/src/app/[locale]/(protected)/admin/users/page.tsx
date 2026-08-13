@@ -4,15 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth, User } from '@/context/AuthContext';
 import { adminListUsers, adminCreateUser, adminSetUserRole, adminDeleteUser, adminUnlockUser } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
+import { toUtcIso } from '@/lib/useCountdown';
 import { Plus, Loader2, X, ShieldCheck, ShieldOff, Trash2, CheckCircle2, AlertCircle, Search, Lock, Unlock } from 'lucide-react';
 
 function isLocked(u: User): boolean {
     if (!u.locked_until) return false;
-    // Backend sends a naive-UTC timestamp with no timezone designator (e.g. "2026-08-11T12:35:46").
-    // JS's Date parses that as local time, not UTC — append 'Z' so the comparison against
-    // Date.now() (a true UTC instant) isn't silently offset by the browser's local timezone.
-    const iso = /[zZ]|[+-]\d\d:\d\d$/.test(u.locked_until) ? u.locked_until : `${u.locked_until}Z`;
-    return new Date(iso).getTime() > Date.now();
+    // Backend sends a naive-UTC timestamp with no timezone designator — toUtcIso appends 'Z' so
+    // the comparison against Date.now() (a true UTC instant) isn't silently offset by the
+    // browser's local timezone. Shared with lib/useCountdown.ts rather than a second copy.
+    return new Date(toUtcIso(u.locked_until)).getTime() > Date.now();
 }
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
