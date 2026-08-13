@@ -2516,6 +2516,28 @@ closes that gap with a real, dedicated control, mirroring the member one exactly
   neither control. Test data and dev-server processes cleaned up afterward, DB confirmed back at
   baseline (4 users, 1 vendor).
 
+### Post-implementation review fixes (same session)
+- **`admin_unlock_vendor`'s docstring overstated what changed**: it claimed portal-access edits
+  "no longer clear lockout as a side effect" without scoping that to the password-*omitted* case —
+  `admin_set_vendor_portal_access` still (correctly, unchanged) clears lockout whenever an admin
+  sets a new password directly. Reworded to state both cases precisely, so a future reader auditing
+  lockout-clearing paths doesn't miss that a direct password reset is a second existing way to
+  unlock a vendor.
+- **`isLocked()` and the badge/unlock-button JSX were copy-pasted into `admin/vendors/page.tsx`
+  from `admin/users/page.tsx`** (same logic, slightly diverged padding/icon sizing) — the review
+  flagged this against this session's own precedent (`BulkActionToolbar`, Back-Office Orders
+  Phase 2: two copies drifted on toast wording after a single edit cycle before being extracted).
+  Extracted `isAccountLocked(lockedUntil)` into `lib/useCountdown.ts` (alongside the `toUtcIso` it
+  depends on) and a new `frontend/src/components/admin/LockoutControls.tsx`
+  (`LockedBadge`/`UnlockButton`, each taking a `compact`/`showLabel` prop so the two pages' already
+  slightly different sizing is an explicit, intentional parameter rather than two silently
+  diverging inline copies). Both admin pages now import the shared pair instead of defining their
+  own.
+- **Re-verified live after the extraction**: full `pytest` (38/38), `tsc`/lint (185, unchanged)/
+  build all clean; a real browser session confirmed both pages' lockout badge and unlock button
+  still work correctly through the shared component — the member page's labeled button and the
+  vendor page's icon-only compact button both render and behave exactly as before.
+
 ---
 
 ## Key Design Decisions

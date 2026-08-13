@@ -12,11 +12,18 @@ export interface CountdownParts {
 // Backend timestamps are naive-UTC (no timezone designator, e.g. "2026-08-13T12:35:46") — JS's
 // Date parses that as local time, not UTC, so a numeric comparison against Date.now() (a true
 // UTC instant) would be silently offset by the browser's local timezone. Exported so any other
-// code needing to numerically compare a backend timestamp against "now" (e.g.
-// admin/users/page.tsx's isLocked()) shares this one implementation instead of a second copy
-// that could drift.
+// code needing to numerically compare a backend timestamp against "now" shares this one
+// implementation instead of a second copy that could drift.
 export function toUtcIso(value: string): string {
     return /[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`;
+}
+
+/** True if `lockedUntil` (a User or Vendor's locked_until field) is still in the future. Shared
+ * by every admin page with a lockout badge/unlock control (admin/users, admin/vendors) so this
+ * comparison — and the naive-UTC fix it depends on — has exactly one implementation. */
+export function isAccountLocked(lockedUntil: string | null | undefined): boolean {
+    if (!lockedUntil) return false;
+    return new Date(toUtcIso(lockedUntil)).getTime() > Date.now();
 }
 
 /** Ticks every second until `endDate` (any backend timestamp, naive or with an explicit

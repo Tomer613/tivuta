@@ -10,13 +10,9 @@ import {
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { openPrintableTable, downloadCsv, exportPdf } from '@/lib/printDocument';
-import { toUtcIso } from '@/lib/useCountdown';
-import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet, Boxes, Printer, Download, FileText, Square, CheckSquare, Lock, Unlock } from 'lucide-react';
-
-function isLocked(v: Vendor): boolean {
-    if (!v.locked_until) return false;
-    return new Date(toUtcIso(v.locked_until)).getTime() > Date.now();
-}
+import { isAccountLocked } from '@/lib/useCountdown';
+import { LockedBadge, UnlockButton } from '@/components/admin/LockoutControls';
+import { Plus, X, Loader2, Store, Pencil, Trash2, CheckCircle2, AlertCircle, KeyRound, Wallet, Boxes, Printer, Download, FileText, Square, CheckSquare } from 'lucide-react';
 
 const BATCH_STATUS_LABEL: Record<string, string> = { open: 'פתוחה', ordered: 'הוזמנה', received: 'התקבלה' };
 const BATCH_STATUS_COLOR: Record<string, string> = {
@@ -539,19 +535,13 @@ export default function AdminVendorsPage() {
                                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${vendor.is_active ? 'bg-green-500/20 text-green-400' : 'bg-[#111a2f] text-[#f0e6d3]/40'}`}>
                                                     {vendor.is_active ? 'פעיל' : 'כבוי'}
                                                 </span>
-                                                {isLocked(vendor) && (
-                                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/15 text-red-400" title="חשבון נעול עקב ניסיונות התחברות כושלים">
-                                                        <Lock size={11} /> נעול
-                                                    </span>
-                                                )}
+                                                {isAccountLocked(vendor.locked_until) && <LockedBadge compact />}
                                             </div>
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
-                                                {isLocked(vendor) && (
-                                                    <button onClick={() => handleUnlockVendor(vendor)} className="text-red-400/70 hover:text-red-400 transition-colors" title="הסר נעילה">
-                                                        <Unlock size={15} />
-                                                    </button>
+                                                {isAccountLocked(vendor.locked_until) && (
+                                                    <UnlockButton onClick={() => handleUnlockVendor(vendor)} showLabel={false} />
                                                 )}
                                                 <button onClick={() => openPortalAccessForm(vendor)} className="text-[#d4af37]/50 hover:text-[#d4af37] transition-colors" title={vendor.login_email ? 'עדכון פרטי כניסה לפורטל' : 'הפעלת פורטל ספק'}>
                                                     <KeyRound size={15} />
