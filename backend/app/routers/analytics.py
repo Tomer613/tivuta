@@ -1,11 +1,10 @@
-import os
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
-from ..security import get_current_admin, get_db
+from ..security import get_current_admin, get_db, verify_cron_secret
 from ..services import loyalty
 
 router = APIRouter(tags=["analytics"])
@@ -126,12 +125,6 @@ def admin_prune_analytics(db: Session = Depends(get_db)):
 def cron_prune_old_pageviews(request: Request, db: Session = Depends(get_db)):
     """Cron endpoint — called by GitHub Actions daily. Same Authorization: Bearer <CRON_SECRET>
     check as POST /api/distributions/process-scheduled (no admin JWT exists in a cron context)."""
-    cron_secret = os.environ.get("CRON_SECRET", "")
-    if not cron_secret:
-        raise HTTPException(status_code=500, detail="CRON_SECRET is not configured on the server")
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer ") or auth[len("Bearer "):] != cron_secret:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
+    verify_cron_secret(request)
     deleted, retention_days = _prune_old_pageviews(db)
     return {"deleted": deleted, "retention_days": retention_days}

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..database import SessionLocal
-from ..security import get_current_admin, get_db
+from ..security import get_current_admin, get_db, verify_cron_secret
 from ..services import get_email_sender
 
 router = APIRouter(tags=["distributions"])
@@ -324,12 +324,7 @@ def process_scheduled_distributions(
 ):
     """Cron endpoint — called by GitHub Actions every 15 minutes.
     Finds draft distributions whose scheduled_at has passed and fires them."""
-    cron_secret = os.environ.get("CRON_SECRET", "")
-    if not cron_secret:
-        raise HTTPException(status_code=500, detail="CRON_SECRET is not configured on the server")
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer ") or auth[len("Bearer "):] != cron_secret:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    verify_cron_secret(request)
 
     now = datetime.utcnow()
     due = (

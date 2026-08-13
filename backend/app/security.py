@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -34,6 +34,19 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def verify_cron_secret(request: Request) -> None:
+    """Shared Authorization: Bearer <CRON_SECRET> check for GitHub-Actions-triggered cron
+    endpoints, which have no admin JWT to present. Raises 500 if CRON_SECRET isn't configured on
+    the server, 401 if the header is missing or wrong — used by every cron-triggered endpoint so
+    this check can't drift between them."""
+    cron_secret = os.environ.get("CRON_SECRET", "")
+    if not cron_secret:
+        raise HTTPException(status_code=500, detail="CRON_SECRET is not configured on the server")
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer ") or auth[len("Bearer "):] != cron_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 def verify_password(plain_password, hashed_password):

@@ -2225,6 +2225,18 @@ retention window, an automatic daily cron, and a manual admin "prune now" button
   same as that endpoint always was); no admin-configurable cron *frequency* (only the retention
   *window* is tunable — a fixed daily schedule is enough); provisioning nothing new is required on
   Render (`CRON_SECRET` already exists there for `schedule.yml`'s job).
+- **Post-implementation review found two real issues, both fixed the same session**: (1) the new
+  cron endpoint's `Authorization: Bearer <CRON_SECRET>` check was first written as a second
+  verbatim copy of `process_scheduled_distributions`'s inline check — extracted into a shared
+  `security.py`'s `verify_cron_secret(request)` instead, and `distributions.py`'s cron endpoint was
+  updated to call it too, so there's now exactly one implementation of this check for any future
+  cron endpoint to reuse, not two that could drift. (2) `adminPruneAnalytics()` in `api.ts` first
+  discarded the backend's real error detail on failure (`throw new Error('Failed to prune...')`
+  with no response-body parsing) — inconsistent with the majority of this file's admin mutation
+  helpers (e.g. `adminOpenSettlementPeriod`/`adminSettlePeriod`, which parse `err.detail`). Fixed
+  to match. Both fixes verified: `pytest` 25/25 unchanged, `tsc`/lint clean, and a live curl check
+  of all four cases (unconfigured/wrong-secret/correct-secret on both cron endpoints) confirmed
+  identical behavior to before the refactor.
 
 ---
 

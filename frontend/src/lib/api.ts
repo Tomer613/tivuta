@@ -1297,7 +1297,10 @@ export async function adminGetAnalyticsSummary(token: string, days: number = 14)
 
 export async function adminPruneAnalytics(token: string): Promise<{ deleted: number; retention_days: number }> {
     const res = await fetch(`${BASE_URL}/admin/analytics/prune`, { method: 'POST', headers: authHeaders(token) });
-    if (!res.ok) throw new Error('Failed to prune analytics data');
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to prune analytics data');
+    }
     return res.json();
 }
 
