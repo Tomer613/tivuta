@@ -1,6 +1,5 @@
 import os
-import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -11,9 +10,11 @@ from ..rate_limit import limiter
 from ..security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     check_account_lock,
+    consume_reset_token,
     create_access_token,
     get_db,
     get_password_hash,
+    issue_reset_token,
     record_failed_login,
     record_successful_login,
     verify_password,
@@ -22,8 +23,6 @@ from ..services import get_email_sender
 from ..services import loyalty
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-RESET_TOKEN_EXPIRE_MINUTES = 60
 
 # Overridable only so the E2E test suite (frontend/e2e/) can raise this well above its own
 # default — the suite's specs collectively make several /auth/login requests across different
@@ -87,10 +86,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 def forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == payload.email).first()
     if user:
-        token = secrets.token_urlsafe(32)
-        user.reset_token = token
-        user.reset_token_expires = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
-        db.commit()
+        token = issue_reset_token(db, user)
 
         base_url = os.environ.get("APP_BASE_URL", "http://localhost:3000")
         locale = payload.locale or "he"
@@ -108,15 +104,5 @@ def forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db
 @router.post("/reset-password")
 @limiter.limit("5/minute")
 def reset_password(request: Request, payload: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.reset_token == payload.token).first()
-    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-
-    user.hashed_password = get_password_hash(payload.new_password)
-    user.reset_token = None
-    user.reset_token_expires = None
-    # A fresh password shouldn't stay stuck behind an old lockout from the forgotten one.
-    user.failed_login_attempts = 0
-    user.locked_until = None
-    db.commit()
+    consume_reset_token(db, models.User, payload.token, payload.new_password)
     return {"message": "Password updated successfully."}

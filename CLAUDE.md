@@ -2417,11 +2417,70 @@ one.
   vendor).
 - **Explicitly out of scope, deferred**: open public vendor self-registration (confirmed with the
   user as a deliberate scope decision — vendors stay admin-curated); a dedicated vendor unlock
-  button (separate, already-identified deferred item; the invite/reset flow incidentally gives
-  admins a second way to unstick a locked-out vendor, but that's a side effect, not a redesign of
-  unlock itself); automated E2E coverage for the new flow (no `VENDOR_FORGOT_PASSWORD_RATE_LIMIT`-
-  style env override added preemptively, matching `VENDOR_LOGIN_RATE_LIMIT`'s own precedent of
-  only adding that override once a real spec needed it).
+  button (separate, already-identified deferred item — per the post-review fixes below, admin-set
+  password is the one path that both replaces credentials and clears lockout for an active
+  vendor); automated E2E coverage for the new flow (no `VENDOR_FORGOT_PASSWORD_RATE_LIMIT`-style
+  env override added preemptively, matching `VENDOR_LOGIN_RATE_LIMIT`'s own precedent of only
+  adding that override once a real spec needed it).
+
+### Post-implementation review fixes (same session, after a 5-angle code review)
+All five review angles converged on the same root problem, from different symptoms: the first
+version of `admin_set_vendor_portal_access` treated "password omitted" as a single case, when it
+actually needed to distinguish three.
+- **The core fix**: omitting the password now only triggers the invite-email branch when
+  `vendor.hashed_password` is `None` (a genuinely new vendor). If the vendor already has a working
+  password and the admin submits with the field blank — e.g. to fix a typo in the email — it's now
+  a pure no-op on credentials: no surprise "you've been granted access" email to an already-active
+  vendor, and (the sharper finding) no more silent non-reset — the old version generated a fresh
+  invite token for an active vendor **without ever invalidating their existing password**, so an
+  admin trying to revoke a compromised vendor's access via this path would have left the old
+  password fully working the entire time. To force-reset an active vendor now, an admin sets a new
+  password directly (the existing first branch), which already fully replaces the hash and clears
+  lockout — no separate "revoke" action needed.
+- **Reset-token issuance was duplicated three ways** (`auth.py`, `vendor_portal.py`, and the
+  vendors.py invite branch) — three independent review angles flagged this. Extracted
+  `issue_reset_token`/`consume_reset_token` into `security.py` alongside the existing
+  `check_account_lock`/`record_failed_login` duck-typed helpers (same User/Vendor polymorphism,
+  same reasoning: a security-sensitive flow with near-identical copies is exactly what drifts).
+  `RESET_TOKEN_EXPIRE_MINUTES` now lives in one place instead of being manually kept in sync
+  across two files via a comment.
+- **`ResetPasswordRequest.new_password` had no `min_length`**, unlike `VendorPortalAccessUpdate`'s
+  `min_length=8` — meaning anyone holding a valid (or leaked) reset token could set a one-character
+  password on either principal, bypassing the frontend's `minLength=8` HTML attribute entirely.
+  Added `Field(min_length=8)` to the shared schema, closing the gap for both principals at once.
+- **The admin-invite email hardcoded `/he/vendor/reset-password`**, ignoring locale entirely, while
+  the sibling self-service `vendor_forgot_password` correctly used the caller's `locale`. Added an
+  optional `locale` field to `VendorPortalAccessUpdate` and a small language dropdown in the admin
+  invite modal (shown only for the genuine new-vendor-invite case) so an admin can pick the
+  vendor's language — verified live that selecting English produced a `/en/vendor/reset-password`
+  link instead of always `/he/`.
+- **`VendorRead` never exposed `login_email`**, even though the frontend `Vendor` TS type declared
+  it and `admin/vendors/page.tsx` read it to prefill the modal and choose the button's title
+  ("update" vs. "activate"). Harmless before (an admin was always retyping a password anyway) but
+  load-bearing now that a blank submission's behavior depends on whether the vendor already has
+  access — added `login_email: Optional[str]` to `VendorRead`; verified live that the button now
+  correctly reads "עדכון פרטי כניסה לפורטל" (not "הפעלת פורטל ספק") for an already-active vendor,
+  and the email field prefills correctly.
+- **`vendorForgotPassword()`/`forgotPassword()` discarded their response's failure signal
+  entirely** (`return res.ok` with no throw) — a vendor who tripped the `3/hour` rate limit saw a
+  false "reset link has been sent" success message, and a genuine network failure left an
+  unhandled rejection with the submit button stuck spinning forever (`setIsLoading(false)` never
+  ran). Both now throw on a non-ok response, matching `resetPassword()`'s existing pattern; both
+  forgot-password pages gained a `try`/`catch`/`finally` and an error box (the member page never
+  had one before). A same-session follow-up fix: since slowapi's own 429 body has no `detail`
+  field (`{"error": "Rate limit exceeded..."}`, not FastAPI's usual shape), the thrown error's
+  `.message` was always api.ts's unlocalized English fallback string — both pages now show their
+  translated `t.error` unconditionally on any catch, since neither realistic failure mode here
+  (rate limit, network, 5xx) ever carries a single-string detail worth surfacing individually.
+- **Verified end-to-end after all fixes**: `pytest` 35/35 (3 new regression tests — editing an
+  active vendor's email leaves their password working and sends no invite; `VendorRead`/`GET
+  /admin/vendors` both return `login_email`; a sub-8-character `new_password` is rejected with
+  422); `tsc`/lint (185, unchanged baseline)/build all clean. Real browser session (Playwright):
+  confirmed editing an active vendor's email no longer sends an invite and the old password still
+  logs in afterward; confirmed a brand-new-vendor invite still works with the locale dropdown
+  correctly changing the emailed link's locale segment; confirmed the rate-limit path now shows
+  the real, localized error message instead of a false success state. Test data and dev-server
+  processes cleaned up afterward, DB confirmed back at baseline (4 users, 1 vendor).
 
 ---
 

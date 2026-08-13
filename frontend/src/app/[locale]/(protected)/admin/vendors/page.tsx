@@ -72,7 +72,12 @@ export default function AdminVendorsPage() {
     const [portalAccessVendor, setPortalAccessVendor] = useState<Vendor | null>(null);
     const [portalEmail, setPortalEmail] = useState('');
     const [portalPassword, setPortalPassword] = useState('');
+    const [portalInviteLocale, setPortalInviteLocale] = useState('he');
     const [savingPortalAccess, setSavingPortalAccess] = useState(false);
+    // Whether this vendor already had portal access configured before the modal was opened —
+    // drives whether a blank password means "send a first-time invite" or "just edit the email,
+    // don't touch credentials" (matches admin_set_vendor_portal_access's own branching).
+    const isEditingExistingAccess = !!portalAccessVendor?.login_email;
     const [settlementsVendor, setSettlementsVendor] = useState<Vendor | null>(null);
     const [settlements, setSettlements] = useState<CommissionSettlementPeriod[]>([]);
     const [loadingSettlements, setLoadingSettlements] = useState(false);
@@ -222,12 +227,14 @@ export default function AdminVendorsPage() {
         setPortalAccessVendor(vendor);
         setPortalEmail(vendor.login_email || '');
         setPortalPassword('');
+        setPortalInviteLocale('he');
     };
 
     const closePortalAccessForm = () => {
         setPortalAccessVendor(null);
         setPortalEmail('');
         setPortalPassword('');
+        setPortalInviteLocale('he');
     };
 
     const handleSavePortalAccess = async (e: React.FormEvent) => {
@@ -235,8 +242,14 @@ export default function AdminVendorsPage() {
         if (!token || !portalAccessVendor) return;
         setSavingPortalAccess(true);
         try {
-            await adminSetVendorPortalAccess(token, portalAccessVendor.id, portalEmail, portalPassword || undefined);
-            showToast(portalPassword ? 'פרטי הכניסה לפורטל הספק עודכנו ✓' : 'הזמנה לקביעת סיסמה נשלחה לספק במייל ✓');
+            await adminSetVendorPortalAccess(token, portalAccessVendor.id, portalEmail, portalPassword || undefined, portalInviteLocale);
+            if (portalPassword) {
+                showToast('פרטי הכניסה לפורטל הספק עודכנו ✓');
+            } else if (isEditingExistingAccess) {
+                showToast('כתובת המייל עודכנה ✓ (הסיסמה הקיימת לא שונתה)');
+            } else {
+                showToast('הזמנה לקביעת סיסמה נשלחה לספק במייל ✓');
+            }
             closePortalAccessForm();
             load();
         } catch (err) {
@@ -726,17 +739,34 @@ export default function AdminVendorsPage() {
                                 minLength={8}
                                 value={portalPassword}
                                 onChange={(e) => setPortalPassword(e.target.value)}
-                                placeholder="השאר ריק כדי לשלוח לספק הזמנה במייל"
+                                placeholder={isEditingExistingAccess ? 'השאר ריק כדי לא לשנות את הסיסמה הקיימת' : 'השאר ריק כדי לשלוח לספק הזמנה במייל'}
                                 className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
                                 dir="ltr"
                             />
                             <p className="text-[10px] text-[#f0e6d3]/40 mt-1">
-                                אם תשאיר/י ריק, יישלח לספק מייל עם קישור לקביעת סיסמה בעצמו.
+                                {isEditingExistingAccess
+                                    ? 'לספק הזה כבר יש גישה. אם תשאיר/י ריק, רק כתובת המייל תעודכן והסיסמה הקיימת תישאר בתוקף.'
+                                    : 'אם תשאיר/י ריק, יישלח לספק מייל עם קישור לקביעת סיסמה בעצמו.'}
                             </p>
                         </div>
+                        {!portalPassword && !isEditingExistingAccess && (
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-1 block">שפת ההזמנה</label>
+                                <select
+                                    value={portalInviteLocale}
+                                    onChange={(e) => setPortalInviteLocale(e.target.value)}
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                >
+                                    <option value="he">עברית</option>
+                                    <option value="en">English</option>
+                                    <option value="fr">Français</option>
+                                    <option value="yi">יידיש</option>
+                                </select>
+                            </div>
+                        )}
                         <button type="submit" disabled={savingPortalAccess} className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-60">
                             {savingPortalAccess ? <Loader2 className="animate-spin" size={16} /> : <KeyRound size={16} />}
-                            {portalPassword ? 'שמור פרטי כניסה' : 'שלח הזמנה במייל'}
+                            {portalPassword ? 'שמור פרטי כניסה' : isEditingExistingAccess ? 'שמור עדכון' : 'שלח הזמנה במייל'}
                         </button>
                     </form>
                 </div>

@@ -124,7 +124,7 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(..., min_length=8)
 
 # Product Schemas (new multi-vertical site)
 class VendorDayAvailability(BaseModel):
@@ -187,6 +187,7 @@ class VendorRead(VendorBase):
     id: int
     vendor_code: str
     commission_owed_total: float = 0.0
+    login_email: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -756,9 +757,13 @@ class PointsLedgerEntryRead(BaseModel):
 # Loyalty program: vendor self-service portal
 class VendorPortalAccessUpdate(BaseModel):
     login_email: str
-    # Omitted (or null) → the vendor is emailed an invite link to set their own first password
-    # instead of the admin picking one on their behalf. See admin_set_vendor_portal_access.
+    # Omitted (or null) → for a brand-new vendor (no password yet), the vendor is emailed an
+    # invite link to set their own first password instead of the admin picking one on their
+    # behalf. See admin_set_vendor_portal_access.
     password: Optional[str] = Field(None, min_length=8)
+    # Which language the invite email/link should be in — only meaningful when password is
+    # omitted. Admin UI is Hebrew-only, so this has to be told to us rather than inferred.
+    locale: Optional[str] = "he"
 
 class VendorMeRead(BaseModel):
     id: int

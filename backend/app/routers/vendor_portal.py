@@ -1,6 +1,5 @@
 import os
-import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -13,10 +12,11 @@ from ..rate_limit import limiter
 from ..security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     check_account_lock,
+    consume_reset_token,
     create_access_token,
     get_current_vendor,
     get_db,
-    get_password_hash,
+    issue_reset_token,
     record_failed_login,
     record_successful_login,
     verify_password,
@@ -58,20 +58,14 @@ def vendor_login(request: Request, form_data: OAuth2PasswordRequestForm = Depend
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-RESET_TOKEN_EXPIRE_MINUTES = 60  # matches auth.py's RESET_TOKEN_EXPIRE_MINUTES for members
-
-
 @router.post("/vendor-auth/forgot-password")
 @limiter.limit("3/hour")
 def vendor_forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
     """Self-service password reset for a vendor who already has portal access. Mirrors
-    auth.py's forgot_password exactly (same token/expiry shape, same anti-enumeration response)."""
+    auth.py's forgot_password exactly (shares the same token-issuance helper)."""
     vendor = db.query(models.Vendor).filter(models.Vendor.login_email == payload.email).first()
     if vendor:
-        token = secrets.token_urlsafe(32)
-        vendor.reset_token = token
-        vendor.reset_token_expires = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
-        db.commit()
+        token = issue_reset_token(db, vendor)
 
         base_url = os.environ.get("APP_BASE_URL", "http://localhost:3000")
         locale = payload.locale or "he"
@@ -89,17 +83,7 @@ def vendor_forgot_password(request: Request, payload: schemas.ForgotPasswordRequ
 @router.post("/vendor-auth/reset-password")
 @limiter.limit("5/minute")
 def vendor_reset_password(request: Request, payload: schemas.ResetPasswordRequest, db: Session = Depends(get_db)):
-    vendor = db.query(models.Vendor).filter(models.Vendor.reset_token == payload.token).first()
-    if not vendor or not vendor.reset_token_expires or vendor.reset_token_expires < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-
-    vendor.hashed_password = get_password_hash(payload.new_password)
-    vendor.reset_token = None
-    vendor.reset_token_expires = None
-    # A fresh password shouldn't stay stuck behind an old lockout from the forgotten one.
-    vendor.failed_login_attempts = 0
-    vendor.locked_until = None
-    db.commit()
+    consume_reset_token(db, models.Vendor, payload.token, payload.new_password)
     return {"message": "Password updated successfully."}
 
 

@@ -1,5 +1,4 @@
 import os
-import secrets
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -8,9 +7,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
-from ..security import get_current_admin, get_db, get_password_hash
+from ..security import get_current_admin, get_db, get_password_hash, issue_reset_token
 from ..services import get_email_sender, loyalty
-from .vendor_portal import RESET_TOKEN_EXPIRE_MINUTES
 from .verticals import validate_vertical_slug
 
 router = APIRouter(tags=["vendors"])
@@ -67,11 +65,23 @@ def admin_delete_vendor(vendor_id: int, db: Session = Depends(get_db)):
     dependencies=[Depends(get_current_admin)],
 )
 def admin_set_vendor_portal_access(vendor_id: int, payload: schemas.VendorPortalAccessUpdate, db: Session = Depends(get_db)):
-    """Issues or resets a vendor's self-service portal login. Vendors stay admin-curated (this
+    """Issues a vendor's self-service portal login, or edits it. Vendors stay admin-curated (this
     endpoint is the only way a Vendor row ever gets portal credentials at all — there is no open
-    self-registration), but the admin no longer has to invent and manually share a password:
-    if payload.password is omitted, the vendor is emailed an invite link (the same token
-    mechanism as POST /vendor-auth/reset-password) to set their own first password instead."""
+    self-registration).
+
+    Three distinct cases, not two:
+    - `payload.password` given → admin sets/replaces the password directly (unchanged behavior).
+    - `payload.password` omitted AND the vendor has no password yet → this is a brand-new vendor;
+      email them an invite link (the same token mechanism as POST /vendor-auth/reset-password) to
+      set their own first password.
+    - `payload.password` omitted AND the vendor already has a working password → this is a plain
+      edit (e.g. fixing a typo in the email). Leave credentials untouched and send nothing. An
+      earlier version of this endpoint always took the invite branch here, which both emailed a
+      confusing "you've been granted access" notice to an already-active vendor AND never actually
+      invalidated their old password — a real reset. To force-reset an active vendor's access, an
+      admin sets a new password directly (the first branch above), which already fully replaces
+      the old hash.
+    """
     vendor = db.query(models.Vendor).filter(models.Vendor.id == vendor_id).first()
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
@@ -93,12 +103,14 @@ def admin_set_vendor_portal_access(vendor_id: int, payload: schemas.VendorPortal
         vendor.hashed_password = get_password_hash(payload.password)
         vendor.reset_token = None
         vendor.reset_token_expires = None
-    else:
-        token = secrets.token_urlsafe(32)
-        vendor.reset_token = token
-        vendor.reset_token_expires = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+        # A fresh admin-set password shouldn't stay stuck behind an old lockout.
+        vendor.failed_login_attempts = 0
+        vendor.locked_until = None
+    elif not vendor.hashed_password:
+        token = issue_reset_token(db, vendor)
         base_url = os.environ.get("APP_BASE_URL", "http://localhost:3000")
-        reset_link = f"{base_url}/he/vendor/reset-password?token={token}"
+        locale = payload.locale or "he"
+        reset_link = f"{base_url}/{locale}/vendor/reset-password?token={token}"
         get_email_sender().send(
             to=vendor.login_email,
             subject="הזמנה לפורטל הספקים - TIVUTA",
@@ -108,9 +120,8 @@ def admin_set_vendor_portal_access(vendor_id: int, payload: schemas.VendorPortal
                 f"<p><a href=\"{reset_link}\">{reset_link}</a></p>"
             ),
         )
-    # A fresh password (whether admin-set or invite-pending) shouldn't stay stuck behind an old lockout.
-    vendor.failed_login_attempts = 0
-    vendor.locked_until = None
+    # else: password omitted and the vendor already has one — a plain email-only edit, leave
+    # credentials/reset_token/lockout state untouched.
     db.commit()
     db.refresh(vendor)
     return vendor

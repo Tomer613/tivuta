@@ -103,11 +103,11 @@ export async function adminDeleteVendor(token: string, id: number) {
     return res.json();
 }
 
-export async function adminSetVendorPortalAccess(token: string, id: number, loginEmail: string, password?: string): Promise<Vendor> {
+export async function adminSetVendorPortalAccess(token: string, id: number, loginEmail: string, password?: string, locale?: string): Promise<Vendor> {
     const res = await fetch(`${BASE_URL}/admin/vendors/${id}/portal-access`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ login_email: loginEmail, password: password || null }),
+        body: JSON.stringify({ login_email: loginEmail, password: password || null, locale: locale || 'he' }),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -681,7 +681,13 @@ export async function forgotPassword(email: string, locale: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, locale }),
     });
-    return res.ok;
+    // The endpoint itself always returns 200 on a normal lookup (anti-enumeration — it never
+    // reveals whether the email exists), so a non-ok response here means a real failure (e.g. the
+    // 3/hour rate limit, or a 5xx) that the caller needs to know about, not silently swallow.
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to send reset link');
+    }
 }
 
 export async function resetPassword(token: string, new_password: string) {
@@ -703,7 +709,12 @@ export async function vendorForgotPassword(email: string, locale: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, locale }),
     });
-    return res.ok;
+    // Same reasoning as forgotPassword() — the endpoint always 200s on a normal lookup, so a
+    // non-ok response is a real failure (rate limit, 5xx) the caller must surface, not swallow.
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to send reset link');
+    }
 }
 
 export async function vendorResetPassword(token: string, new_password: string) {

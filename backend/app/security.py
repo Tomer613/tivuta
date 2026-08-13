@@ -1,6 +1,7 @@
 import os
+import secrets
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Type
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
@@ -120,6 +121,41 @@ def record_successful_login(db: Session, account) -> None:
         account.failed_login_attempts = 0
         account.locked_until = None
         db.commit()
+
+
+RESET_TOKEN_EXPIRE_MINUTES = 60
+
+# Password-reset token issuance/consumption — shared by both login principals (User via auth.py,
+# Vendor via vendor_portal.py and the admin-invite branch in vendors.py) via the same duck-typing
+# already established for the lockout helpers above: both models declare reset_token,
+# reset_token_expires, hashed_password, failed_login_attempts, locked_until. A fraud/security-
+# sensitive flow like this shouldn't have three near-identical hand-written copies that could
+# drift on expiry duration or lockout-clearing behavior.
+def issue_reset_token(db: Session, account) -> str:
+    """Generates and stores a password-reset token on `account`, returning the raw token for the
+    caller to build an emailed link from. Does not send any email itself — subject/body wording
+    legitimately differs per caller (member forgot-password vs. vendor self-service vs. admin
+    invite)."""
+    token = secrets.token_urlsafe(32)
+    account.reset_token = token
+    account.reset_token_expires = datetime.utcnow() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+    db.commit()
+    return token
+
+
+def consume_reset_token(db: Session, model: Type, token: str, new_password: str) -> None:
+    """Validates `token` against `model` (User or Vendor); if valid, hashes `new_password`, clears
+    the token and any lockout state, and commits. Raises HTTPException(400) if invalid/expired."""
+    account = db.query(model).filter(model.reset_token == token).first()
+    if not account or not account.reset_token_expires or account.reset_token_expires < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    account.hashed_password = get_password_hash(new_password)
+    account.reset_token = None
+    account.reset_token_expires = None
+    # A fresh password shouldn't stay stuck behind an old lockout from the forgotten one.
+    account.failed_login_attempts = 0
+    account.locked_until = None
+    db.commit()
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
