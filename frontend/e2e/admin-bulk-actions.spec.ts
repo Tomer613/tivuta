@@ -1,12 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { login, apiLogin, API_BASE_URL } from './helpers';
+import { login, apiLogin, API_BASE_URL, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD } from './helpers';
 
 // Regression coverage for the useBulkSelection resetKey bug (Back-Office Orders Phase 2 review):
 // a filter change didn't clear stale selections, so a bulk action could silently apply to
 // now-invisible rows. useBulkSelection.test.ts already covers the hook in isolation; this drives
 // the real toolbar wired to the real leads table end-to-end.
-const ADMIN_EMAIL = 'e2e_admin@tivuta.test';
-const ADMIN_PASSWORD = 'e2eAdminPass123';
 
 test('admin bulk-updates the status of multiple selected leads', async ({ page, request }) => {
     const prefix = `Bulk-Test-${Date.now()}`;
@@ -21,7 +19,7 @@ test('admin bulk-updates the status of multiple selected leads', async ({ page, 
         expect(resp.ok()).toBeTruthy();
     }
 
-    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await login(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD);
 
     await page.goto('/he/admin/leads');
     await page.fill('input[placeholder="חיפוש שם / מייל / מוצר..."]', prefix);

@@ -6,10 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
     testDir: './e2e',
     fullyParallel: false,
-    // One worker, not just fullyParallel:false — all 3 specs hit the same real backend process
+    // One worker, not just fullyParallel:false — every spec hits the same real backend process
     // (shared rate-limiter state, shared DB), and `next dev` compiles each route on first visit,
     // which can take several seconds under concurrent cold-compiles from multiple spec files at
-    // once. Serial execution removes both classes of cross-file flakiness; 3 specs stay fast
+    // once. Serial execution removes both classes of cross-file flakiness; the suite stays fast
     // enough serially that this isn't a real cost for a starter suite this size.
     workers: 1,
     // Generous enough to tolerate a `next dev` on-demand compile of a not-yet-visited route

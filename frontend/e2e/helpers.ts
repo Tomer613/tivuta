@@ -2,6 +2,10 @@ import { Page, APIRequestContext, expect } from '@playwright/test';
 
 export const API_BASE_URL = 'http://127.0.0.1:8000';
 
+// Seeded in backend/scripts/seed_e2e.py — shared here since 3 specs now log in as this admin.
+export const E2E_ADMIN_EMAIL = 'e2e_admin@tivuta.test';
+export const E2E_ADMIN_PASSWORD = 'e2eAdminPass123';
+
 export async function login(page: Page, email: string, password: string) {
     await page.goto('/he/login');
     await page.fill('input[type="email"]', email);

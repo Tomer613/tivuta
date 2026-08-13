@@ -1,17 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { login, apiLogin, getProductId, API_BASE_URL } from './helpers';
+import { login, apiLogin, getProductId, API_BASE_URL, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD } from './helpers';
 
 // Coverage for two real, previously untested backend behaviors: the scheduled-distribution cron
 // trigger (POST /api/distributions/process-scheduled) and audience segmentation (filter_city /
 // filter_membership_track in _send_distribution). CRON_SECRET must match playwright.config.ts's
 // webServer env for the backend process this spec runs against.
-const ADMIN_EMAIL = 'e2e_admin@tivuta.test';
-const ADMIN_PASSWORD = 'e2eAdminPass123';
 const CRON_SECRET = 'e2e-test-cron-secret';
+// Must match E2E_DIST_CITY / E2E_DIST_TRACK in backend/scripts/seed_e2e.py — those are the only
+// values any seeded user has set for city/membership_tracks, so a filtered send only ever matches
+// the one dedicated member. Keep the two files in sync if either constant ever changes.
+const DIST_CITY = 'ירושלים';
+const DIST_TRACK = 'gold_track';
 
 test('scheduled distribution with audience segmentation sends only to matching members', async ({ page, request }) => {
     const suffix = Date.now();
-    const adminToken = await apiLogin(request, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const adminToken = await apiLogin(request, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD);
     const productId = await getProductId(request, 'diamonds', 'טבעת יהלום E2E');
 
     // Naive-UTC, 5 minutes in the past — Distribution.scheduled_at has no timezone, matching this
@@ -20,33 +23,36 @@ test('scheduled distribution with audience segmentation sends only to matching m
     const scheduledAt = new Date(Date.now() - 5 * 60 * 1000).toISOString().slice(0, 19);
 
     const cityTitle = `מבצע-עיר-${suffix}`;
-    const cityResp = await request.post(`${API_BASE_URL}/admin/distributions`, {
-        headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-        data: {
-            distribution_type: 'daily_deal',
-            product_id: productId,
-            title_he: cityTitle,
-            channels: ['email'],
-            scheduled_at: scheduledAt,
-            filter_city: 'ירושלים',
-        },
-    });
-    expect(cityResp.ok()).toBeTruthy();
-    const cityDist = await cityResp.json();
-
     const trackTitle = `מבצע-מסלול-${suffix}`;
-    const trackResp = await request.post(`${API_BASE_URL}/admin/distributions`, {
-        headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
-        data: {
-            distribution_type: 'daily_deal',
-            product_id: productId,
-            title_he: trackTitle,
-            channels: ['email'],
-            scheduled_at: scheduledAt,
-            filter_membership_track: 'gold_track',
-        },
-    });
+
+    // Independent creates — only the cron call below needs both results — so run them concurrently.
+    const [cityResp, trackResp] = await Promise.all([
+        request.post(`${API_BASE_URL}/admin/distributions`, {
+            headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+            data: {
+                distribution_type: 'daily_deal',
+                product_id: productId,
+                title_he: cityTitle,
+                channels: ['email'],
+                scheduled_at: scheduledAt,
+                filter_city: DIST_CITY,
+            },
+        }),
+        request.post(`${API_BASE_URL}/admin/distributions`, {
+            headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+            data: {
+                distribution_type: 'daily_deal',
+                product_id: productId,
+                title_he: trackTitle,
+                channels: ['email'],
+                scheduled_at: scheduledAt,
+                filter_membership_track: DIST_TRACK,
+            },
+        }),
+    ]);
+    expect(cityResp.ok()).toBeTruthy();
     expect(trackResp.ok()).toBeTruthy();
+    const cityDist = await cityResp.json();
     const trackDist = await trackResp.json();
 
     // Same call GitHub Actions makes every 15 minutes in production.
@@ -75,7 +81,7 @@ test('scheduled distribution with audience segmentation sends only to matching m
     }).toPass({ timeout: 10_000 });
 
     // Confirm the real admin UI reflects it too, not just the API.
-    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await login(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD);
     await page.goto('/he/admin/distribution');
     await expect(page.getByText(cityTitle)).toBeVisible();
     await expect(page.getByText(trackTitle)).toBeVisible();

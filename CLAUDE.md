@@ -1997,6 +1997,21 @@ with zero test coverage — only ever manually curl-verified.
   reverted and confirmed green again. `pytest` 25/25 unaffected (no backend production code changed
   this pass, only the seed script); Vitest 7/7; `tsc`/lint/build all clean. Throwaway `e2e_tivuta.db`
   and dev-server processes cleaned up afterward.
+- **Post-implementation review fixes (same session)**: (1) the two independent
+  `POST /admin/distributions` fixture-setup calls were sequential `await`s for no reason — now run
+  via `Promise.all`, which also visibly sped up the spec (3.8s vs 7-9s in earlier runs). (2) the
+  `filter_city`/`filter_membership_track` literal values duplicated `seed_e2e.py`'s
+  `E2E_DIST_CITY`/`E2E_DIST_TRACK` constants with no link between the two files — a future rename
+  on one side would silently break the other; added a cross-referencing comment and named local
+  constants (`DIST_CITY`/`DIST_TRACK`) instead of inline string literals. (3) `ADMIN_EMAIL`/
+  `ADMIN_PASSWORD` were being declared a **third** time (already duplicated verbatim in
+  `admin-bulk-actions.spec.ts`/`contact-us.spec.ts`) — past this codebase's own established
+  extraction threshold (see `useBulkSelection`/`BulkActionToolbar`'s precedent). Extracted
+  `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` into `helpers.ts`, updated all three specs to import them
+  instead of re-declaring. (4) `playwright.config.ts`'s `workers: 1` comment still said "all 3
+  specs" — updated to not hardcode a count that's already been outgrown twice. All 6 specs
+  re-verified green after the refactor (34s total, down from ~70s — the parallelized fixture setup
+  wasn't just cleaner, it was measurably faster); `tsc`/lint unchanged from baseline.
 
 ---
 

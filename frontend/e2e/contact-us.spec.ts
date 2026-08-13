@@ -1,13 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { login } from './helpers';
+import { login, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD } from './helpers';
 
 // Regression test for the "General Contact Us Feature" session: before it, GET /admin/leads was
 // permanently empty (every lead-creating path wrapped in a CustomerOrder). This turns that
 // session's own ad-hoc scratch-Playwright verification into a permanent check.
 const MEMBER_EMAIL = 'e2e_member@tivuta.test';
 const MEMBER_PASSWORD = 'e2eMemberPass123';
-const ADMIN_EMAIL = 'e2e_admin@tivuta.test';
-const ADMIN_PASSWORD = 'e2eAdminPass123';
 const MESSAGE = 'זוהי הודעת בדיקה אוטומטית לבדיקת תכונת צור קשר.';
 
 test('member contact-us submission appears in the admin leads queue', async ({ page }) => {
@@ -27,7 +25,7 @@ test('member contact-us submission appears in the admin leads queue', async ({ p
     await page.click('button[type="submit"]');
     await expect(page.getByText('הפנייה נשלחה בהצלחה!')).toBeVisible();
 
-    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await login(page, E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD);
 
     await page.goto('/he/admin/leads');
     // Scoped to this row specifically, not a page-wide text match — admin-bulk-actions.spec.ts
