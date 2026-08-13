@@ -2540,6 +2540,106 @@ closes that gap with a real, dedicated control, mirroring the member one exactly
 
 ---
 
+## Product Categories per World (session 2026-08-13)
+
+Admins can now define sub-categories scoped to a single world (e.g. "Rings"/"Necklaces" under
+diamonds), tag a product with one via the product form, bulk-tag many selected products at once,
+and members can filter a world's listing by category in the sidebar. No categories are seeded —
+the feature is fully inert (no filter UI renders at all) until an admin creates the first one for
+a given world.
+
+- **Naming collision found and avoided**: `backend/app/models.py` already has a `Category`/
+  `SubCategory`/`Item` trio (unrelated legacy `/benefits` catalog) with routes already at
+  `GET /categories`, `GET /categories/{slug}`, `GET /categories/{slug}/items`
+  (`routers/catalog.py`). The new feature uses **`ProductCategory`** (table `product_categories`)
+  and route prefix **`/product-categories`** throughout, to avoid colliding with either.
+- **`ProductCategory` model** (`backend/app/models.py`) — `vertical` (plain indexed `String(50)`,
+  matches `Vertical.slug`, same loose-string convention as `Vendor.vertical`/`Product.vertical` —
+  not a real FK, validated at the app layer), `label_he` (required) + `label_en/fr/yi`,
+  `display_order`, `is_active`. Deliberately minimal — no icon/subtitle/attribute_fields (that's
+  `Vertical`-level complexity) and no slug (referenced only by numeric `id`).
+- **`Product.category_id`** — nullable FK to `product_categories.id`, mirrors `Product.vendor_id`
+  exactly (same "optional FK to an admin-managed per-vertical entity" shape). Migration
+  `9b1e2c4f6a83_add_product_categories.py` mirrors `c6d4e5f3a0b2_add_vendors.py`'s pattern
+  (`op.create_table` plain for the new table, `batch_alter_table` for the new FK column on the
+  existing `products` table — SQLite needs batch mode for `add_column`+`create_foreign_key`
+  together, not for a plain nullable `add_column` alone).
+- **`backend/app/routers/product_categories.py`** (new, mirrors `verticals.py`) —
+  `validate_category(category_id, vertical, db)` shared helper (400 if not found/inactive/
+  vertical-mismatched, imported into `products.py` next to the existing `_validate_vendor`);
+  `GET /product-categories?vertical=` (public, active-only); `GET/POST/PATCH
+  /admin/product-categories`; `DELETE /admin/product-categories/{id}` is a **soft-deactivate only**
+  (`is_active = False`) — matches `Vertical`'s own no-hard-delete choice and `Vendor`'s "delete"
+  endpoint, which is *also* secretly a soft toggle under the hood. A deactivated category's
+  already-assigned products keep their `category_id` untouched; it just drops out of the active
+  public list and the admin dropdown's active options.
+- **`POST/PUT /admin/products`** now call `validate_category()` alongside the existing
+  `_validate_vendor()` call whenever `category_id` is present in the payload; `selectinload(
+  models.Product.category)` added next to every existing `selectinload(models.Product.vendor)` in
+  `products.py` (list/get/search/admin-list); `admin_duplicate_product` copies `category_id` too.
+- **`PATCH /admin/products/bulk-category`** (new) — body `{product_ids: [...], category_id: int |
+  null}`, validates every selected product shares the target category's vertical (400 listing
+  offending ids on mismatch), then a single loop + one `db.commit()`. `category_id: null` bulk-
+  clears the category from every selected product. Deliberately a dedicated single-purpose
+  endpoint rather than reusing `leads.py`'s generic `action`/`value` bulk pattern — `Product` has
+  no audit-history field to append to, so the extra indirection wasn't warranted.
+- **New admin page `admin/categories/page.tsx`** (new "קטגוריות" nav tab, next to "עולמות") —
+  standalone rather than embedded inside the Worlds page, since a category needs a stable numeric
+  id (referenced by `Product.category_id` and bulk-assign) the same way `Vendor` needed its own
+  page despite also being vertical-scoped. Near-copy of `admin/verticals/page.tsx`'s modal-based
+  create/edit + active-toggle table pattern, simplified (single `label` field only, no attribute-
+  field builder/icon picker), plus a required world `<select>` that's **locked after creation**
+  (same "immutable after creation" rule as `Vertical.slug`/`Vendor.vertical`) — prevents a category
+  silently drifting into a different world than the products already assigned to it.
+- **`admin/products/page.tsx`** — a category `<select>` sits right below the vendor `<select>` in
+  the create/edit form, filtered by `form.vertical` the same way the vendor dropdown is; resets to
+  `''` on vertical change alongside `vendor_id`. **Bulk-select** uses the existing
+  `useBulkSelection(resetKey)` hook (checkbox column, header select-all — same markup as
+  `admin/leads/page.tsx`) plus a small **dedicated** bulk-apply-category bar (category `<select>` +
+  "החל קטגוריה" button), shown only while `selectedIds.size > 0`. Deliberately **not** routed
+  through the shared `BulkActionToolbar` component — that component is hardcoded to lead
+  status/assign actions; forcing a third, structurally different action type through it would have
+  meant a bigger, riskier refactor for a one-page need. The bulk dropdown is restricted to
+  categories matching the vertical shared by every currently-selected product (a mixed-vertical
+  selection shows an explanatory message instead, and the apply button disables) — mirrors the
+  backend's own mismatch guard, just surfaced earlier as a UX hint. A "קטגוריה" table column and
+  optional `filterCategory` dropdown were added for admin visibility/convenience.
+- **`frontend/src/lib/useCategories.ts`** (new) — mirrors `useVerticals.ts`'s module-level
+  fetch-once cache, but keyed **per-vertical** (`Map<string, Promise<ProductCategory[]>>`) since a
+  category list is meaningless without a vertical scope, unlike the flat global vertical list.
+- **`FilterSortSidebar.tsx`** gained `categories`/`category`/`onCategoryChange` props and a
+  chip-style filter block (same visual pattern as the existing promotion-type filter), rendered
+  **only when `categories.length > 0`** — the mechanism by which a world with zero categories shows
+  no category filter UI at all, keeping the feature invisible until an admin actually uses it.
+- **`VerticalListingClient.tsx`** — category filtering follows the exact same client-side pattern
+  already used for price/search/attribute filters (`GET /products` has no `category_id` query
+  param; everything except `vertical` itself is filtered in-memory over the already-fetched
+  array). `category` state resets to `null` in the same `useEffect` that already resets
+  `attrFilters` on vertical change, so a filter selected in one world never leaks into another.
+- **Verified end-to-end** with a real browser session (Playwright, admin/member JWTs minted
+  directly via `security.create_access_token` and injected into `localStorage` — the seeded
+  passwords don't match the dev DB, same limitation prior sessions hit): created a "טבעות" category
+  under diamonds; assigned it to one product via the edit form; bulk-selected 2 more diamonds
+  products and bulk-applied the same category (confirmed both product rows updated); confirmed
+  selecting 2 cars-vertical products showed the correctly-empty bulk-category dropdown (no
+  categories exist for cars); on the storefront, the diamonds world showed a "טבעות" filter chip
+  that correctly narrowed the grid from 4 products to the 2 tagged ones ("2 תוצאות"), while the
+  cars world (zero categories) rendered no category filter block at all. Zero console errors
+  throughout. Backend: `pytest` 43/43 (5 new — create+assign+read-back, cross-vertical mismatch
+  rejected on both single-update and bulk-assign, bulk-assign updates all selected products and
+  bulk-clear un-assigns them, a deactivated category disappears from the public list while
+  already-tagged products keep their `category_id`). Migration applied and downgraded cleanly
+  against a scratch SQLite DB. Frontend: `tsc --noEmit` clean; `npm run build` succeeded (new
+  `/admin/categories` route built for all 4 locales); `npm run lint` only added instances of
+  patterns already present elsewhere in the codebase (verified by isolated-lint diffing against
+  `admin/verticals/page.tsx`, which has the identical `useEffect(load, [token])` +
+  `(form as any)[...]` language-tab pattern this new page's `admin/categories/page.tsx`
+  deliberately mirrors); Vitest 7/7 unaffected. Test category/assignments and dev-server processes
+  cleaned up afterward, dev DB confirmed back at baseline (0 `product_categories` rows, every
+  product's `category_id` NULL).
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -2579,10 +2679,8 @@ closes that gap with a real, dedicated control, mirroring the member one exactly
 - **A lead's `customer_order_id` is the switch between two admin tabs, not just a nullable FK**: `NULL` means "surface in `/admin/leads`" (today, exclusively `general_inquiry`), non-`NULL` means "surface in `/admin/orders`." Any future new `lead_type` needs a deliberate choice of which tab it belongs in, not just a schema addition — get it wrong and the lead either vanishes from both tabs or double-counts logic that assumes one or the other.
 - **Customer-submitted free text and admin-authored free text are never the same column, even when both are just strings**: `Lead.subject`/`Lead.message` (customer's original inquiry) are kept separate from `Lead.notes` (admin's follow-up remarks, overwritten via `PATCH /admin/leads/{id}/notes` with no audit trail on overwrite) for the same reason `shipping_address` was already kept separate from `notes` for `card_order` leads — an admin's edit to "their" field should never be able to silently destroy the customer's original words.
 - **jsPDF's `setR2L(true)` only handles RTL reversal correctly for strings that actually contain a Hebrew character** — a table cell or line mixing Hebrew and Latin/digits (a product name with an embedded "PDF") is fine on its own once `setR2L(true)` is active, but a *purely* Latin/digit string (an order number, a phone number) gets blindly reversed character-by-character with no Hebrew-detection safety net. `printDocument.ts`'s `fixRtlCell()` pre-reverses any Hebrew-free table cell before it reaches `jspdf-autotable` so the library's own reversal cancels back out; direct `doc.text()` calls (the title/timestamp lines) instead toggle `setR2L(false)` off just long enough to draw a pure-Latin/digit value, then restore it to `true`. Any future PDF export in this codebase mixing Hebrew and Latin/digit content needs one of these two techniques, not a fresh assumption that `setR2L(true)` "just works."
-
----
-
-## Haredi (Ultra-Orthodox) Internet Filter Compatibility
+- **A world-scoped lookup entity that products get tagged with reuses the `Vendor.vendor_id`-on-`Product` shape, not a new pattern**: `ProductCategory`/`Product.category_id` is a nullable FK + a dropdown filtered by `form.vertical`, validated cross-vertical at both single-update and bulk-assign time — the same shape as `Vendor`. Any *future* "admin-managed, world-scoped, taggable-on-products" entity should copy this pair (`Vertical`→`Vendor`/`ProductCategory`→`Product`), not invent a fourth variant.
+- **A lookup entity's public-facing filter UI should render conditionally on having any rows, not unconditionally with an empty state**: `FilterSortSidebar`'s category chip block only renders `if (categories.length > 0)` — a world with zero categories shows no filter section at all, rather than an empty "Category: [All]" block. This is what makes a not-yet-configured admin feature genuinely invisible instead of a confusing dead control, and is the same instinct behind promotions only showing a badge `if (promotions.length > 0)` on a product tile.
 
 The primary audience uses internet access through community-approved **kosher filters** (e.g. Rimon, Netspark, Genigram). These filters have specific technical characteristics that affect web development decisions.
 

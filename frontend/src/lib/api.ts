@@ -627,6 +627,87 @@ export async function adminUpdateVertical(token: string, id: number, payload: an
     return res.json();
 }
 
+// ── Product Categories (sub-categories scoped to a single vertical, e.g. "Rings" under diamonds)
+// Deliberately not named/routed as "Category"/"/categories" — those already belong to the
+// unrelated legacy benefits catalog (getCategories/getCategoryBySlug below). ────────────────────
+
+export interface ProductCategory {
+    id: number;
+    vertical: string;
+    label_he: string;
+    label_en?: string | null;
+    label_fr?: string | null;
+    label_yi?: string | null;
+    display_order: number;
+    is_active: boolean;
+}
+
+export async function getProductCategories(vertical?: string): Promise<ProductCategory[]> {
+    const qs = vertical ? `?vertical=${encodeURIComponent(vertical)}` : '';
+    try {
+        const res = await fetch(`${BASE_URL}/product-categories${qs}`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
+        if (!res.ok) return [];
+        return res.json();
+    } catch {
+        return [];
+    }
+}
+
+export async function adminListProductCategories(token: string, vertical?: string): Promise<ProductCategory[]> {
+    const qs = vertical ? `?vertical=${encodeURIComponent(vertical)}` : '';
+    const res = await fetch(`${BASE_URL}/admin/product-categories${qs}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load categories');
+    return res.json();
+}
+
+export async function adminCreateProductCategory(token: string, payload: any): Promise<ProductCategory> {
+    const res = await fetch(`${BASE_URL}/admin/product-categories`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create category');
+    }
+    return res.json();
+}
+
+export async function adminUpdateProductCategory(token: string, id: number, payload: any): Promise<ProductCategory> {
+    const res = await fetch(`${BASE_URL}/admin/product-categories/${id}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update category');
+    }
+    return res.json();
+}
+
+export async function adminDeleteProductCategory(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/product-categories/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to delete category');
+    return res.json();
+}
+
+export async function adminBulkAssignCategory(token: string, product_ids: number[], category_id: number | null) {
+    const res = await fetch(`${BASE_URL}/admin/products/bulk-category`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_ids, category_id }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Bulk category assignment failed');
+    }
+    return res.json();
+}
+
 export async function getPromotionStatus(token: string, promotionId: number) {
     const res = await fetch(`${BASE_URL}/promotions/${promotionId}/status`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load promotion status');

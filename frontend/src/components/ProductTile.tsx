@@ -38,6 +38,8 @@ export interface Product {
     popularity_score?: number;
     vendor?: Vendor | null;
     vendor_id?: number | null;
+    category?: { id: number; label_he: string; label_en?: string | null; is_active?: boolean } | null;
+    category_id?: number | null;
     is_active?: boolean;
 }
 

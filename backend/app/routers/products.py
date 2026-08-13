@@ -11,6 +11,7 @@ from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
 from ..services import get_image_storage
 from ..services.image_storage import generate_image_filename
+from .product_categories import validate_category
 from .verticals import validate_vertical_slug
 
 router = APIRouter(tags=["products"])
@@ -45,7 +46,7 @@ def list_products(
     query = (
         db.query(models.Product)
         .filter(models.Product.is_active == True)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category))
     )
     if vertical:
         query = query.filter(models.Product.vertical == vertical)
@@ -78,7 +79,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     product = (
         db.query(models.Product)
         .filter(models.Product.id == product_id)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category))
         .first()
     )
     if not product:
@@ -110,7 +111,7 @@ def search_products(q: str = "", db: Session = Depends(get_db)):
                 models.Product.description_he.ilike(term),
             ),
         )
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category))
         .limit(20)
         .all()
     )
@@ -131,6 +132,7 @@ def _validate_vendor(vendor_id: Optional[int], vertical: str, db: Session):
 def admin_create_product(product_in: schemas.ProductCreate, db: Session = Depends(get_db)):
     validate_vertical_slug(db, product_in.vertical)
     _validate_vendor(product_in.vendor_id, product_in.vertical, db)
+    validate_category(product_in.category_id, product_in.vertical, db)
     new_product = models.Product(**product_in.model_dump())
     db.add(new_product)
     db.commit()
@@ -167,6 +169,8 @@ def admin_update_product(product_id: int, product_in: schemas.ProductUpdate, db:
         validate_vertical_slug(db, update_data["vertical"])
     if "vendor_id" in update_data:
         _validate_vendor(update_data["vendor_id"], update_data.get("vertical", product.vertical), db)
+    if "category_id" in update_data:
+        validate_category(update_data["category_id"], update_data.get("vertical", product.vertical), db)
     for key, value in update_data.items():
         setattr(product, key, value)
     db.commit()
@@ -179,7 +183,7 @@ def admin_list_all_products(db: Session = Depends(get_db)):
     """Returns all products including inactive ones — for admin management."""
     products = (
         db.query(models.Product)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category))
         .order_by(models.Product.created_at.desc())
         .all()
     )
@@ -256,6 +260,7 @@ def admin_duplicate_product(product_id: int, db: Session = Depends(get_db)):
         price=product.price,
         attributes=product.attributes,
         vendor_id=product.vendor_id,
+        category_id=product.category_id,
         is_active=False,
     )
     db.add(clone)
@@ -330,3 +335,32 @@ def admin_delete_product(product_id: int, db: Session = Depends(get_db)):
     product.is_active = False
     db.commit()
     return {"message": "Product deactivated"}
+
+
+@router.patch("/admin/products/bulk-category", dependencies=[Depends(get_current_admin)])
+def admin_bulk_assign_category(payload: schemas.ProductBulkCategoryAssign, db: Session = Depends(get_db)):
+    """Applies (or, if category_id is null, clears) one category across many products at once —
+    the admin-products-page checkbox-select-then-apply flow. Every selected product must already
+    belong to the target category's vertical; a mismatch rejects the whole call rather than
+    silently skipping some products."""
+    products = db.query(models.Product).filter(models.Product.id.in_(payload.product_ids)).all()
+    if not products:
+        raise HTTPException(status_code=404, detail="No products found")
+    if payload.category_id is not None:
+        category = (
+            db.query(models.ProductCategory)
+            .filter(models.ProductCategory.id == payload.category_id)
+            .first()
+        )
+        if not category:
+            raise HTTPException(status_code=404, detail="Category not found")
+        mismatched = [p.id for p in products if p.vertical != category.vertical]
+        if mismatched:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Products {mismatched} are not in the '{category.vertical}' world",
+            )
+    for p in products:
+        p.category_id = payload.category_id
+    db.commit()
+    return {"updated": len(products)}

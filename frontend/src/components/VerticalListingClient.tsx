@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, PackageOpen, GitCompareArrows } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getProducts, getFavoriteIds, getVerticals, Vertical } from '@/lib/api';
+import { useCategories } from '@/lib/useCategories';
 import FilterSortSidebar, { SortOption } from '@/components/FilterSortSidebar';
 import ProductTile, { Product } from '@/components/ProductTile';
 import ComparisonBar from '@/components/ComparisonBar';
@@ -38,8 +39,10 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
     const [attrFilters, setAttrFilters] = useState<Record<string, string>>({});
+    const [category, setCategory] = useState<number | null>(null);
     const [favIds, setFavIds] = useState<Set<number>>(new Set());
     const [compareList, setCompareList] = useState<Product[]>([]);
+    const categories = useCategories(vertical);
 
     const t = GENERIC_COPY[locale] || GENERIC_COPY.he;
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
@@ -73,6 +76,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
 
     useEffect(() => {
         setAttrFilters({});
+        setCategory(null);
     }, [vertical]);
 
     useEffect(() => {
@@ -109,10 +113,11 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
             if (!value) continue;
             list = list.filter((p) => p.attributes?.[key] === value);
         }
+        if (category != null) list = list.filter((p) => p.category_id === category);
         return list;
-    }, [products, search, priceMin, priceMax, attrFilters, locale]);
+    }, [products, search, priceMin, priceMax, attrFilters, category, locale]);
 
-    const isFiltered = search.trim() || priceMin || priceMax || Object.values(attrFilters).some(Boolean);
+    const isFiltered = search.trim() || priceMin || priceMax || Object.values(attrFilters).some(Boolean) || category != null;
 
     if (authLoading || !token) {
         return (
@@ -163,6 +168,9 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                     attributeFields={verticalMeta?.attribute_fields}
                     attrFilters={attrFilters}
                     onAttrFilterChange={(key, value) => setAttrFilters((prev) => ({ ...prev, [key]: value }))}
+                    categories={categories}
+                    category={category}
+                    onCategoryChange={setCategory}
                 />
 
                 <div className="flex-grow">

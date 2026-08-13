@@ -206,6 +206,30 @@ class Vendor(Base):
         return f"{self.id:03d}"
 
 
+class ProductCategory(Base):
+    """
+    An admin-managed sub-category scoped to a single Vertical (e.g. "Rings"/"Necklaces" under
+    diamonds). Deliberately separate from the legacy `Category`/`SubCategory` models above, which
+    back the unrelated /benefits catalog — table/route names were chosen to avoid colliding with
+    those (see routers/product_categories.py).
+    """
+    __tablename__ = "product_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vertical = Column(String(50), nullable=False, index=True)  # matches Vertical.slug
+
+    label_he = Column(String(100), nullable=False)
+    label_en = Column(String(100), nullable=True)
+    label_fr = Column(String(100), nullable=True)
+    label_yi = Column(String(100), nullable=True)
+
+    display_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    products = relationship("Product", back_populates="category")
+
+
 class Product(Base):
     """
     A catalog item for the new multi-vertical site (diamonds / cars / insurance).
@@ -233,11 +257,13 @@ class Product(Base):
     view_count = Column(Integer, default=0, nullable=False)
     popularity_score = Column(Integer, default=0, nullable=False)  # count of confirmed SaleTransaction rows
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     promotions = relationship("Promotion", secondary=product_promotions_table, back_populates="products")
     reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan")
     vendor = relationship("Vendor", back_populates="products")
+    category = relationship("ProductCategory", back_populates="products")
 
 
 class Promotion(Base):

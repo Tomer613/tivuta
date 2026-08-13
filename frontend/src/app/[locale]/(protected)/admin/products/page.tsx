@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, productImageUrl, Vendor, Vertical } from '@/lib/api';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, adminListProductCategories, adminBulkAssignCategory, productImageUrl, Vendor, Vertical, ProductCategory } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
+import { useBulkSelection } from '@/lib/useBulkSelection';
 import { Product } from '@/components/ProductTile';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3, ExternalLink, CheckSquare, Square } from 'lucide-react';
 
 const LANGS = [
     { key: 'he', label: 'עברית', dir: 'rtl' as const },
@@ -26,6 +27,7 @@ const EMPTY_FORM = {
     image_url: '',
     attributes: {} as Record<string, string>,
     vendor_id: '' as string | number,
+    category_id: '' as string | number,
 };
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -48,6 +50,7 @@ export default function AdminProductsPage() {
     const [loading, setLoading] = useState(true);
     const [filterVertical, setFilterVertical] = useState('');
     const [filterActive, setFilterActive] = useState('');
+    const [filterCategory, setFilterCategory] = useState('');
     const [search, setSearch] = useState('');
     const [togglingId, setTogglingId] = useState<number | null>(null);
     const [sortKey, setSortKey] = useState<'title_he' | 'price' | 'vertical'>('vertical');
@@ -60,6 +63,9 @@ export default function AdminProductsPage() {
     const [form, setForm] = useState(EMPTY_FORM);
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [verticals, setVerticals] = useState<Vertical[]>([]);
+    const [categories, setCategories] = useState<ProductCategory[]>([]);
+    const [bulkCategoryValue, setBulkCategoryValue] = useState('');
+    const [bulkCategoryLoading, setBulkCategoryLoading] = useState(false);
     const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
     const [translating, setTranslating] = useState(false);
     const [translateAvailable, setTranslateAvailable] = useState(true);
@@ -97,6 +103,11 @@ export default function AdminProductsPage() {
 
     useEffect(() => {
         if (!token) return;
+        adminListProductCategories(token).then(setCategories).catch(() => {});
+    }, [token]);
+
+    useEffect(() => {
+        if (!token) return;
         adminGetTranslateStatus(token).then((s) => setTranslateAvailable(s.available)).catch(() => setTranslateAvailable(true));
     }, [token]);
 
@@ -104,7 +115,12 @@ export default function AdminProductsPage() {
         () => Object.fromEntries(verticals.map((v) => [v.slug, v.label_he])),
         [verticals]
     );
+    const CATEGORY_LABEL: Record<number, string> = useMemo(
+        () => Object.fromEntries(categories.map((c) => [c.id, c.label_he])),
+        [categories]
+    );
     const activeVerticals = useMemo(() => verticals.filter((v) => v.is_active), [verticals]);
+    const formCategories = useMemo(() => categories.filter((c) => c.vertical === form.vertical), [categories, form.vertical]);
     const getVerticalAttrs = (slug: string): AttrField[] =>
         (verticals.find((v) => v.slug === slug)?.attribute_fields || []).map((f) => ({
             key: f.key, label: f.label_he, type: f.type, placeholder: f.placeholder || undefined, options: f.options || undefined,
@@ -115,6 +131,7 @@ export default function AdminProductsPage() {
         if (filterVertical) list = list.filter((p) => p.vertical === filterVertical);
         if (filterActive === 'active') list = list.filter((p) => p.is_active);
         if (filterActive === 'hidden') list = list.filter((p) => !p.is_active);
+        if (filterCategory) list = list.filter((p) => String(p.category_id ?? '') === filterCategory);
         if (search) {
             const q = search.toLowerCase();
             list = list.filter((p) => p.title_he?.toLowerCase().includes(q) || p.description_he?.toLowerCase().includes(q));
@@ -124,7 +141,38 @@ export default function AdminProductsPage() {
             return String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''));
         });
         return list;
-    }, [products, filterVertical, filterActive, search, sortKey]);
+    }, [products, filterVertical, filterActive, filterCategory, search, sortKey]);
+
+    // Cleared whenever the visible filter set changes, so a bulk category action can never
+    // silently act on ids that are no longer visible on screen (same pattern as admin/leads).
+    const { selectedIds, toggleSelect, toggleSelectAll, clear: clearSelection } = useBulkSelection(
+        `${filterVertical}|${filterActive}|${filterCategory}|${search}|${sortKey}`
+    );
+
+    // Categories available for the bulk-apply bar: restricted to the vertical shared by every
+    // currently-selected product (bulk-assign rejects a mixed-vertical selection server-side too).
+    const selectedProducts = useMemo(() => products.filter((p) => selectedIds.has(p.id)), [products, selectedIds]);
+    const selectedVerticals = useMemo(() => new Set(selectedProducts.map((p) => p.vertical)), [selectedProducts]);
+    const bulkCategoryOptions = selectedVerticals.size === 1
+        ? categories.filter((c) => c.vertical === [...selectedVerticals][0])
+        : [];
+
+    const handleBulkApplyCategory = async () => {
+        if (!token || selectedIds.size === 0) return;
+        setBulkCategoryLoading(true);
+        try {
+            const category_id = bulkCategoryValue ? Number(bulkCategoryValue) : null;
+            await adminBulkAssignCategory(token, Array.from(selectedIds), category_id);
+            setProducts((prev) => prev.map((p) => selectedIds.has(p.id) ? { ...p, category_id, category: category_id ? categories.find((c) => c.id === category_id) ?? null : null } : p));
+            showToast('הקטגוריה עודכנה עבור המוצרים שנבחרו ✓');
+            clearSelection();
+            setBulkCategoryValue('');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בעדכון קטגוריה'), 'error');
+        } finally {
+            setBulkCategoryLoading(false);
+        }
+    };
 
     const handleDuplicate = async (p: Product) => {
         if (!token) return;
@@ -165,6 +213,7 @@ export default function AdminProductsPage() {
             image_url: p.image_url || '',
             attributes: attrs,
             vendor_id: p.vendor_id ?? '',
+            category_id: p.category_id ?? '',
         });
         setLangTab('he');
         setShowForm(true);
@@ -210,6 +259,7 @@ export default function AdminProductsPage() {
             image_url: form.image_url || null,
             attributes: Object.keys(cleanAttrs).length > 0 ? cleanAttrs : null,
             vendor_id: form.vendor_id ? Number(form.vendor_id) : null,
+            category_id: form.category_id ? Number(form.category_id) : null,
             is_active: true,
         };
         try {
@@ -428,10 +478,40 @@ export default function AdminProductsPage() {
                     <option value="active">פעילים בלבד</option>
                     <option value="hidden">מוסתרים בלבד</option>
                 </select>
+                {categories.length > 0 && (
+                    <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
+                        <option value="">כל הקטגוריות</option>
+                        {categories.filter((c) => !filterVertical || c.vertical === filterVertical).map((c) => (
+                            <option key={c.id} value={c.id}>{c.label_he}</option>
+                        ))}
+                    </select>
+                )}
                 <button onClick={() => setSortKey(sortKey === 'price' ? 'title_he' : 'price')} className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <ArrowUpDown size={14} /> מיין לפי {sortKey === 'price' ? 'מחיר' : 'שם'}
                 </button>
             </div>
+
+            {selectedIds.size > 0 && (
+                <div className="flex flex-wrap items-center gap-3 mb-4 bg-[#0e1628] border border-[#d4af37]/30 rounded-2xl px-5 py-3">
+                    <span className="text-sm font-bold text-[#d4af37]">{selectedIds.size} נבחרו</span>
+                    {selectedVerticals.size > 1 ? (
+                        <span className="text-xs text-[#f0e6d3]/40">בחרת מוצרים מכמה עולמות שונים — אפשר לתייג קטגוריה רק למוצרים מאותו עולם</span>
+                    ) : (
+                        <select value={bulkCategoryValue} onChange={(e) => setBulkCategoryValue(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
+                            <option value="">ללא קטגוריה (נקה)</option>
+                            {bulkCategoryOptions.map((c) => <option key={c.id} value={c.id}>{c.label_he}</option>)}
+                        </select>
+                    )}
+                    <button
+                        onClick={handleBulkApplyCategory}
+                        disabled={bulkCategoryLoading || selectedVerticals.size > 1}
+                        className="bg-[#d4af37] text-[#080d1f] px-4 py-1.5 rounded-xl text-xs font-black disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                        {bulkCategoryLoading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} החל קטגוריה
+                    </button>
+                    <button onClick={clearSelection} className="text-xs text-[#f0e6d3]/40 hover:text-[#f0e6d3]"><X size={14} /></button>
+                </div>
+            )}
 
             {loading ? (
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={32} />
@@ -440,9 +520,15 @@ export default function AdminProductsPage() {
                     <table className="w-full text-start">
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
+                                <th className="p-4 text-start w-8">
+                                    <button onClick={() => toggleSelectAll(filtered.map((p) => p.id))} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
+                                        {selectedIds.size === filtered.length && filtered.length > 0 ? <CheckSquare size={14} /> : <Square size={14} />}
+                                    </button>
+                                </th>
                                 <th className="p-3 w-14"></th>
                                 <th className="p-4 text-start">עולם</th>
                                 <th className="p-4 text-start">כותרת</th>
+                                <th className="p-4 text-start">קטגוריה</th>
                                 <th className="p-4 text-start">שפות</th>
                                 <th className="p-4 text-start">מחיר</th>
                                 <th className="p-4 text-start">סטטוס</th>
@@ -451,12 +537,18 @@ export default function AdminProductsPage() {
                         </thead>
                         <tbody>
                             {filtered.length === 0 && (
-                                <tr><td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין מוצרים עדיין</td></tr>
+                                <tr><td colSpan={9} className="p-8 text-center text-[#f0e6d3]/40">אין מוצרים עדיין</td></tr>
                             )}
                             {filtered.map((p) => {
                                 const translatedCount = [p.title_en, p.title_fr, p.title_yi].filter(Boolean).length;
+                                const isSelected = selectedIds.has(p.id);
                                 return (
                                     <tr key={p.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
+                                        <td className="p-4">
+                                            <button onClick={() => toggleSelect(p.id)} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
+                                                {isSelected ? <CheckSquare size={14} className="text-[#d4af37]" /> : <Square size={14} />}
+                                            </button>
+                                        </td>
                                         <td className="p-3">
                                             {p.image_url ? (
                                                 <img src={productImageUrl(p.image_url)} alt="" className="w-10 h-10 rounded-lg object-cover bg-[#111a2f]" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -468,6 +560,7 @@ export default function AdminProductsPage() {
                                         </td>
                                         <td className="p-4 text-sm">{VERTICAL_LABEL[p.vertical] ?? p.vertical}</td>
                                         <td className="p-4 font-semibold">{p.title_he}</td>
+                                        <td className="p-4 text-sm text-[#f0e6d3]/60">{p.category_id ? (CATEGORY_LABEL[p.category_id] ?? '-') : '-'}</td>
                                         <td className="p-4">
                                             <span className={`text-xs font-bold flex items-center gap-1 ${translatedCount === 3 ? 'text-green-400' : translatedCount > 0 ? 'text-[#d4af37]/70' : 'text-[#f0e6d3]/20'}`}>
                                                 <Languages size={12} />
@@ -530,7 +623,7 @@ export default function AdminProductsPage() {
                         {/* Vertical */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">עולם המוצר</label>
-                            <select value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value, vendor_id: '' })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
+                            <select value={form.vertical} onChange={(e) => setForm({ ...form, vertical: e.target.value, vendor_id: '', category_id: '' })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
                                 {activeVerticals.map((v) => <option key={v.slug} value={v.slug}>{v.label_he}</option>)}
                                 {editProduct && !activeVerticals.some((v) => v.slug === form.vertical) && (
                                     <option value={form.vertical}>{VERTICAL_LABEL[form.vertical] || form.vertical}</option>
@@ -547,6 +640,20 @@ export default function AdminProductsPage() {
                                     <option key={v.id} value={v.id}>{v.name_he}</option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Category */}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">קטגוריה</label>
+                            <select value={form.category_id} onChange={(e) => setForm({ ...form, category_id: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
+                                <option value="">ללא קטגוריה</option>
+                                {formCategories.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.label_he}</option>
+                                ))}
+                            </select>
+                            {formCategories.length === 0 && (
+                                <p className="text-[11px] text-[#f0e6d3]/30 mt-1">אין קטגוריות לעולם זה עדיין — ניתן להוסיף בעמוד "קטגוריות"</p>
+                            )}
                         </div>
 
                         {/* Language tabs */}

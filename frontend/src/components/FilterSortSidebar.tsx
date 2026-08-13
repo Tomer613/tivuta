@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Clock, Flame, Tag, Search, SlidersHorizontal, ListFilter } from 'lucide-react';
-import { VerticalAttributeField } from '@/lib/api';
+import { VerticalAttributeField, ProductCategory } from '@/lib/api';
 
 interface T {
     sort: string;
@@ -11,6 +11,7 @@ interface T {
     price_desc: string;
     newest: string;
     filter_promo: string;
+    filter_category: string;
     all: string;
     search: string;
     price_range: string;
@@ -20,10 +21,10 @@ interface T {
 }
 
 const translations: Record<string, T> = {
-    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', filter_promo: 'סנן לפי מבצע', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'סינון ומיון' },
-    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', filter_promo: 'Filter by promotion', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Filter & Sort' },
-    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', filter_promo: 'Filtrer par promotion', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Trier et filtrer' },
-    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', filter_promo: 'פילטרירן', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'פילטער און סארטירן' },
+    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', filter_promo: 'סנן לפי מבצע', filter_category: 'קטגוריה', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'סינון ומיון' },
+    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', filter_promo: 'Filter by promotion', filter_category: 'Category', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Filter & Sort' },
+    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', filter_promo: 'Filtrer par promotion', filter_category: 'Catégorie', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Trier et filtrer' },
+    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', filter_promo: 'פילטרירן', filter_category: 'קאטעגאריע', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'פילטער און סארטירן' },
 };
 
 export type SortOption = 'popularity' | 'newest' | 'price_asc' | 'price_desc';
@@ -51,6 +52,9 @@ export default function FilterSortSidebar({
     attributeFields = [],
     attrFilters = {},
     onAttrFilterChange,
+    categories = [],
+    category = null,
+    onCategoryChange,
 }: {
     locale: string;
     sort: SortOption;
@@ -66,6 +70,9 @@ export default function FilterSortSidebar({
     attributeFields?: VerticalAttributeField[];
     attrFilters?: Record<string, string>;
     onAttrFilterChange?: (key: string, value: string) => void;
+    categories?: ProductCategory[];
+    category?: number | null;
+    onCategoryChange?: (id: number | null) => void;
 }) {
     const [mobileOpen, setMobileOpen] = useState(false);
     const t = translations[locale] || translations.he;
@@ -139,6 +146,43 @@ export default function FilterSortSidebar({
                     </button>
                 )}
             </div>
+
+            {/* Category filter — only rendered once at least one category exists for this world */}
+            {categories.length > 0 && (
+                <div>
+                    <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-4 ps-2 flex items-center gap-2">
+                        <ListFilter size={13} /> {t.filter_category}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => onCategoryChange?.(null)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+                                category === null
+                                    ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
+                                    : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
+                            }`}
+                        >
+                            {t.all}
+                        </button>
+                        {categories.map((c) => {
+                            const label = c[`label_${localeKey}`] || c.label_he;
+                            return (
+                                <button
+                                    key={c.id}
+                                    onClick={() => onCategoryChange?.(c.id === category ? null : c.id)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+                                        category === c.id
+                                            ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
+                                            : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Dynamic per-vertical attribute filters (e.g. diamond shape) */}
             {selectFields.map((field) => {

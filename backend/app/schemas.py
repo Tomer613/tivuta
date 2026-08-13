@@ -204,6 +204,16 @@ class VendorBrief(BaseModel):
         from_attributes = True
 
 
+class ProductCategoryBrief(BaseModel):
+    id: int
+    label_he: str
+    label_en: Optional[str] = None
+    is_active: bool = True
+
+    class Config:
+        from_attributes = True
+
+
 class ProductBase(BaseModel):
     vertical: str
     title_he: str
@@ -219,6 +229,7 @@ class ProductBase(BaseModel):
     attributes: Optional[dict] = None
     is_active: bool = True
     vendor_id: Optional[int] = None
+    category_id: Optional[int] = None
 
 class ProductCreate(ProductBase):
     pass
@@ -238,6 +249,11 @@ class ProductUpdate(BaseModel):
     attributes: Optional[dict] = None
     is_active: Optional[bool] = None
     vendor_id: Optional[int] = None
+    category_id: Optional[int] = None
+
+class ProductBulkCategoryAssign(BaseModel):
+    product_ids: List[int]
+    category_id: Optional[int] = None
 
 class PromotionBrief(BaseModel):
     id: int
@@ -261,6 +277,7 @@ class ProductRead(ProductBase):
     review_count: int = 0
     promotions: List[PromotionBrief] = []
     vendor: Optional[VendorBrief] = None
+    category: Optional[ProductCategoryBrief] = None
 
     class Config:
         from_attributes = True
@@ -379,6 +396,41 @@ class VerticalUpdate(BaseModel):
 class VerticalRead(VerticalBase):
     id: int
     slug: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Product Category Schemas — sub-categories scoped to a single Vertical (e.g. "Rings" under
+# diamonds). Deliberately not named "Category"/exposed at "/categories" — those already belong to
+# the unrelated legacy benefits catalog (see models.Category / routers/catalog.py).
+class ProductCategoryBase(BaseModel):
+    vertical: str
+    label_he: str
+    label_en: Optional[str] = None
+    label_fr: Optional[str] = None
+    label_yi: Optional[str] = None
+    display_order: int = 0
+    is_active: bool = True
+
+
+class ProductCategoryCreate(ProductCategoryBase):
+    pass
+
+
+class ProductCategoryUpdate(BaseModel):
+    vertical: Optional[str] = None
+    label_he: Optional[str] = None
+    label_en: Optional[str] = None
+    label_fr: Optional[str] = None
+    label_yi: Optional[str] = None
+    display_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class ProductCategoryRead(ProductCategoryBase):
+    id: int
     created_at: datetime
 
     class Config:
