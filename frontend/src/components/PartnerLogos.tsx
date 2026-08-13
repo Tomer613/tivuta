@@ -121,9 +121,11 @@ const PartnerLogos = () => {
     const [rows, setRows] = useState<[string[], string[]]>(defaultRows);
 
     useEffect(() => {
-        const shuffled = [...allLogos].sort(() => Math.random() - 0.5);
-        const h = Math.ceil(shuffled.length / 2);
-        setRows([shuffled.slice(0, h), shuffled.slice(h)]);
+        Promise.resolve().then(() => {
+            const shuffled = [...allLogos].sort(() => Math.random() - 0.5);
+            const h = Math.ceil(shuffled.length / 2);
+            setRows([shuffled.slice(0, h), shuffled.slice(h)]);
+        });
     }, []);
 
     return (

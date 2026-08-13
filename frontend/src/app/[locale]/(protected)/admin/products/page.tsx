@@ -17,6 +17,21 @@ const LANGS = [
     { key: 'yi', label: 'ייִדיש', dir: 'rtl' as const },
 ];
 
+// A distinct sentinel from '' (the select's "nothing chosen yet" state) — keeps the bulk-apply
+// button's default/idle state from silently clearing every selected product's category.
+const BULK_CLEAR_VALUE = '__clear__';
+
+interface ProductAnalyticsRow {
+    id: number;
+    vertical: string;
+    title_he: string;
+    view_count: number;
+    favorite_count: number;
+    review_count: number;
+    avg_rating: number | null;
+    lead_count: number;
+}
+
 type AttrField = { key: string; label: string; type: 'text' | 'number' | 'select'; placeholder?: string; options?: string[] };
 
 const EMPTY_FORM = {
@@ -75,7 +90,7 @@ export default function AdminProductsPage() {
     const [importingCsv, setImportingCsv] = useState(false);
     const [csvFile, setCsvFile] = useState<File | null>(null);
     const [showAnalytics, setShowAnalytics] = useState(false);
-    const [analytics, setAnalytics] = useState<any[]>([]);
+    const [analytics, setAnalytics] = useState<ProductAnalyticsRow[]>([]);
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [analyticsSortKey, setAnalyticsSortKey] = useState<'view_count' | 'favorite_count' | 'review_count' | 'lead_count'>('view_count');
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,7 +104,7 @@ export default function AdminProductsPage() {
         adminListProducts(token).then(setProducts).finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     useEffect(() => {
         if (!token) return;
@@ -115,12 +130,9 @@ export default function AdminProductsPage() {
         () => Object.fromEntries(verticals.map((v) => [v.slug, v.label_he])),
         [verticals]
     );
-    const CATEGORY_LABEL: Record<number, string> = useMemo(
-        () => Object.fromEntries(categories.map((c) => [c.id, c.label_he])),
-        [categories]
-    );
     const activeVerticals = useMemo(() => verticals.filter((v) => v.is_active), [verticals]);
-    const formCategories = useMemo(() => categories.filter((c) => c.vertical === form.vertical), [categories, form.vertical]);
+    const activeCategories = useMemo(() => categories.filter((c) => c.is_active), [categories]);
+    const formCategories = useMemo(() => activeCategories.filter((c) => c.vertical === form.vertical), [activeCategories, form.vertical]);
     const getVerticalAttrs = (slug: string): AttrField[] =>
         (verticals.find((v) => v.slug === slug)?.attribute_fields || []).map((f) => ({
             key: f.key, label: f.label_he, type: f.type, placeholder: f.placeholder || undefined, options: f.options || undefined,
@@ -154,14 +166,14 @@ export default function AdminProductsPage() {
     const selectedProducts = useMemo(() => products.filter((p) => selectedIds.has(p.id)), [products, selectedIds]);
     const selectedVerticals = useMemo(() => new Set(selectedProducts.map((p) => p.vertical)), [selectedProducts]);
     const bulkCategoryOptions = selectedVerticals.size === 1
-        ? categories.filter((c) => c.vertical === [...selectedVerticals][0])
+        ? activeCategories.filter((c) => c.vertical === [...selectedVerticals][0])
         : [];
 
     const handleBulkApplyCategory = async () => {
-        if (!token || selectedIds.size === 0) return;
+        if (!token || selectedIds.size === 0 || bulkCategoryValue === '') return;
         setBulkCategoryLoading(true);
         try {
-            const category_id = bulkCategoryValue ? Number(bulkCategoryValue) : null;
+            const category_id = bulkCategoryValue === BULK_CLEAR_VALUE ? null : Number(bulkCategoryValue);
             await adminBulkAssignCategory(token, Array.from(selectedIds), category_id);
             setProducts((prev) => prev.map((p) => selectedIds.has(p.id) ? { ...p, category_id, category: category_id ? categories.find((c) => c.id === category_id) ?? null : null } : p));
             showToast('הקטגוריה עודכנה עבור המוצרים שנבחרו ✓');
@@ -244,7 +256,7 @@ export default function AdminProductsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
-        const cleanAttrs: Record<string, any> = {};
+        const cleanAttrs: Record<string, string | number> = {};
         Object.entries(form.attributes).forEach(([k, v]) => {
             if (v !== '' && v != null) {
                 const field = getVerticalAttrs(form.vertical).find((f) => f.key === k);
@@ -469,7 +481,7 @@ export default function AdminProductsPage() {
                         className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl pr-9 pl-4 py-2 text-sm text-[#f0e6d3] w-52"
                     />
                 </div>
-                <select value={filterVertical} onChange={(e) => setFilterVertical(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
+                <select value={filterVertical} onChange={(e) => { setFilterVertical(e.target.value); setFilterCategory(''); }} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל העולמות</option>
                     {verticals.map((v) => <option key={v.slug} value={v.slug}>{v.label_he}</option>)}
                 </select>
@@ -498,13 +510,14 @@ export default function AdminProductsPage() {
                         <span className="text-xs text-[#f0e6d3]/40">בחרת מוצרים מכמה עולמות שונים — אפשר לתייג קטגוריה רק למוצרים מאותו עולם</span>
                     ) : (
                         <select value={bulkCategoryValue} onChange={(e) => setBulkCategoryValue(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
-                            <option value="">ללא קטגוריה (נקה)</option>
+                            <option value="" disabled>בחר קטגוריה...</option>
+                            <option value={BULK_CLEAR_VALUE}>ללא קטגוריה (נקה)</option>
                             {bulkCategoryOptions.map((c) => <option key={c.id} value={c.id}>{c.label_he}</option>)}
                         </select>
                     )}
                     <button
                         onClick={handleBulkApplyCategory}
-                        disabled={bulkCategoryLoading || selectedVerticals.size > 1}
+                        disabled={bulkCategoryLoading || selectedVerticals.size > 1 || bulkCategoryValue === ''}
                         className="bg-[#d4af37] text-[#080d1f] px-4 py-1.5 rounded-xl text-xs font-black disabled:opacity-50 flex items-center gap-1.5"
                     >
                         {bulkCategoryLoading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} החל קטגוריה
@@ -560,7 +573,7 @@ export default function AdminProductsPage() {
                                         </td>
                                         <td className="p-4 text-sm">{VERTICAL_LABEL[p.vertical] ?? p.vertical}</td>
                                         <td className="p-4 font-semibold">{p.title_he}</td>
-                                        <td className="p-4 text-sm text-[#f0e6d3]/60">{p.category_id ? (CATEGORY_LABEL[p.category_id] ?? '-') : '-'}</td>
+                                        <td className="p-4 text-sm text-[#f0e6d3]/60">{p.category?.label_he ?? '-'}</td>
                                         <td className="p-4">
                                             <span className={`text-xs font-bold flex items-center gap-1 ${translatedCount === 3 ? 'text-green-400' : translatedCount > 0 ? 'text-[#d4af37]/70' : 'text-[#f0e6d3]/20'}`}>
                                                 <Languages size={12} />
@@ -652,7 +665,7 @@ export default function AdminProductsPage() {
                                 ))}
                             </select>
                             {formCategories.length === 0 && (
-                                <p className="text-[11px] text-[#f0e6d3]/30 mt-1">אין קטגוריות לעולם זה עדיין — ניתן להוסיף בעמוד "קטגוריות"</p>
+                                <p className="text-[11px] text-[#f0e6d3]/30 mt-1">אין קטגוריות לעולם זה עדיין — ניתן להוסיף בעמוד &quot;קטגוריות&quot;</p>
                             )}
                         </div>
 
@@ -675,12 +688,12 @@ export default function AdminProductsPage() {
                             {/* Tab selector */}
                             <div className="flex gap-1 bg-[#111a2f] rounded-xl p-1 mb-3">
                                 {LANGS.map((l) => {
-                                    const filled = l.key === 'he' ? !!form.title_he : !!(form as any)[`title_${l.key}`];
+                                    const filled = l.key === 'he' ? !!form.title_he : !!(form as unknown as Record<string, string>)[`title_${l.key}`];
                                     return (
                                         <button
                                             key={l.key}
                                             type="button"
-                                            onClick={() => setLangTab(l.key as any)}
+                                            onClick={() => setLangTab(l.key as 'he' | 'en' | 'fr' | 'yi')}
                                             className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all relative ${langTab === l.key ? 'bg-[#d4af37] text-[#080d1f]' : 'text-[#f0e6d3]/50 hover:text-[#f0e6d3]'}`}
                                         >
                                             {l.label}
@@ -699,7 +712,7 @@ export default function AdminProductsPage() {
                                     <input
                                         required={langTab === 'he'}
                                         placeholder={langTab === 'he' ? 'לדוגמה: יהלום 1 קרט' : ''}
-                                        value={(form as any)[`title_${langTab}`]}
+                                        value={(form as unknown as Record<string, string>)[`title_${langTab}`]}
                                         onChange={(e) => setForm({ ...form, [`title_${langTab}`]: e.target.value })}
                                         className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
                                     />
@@ -709,7 +722,7 @@ export default function AdminProductsPage() {
                                     <textarea
                                         required={langTab === 'he'}
                                         placeholder={langTab === 'he' ? 'תיאור קצר של המוצר...' : ''}
-                                        value={(form as any)[`description_${langTab}`]}
+                                        value={(form as unknown as Record<string, string>)[`description_${langTab}`]}
                                         onChange={(e) => setForm({ ...form, [`description_${langTab}`]: e.target.value })}
                                         rows={3}
                                         className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] resize-none"
@@ -845,7 +858,7 @@ export default function AdminProductsPage() {
                             <h2 className="text-xl font-black text-[#f0e6d3]">הוסף מקבץ מוצרים (JSON)</h2>
                             <button onClick={() => setShowBatchForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
-                        <p className="text-xs text-[#f0e6d3]/60">לדוגמה: [{"{"}"vertical":"cars","title_he":"...","description_he":"..."{"}"}]</p>
+                        <p className="text-xs text-[#f0e6d3]/60">לדוגמה: [{"{"}&quot;vertical&quot;:&quot;cars&quot;,&quot;title_he&quot;:&quot;...&quot;,&quot;description_he&quot;:&quot;...&quot;{"}"}]</p>
                         {batchError && <p className="text-red-400 text-sm">{batchError}</p>}
                         <textarea rows={8} value={batchJson} onChange={(e) => setBatchJson(e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] font-mono text-xs" />
                         <button onClick={handleBatchCreate} className="btn-primary w-full">העלה מקבץ</button>

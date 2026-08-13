@@ -72,7 +72,20 @@ const CONFIG_FIELD_LABEL: Record<string, string> = {
     flash_sale: 'אחוז הנחה לפלאש סייל',
 };
 
-function emptyConfig(type: string): Record<string, any> {
+interface Promotion {
+    id: number;
+    name_he: string;
+    type: string;
+    channel: string;
+    config: Record<string, string | number>;
+    is_active: boolean;
+    start_date?: string | null;
+    end_date?: string | null;
+    entry_count?: number;
+    product_count?: number;
+}
+
+function emptyConfig(type: string): Record<string, string | number> {
     switch (type) {
         case 'first_n': return { limit: 500, participants_count: 0 };
         case 'raffle': return { winner_count: 1, participants_count: 0 };
@@ -85,17 +98,17 @@ function emptyConfig(type: string): Record<string, any> {
 
 export default function AdminPromotionsPage() {
     const { token } = useAuth();
-    const [promotions, setPromotions] = useState<any[]>([]);
+    const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [assignPromo, setAssignPromo] = useState<any | null>(null);
+    const [assignPromo, setAssignPromo] = useState<Promotion | null>(null);
     const [allProducts, setAllProducts] = useState<Product[]>([]);
     const [assignedIds, setAssignedIds] = useState<Set<number>>(new Set());
     const [assignLoading, setAssignLoading] = useState(false);
     const [drawingId, setDrawingId] = useState<number | null>(null);
     const [drawResult, setDrawResult] = useState<Record<number, string>>({});
     const [drawError, setDrawError] = useState<string | null>(null);
-    const [editPromo, setEditPromo] = useState<any | null>(null);
+    const [editPromo, setEditPromo] = useState<Promotion | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [confirmToggleId, setConfirmToggleId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -116,7 +129,7 @@ export default function AdminPromotionsPage() {
         adminListPromotions(token).then(setPromotions).finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     const handleTypeChange = (type: string) => {
         setForm((f) => ({ ...f, type, config: emptyConfig(type) }));
@@ -126,7 +139,7 @@ export default function AdminPromotionsPage() {
         setForm((f) => ({ ...f, config: { ...f.config, [key]: value === '' ? '' : Number(value) } }));
     };
 
-    const handleToggleActive = async (promo: any) => {
+    const handleToggleActive = async (promo: Promotion) => {
         if (!token) return;
         try {
             if (promo.is_active) {
@@ -143,7 +156,7 @@ export default function AdminPromotionsPage() {
         setConfirmToggleId(null);
     };
 
-    const openEditForm = (promo: any) => {
+    const openEditForm = (promo: Promotion) => {
         setEditPromo(promo);
         setForm({
             name_he: promo.name_he,
@@ -199,7 +212,7 @@ export default function AdminPromotionsPage() {
         }
     };
 
-    const openAssign = async (promo: any) => {
+    const openAssign = async (promo: Promotion) => {
         if (!token) return;
         setAssignPromo(promo);
         setAssignLoading(true);
@@ -239,7 +252,7 @@ export default function AdminPromotionsPage() {
         setAssignLoading(false);
     };
 
-    const handleDraw = async (promo: any) => {
+    const handleDraw = async (promo: Promotion) => {
         if (!token) return;
         setDrawingId(promo.id);
         setDrawError(null);
@@ -254,7 +267,7 @@ export default function AdminPromotionsPage() {
         }
     };
 
-    const isRaffleDrawable = (promo: any) =>
+    const isRaffleDrawable = (promo: Promotion) =>
         promo.type === 'raffle' && promo.is_active && promo.end_date && new Date(promo.end_date) < new Date();
 
     const formatDate = (d: string | null) => {
@@ -303,7 +316,7 @@ export default function AdminPromotionsPage() {
                                     </td>
                                     <td className="p-4">{CHANNEL_LABELS[promo.channel] ?? promo.channel}</td>
                                     <td className="p-4">
-                                        <span className={`flex items-center gap-1 text-sm font-bold ${promo.product_count > 0 ? 'text-[#d4af37]' : 'text-[#f0e6d3]/25'}`}>
+                                        <span className={`flex items-center gap-1 text-sm font-bold ${(promo.product_count ?? 0) > 0 ? 'text-[#d4af37]' : 'text-[#f0e6d3]/25'}`}>
                                             <Package size={13} />
                                             {promo.product_count ?? 0}
                                         </span>
@@ -326,7 +339,7 @@ export default function AdminPromotionsPage() {
                                             {promo.is_active ? 'פעיל' : 'כבוי'}
                                         </span>
                                     </td>
-                                    <td className="p-4">{formatDate(promo.end_date)}</td>
+                                    <td className="p-4">{formatDate(promo.end_date ?? null)}</td>
                                     <td className="p-4">
                                                         <div className="flex flex-wrap items-center gap-3">
                                             <button

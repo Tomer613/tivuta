@@ -138,7 +138,7 @@ export default async function AboutPage({ params }: { params: Promise<{ locale: 
             <section className="max-w-5xl mx-auto py-24 px-8 bg-[#080d1f] rounded-[3rem] mb-24 text-white text-center">
                 <h2 className="text-3xl font-black mb-8 italic uppercase tracking-tighter">{t.vision_title}</h2>
                 <p className="text-2xl font-light leading-relaxed opacity-80 italic">
-                    "{t.vision_text}"
+                    &quot;{t.vision_text}&quot;
                 </p>
             </section>
         </main>

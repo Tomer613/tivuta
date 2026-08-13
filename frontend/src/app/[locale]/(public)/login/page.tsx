@@ -90,7 +90,7 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (!isLoading) {
-            setShowSlowMessage(false);
+            Promise.resolve().then(() => setShowSlowMessage(false));
             return;
         }
         const timer = setTimeout(() => setShowSlowMessage(true), 4000);

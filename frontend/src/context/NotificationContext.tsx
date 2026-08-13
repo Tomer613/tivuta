@@ -27,6 +27,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // Initial dummy notifications for onboarding
     useEffect(() => {
+      Promise.resolve().then(() => {
         const initialNotifications: Notification[] = [
             {
                 id: '1',
@@ -57,6 +58,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
         ];
         setNotifications(initialNotifications);
+      });
     }, []);
 
     const unreadCount = notifications.filter(n => !n.isRead).length;

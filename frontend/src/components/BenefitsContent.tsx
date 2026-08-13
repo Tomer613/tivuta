@@ -28,11 +28,47 @@ const categoryIcons: Record<string, LucideIcon> = {
     default: LayoutGrid
 };
 
+interface BenefitsSubCategory {
+    id: number;
+    slug: string;
+    name_he: string;
+    name_en?: string;
+    name_fr?: string;
+    name_yi?: string;
+}
+
+interface BenefitsCategory {
+    id: number;
+    slug: string;
+    name_he: string;
+    name_en?: string;
+    name_fr?: string;
+    name_yi?: string;
+    sub_categories?: BenefitsSubCategory[];
+}
+
+interface BenefitsItem {
+    id: number;
+    title_he: string;
+    title_en: string;
+    title_fr: string;
+    title_yi: string;
+    description_he: string;
+    description_en: string;
+    description_fr: string;
+    description_yi: string;
+    price: number | null;
+    is_monthly?: boolean;
+    is_featured?: boolean;
+    cat_id_new?: number | null;
+    sub_category_id?: number | null;
+}
+
 interface BenefitsContentProps {
-    allItems: any[];
-    categories: any[];
+    allItems: BenefitsItem[];
+    categories: BenefitsCategory[];
     locale: 'he' | 'en' | 'fr' | 'yi';
-    t: any;
+    t: Record<string, string>;
 }
 
 export default function BenefitsContent({ allItems, categories, locale, t }: BenefitsContentProps) {
@@ -43,21 +79,21 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
     const search = searchParams.get('search');
     const pool = searchParams.get('pool') || 'monthly'; // Default to monthly as requested
 
-    const currentCategoryObj = categories.find((c: any) => c.slug === category);
+    const currentCategoryObj = categories.find((c) => c.slug === category);
     const categoryId = currentCategoryObj?.id;
 
     // Map sub-category IDs to their parent category IDs for correct filtering
     const subToCategoryMap = useMemo(() => {
         const map: Record<number, number> = {};
         categories.forEach(cat => {
-            cat.sub_categories?.forEach((sub: any) => {
+            cat.sub_categories?.forEach((sub) => {
                 map[sub.id] = cat.id;
             });
         });
         return map;
     }, [categories]);
 
-    const filteredItems = allItems.filter((item: any) => {
+    const filteredItems = allItems.filter((item) => {
         // Pool filtering
         if (pool === 'monthly' && !item.is_monthly) return false;
         if (pool === 'featured' && !item.is_featured) return false;
@@ -177,7 +213,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                                         <span>{t.all}</span>
                                     </Link>
                                 )}
-                                {categories.filter((cat: any) => cat.slug !== category).map((cat: any) => {
+                                {categories.filter((cat) => cat.slug !== category).map((cat) => {
                                     const Icon = categoryIcons[cat.slug] || categoryIcons.default;
                                     return (
                                         <Link 
@@ -228,7 +264,7 @@ export default function BenefitsContent({ allItems, categories, locale, t }: Ben
                     </div>
                 ) : filteredItems.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                        {filteredItems.map((item: any) => (
+                        {filteredItems.map((item) => (
                             <ItemCard key={item.id} item={item} locale={locale} />
                         ))}
                     </div>

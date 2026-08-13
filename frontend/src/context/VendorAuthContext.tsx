@@ -23,15 +23,11 @@ export const VendorAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            setToken(stored);
-            fetchVendor(stored);
-        } else {
-            setIsLoading(false);
-        }
-    }, []);
+    const logout = () => {
+        localStorage.removeItem(STORAGE_KEY);
+        setToken(null);
+        setVendor(null);
+    };
 
     const fetchVendor = async (authToken: string) => {
         try {
@@ -44,16 +40,22 @@ export const VendorAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
     };
 
+    useEffect(() => {
+        Promise.resolve().then(() => {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                setToken(stored);
+                fetchVendor(stored);
+            } else {
+                setIsLoading(false);
+            }
+        });
+    }, []);
+
     const login = async (authToken: string) => {
         localStorage.setItem(STORAGE_KEY, authToken);
         setToken(authToken);
         await fetchVendor(authToken);
-    };
-
-    const logout = () => {
-        localStorage.removeItem(STORAGE_KEY);
-        setToken(null);
-        setVendor(null);
     };
 
     const refresh = async () => {

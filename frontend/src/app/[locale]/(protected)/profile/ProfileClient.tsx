@@ -228,6 +228,36 @@ function CityInput({ value, onChange, placeholder }: { value: string; onChange: 
     );
 }
 
+// ─── Local shapes for endpoints this file doesn't already have a typed import for ──────────────
+interface ActivityLead {
+    id: number;
+    lead_type: string;
+    product_vertical?: string | null;
+    product_title_he?: string | null;
+    status: string;
+    created_at: string;
+}
+
+interface FavoriteEntry {
+    id: number;
+    product_id: number;
+    product?: { image_url?: string | null; title_he: string; price?: number | null } | null;
+}
+
+interface AppointmentLead {
+    id: number;
+    scheduled_at: string;
+    status: string;
+}
+
+interface LegacyOrder {
+    id: number;
+    title_he: string;
+    date: string;
+    amount: number;
+    status: string;
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function ProfileClient() {
     const params = useParams();
@@ -242,13 +272,13 @@ export default function ProfileClient() {
         id_number: '', club_affiliation: '', membership_tracks: [] as string[],
     });
     const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
-    const [activity, setActivity] = useState<any[]>([]);
+    const [activity, setActivity] = useState<ActivityLead[]>([]);
     const [activityLoading, setActivityLoading] = useState(true);
-    const [favorites, setFavorites] = useState<any[]>([]);
+    const [favorites, setFavorites] = useState<FavoriteEntry[]>([]);
     const [removingFavId, setRemovingFavId] = useState<number | null>(null);
-    const [appointments, setAppointments] = useState<any[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentLead[]>([]);
     const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedProduct[]>([]);
-    const [orders, setOrders] = useState<any[]>([]);
+    const [orders, setOrders] = useState<LegacyOrder[]>([]);
     const [myOrders, setMyOrders] = useState<MyOrder[]>([]);
     const [showNotifPrefs, setShowNotifPrefs] = useState(false);
     const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({ lead_status: true, appointment_reminder: true, system: true, promotions: true });
@@ -267,11 +297,11 @@ export default function ProfileClient() {
     const [cardOrderForm, setCardOrderForm] = useState<ShippingAddress>({ full_name: '', street: '', city: '', zip_code: '', phone: '' });
     const [cardOrderState, setCardOrderState] = useState<'idle' | 'submitting' | 'error'>('idle');
     const [cardOrderError, setCardOrderError] = useState('');
-    const [cardOrderLeadOverride, setCardOrderLeadOverride] = useState<any | null>(null);
+    const [cardOrderLeadOverride, setCardOrderLeadOverride] = useState<ActivityLead | null>(null);
 
     useEffect(() => {
         if (!user) return;
-        setForm({
+        Promise.resolve().then(() => setForm({
             phone: user.phone || '',
             gender: user.gender || '',
             city: user.city || '',
@@ -279,7 +309,7 @@ export default function ProfileClient() {
             id_number: user.id_number || '',
             club_affiliation: user.club_affiliation || '',
             membership_tracks: user.membership_tracks || [],
-        });
+        }));
     }, [user]);
 
     useEffect(() => {
@@ -292,17 +322,17 @@ export default function ProfileClient() {
         getMyPointsHistory(token).then(setPointsHistory).catch(() => {});
         try {
             const raw = localStorage.getItem('tivuta_recent_v2');
-            if (raw) setRecentlyViewed(JSON.parse(raw));
+            if (raw) Promise.resolve().then(() => setRecentlyViewed(JSON.parse(raw)));
         } catch { /* ignore */ }
     }, [token]);
 
     useEffect(() => {
         if (!user) return;
-        setCardOrderForm((f) => ({ ...f, full_name: f.full_name || `${user.first_name} ${user.last_name}`.trim(), phone: f.phone || user.phone || '' }));
+        Promise.resolve().then(() => setCardOrderForm((f) => ({ ...f, full_name: f.full_name || `${user.first_name} ${user.last_name}`.trim(), phone: f.phone || user.phone || '' })));
     }, [user]);
 
     useEffect(() => {
-        if (user?.notification_prefs) setNotifPrefs({ lead_status: true, appointment_reminder: true, system: true, promotions: true, ...user.notification_prefs });
+        if (user?.notification_prefs) Promise.resolve().then(() => setNotifPrefs({ lead_status: true, appointment_reminder: true, system: true, promotions: true, ...user.notification_prefs }));
     }, [user]);
 
     const handleRemoveFav = async (productId: number) => {
@@ -317,7 +347,7 @@ export default function ProfileClient() {
 
     // Split based on SAVED user state (stable while user types)
     const isFieldMissing = (f: string) => {
-        const v = (user as any)?.[f];
+        const v = user?.[f as keyof User];
         return !v || (Array.isArray(v) && v.length === 0);
     };
     const completedFieldList = COMPLETION_FIELDS.filter(f => !isFieldMissing(f));
@@ -335,7 +365,7 @@ export default function ProfileClient() {
         if (!token) return;
         setSaveState('saving');
         try {
-            const payload: any = {};
+            const payload: Record<string, unknown> = {};
             if (form.phone)           payload.phone = form.phone;
             if (form.gender)          payload.gender = form.gender;
             if (form.city)            payload.city = form.city;
@@ -409,15 +439,15 @@ export default function ProfileClient() {
     const statusColor = (s: string) =>
         ({ new: 'text-[#f0e6d3]/60', confirmed: 'text-green-400', contacted: 'text-blue-400', closed: 'text-[#f0e6d3]/30' }[s] ?? 'text-[#f0e6d3]/60');
 
-    const marketplaceActivity = activity.filter((item: any) => item.lead_type !== 'card_order');
-    const cardOrderLead = cardOrderLeadOverride || activity.find((item: any) => item.lead_type === 'card_order') || null;
+    const marketplaceActivity = activity.filter((item) => item.lead_type !== 'card_order');
+    const cardOrderLead = cardOrderLeadOverride || activity.find((item) => item.lead_type === 'card_order') || null;
 
-    const grouped = marketplaceActivity.reduce((acc: Record<string, any[]>, item: any) => {
+    const grouped = marketplaceActivity.reduce((acc: Record<string, ActivityLead[]>, item) => {
         const v = item.product_vertical || 'other';
         if (!acc[v]) acc[v] = [];
         acc[v].push(item);
         return acc;
-    }, {});
+    }, {} as Record<string, ActivityLead[]>);
 
     const VERTICAL_ICON = (v: string) => {
         const Icon = getVerticalIcon(verticals.find((x) => x.slug === v)?.icon || 'Store');
@@ -861,7 +891,7 @@ export default function ProfileClient() {
                                         </span>
                                     </div>
                                     <div className="space-y-2">
-                                        {(items as any[]).map(item => (
+                                        {items.map(item => (
                                             <div key={item.id} className="bg-[#111a2f] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
                                                 <div className="min-w-0">
                                                     <p className="text-sm font-semibold text-[#f0e6d3] truncate">{item.product_title_he || '—'}</p>
@@ -890,7 +920,7 @@ export default function ProfileClient() {
                             {locale === 'he' ? 'מוצרים שמורים' : 'Saved Products'}
                         </h2>
                         <div className="space-y-2">
-                            {favorites.map((fav: any) => {
+                            {favorites.map((fav) => {
                                 const p = fav.product;
                                 if (!p) return null;
                                 const imgSrc = productImageUrl(p.image_url);
@@ -924,7 +954,7 @@ export default function ProfileClient() {
                             {locale === 'he' ? 'פגישות קרובות' : locale === 'fr' ? 'Prochains rendez-vous' : 'Upcoming Appointments'}
                         </h2>
                         <div className="space-y-2">
-                            {appointments.map((appt: any) => (
+                            {appointments.map((appt) => (
                                 <div key={appt.id} className="bg-[#111a2f] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold text-[#f0e6d3] truncate">
@@ -954,7 +984,7 @@ export default function ProfileClient() {
                             {locale === 'he' ? 'ההזמנות שלי' : locale === 'fr' ? 'Mes commandes' : 'My Orders'}
                         </h2>
                         <div className="space-y-2">
-                            {orders.map((order: any) => (
+                            {orders.map((order) => (
                                 <div key={order.id} className="bg-[#111a2f] rounded-xl px-4 py-3 flex items-center justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="text-sm font-semibold text-[#f0e6d3] truncate">{order.title_he}</p>
@@ -1036,7 +1066,7 @@ export default function ProfileClient() {
                                     <div className="relative">
                                         <input
                                             type={show ? 'text' : 'password'}
-                                            value={(pwForm as any)[key]}
+                                            value={pwForm[key as keyof typeof pwForm]}
                                             onChange={(e) => setPwForm((f) => ({ ...f, [key]: e.target.value }))}
                                             className="w-full bg-[#111a2f] rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3] pe-10"
                                             dir="ltr"

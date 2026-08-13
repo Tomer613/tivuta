@@ -12,7 +12,7 @@ export function useBulkSelection(resetKey: string | number) {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
     useEffect(() => {
-        setSelectedIds(new Set());
+        Promise.resolve().then(() => setSelectedIds(new Set()));
     }, [resetKey]);
 
     const toggleSelect = (id: number) => setSelectedIds((prev) => {

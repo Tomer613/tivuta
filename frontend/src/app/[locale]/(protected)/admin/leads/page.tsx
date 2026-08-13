@@ -13,6 +13,34 @@ import { Loader2, CheckCircle2, AlertCircle, Phone, Mail, CalendarDays, Download
 
 const PAGE_SIZE = 50;
 
+interface LeadHistoryEntry {
+    ts: string;
+    action: string;
+    from_val?: string | null;
+    to_val?: string | null;
+}
+
+interface Lead {
+    id: number;
+    status: string;
+    lead_type: string;
+    created_at: string;
+    scheduled_at?: string | null;
+    product_id?: number | null;
+    product_title_he?: string | null;
+    product_vertical?: string | null;
+    quantity?: number | null;
+    user_name?: string | null;
+    user_email?: string | null;
+    user_phone?: string | null;
+    notes?: string | null;
+    subject?: string | null;
+    message?: string | null;
+    assigned_to?: number | null;
+    history?: LeadHistoryEntry[];
+    shipping_address?: { full_name: string; street: string; city: string; zip_code?: string | null; phone: string } | null;
+}
+
 const STATUSES = [
     { value: 'new',       label: 'חדשה',    color: 'bg-blue-500/20 text-blue-400' },
     { value: 'confirmed', label: 'מאושרת',  color: 'bg-green-500/20 text-green-400' },
@@ -22,10 +50,9 @@ const STATUSES = [
 
 const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס', general_inquiry: 'פנייה כללית' };
 
-function VerticalIcon({ v }: { v: string }) {
-    const verticals = useVerticals();
-    const Icon = getVerticalIcon(verticals.find((x) => x.slug === v)?.icon || 'Store');
-    return <Icon size={14} className="text-[#d4af37]" />;
+function SortIcon({ col, sortKey, sortDir }: { col: 'created_at' | 'scheduled_at'; sortKey: 'created_at' | 'scheduled_at'; sortDir: 'asc' | 'desc' }) {
+    if (sortKey !== col) return <ArrowUpDown size={12} className="opacity-30" />;
+    return sortDir === 'desc' ? <ArrowDown size={12} className="text-[#d4af37]" /> : <ArrowUp size={12} className="text-[#d4af37]" />;
 }
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -40,8 +67,9 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
     );
 }
 
-function KanbanView({ leads, onStatusChange, updatingId }: { leads: any[]; onStatusChange: (lead: any, status: string) => void; updatingId: number | null }) {
+function KanbanView({ leads, onStatusChange, updatingId, now }: { leads: Lead[]; onStatusChange: (lead: Lead, status: string) => void; updatingId: number | null; now: number }) {
     const [dragging, setDragging] = useState<number | null>(null);
+    const verticals = useVerticals();
 
     const handleDrop = (status: string) => {
         if (dragging === null) return;
@@ -67,7 +95,10 @@ function KanbanView({ leads, onStatusChange, updatingId }: { leads: any[]; onSta
                         </div>
                         <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[600px]">
                             {colLeads.map((lead) => {
-                                const sla = lead.status === 'new' && (Date.now() - new Date(lead.created_at).getTime()) > 86_400_000;
+                                const sla = lead.status === 'new' && (now - new Date(lead.created_at).getTime()) > 86_400_000;
+                                const Icon = lead.product_vertical
+                                    ? getVerticalIcon(verticals.find((x) => x.slug === lead.product_vertical)?.icon || 'Store')
+                                    : null;
                                 return (
                                     <div
                                         key={lead.id}
@@ -82,7 +113,7 @@ function KanbanView({ leads, onStatusChange, updatingId }: { leads: any[]; onSta
                                         <p className="text-sm font-bold text-[#f0e6d3] truncate">{lead.user_name || '—'}</p>
                                         <p className="text-xs text-[#f0e6d3]/40 truncate">{lead.product_title_he || TYPE_LABEL[lead.lead_type] || '—'}</p>
                                         <div className="flex items-center gap-2 mt-2">
-                                            {lead.product_vertical && <VerticalIcon v={lead.product_vertical} />}
+                                            {Icon && <Icon size={14} className="text-[#d4af37]" />}
                                             <span className="text-[10px] text-[#f0e6d3]/30">
                                                 {new Date(lead.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })}
                                             </span>
@@ -103,7 +134,7 @@ export default function AdminLeadsPage() {
     const { token } = useAuth();
     const params = useParams();
     const locale = (params?.locale as string) || 'he';
-    const [leads, setLeads] = useState<any[]>([]);
+    const [leads, setLeads] = useState<Lead[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('');
     const [filterVertical, setFilterVertical] = useState('');
@@ -123,6 +154,9 @@ export default function AdminLeadsPage() {
     const [bulkValue, setBulkValue] = useState('');
     const [bulkLoading, setBulkLoading] = useState(false);
     const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
+    // Snapshotted (not read live via Date.now() during render) — refreshed whenever leads reload,
+    // which is a fine cadence for an "SLA breached" badge and keeps rendering pure.
+    const [now, setNow] = useState(() => Date.now());
     const verticals = useVerticals();
     const VERTICAL_LABEL: Record<string, string> = Object.fromEntries(verticals.map((v) => [v.slug, v.label_he]));
     // Cleared whenever the visible page/filter set changes, so a bulk action can never silently
@@ -135,12 +169,13 @@ export default function AdminLeadsPage() {
     const load = () => {
         if (!token) return;
         setLoading(true);
+        setNow(Date.now());
         Promise.all([adminListLeads(token), adminGetAdminUsers(token)])
             .then(([l, u]) => { setLeads(l); setAdminUsers(u); })
             .finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     const handleAssign = async (leadId: number, userId: number | null) => {
         if (!token) return;
@@ -195,11 +230,6 @@ export default function AdminLeadsPage() {
         else { setSortKey(key); setSortDir('desc'); }
     };
 
-    const SortIcon = ({ col }: { col: 'created_at' | 'scheduled_at' }) => {
-        if (sortKey !== col) return <ArrowUpDown size={12} className="opacity-30" />;
-        return sortDir === 'desc' ? <ArrowDown size={12} className="text-[#d4af37]" /> : <ArrowUp size={12} className="text-[#d4af37]" />;
-    };
-
     const exportCsv = () => {
         const header = ['שם', 'מייל', 'טלפון', 'מוצר', 'עולם', 'סוג', 'סטטוס', 'תאריך פגישה', 'תאריך יצירה'];
         const rows = filtered.map((l) => [
@@ -207,7 +237,7 @@ export default function AdminLeadsPage() {
             l.user_email ?? '',
             l.user_phone ?? '',
             l.product_title_he ?? (l.subject ? (l.message ? `${l.subject} — ${l.message}` : l.subject) : ''),
-            VERTICAL_LABEL[l.product_vertical] ?? l.product_vertical ?? '',
+            (l.product_vertical ? VERTICAL_LABEL[l.product_vertical] : null) ?? l.product_vertical ?? '',
             TYPE_LABEL[l.lead_type] ?? l.lead_type,
             STATUSES.find((s) => s.value === l.status)?.label ?? l.status,
             l.scheduled_at ? new Date(l.scheduled_at).toLocaleDateString('he-IL') : '',
@@ -227,7 +257,7 @@ export default function AdminLeadsPage() {
         return c;
     }, [leads]);
 
-    const handleStatusChange = async (lead: any, newStatus: string) => {
+    const handleStatusChange = async (lead: Lead, newStatus: string) => {
         if (!token || lead.status === newStatus) return;
         setUpdatingId(lead.id);
         try {
@@ -262,7 +292,7 @@ export default function AdminLeadsPage() {
         }
     };
 
-    const startEditNote = (lead: any) => { setEditingNoteId(lead.id); setNoteValue(lead.notes || ''); };
+    const startEditNote = (lead: Lead) => { setEditingNoteId(lead.id); setNoteValue(lead.notes || ''); };
     const cancelEditNote = () => { setEditingNoteId(null); setNoteValue(''); };
     const saveNote = async (leadId: number) => {
         if (!token) return;
@@ -348,14 +378,14 @@ export default function AdminLeadsPage() {
             ) : view === 'calendar' ? (
                 <CalendarView lines={leads.filter((l) => l.lead_type === 'appointment' && l.scheduled_at)} onSendReminder={handleSendReminder} sendingIds={sendingReminderId} />
             ) : view === 'kanban' ? (
-                <KanbanView leads={filtered} onStatusChange={handleStatusChange} updatingId={updatingId} />
+                <KanbanView leads={filtered} onStatusChange={handleStatusChange} updatingId={updatingId} now={now} />
             ) : (
                 <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-x-auto">
                     <table className="w-full text-start">
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
                                 <th className="p-4 text-start w-8">
-                                    <button data-testid="select-all-leads" onClick={() => toggleSelectAll(paginated.map((l: any) => l.id))} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
+                                    <button data-testid="select-all-leads" onClick={() => toggleSelectAll(paginated.map((l) => l.id))} className="text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors">
                                         {selectedIds.size === paginated.length && paginated.length > 0 ? <CheckSquare size={14} /> : <Square size={14} />}
                                     </button>
                                 </th>
@@ -363,7 +393,7 @@ export default function AdminLeadsPage() {
                                 <th className="p-4 text-start">מוצר</th>
                                 <th className="p-4 text-start">סוג</th>
                                 <th className="p-4 text-start cursor-pointer select-none hover:text-[#d4af37]" onClick={() => toggleSort('created_at')}>
-                                    <span className="flex items-center gap-1">תאריך <SortIcon col="created_at" /></span>
+                                    <span className="flex items-center gap-1">תאריך <SortIcon col="created_at" sortKey={sortKey} sortDir={sortDir} /></span>
                                 </th>
                                 <th className="p-4 text-start">הערות</th>
                                 <th className="p-4 text-start">הקצאה</th>
@@ -379,7 +409,10 @@ export default function AdminLeadsPage() {
                                 const si = statusInfo(lead.status);
                                 const isSelected = selectedIds.has(lead.id);
                                 const historyExpanded = expandedHistoryId === lead.id;
-                                const isSlaBreached = lead.status === 'new' && (Date.now() - new Date(lead.created_at).getTime()) > 86_400_000;
+                                const isSlaBreached = lead.status === 'new' && (now - new Date(lead.created_at).getTime()) > 86_400_000;
+                                const VerticalIconTag = lead.product_vertical
+                                    ? getVerticalIcon(verticals.find((x) => x.slug === lead.product_vertical)?.icon || 'Store')
+                                    : null;
                                 return (
                                     <Fragment key={lead.id}>
                                     <tr className={`border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/50 transition-colors ${isSelected ? 'bg-[#d4af37]/5' : ''} ${isSlaBreached ? 'border-l-2 border-l-red-500/60' : ''}`}>
@@ -423,7 +456,7 @@ export default function AdminLeadsPage() {
                                                     </a>
                                                     {lead.product_vertical && (
                                                         <span className="flex items-center gap-1 text-xs text-[#f0e6d3]/40 mt-0.5">
-                                                            <VerticalIcon v={lead.product_vertical} />
+                                                            {VerticalIconTag && <VerticalIconTag size={14} className="text-[#d4af37]" />}
                                                             {VERTICAL_LABEL[lead.product_vertical] ?? lead.product_vertical}
                                                         </span>
                                                     )}
@@ -552,7 +585,7 @@ export default function AdminLeadsPage() {
                                             <td colSpan={9} className="px-8 py-3">
                                                 <p className="text-[10px] font-black text-[#f0e6d3]/30 uppercase tracking-widest mb-2">היסטוריית שינויים</p>
                                                 <div className="space-y-1">
-                                                    {lead.history.map((h: any, idx: number) => (
+                                                    {lead.history!.map((h, idx) => (
                                                         <div key={idx} className="flex items-center gap-3 text-xs text-[#f0e6d3]/50">
                                                             <span className="text-[#f0e6d3]/25 tabular-nums">{new Date(h.ts).toLocaleString('he-IL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</span>
                                                             <span className="text-[#d4af37]/60">{h.action === 'status_change' || h.action === 'bulk_status_change' ? 'סטטוס' : h.action === 'assigned' || h.action === 'bulk_assign' ? 'הקצאה' : h.action}</span>

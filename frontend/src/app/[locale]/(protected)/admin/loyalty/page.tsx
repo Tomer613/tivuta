@@ -84,10 +84,12 @@ export default function AdminLoyaltyPage() {
     };
 
     useEffect(() => {
-        loadSettings();
-        loadFlaggedSales();
-        loadAtRisk();
-        if (token) adminListVendors(token).then(setVendors).catch(() => {});
+        Promise.resolve().then(() => {
+            loadSettings();
+            loadFlaggedSales();
+            loadAtRisk();
+            if (token) adminListVendors(token).then(setVendors).catch(() => {});
+        });
     }, [token]);
 
     const handleSaveSettings = async () => {

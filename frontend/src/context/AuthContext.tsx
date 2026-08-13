@@ -29,7 +29,7 @@ interface AuthContextType {
     isLoading: boolean;
     login: (token: string) => Promise<void>;
     logout: () => void;
-    signup: (userData: any) => Promise<void>;
+    signup: (userData: Record<string, unknown>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,15 +39,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const storedToken = localStorage.getItem('tivuta_token');
-        if (storedToken) {
-            setToken(storedToken);
-            fetchUser(storedToken);
-        } else {
-            setIsLoading(false);
-        }
-    }, []);
+    const logout = () => {
+        localStorage.removeItem('tivuta_token');
+        setToken(null);
+        setUser(null);
+    };
 
     const fetchUser = async (authToken: string) => {
         try {
@@ -70,13 +66,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    useEffect(() => {
+        Promise.resolve().then(() => {
+            const storedToken = localStorage.getItem('tivuta_token');
+            if (storedToken) {
+                setToken(storedToken);
+                fetchUser(storedToken);
+            } else {
+                setIsLoading(false);
+            }
+        });
+    }, []);
+
     const login = async (authToken: string) => {
         localStorage.setItem('tivuta_token', authToken);
         setToken(authToken);
         await fetchUser(authToken);
     };
 
-    const signup = async (userData: any) => {
+    const signup = async (userData: Record<string, unknown>) => {
         // Handle signup logic
         const response = await fetch(`${BASE_URL}/auth/signup`, {
             method: 'POST',
@@ -88,12 +96,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const error = await response.json();
             throw new Error(error.detail || 'Signup failed');
         }
-    };
-
-    const logout = () => {
-        localStorage.removeItem('tivuta_token');
-        setToken(null);
-        setUser(null);
     };
 
     return (

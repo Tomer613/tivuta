@@ -45,18 +45,20 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
     const [prefs, setPrefs] = useState<AccessibilityPrefs>(DEFAULT_PREFS);
 
     useEffect(() => {
-        try {
-            const stored = localStorage.getItem(STORAGE_KEY);
-            if (stored) {
-                const parsed = { ...DEFAULT_PREFS, ...JSON.parse(stored) };
-                setPrefs(parsed);
-                applyToDocument(parsed);
-            } else {
+        Promise.resolve().then(() => {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    const parsed = { ...DEFAULT_PREFS, ...JSON.parse(stored) };
+                    setPrefs(parsed);
+                    applyToDocument(parsed);
+                } else {
+                    applyToDocument(DEFAULT_PREFS);
+                }
+            } catch {
                 applyToDocument(DEFAULT_PREFS);
             }
-        } catch {
-            applyToDocument(DEFAULT_PREFS);
-        }
+        });
     }, []);
 
     const persist = (next: AccessibilityPrefs) => {

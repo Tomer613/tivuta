@@ -89,25 +89,34 @@ const translations: Record<string, DashboardTranslation> = {
 
 };
 
+interface DashboardOrder {
+    title_he: string;
+    date: string;
+    amount: number;
+    status: string;
+}
+
+interface DashboardDistributionSlice {
+    label: string;
+    value: number;
+    color: string;
+}
+
+interface DashboardData {
+    monthly_expenses: number;
+    total_savings: number;
+    recent_orders: DashboardOrder[];
+    distribution: DashboardDistributionSlice[];
+}
+
 export default function DashboardPage() {
     const params = useParams();
     const locale = params.locale as string || 'he';
     const { user, token, isLoading: authLoading } = useAuth();
     const router = useRouter();
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (!authLoading && !user) {
-            router.push(`/benefits/${locale}/login`);
-            return;
-        }
-
-        if (token) {
-            fetchDashboardData();
-        }
-    }, [user, authLoading, token, locale, router]);
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -129,6 +138,17 @@ export default function DashboardPage() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!authLoading && !user) {
+            router.push(`/benefits/${locale}/login`);
+            return;
+        }
+
+        if (token) {
+            Promise.resolve().then(fetchDashboardData);
+        }
+    }, [user, authLoading, token, locale, router]);
 
     if (authLoading || loading) {
         return (
@@ -258,7 +278,7 @@ export default function DashboardPage() {
                                                 dataKey="value"
                                                 nameKey="label"
                                             >
-                                                {data.distribution.map((entry: any, index: number) => (
+                                                {data.distribution.map((entry, index: number) => (
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                                 ))}
                                             </Pie>
@@ -291,7 +311,7 @@ export default function DashboardPage() {
                                     </ResponsiveContainer>
                                 </div>
                                 <div className="mt-4 flex justify-between items-center text-sm font-bold">
-                                    <span className="text-[#f0e6d3]/60">סה"כ הוצאות:</span>
+                                    <span className="text-[#f0e6d3]/60">סה&quot;כ הוצאות:</span>
                                     <span className="text-[#f0e6d3] text-lg">{t.currency}{data.monthly_expenses.toLocaleString()}</span>
                                 </div>
                             </motion.div>
@@ -309,7 +329,7 @@ export default function DashboardPage() {
                                 {t.orders_title}
                             </h3>
                             <div className="space-y-4">
-                                {data.recent_orders.map((order: any, i: number) => (
+                                {data.recent_orders.map((order, i: number) => (
                                     <div key={i} className="flex items-center justify-between p-4 hover:bg-[#111a2f] rounded-2xl transition-colors group">
                                         <div className="flex items-center gap-4">
                                             <div className="w-12 h-12 bg-[#111a2f] rounded-xl flex items-center justify-center text-[#f0e6d3]/60 group-hover:bg-[#1e3a8a]/10 group-hover:text-[#1e3a8a] transition-colors">
@@ -380,7 +400,7 @@ export default function DashboardPage() {
                             </div>
                             <h4 className="font-black text-amber-900 mb-2">טיפ פיננסי חכם</h4>
                             <p className="text-amber-800/70 text-sm leading-relaxed font-medium">
-                                "מי שקונה מה שהוא לא צריך, סופו שימכור את מה שהוא כן צריך."
+                                &quot;מי שקונה מה שהוא לא צריך, סופו שימכור את מה שהוא כן צריך.&quot;
                                 <br />
                                 <span className="text-xs font-bold mt-2 block">- יהודי חכם</span>
                             </p>

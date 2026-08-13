@@ -103,7 +103,7 @@ export default function AdminVendorsPage() {
         adminListVendors(token).then(setVendors).finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     useEffect(() => {
         if (!token) return;
@@ -619,7 +619,7 @@ export default function AdminVendorsPage() {
                         </div>
 
                         <div>
-                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תחום אחריות (מה הספק מספק, למשל "קוגלים")</label>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תחום אחריות (מה הספק מספק, למשל &quot;קוגלים&quot;)</label>
                             <input
                                 placeholder="תחום אחריות"
                                 value={form.specialty}

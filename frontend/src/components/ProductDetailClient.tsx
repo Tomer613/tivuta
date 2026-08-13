@@ -32,6 +32,13 @@ interface PromotionStatus {
     is_current_user_winner: boolean;
 }
 
+interface ProductReview {
+    id: number;
+    rating: number;
+    comment?: string | null;
+    user_name?: string | null;
+}
+
 type Locale = 'he' | 'en' | 'fr' | 'yi';
 
 const T = {
@@ -176,7 +183,7 @@ function PromoZone({ promo, status, onEnter, locale }: {
     }
 
     if (promo.type === 'first_n') {
-        const limit = promo.config?.limit ?? 0;
+        const limit = Number(promo.config?.limit ?? 0);
         return (
             <div className="bg-[#111a2f] border border-[#d4af37]/30 rounded-2xl p-6 space-y-4">
                 <div className="flex items-center gap-2 text-[#d4af37] font-black text-lg">
@@ -231,7 +238,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const [loading, setLoading] = useState(true);
     const [fav, setFav] = useState(false);
     const [favLoading, setFavLoading] = useState(false);
-    const [reviews, setReviews] = useState<any[]>([]);
+    const [reviews, setReviews] = useState<ProductReview[]>([]);
     const [myRating, setMyRating] = useState(0);
     const [myComment, setMyComment] = useState('');
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
@@ -489,7 +496,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
                             <span className="text-[#d4af37]">({reviews.length})</span>
                         </h4>
                         <div className="grid md:grid-cols-2 gap-3">
-                            {reviews.map((r: any) => (
+                            {reviews.map((r) => (
                                 <div key={r.id} className="bg-[#0e1628] border border-[#d4af37]/10 rounded-xl p-4">
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="text-sm font-bold text-[#f0e6d3]/70">{r.user_name || 'משתמש'}</span>

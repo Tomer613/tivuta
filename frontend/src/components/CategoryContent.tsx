@@ -8,11 +8,39 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ItemCard from '@/components/ItemCard';
 
+interface CategorySubCategory {
+    id: number;
+    slug: string;
+    name_he: string;
+    name_en?: string;
+    name_fr?: string;
+    name_yi?: string;
+}
+
+interface CategoryItem {
+    id: number;
+    title_he: string;
+    title_en: string;
+    title_fr: string;
+    title_yi: string;
+    description_he: string;
+    description_en: string;
+    description_fr: string;
+    description_yi: string;
+    price: number | null;
+    sub_category_id?: number | null;
+}
+
+interface Category {
+    slug: string;
+    sub_categories: CategorySubCategory[];
+}
+
 interface CategoryContentProps {
-    category: any;
-    allItems: any[];
+    category: Category;
+    allItems: CategoryItem[];
     locale: 'he' | 'en' | 'fr' | 'yi';
-    t: any;
+    t: { sub_categories: string; all: string; all_items: string; no_items: string };
 }
 
 export default function CategoryContent({ category, allItems, locale, t }: CategoryContentProps) {
@@ -20,9 +48,9 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
     const activeSubSlug = searchParams.get('sub');
 
     // Filter items based on active sub-category slug
-    const filteredItems = activeSubSlug 
-        ? allItems.filter((item: any) => {
-            const subCat = category.sub_categories.find((s: any) => s.id === item.sub_category_id);
+    const filteredItems = activeSubSlug
+        ? allItems.filter((item) => {
+            const subCat = category.sub_categories.find((s) => s.id === item.sub_category_id);
             return subCat?.slug === activeSubSlug;
           })
         : allItems;
@@ -47,7 +75,7 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
                             {t.all}
                         </Link>
 
-                        {category.sub_categories.map((sub: any) => (
+                        {category.sub_categories.map((sub) => (
                             <Link
                                 key={sub.id}
                                 href={`/benefits/${locale}/categories/${category.slug}?sub=${sub.slug}`}
@@ -68,14 +96,14 @@ export default function CategoryContent({ category, allItems, locale, t }: Categ
             <section className="max-w-7xl mx-auto py-12 px-6">
                 <h2 className="text-3xl font-black text-[#f0e6d3] mb-12 text-start">
                     {activeSubSlug 
-                        ? category.sub_categories.find((s: any) => s.slug === activeSubSlug)?.[`name_${locale}`] || t.all_items
+                        ? category.sub_categories.find((s) => s.slug === activeSubSlug)?.[`name_${locale}`] || t.all_items
                         : t.all_items
                     }
                 </h2>
 
                 {filteredItems.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-10">
-                        {filteredItems.map((item: any) => (
+                        {filteredItems.map((item) => (
                             <ItemCard key={item.id} item={item} locale={locale} />
                         ))}
                     </div>

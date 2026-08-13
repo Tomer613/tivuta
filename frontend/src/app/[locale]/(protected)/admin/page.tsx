@@ -110,7 +110,7 @@ export default function AdminDashboardPage() {
     const locale = (params?.locale as string) || 'he';
     const [stats, setStats] = useState<Record<string, number> | null>(null);
     const [chartData, setChartData] = useState<{ date: string; count: number }[]>([]);
-    const [conversionData, setConversionData] = useState<any[]>([]);
+    const [conversionData, setConversionData] = useState<{ vertical: string; total: number; confirmed: number; contacted: number; closed: number; conversion_rate: number }[]>([]);
     const [loading, setLoading] = useState(true);
     const [sendingFollowup, setSendingFollowup] = useState(false);
     const [followupResult, setFollowupResult] = useState<{ sent: number; total_stale: number } | null>(null);

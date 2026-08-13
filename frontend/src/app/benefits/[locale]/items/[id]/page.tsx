@@ -12,8 +12,22 @@ import Image from 'next/image';
 
 type SupportedLocale = 'he' | 'en' | 'fr' | 'yi';
 
+interface BenefitItem {
+    id: number;
+    title_he: string;
+    title_en: string;
+    title_fr: string;
+    title_yi: string;
+    description_he: string;
+    description_en: string;
+    description_fr: string;
+    description_yi: string;
+    price: number | null;
+    image_url?: string | null;
+}
+
 export async function generateStaticParams() {
-  const items = await getTrendingItems();
+  const items: BenefitItem[] = await getTrendingItems();
   const locales: SupportedLocale[] = ['he', 'en', 'fr', 'yi'];
   
   const params = [];
@@ -48,8 +62,8 @@ export default async function ItemPage({ params }: { params: Promise<{ locale: s
     const { locale: rawLocale, id } = await params;
     const locale = rawLocale as SupportedLocale;
 
-    const items = await getTrendingItems();
-    const item = items.find((i: any) => i.id.toString() === id);
+    const items: BenefitItem[] = await getTrendingItems();
+    const item = items.find((i) => i.id.toString() === id);
 
     if (!item) {
         notFound();

@@ -75,7 +75,7 @@ export default function AdminAnalyticsPage() {
             .finally(() => setLoading(false));
     };
 
-    useEffect(loadSummary, [token, days]);
+    useEffect(() => { Promise.resolve().then(loadSummary); }, [token, days]);
 
     const handlePruneNow = async () => {
         if (!token) return;

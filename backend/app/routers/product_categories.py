@@ -72,6 +72,8 @@ def admin_update_product_category(
     update_data = category_in.model_dump(exclude_unset=True)
     if "vertical" in update_data:
         validate_vertical_slug(db, update_data["vertical"])
+        if update_data["vertical"] != category.vertical:
+            raise HTTPException(status_code=400, detail="Category vertical cannot be changed after creation")
     for key, value in update_data.items():
         setattr(category, key, value)
     db.commit()

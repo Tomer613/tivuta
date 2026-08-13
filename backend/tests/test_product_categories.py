@@ -171,3 +171,62 @@ def test_deactivated_category_hidden_from_public_list_but_product_keeps_id(clien
 
     db_session.refresh(product)
     assert product.category_id == category["id"]
+
+
+def test_category_vertical_is_immutable_after_creation(client, db_session, make_user):
+    db_session.add_all(
+        [
+            models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True),
+            models.Vertical(slug="cars", label_he="רכב", is_active=True),
+        ]
+    )
+    db_session.commit()
+    headers = _make_admin_headers(client, make_user)
+
+    category = client.post(
+        "/admin/product-categories",
+        json={"vertical": "diamonds", "label_he": "טבעות"},
+        headers=headers,
+    ).json()
+
+    resp = client.patch(
+        f"/admin/product-categories/{category['id']}",
+        json={"vertical": "cars"},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+
+    # A no-op "change" to the same vertical is still allowed.
+    same_vertical_resp = client.patch(
+        f"/admin/product-categories/{category['id']}",
+        json={"vertical": "diamonds", "label_he": "טבעות ויהלומים"},
+        headers=headers,
+    )
+    assert same_vertical_resp.status_code == 200
+
+
+def test_bulk_assign_rejects_inactive_category(client, db_session, make_user):
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
+    db_session.commit()
+    headers = _make_admin_headers(client, make_user)
+
+    category = client.post(
+        "/admin/product-categories",
+        json={"vertical": "diamonds", "label_he": "טבעות"},
+        headers=headers,
+    ).json()
+    client.delete(f"/admin/product-categories/{category['id']}", headers=headers)
+
+    product = models.Product(vertical="diamonds", title_he="טבעת", description_he="תיאור")
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    resp = client.patch(
+        "/admin/products/bulk-category",
+        json={"product_ids": [product.id], "category_id": category["id"]},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+    db_session.refresh(product)
+    assert product.category_id is None

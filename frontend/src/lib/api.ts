@@ -69,7 +69,7 @@ export async function adminListVendors(token: string, vertical?: string): Promis
     return res.json();
 }
 
-export async function adminCreateVendor(token: string, payload: any): Promise<Vendor> {
+export async function adminCreateVendor(token: string, payload: Record<string, unknown>): Promise<Vendor> {
     const res = await fetch(`${BASE_URL}/admin/vendors`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -82,7 +82,7 @@ export async function adminCreateVendor(token: string, payload: any): Promise<Ve
     return res.json();
 }
 
-export async function adminUpdateVendor(token: string, id: number, payload: any): Promise<Vendor> {
+export async function adminUpdateVendor(token: string, id: number, payload: Record<string, unknown>): Promise<Vendor> {
     const res = await fetch(`${BASE_URL}/admin/vendors/${id}`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -454,7 +454,7 @@ export async function getMonthlyItems() {
         const res = await fetch(`${BASE_URL}/items`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
         if (!res.ok) return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 })).filter(i => i.is_monthly);
         const all = await res.json();
-        return all.filter((i: any) => i.is_monthly);
+        return all.filter((i: { is_monthly?: boolean }) => i.is_monthly);
     } catch (e) {
         console.warn("Backend unreachable, using mock items.");
         return MOCK_ITEMS.map((item, idx) => ({ ...item, is_featured: idx % 2 === 0, is_monthly: idx % 2 === 0 })).filter(i => i.is_monthly);
@@ -538,7 +538,7 @@ export async function getAllProductIds(): Promise<{ id: number }[]> {
         const res = await fetch(`${BASE_URL}/products`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
         if (!res.ok) return [{ id: 1 }];
         const data = await res.json();
-        return data.length > 0 ? data.map((p: any) => ({ id: p.id })) : [{ id: 1 }];
+        return data.length > 0 ? data.map((p: { id: number }) => ({ id: p.id })) : [{ id: 1 }];
     } catch {
         return [{ id: 1 }];
     }
@@ -601,7 +601,7 @@ export async function adminListVerticals(token: string): Promise<Vertical[]> {
     return res.json();
 }
 
-export async function adminCreateVertical(token: string, payload: any): Promise<Vertical> {
+export async function adminCreateVertical(token: string, payload: Record<string, unknown>): Promise<Vertical> {
     const res = await fetch(`${BASE_URL}/admin/verticals`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -614,7 +614,7 @@ export async function adminCreateVertical(token: string, payload: any): Promise<
     return res.json();
 }
 
-export async function adminUpdateVertical(token: string, id: number, payload: any): Promise<Vertical> {
+export async function adminUpdateVertical(token: string, id: number, payload: Record<string, unknown>): Promise<Vertical> {
     const res = await fetch(`${BASE_URL}/admin/verticals/${id}`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -660,7 +660,7 @@ export async function adminListProductCategories(token: string, vertical?: strin
     return res.json();
 }
 
-export async function adminCreateProductCategory(token: string, payload: any): Promise<ProductCategory> {
+export async function adminCreateProductCategory(token: string, payload: Record<string, unknown>): Promise<ProductCategory> {
     const res = await fetch(`${BASE_URL}/admin/product-categories`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -673,7 +673,7 @@ export async function adminCreateProductCategory(token: string, payload: any): P
     return res.json();
 }
 
-export async function adminUpdateProductCategory(token: string, id: number, payload: any): Promise<ProductCategory> {
+export async function adminUpdateProductCategory(token: string, id: number, payload: Record<string, unknown>): Promise<ProductCategory> {
     const res = await fetch(`${BASE_URL}/admin/product-categories/${id}`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -870,7 +870,7 @@ export async function adminListUsers(token: string) {
     return res.json();
 }
 
-export async function adminCreateUser(token: string, payload: any) {
+export async function adminCreateUser(token: string, payload: Record<string, unknown>) {
     const res = await fetch(`${BASE_URL}/admin/users`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -908,7 +908,7 @@ export async function adminListProducts(token: string) {
     return res.json();
 }
 
-export async function adminCreateProduct(token: string, payload: any) {
+export async function adminCreateProduct(token: string, payload: Record<string, unknown>) {
     const res = await fetch(`${BASE_URL}/admin/products`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -921,7 +921,7 @@ export async function adminCreateProduct(token: string, payload: any) {
     return res.json();
 }
 
-export async function adminUpdateProduct(token: string, id: number, payload: any) {
+export async function adminUpdateProduct(token: string, id: number, payload: Record<string, unknown>) {
     const res = await fetch(`${BASE_URL}/admin/products/${id}`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -1011,7 +1011,7 @@ export async function adminUpdateSurvey(token: string, surveyId: number, payload
     return res.json();
 }
 
-export async function adminCreateSurvey(token: string, payload: any) {
+export async function adminCreateSurvey(token: string, payload: Record<string, unknown>) {
     const res = await fetch(`${BASE_URL}/admin/surveys`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -1030,7 +1030,7 @@ export async function adminListDistributions(token: string) {
     return res.json();
 }
 
-export async function adminCreateDistribution(token: string, payload: any) {
+export async function adminCreateDistribution(token: string, payload: Record<string, unknown>) {
     const res = await fetch(`${BASE_URL}/admin/distributions`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -1061,7 +1061,7 @@ export async function adminListPromotions(token: string, isActive?: boolean) {
     return res.json();
 }
 
-export async function adminCreatePromotion(token: string, payload: any) {
+export async function adminCreatePromotion(token: string, payload: Record<string, unknown>) {
     const res = await fetch(`${BASE_URL}/admin/promotions`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -1074,7 +1074,7 @@ export async function adminCreatePromotion(token: string, payload: any) {
     return res.json();
 }
 
-export async function adminUpdatePromotion(token: string, id: number, payload: any) {
+export async function adminUpdatePromotion(token: string, id: number, payload: Record<string, unknown>) {
     const res = await fetch(`${BASE_URL}/admin/promotions/${id}`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -1351,7 +1351,7 @@ export async function adminGetAdminUsers(token: string) {
     const res = await fetch(`${BASE_URL}/admin/users`, { headers: authHeaders(token) });
     if (!res.ok) return [];
     const users = await res.json();
-    return users.filter((u: any) => u.role === 'admin');
+    return users.filter((u: { role?: string }) => u.role === 'admin');
 }
 
 // Reviews
@@ -1387,7 +1387,7 @@ export async function getMyAppointments(token: string) {
     const res = await fetch(`${BASE_URL}/leads/me`, { headers: authHeaders(token) });
     if (!res.ok) return [];
     const leads = await res.json();
-    return leads.filter((l: any) => l.lead_type === 'appointment' && l.scheduled_at);
+    return leads.filter((l: { lead_type?: string; scheduled_at?: string | null }) => l.lead_type === 'appointment' && l.scheduled_at);
 }
 
 // Global search

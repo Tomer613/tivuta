@@ -32,14 +32,14 @@ export default function RootHeader() {
     const { user, token } = useAuth();
 
     useEffect(() => {
-        setShowMobileMenu(false);
+        Promise.resolve().then(() => setShowMobileMenu(false));
     }, [pathname]);
 
     useEffect(() => {
         // GlobalSearch is only rendered while `user` is set; if it unmounts mid-search (e.g. on
         // logout) it never gets a chance to call onOpenChange(false), which would otherwise leave
         // searchActive stuck true and permanently hide the language switcher (not auth-gated).
-        if (!user) setSearchActive(false);
+        if (!user) Promise.resolve().then(() => setSearchActive(false));
     }, [user]);
 
     // Skip the header-menu outside-click check while search is active: GlobalSearch's

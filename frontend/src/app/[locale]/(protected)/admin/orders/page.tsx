@@ -30,12 +30,6 @@ const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_
 
 type FlatLine = CustomerOrderLine & { order_number: string; user_name?: string | null; user_email?: string | null; user_phone?: string | null };
 
-function VerticalIcon({ v }: { v: string }) {
-    const verticals = useVerticals();
-    const Icon = getVerticalIcon(verticals.find((x) => x.slug === v)?.icon || 'Store');
-    return <Icon size={14} className="text-[#d4af37]" />;
-}
-
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
     return (
@@ -50,6 +44,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 function KanbanView({ lines, onStatusChange, updatingId }: { lines: FlatLine[]; onStatusChange: (line: FlatLine, status: string) => void; updatingId: number | null }) {
     const [dragging, setDragging] = useState<number | null>(null);
+    const verticals = useVerticals();
 
     const handleDrop = (status: string) => {
         if (dragging === null) return;
@@ -76,6 +71,9 @@ function KanbanView({ lines, onStatusChange, updatingId }: { lines: FlatLine[]; 
                         <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[600px]">
                             {colLines.map((line) => {
                                 const sla = line.status === 'new' && (Date.now() - new Date(line.created_at).getTime()) > 86_400_000;
+                                const Icon = line.product_vertical
+                                    ? getVerticalIcon(verticals.find((x) => x.slug === line.product_vertical)?.icon || 'Store')
+                                    : null;
                                 return (
                                     <div
                                         key={line.id}
@@ -91,7 +89,7 @@ function KanbanView({ lines, onStatusChange, updatingId }: { lines: FlatLine[]; 
                                         <p className="text-sm font-bold text-[#f0e6d3] truncate">{line.user_name || '—'}</p>
                                         <p className="text-xs text-[#f0e6d3]/40 truncate">{line.product_title_he || TYPE_LABEL[line.lead_type] || '—'}</p>
                                         <div className="flex items-center gap-2 mt-2">
-                                            {line.product_vertical && <VerticalIcon v={line.product_vertical} />}
+                                            {Icon && <Icon size={14} className="text-[#d4af37]" />}
                                             <span className="text-[9px] text-[#d4af37]/50 font-bold">{TYPE_LABEL[line.lead_type]}</span>
                                             <span className="text-[10px] text-[#f0e6d3]/30 ms-auto">
                                                 {new Date(line.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' })}
@@ -182,7 +180,7 @@ export default function AdminOrdersPage() {
             .finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     // How many of a customer's other orders still have an open (non closed/cancelled) line item.
     const activeOrderCountByUser = useMemo(() => {
@@ -495,12 +493,16 @@ export default function AdminOrdersPage() {
 
                                 {/* Line items grouped by vertical then vendor */}
                                 <div className="p-5 space-y-5">
-                                    {groups.map((g) => (
+                                    {groups.map((g) => {
+                                      const GroupIcon = g.vertical !== '__none__'
+                                          ? getVerticalIcon(verticals.find((x) => x.slug === g.vertical)?.icon || 'Store')
+                                          : null;
+                                      return (
                                         <div key={g.vertical}>
                                             <div className="flex items-center gap-2 text-xs font-black text-[#f0e6d3]/50 uppercase tracking-wider mb-2">
-                                                {g.vertical !== '__none__' ? (
+                                                {GroupIcon ? (
                                                     <>
-                                                        <VerticalIcon v={g.vertical} />
+                                                        <GroupIcon size={14} className="text-[#d4af37]" />
                                                         {VERTICAL_LABEL[g.vertical] ?? g.vertical}
                                                     </>
                                                 ) : 'בקשת כרטיס'}
@@ -645,7 +647,8 @@ export default function AdminOrdersPage() {
                                                 ))}
                                             </div>
                                         </div>
-                                    ))}
+                                      );
+                                    })}
                                 </div>
                             </div>
                         );

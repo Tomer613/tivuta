@@ -32,7 +32,7 @@ export default function NotificationBell({ token }: { token: string }) {
     };
 
     useEffect(() => {
-        load();
+        Promise.resolve().then(load);
         const interval = setInterval(load, 60_000);
         return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps

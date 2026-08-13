@@ -154,9 +154,9 @@ export default function BenefitsNavbar() {
 
                     ) : (
                         <div className="flex items-center gap-1 md:gap-2">
-                            <a href="/landing/" className="text-[#f0e6d3] font-bold text-sm px-2 md:px-4 hover:text-[#d4af37] hidden sm:block">
+                            <Link href="/landing/" className="text-[#f0e6d3] font-bold text-sm px-2 md:px-4 hover:text-[#d4af37] hidden sm:block">
                                 {ui.joinNow}
-                            </a>
+                            </Link>
                             <Link href={`/benefits/${locale}/login`} className="btn-primary flex items-center gap-2 !py-2 !px-3 md:!px-4 text-xs md:text-sm whitespace-nowrap">
                                 <User size={18} />
                                 <span>{ui.login}</span>
@@ -264,13 +264,13 @@ export default function BenefitsNavbar() {
                         </div>
 
                         {!user && (
-                            <a
+                            <Link
                                 href="/landing/"
                                 onClick={() => setIsMenuOpen(false)}
                                 className="mt-auto bg-[#1e3a8a] text-white py-4 rounded-2xl font-black text-center text-lg shadow-lg shadow-blue-900/20 active:scale-95 transition-all"
                             >
                                 {ui.joinNow}
-                            </a>
+                            </Link>
                         )}
                     </div>
                 </div>

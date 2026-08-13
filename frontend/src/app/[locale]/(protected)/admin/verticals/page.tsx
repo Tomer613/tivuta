@@ -68,7 +68,7 @@ export default function AdminVerticalsPage() {
         adminListVerticals(token).then(setVerticals).finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     const openCreateForm = () => {
         setEditVertical(null);
@@ -282,7 +282,7 @@ export default function AdminVerticalsPage() {
                                     <button
                                         key={l.key}
                                         type="button"
-                                        onClick={() => setLangTab(l.key as any)}
+                                        onClick={() => setLangTab(l.key as 'he' | 'en' | 'fr' | 'yi')}
                                         className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${langTab === l.key ? 'bg-[#d4af37] text-[#080d1f]' : 'text-[#f0e6d3]/50 hover:text-[#f0e6d3]'}`}
                                     >
                                         {l.label}
@@ -293,13 +293,13 @@ export default function AdminVerticalsPage() {
                                 <input
                                     required={langTab === 'he'}
                                     placeholder={langTab === 'he' ? 'לדוגמה: עולם השעונים' : ''}
-                                    value={(form as any)[`label_${langTab}`]}
+                                    value={(form as unknown as Record<string, string>)[`label_${langTab}`]}
                                     onChange={(e) => setForm({ ...form, [`label_${langTab}`]: e.target.value })}
                                     className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
                                 />
                                 <input
                                     placeholder={langTab === 'he' ? 'תת-כותרת קצרה' : ''}
-                                    value={(form as any)[`subtitle_${langTab}`]}
+                                    value={(form as unknown as Record<string, string>)[`subtitle_${langTab}`]}
                                     onChange={(e) => setForm({ ...form, [`subtitle_${langTab}`]: e.target.value })}
                                     className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
                                 />

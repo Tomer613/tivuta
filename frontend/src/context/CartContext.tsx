@@ -32,11 +32,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [hydrated, setHydrated] = useState(false);
 
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem(CART_KEY);
-            if (raw) setItems(JSON.parse(raw));
-        } catch { /* ignore */ }
-        setHydrated(true);
+        Promise.resolve().then(() => {
+            try {
+                const raw = localStorage.getItem(CART_KEY);
+                if (raw) setItems(JSON.parse(raw));
+            } catch { /* ignore */ }
+            setHydrated(true);
+        });
     }, []);
 
     useEffect(() => {

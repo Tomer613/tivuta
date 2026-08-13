@@ -20,7 +20,7 @@ const footerLinks: Record<string, FooterLinks> = {
     yi: { benefits: "אלע בענעפיטן", account: "מיין קאנטע", about: "איבער טיבותא", why: "פאר וואס מיר?" }
 };
 
-export default function BenefitsFooter({ locale = 'he', dict }: { locale?: string, dict?: any }) {
+export default function BenefitsFooter({ locale = 'he', dict }: { locale?: string, dict?: { footer?: Record<string, string> } }) {
     const d = dict?.footer || {
         quick_links: "ניווט מהיר",
         contact_us: "צור קשר",

@@ -6,10 +6,11 @@ import {
     adminListProductCategories,
     adminCreateProductCategory,
     adminUpdateProductCategory,
+    adminListVerticals,
     ProductCategory,
+    Vertical,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
-import { useVerticals } from '@/lib/useVerticals';
 import { Plus, X, Loader2, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const LANGS = [
@@ -40,7 +41,11 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 export default function AdminCategoriesPage() {
     const { token } = useAuth();
-    const verticals = useVerticals();
+    // Deliberately the admin (all-verticals) endpoint, not the public useVerticals() hook — a
+    // category whose world was later deactivated must still show a real label here (and be
+    // selectable as the disabled, locked value in its own edit form), same reasoning as
+    // admin/products/page.tsx's own VERTICAL_LABEL/activeVerticals split.
+    const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [categories, setCategories] = useState<ProductCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [togglingId, setTogglingId] = useState<number | null>(null);
@@ -60,11 +65,16 @@ export default function AdminCategoriesPage() {
         adminListProductCategories(token).then(setCategories).finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => {
+        if (!token) return;
+        adminListVerticals(token).then(setVerticals).catch(() => {});
+    }, [token]);
+
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     const openCreateForm = () => {
         setEditCategory(null);
-        setForm({ ...EMPTY_FORM, vertical: filterVertical || (verticals[0]?.slug ?? '') });
+        setForm({ ...EMPTY_FORM, vertical: filterVertical || (activeVerticals[0]?.slug ?? '') });
         setLangTab('he');
         setShowForm(true);
     };
@@ -133,6 +143,7 @@ export default function AdminCategoriesPage() {
     };
 
     const activeLang = LANGS.find((l) => l.key === langTab)!;
+    const activeVerticals = verticals.filter((v) => v.is_active);
     const verticalLabel = (slug: string) => verticals.find((v) => v.slug === slug)?.label_he || slug;
     const filtered = filterVertical ? categories.filter((c) => c.vertical === filterVertical) : categories;
 
@@ -142,7 +153,7 @@ export default function AdminCategoriesPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <h1 className="text-3xl font-black text-[#f0e6d3]">קטגוריות</h1>
-                <button onClick={openCreateForm} disabled={verticals.length === 0} className="btn-primary flex items-center gap-2 !text-sm disabled:opacity-50">
+                <button onClick={openCreateForm} disabled={activeVerticals.length === 0} className="btn-primary flex items-center gap-2 !text-sm disabled:opacity-50">
                     <Plus size={16} /> הוסף קטגוריה
                 </button>
             </div>
@@ -231,9 +242,12 @@ export default function AdminCategoriesPage() {
                                 className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] disabled:opacity-50"
                             >
                                 <option value="" disabled>בחר עולם</option>
-                                {verticals.map((v) => (
+                                {activeVerticals.map((v) => (
                                     <option key={v.slug} value={v.slug}>{v.label_he}</option>
                                 ))}
+                                {editCategory && !activeVerticals.some((v) => v.slug === form.vertical) && (
+                                    <option value={form.vertical}>{verticalLabel(form.vertical)}</option>
+                                )}
                             </select>
                         </div>
 
@@ -245,7 +259,7 @@ export default function AdminCategoriesPage() {
                                     <button
                                         key={l.key}
                                         type="button"
-                                        onClick={() => setLangTab(l.key as any)}
+                                        onClick={() => setLangTab(l.key as 'he' | 'en' | 'fr' | 'yi')}
                                         className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${langTab === l.key ? 'bg-[#d4af37] text-[#080d1f]' : 'text-[#f0e6d3]/50 hover:text-[#f0e6d3]'}`}
                                     >
                                         {l.label}
@@ -256,7 +270,7 @@ export default function AdminCategoriesPage() {
                                 <input
                                     required={langTab === 'he'}
                                     placeholder={langTab === 'he' ? 'לדוגמה: טבעות' : ''}
-                                    value={(form as any)[`label_${langTab}`]}
+                                    value={(form as unknown as Record<string, string>)[`label_${langTab}`]}
                                     onChange={(e) => setForm({ ...form, [`label_${langTab}`]: e.target.value })}
                                     className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
                                 />

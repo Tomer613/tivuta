@@ -37,6 +37,42 @@ const PROMO_FILTERS: { value: string; label_he: string; label_en: string }[] = [
     { value: 'flash_sale',           label_he: 'פלאש סייל',     label_en: 'Flash Sale'     },
 ];
 
+const pillClass = (active: boolean) => `px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
+    active
+        ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
+        : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
+}`;
+
+/** Shared "all + toggleable option chips" block — used for both the category filter and the
+ *  per-vertical attribute (e.g. diamond shape) filters, which previously duplicated this exact
+ *  header/pill markup. Clicking the already-active option clears it back to "all". */
+function FilterPillGroup({ icon, label, allLabel, active, options, onChange }: {
+    icon: React.ReactNode;
+    label: string;
+    allLabel: string;
+    active: string;
+    options: { value: string; label: string }[];
+    onChange: (value: string) => void;
+}) {
+    return (
+        <div>
+            <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-4 ps-2 flex items-center gap-2">
+                {icon} {label}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+                <button onClick={() => onChange('')} className={pillClass(active === '')}>
+                    {allLabel}
+                </button>
+                {options.map((opt) => (
+                    <button key={opt.value} onClick={() => onChange(opt.value === active ? '' : opt.value)} className={pillClass(active === opt.value)}>
+                        {opt.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function FilterSortSidebar({
     locale,
     sort,
@@ -149,78 +185,28 @@ export default function FilterSortSidebar({
 
             {/* Category filter — only rendered once at least one category exists for this world */}
             {categories.length > 0 && (
-                <div>
-                    <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-4 ps-2 flex items-center gap-2">
-                        <ListFilter size={13} /> {t.filter_category}
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={() => onCategoryChange?.(null)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
-                                category === null
-                                    ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
-                                    : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
-                            }`}
-                        >
-                            {t.all}
-                        </button>
-                        {categories.map((c) => {
-                            const label = c[`label_${localeKey}`] || c.label_he;
-                            return (
-                                <button
-                                    key={c.id}
-                                    onClick={() => onCategoryChange?.(c.id === category ? null : c.id)}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
-                                        category === c.id
-                                            ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
-                                            : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
-                                    }`}
-                                >
-                                    {label}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+                <FilterPillGroup
+                    icon={<ListFilter size={13} />}
+                    label={t.filter_category}
+                    allLabel={t.all}
+                    active={category != null ? String(category) : ''}
+                    options={categories.map((c) => ({ value: String(c.id), label: c[`label_${localeKey}`] || c.label_he }))}
+                    onChange={(v) => onCategoryChange?.(v === '' ? null : Number(v))}
+                />
             )}
 
             {/* Dynamic per-vertical attribute filters (e.g. diamond shape) */}
-            {selectFields.map((field) => {
-                const fieldLabel = field[`label_${localeKey}`] || field.label_he;
-                const active = attrFilters[field.key] || '';
-                return (
-                    <div key={field.key}>
-                        <h3 className="text-xs font-black text-[#f0e6d3]/60 uppercase tracking-widest mb-4 ps-2 flex items-center gap-2">
-                            <ListFilter size={13} /> {fieldLabel}
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                onClick={() => onAttrFilterChange?.(field.key, '')}
-                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
-                                    active === ''
-                                        ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
-                                        : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
-                                }`}
-                            >
-                                {t.all}
-                            </button>
-                            {(field.options || []).map((opt) => (
-                                <button
-                                    key={opt}
-                                    onClick={() => onAttrFilterChange?.(field.key, opt === active ? '' : opt)}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border ${
-                                        active === opt
-                                            ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37] shadow-md'
-                                            : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
-                                    }`}
-                                >
-                                    {opt}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                );
-            })}
+            {selectFields.map((field) => (
+                <FilterPillGroup
+                    key={field.key}
+                    icon={<ListFilter size={13} />}
+                    label={field[`label_${localeKey}`] || field.label_he}
+                    allLabel={t.all}
+                    active={attrFilters[field.key] || ''}
+                    options={(field.options || []).map((opt) => ({ value: opt, label: opt }))}
+                    onChange={(v) => onAttrFilterChange?.(field.key, v)}
+                />
+            ))}
 
             {/* Sort */}
             <div>

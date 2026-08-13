@@ -13,7 +13,7 @@ export interface PromotionBrief {
     name_he: string;
     type: string;
     channel: string;
-    config: Record<string, any>;
+    config: Record<string, string | number>;
     end_date?: string | null;
 }
 
@@ -30,7 +30,7 @@ export interface Product {
     description_yi?: string | null;
     image_url?: string | null;
     price?: number | null;
-    attributes?: Record<string, any> | null;
+    attributes?: Record<string, string | number> | null;
     promotions?: PromotionBrief[];
     avg_rating?: number | null;
     review_count?: number;

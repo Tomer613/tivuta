@@ -30,9 +30,27 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
 
 const BASE_SITE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'https://tivuta.co.il';
 
+interface Distribution {
+    id: number;
+    distribution_type: string;
+    status: string;
+    title_he: string;
+    message_he?: string | null;
+    channels: string[];
+    survey_id?: number | null;
+    survey_title?: string | null;
+    product_id?: number | null;
+    product_title?: string | null;
+    scheduled_at?: string | null;
+    sent_at?: string | null;
+    sent_count: number;
+    failed_count: number;
+    skipped_count: number;
+}
+
 export default function AdminDistributionPage() {
     const { token } = useAuth();
-    const [distributions, setDistributions] = useState<any[]>([]);
+    const [distributions, setDistributions] = useState<Distribution[]>([]);
     const [surveys, setSurveys] = useState<Survey[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
@@ -82,7 +100,7 @@ export default function AdminDistributionPage() {
         }
     };
 
-    useEffect(() => { load(); }, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     // Poll every 3s when any distribution is 'sending'
     useEffect(() => {
@@ -90,9 +108,9 @@ export default function AdminDistributionPage() {
         if (hasSending && !pollRef.current) {
             pollRef.current = setInterval(async () => {
                 if (!token) return;
-                const fresh = await adminListDistributions(token);
+                const fresh: Distribution[] = await adminListDistributions(token);
                 setDistributions(fresh);
-                if (!fresh.some((d: any) => d.status === 'sending')) {
+                if (!fresh.some((d) => d.status === 'sending')) {
                     clearInterval(pollRef.current!);
                     pollRef.current = null;
                 }
@@ -137,7 +155,7 @@ export default function AdminDistributionPage() {
         }
     };
 
-    const buildWhatsAppText = (d: any): string => {
+    const buildWhatsAppText = (d: Distribution): string => {
         const intro = d.message_he ? `${d.message_he}\n\n` : '';
         if (d.distribution_type === 'survey' && d.survey_id) {
             const survey = surveys.find((s) => s.id === d.survey_id);

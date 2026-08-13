@@ -11,7 +11,7 @@ export function generateStaticParams() {
   ];
 }
 
-const translations: Record<string, any> = {
+const translations: Record<string, Record<string, string>> = {
     he: { 
         title_monthly: "הטבות החודש", 
         title_featured: "מומלץ עבורך",

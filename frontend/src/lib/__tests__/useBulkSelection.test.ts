@@ -23,10 +23,12 @@ describe('useBulkSelection', () => {
         expect(result.current.selectedIds.size).toBe(0);
     });
 
-    it('clears the selection when resetKey changes', () => {
+    it('clears the selection when resetKey changes', async () => {
         // Regression test for a real, previously-shipped bug (per CLAUDE.md): the bulk-select
         // toolbar didn't clear its selection when the admin changed a filter, so a bulk action
         // could silently fire against ids that were no longer visible on screen.
+        // The reset itself is deferred by one microtask inside the hook (see useBulkSelection.ts —
+        // required to satisfy react-hooks/set-state-in-effect), so this asserts after flushing it.
         const { result, rerender } = renderHook(({ resetKey }) => useBulkSelection(resetKey), {
             initialProps: { resetKey: 'filters-a' },
         });
@@ -34,7 +36,9 @@ describe('useBulkSelection', () => {
         act(() => result.current.toggleSelectAll([1, 2, 3]));
         expect(result.current.selectedIds.size).toBe(3);
 
-        rerender({ resetKey: 'filters-b' });
+        await act(async () => {
+            rerender({ resetKey: 'filters-b' });
+        });
         expect(result.current.selectedIds.size).toBe(0);
     });
 

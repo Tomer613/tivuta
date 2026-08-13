@@ -354,6 +354,8 @@ def admin_bulk_assign_category(payload: schemas.ProductBulkCategoryAssign, db: S
         )
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
+        if not category.is_active:
+            raise HTTPException(status_code=400, detail="Category is not active")
         mismatched = [p.id for p in products if p.vertical != category.vertical]
         if mismatched:
             raise HTTPException(

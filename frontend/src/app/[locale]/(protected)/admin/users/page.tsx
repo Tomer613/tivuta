@@ -40,7 +40,7 @@ export default function AdminUsersPage() {
         adminListUsers(token).then(setUsers).finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     const filtered = useMemo(() => {
         return users.filter((u) => {
@@ -119,7 +119,7 @@ export default function AdminUsersPage() {
                     <div className="flex gap-4">
                         <div className="text-center">
                             <div className="text-2xl font-black text-[#f0e6d3]">{counts.total}</div>
-                            <div className="text-xs text-[#f0e6d3]/40">סה"כ</div>
+                            <div className="text-xs text-[#f0e6d3]/40">סה&quot;כ</div>
                         </div>
                         <div className="text-center">
                             <div className="text-2xl font-black text-[#d4af37]">{counts.admin}</div>

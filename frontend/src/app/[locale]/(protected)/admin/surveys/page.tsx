@@ -82,7 +82,7 @@ export default function AdminSurveysPage() {
             .finally(() => setLoading(false));
     };
 
-    useEffect(load, [token]);
+    useEffect(() => { Promise.resolve().then(load); }, [token]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();

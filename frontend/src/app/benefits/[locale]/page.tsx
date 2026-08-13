@@ -31,7 +31,7 @@ export function generateStaticParams() {
   ];
 }
 
-const translations: Record<string, any> = {
+const translations: Record<string, Record<string, string>> = {
     he: { recommended: "מומלץ עבורך", featured: "הבחירות שלנו", newsletter_t: "אל תפספס שום הטבה", newsletter_s: "הצטרף ל-15,000 חברים בקהילה וקבל את כל העדכונים ישירות לנייד.", phone_p: "הכנס טלפון או מייל", join_btn: "אני רוצה להצטרף" },
     en: { recommended: "Recommended for You", featured: "Our Top Picks", newsletter_t: "Don't Miss Any Benefit", newsletter_s: "Join 15,000 community members and get all updates directly to your mobile.", phone_p: "Enter phone or email", join_btn: "Join Now" },
     fr: { recommended: "Recommandé pour vous", featured: "Nos sélections", newsletter_t: "Ne manquez aucun avantage", newsletter_s: "Rejoignez 15 000 membres et recevez toutes les mises à jour.", phone_p: "Email ou téléphone", join_btn: "Rejoindre" },
@@ -40,12 +40,34 @@ const translations: Record<string, any> = {
 
 type SupportedLocale = 'he' | 'en' | 'fr' | 'yi';
 
+interface HomeCategory {
+    id: number;
+    slug: string;
+    name_he: string;
+    name_en?: string;
+    name_fr?: string;
+    name_yi?: string;
+}
+
+interface HomeItem {
+    id: number;
+    title_he: string;
+    title_en: string;
+    title_fr: string;
+    title_yi: string;
+    description_he: string;
+    description_en: string;
+    description_fr: string;
+    description_yi: string;
+    price: number | null;
+}
+
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
     const { locale: rawLocale } = await params;
     const locale = rawLocale as SupportedLocale;
     const dict = await getDictionary(locale);
-    const categories = await getCategories();
-    const trendingItems = await getTrendingItems();
+    const categories: HomeCategory[] = await getCategories();
+    const trendingItems: HomeItem[] = await getTrendingItems();
     
     const t = translations[locale] || translations.he;
 
@@ -86,7 +108,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                         {dict.hero.description}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <a href="/landing/" className="bg-[#d4af37] text-[#080d1f] hover:bg-[#f5d061] shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-[1.05] !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl font-bold rounded-2xl transition-all whitespace-nowrap">{dict.common.join_now}</a>
+                        <Link href="/landing/" className="bg-[#d4af37] text-[#080d1f] hover:bg-[#f5d061] shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-[1.05] !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl font-bold rounded-2xl transition-all whitespace-nowrap">{dict.common.join_now}</Link>
                         <Link href={`/benefits/${locale}/why-tivuta`} className="btn-secondary !bg-transparent !text-white !border-white/30 hover:!bg-[#0e1628]/10 !px-8 md:!px-10 !py-3 md:!py-4 text-lg md:text-xl">{dict.common.why_tivuta}</Link>
                     </div>
                 </div>
@@ -100,7 +122,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             {/* Category Navigation */}
             <section className="max-w-7xl mx-auto -mt-12 px-6 relative z-20">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                    {categories.map((cat: any, index: number) => (
+                    {categories.map((cat, index: number) => (
                         <div key={cat.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                             <Link
                                 href={`/benefits/${locale}/monthly?pool=all&category=${cat.slug}`}
@@ -123,7 +145,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 <SectionTitle recommended={t.recommended} featured={t.featured} />
 
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-10">
-                    {trendingItems.map((item: any, index: number) => (
+                    {trendingItems.map((item, index: number) => (
                         <div key={item.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 100}ms`, opacity: 0 }}>
                             <ItemCard item={item} locale={locale} />
                         </div>
@@ -145,9 +167,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                             placeholder={t.phone_p} 
                             className="flex-grow bg-transparent border-none rounded-2xl px-8 py-5 text-white focus:ring-0 outline-none text-lg text-start" 
                         />
-                        <a href="/landing/" className="bg-[#d4af37] text-[#080d1f] hover:bg-[#f5d061] !py-5 !px-12 !text-xl font-black rounded-2xl shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-105 transition-all whitespace-nowrap flex items-center justify-center">
+                        <Link href="/landing/" className="bg-[#d4af37] text-[#080d1f] hover:bg-[#f5d061] !py-5 !px-12 !text-xl font-black rounded-2xl shadow-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:scale-105 transition-all whitespace-nowrap flex items-center justify-center">
                             {dict.common.join_now}
-                        </a>
+                        </Link>
                     </div>
                 </div>
             </section>

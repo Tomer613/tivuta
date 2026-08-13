@@ -58,8 +58,8 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     }, [searchParams, locale, router]);
 
     useEffect(() => {
-        if (!token || !vertical) { setLoading(false); return; }
-        setLoading(true);
+        if (!token || !vertical) { Promise.resolve().then(() => setLoading(false)); return; }
+        Promise.resolve().then(() => setLoading(true));
         Promise.all([
             getProducts(token, vertical, sort, promotionType),
             getFavoriteIds(token),
@@ -75,8 +75,10 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     }, [token, vertical, sort, promotionType]);
 
     useEffect(() => {
-        setAttrFilters({});
-        setCategory(null);
+        Promise.resolve().then(() => {
+            setAttrFilters({});
+            setCategory(null);
+        });
     }, [vertical]);
 
     useEffect(() => {
