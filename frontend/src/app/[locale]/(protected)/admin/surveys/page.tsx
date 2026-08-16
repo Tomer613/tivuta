@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateSurvey, adminListSurveys, adminUpdateSurvey, adminDeleteSurvey } from '@/lib/api';
+import { adminListProducts, adminCreateSurvey, adminListSurveys, adminUpdateSurvey, adminDeleteSurvey, adminUploadImage, productImageUrl } from '@/lib/api';
+import { buildSurveyShareUrl } from '@/lib/share';
 import { Product } from '@/components/ProductTile';
 import { Survey, SurveyOption } from '@/components/SurveyCard';
-import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle, Pencil, Check } from 'lucide-react';
+import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle, Pencil, Check, ImagePlus, Link2 } from 'lucide-react';
 
 function MaxChoicesEditor({ value, onSave }: { value: number; onSave: (n: number) => Promise<void> }) {
     const [editing, setEditing] = useState(false);
@@ -60,6 +61,8 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
     );
 }
 
+const EMPTY_TEXT_OPTIONS = ['', ''];
+
 export default function AdminSurveysPage() {
     const { token } = useAuth();
     const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -67,7 +70,12 @@ export default function AdminSurveysPage() {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [question, setQuestion] = useState('');
+    const [pollType, setPollType] = useState<'product' | 'text'>('product');
     const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+    const [textOptions, setTextOptions] = useState<string[]>(EMPTY_TEXT_OPTIONS);
+    const [imageUrl, setImageUrl] = useState('');
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [maxChoices, setMaxChoices] = useState(1);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -84,18 +92,32 @@ export default function AdminSurveysPage() {
 
     useEffect(() => { Promise.resolve().then(load); }, [token]);
 
+    const resetForm = () => {
+        setQuestion('');
+        setPollType('product');
+        setSelectedProductIds([]);
+        setTextOptions(EMPTY_TEXT_OPTIONS);
+        setImageUrl('');
+        setMaxChoices(1);
+    };
+
+    const optionCount = pollType === 'product' ? selectedProductIds.length : textOptions.filter((t) => t.trim()).length;
+
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token || selectedProductIds.length < 2) return;
+        if (!token || optionCount < 2) return;
         try {
+            const options = pollType === 'product'
+                ? selectedProductIds.map((id) => ({ product_id: id }))
+                : textOptions.filter((t) => t.trim()).map((t) => ({ label_override_he: t.trim() }));
             await adminCreateSurvey(token, {
                 question_he: question,
-                max_choices: Math.min(maxChoices, selectedProductIds.length),
-                options: selectedProductIds.map((id) => ({ product_id: id })),
+                poll_type: pollType,
+                image_url: imageUrl || null,
+                max_choices: Math.min(maxChoices, options.length),
+                options,
             });
-            setQuestion('');
-            setSelectedProductIds([]);
-            setMaxChoices(1);
+            resetForm();
             setShowForm(false);
             showToast('הסקר נוצר בהצלחה ✓');
             load();
@@ -116,7 +138,17 @@ export default function AdminSurveysPage() {
         }
     };
 
+    const handleCopyLink = async (surveyId: number) => {
+        try {
+            await navigator.clipboard.writeText(buildSurveyShareUrl(surveyId, 'he'));
+            showToast('הקישור הועתק ✓');
+        } catch {
+            showToast('שגיאה בהעתקת קישור', 'error');
+        }
+    };
+
     const productTitle = (id: number) => products.find((p) => p.id === id)?.title_he || `#${id}`;
+    const optionLabel = (opt: SurveyOption) => opt.label_override_he || (opt.product_id ? productTitle(opt.product_id) : `#${opt.id}`);
 
     return (
         <div>
@@ -138,8 +170,26 @@ export default function AdminSurveysPage() {
                         return (
                             <div key={s.id} className={`bg-[#0e1628] border rounded-3xl p-6 ${s.is_active ? 'border-[#d4af37]/20' : 'border-red-500/20 opacity-60'}`}>
                                 <div className="flex items-start justify-between mb-3 gap-4">
-                                    <h2 className="text-xl font-bold text-[#f0e6d3]">{s.question_he}</h2>
+                                    <div className="flex items-start gap-4">
+                                        {s.image_url && (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={productImageUrl(s.image_url)} alt="" className="w-14 h-14 rounded-xl object-cover bg-[#111a2f] flex-shrink-0" />
+                                        )}
+                                        <div>
+                                            <span className={`inline-block mb-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${s.poll_type === 'text' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                                {s.poll_type === 'text' ? 'סקר תשובות' : 'סקר מוצרים'}
+                                            </span>
+                                            <h2 className="text-xl font-bold text-[#f0e6d3]">{s.question_he}</h2>
+                                        </div>
+                                    </div>
                                     <div className="flex items-center gap-3 flex-shrink-0">
+                                        <button
+                                            onClick={() => handleCopyLink(s.id)}
+                                            className="text-[#d4af37]/60 hover:text-[#d4af37] transition-colors flex items-center gap-1 text-xs font-bold"
+                                            title="העתק קישור לסקר"
+                                        >
+                                            <Link2 size={14} /> העתק קישור
+                                        </button>
                                         <button
                                             onClick={async () => {
                                                 if (!token) return;
@@ -181,7 +231,7 @@ export default function AdminSurveysPage() {
                                             <div key={opt.id} className="relative bg-[#111a2f] rounded-xl p-4 overflow-hidden">
                                                 <div className="absolute inset-y-0 start-0 bg-[#d4af37]/20" style={{ width: `${pct}%` }} />
                                                 <div className="relative flex justify-between text-sm font-bold text-[#f0e6d3]">
-                                                    <span>{opt.label_override_he || productTitle(opt.product_id)}</span>
+                                                    <span>{optionLabel(opt)}</span>
                                                     <span className="text-[#d4af37]">{pct}% ({opt.vote_count})</span>
                                                 </div>
                                             </div>
@@ -203,39 +253,131 @@ export default function AdminSurveysPage() {
                             <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
                         <input required placeholder="שאלת הסקר" value={question} onChange={(e) => setQuestion(e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setPollType('product')}
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm ${pollType === 'product' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}
+                            >
+                                מוצרים
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setPollType('text')}
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm ${pollType === 'text' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]'}`}
+                            >
+                                תשובות טקסט
+                            </button>
+                        </div>
+
                         <label className="flex items-center gap-3 text-sm text-[#f0e6d3]/80">
                             מספר אפשרויות לבחירה:
                             <input
                                 type="number"
                                 min={1}
-                                max={Math.max(1, selectedProductIds.length)}
+                                max={Math.max(1, optionCount)}
                                 value={maxChoices}
                                 onChange={(e) => setMaxChoices(Math.max(1, Number(e.target.value) || 1))}
                                 className="w-20 bg-[#111a2f] rounded-xl px-3 py-2 text-[#f0e6d3]"
                             />
                         </label>
-                        <p className="text-xs text-[#f0e6d3]/60">בחר/י לפחות 2 מוצרים כאופציות:</p>
-                        <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
-                            {products.length === 0 ? (
-                                <p className="text-[#f0e6d3]/40 text-sm text-center py-4">אין מוצרים במלאי — הוסף מוצרים לפני יצירת סקר.</p>
-                            ) : (
-                                products.map((p) => (
-                                    <label key={p.id} className="flex items-center gap-3 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedProductIds.includes(p.id)}
-                                            onChange={(e) => {
-                                                setSelectedProductIds((prev) =>
-                                                    e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
-                                                );
-                                            }}
-                                        />
-                                        {p.title_he} ({p.vertical})
-                                    </label>
-                                ))
+
+                        {/* Image */}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">תמונת הסקר (אופציונלי)</label>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file || !token) return;
+                                    setUploadingImage(true);
+                                    try {
+                                        const { filename } = await adminUploadImage(token, file);
+                                        setImageUrl(filename);
+                                    } catch {
+                                        showToast('שגיאה בהעלאת תמונה', 'error');
+                                    } finally {
+                                        setUploadingImage(false);
+                                        if (fileInputRef.current) fileInputRef.current.value = '';
+                                    }
+                                }}
+                            />
+                            <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-start flex items-center gap-3 hover:bg-[#1a2540] disabled:opacity-60 transition-colors">
+                                {uploadingImage ? <Loader2 size={18} className="text-[#d4af37]/60 shrink-0 animate-spin" /> : <ImagePlus size={18} className="text-[#d4af37]/60 shrink-0" />}
+                                <span className={imageUrl ? 'text-[#f0e6d3]' : 'text-[#f0e6d3]/30'}>
+                                    {uploadingImage ? 'מעלה...' : imageUrl || 'לחץ לבחירת תמונה...'}
+                                </span>
+                            </button>
+                            {imageUrl && (
+                                <button type="button" onClick={() => setImageUrl('')} className="text-red-400/60 hover:text-red-400 text-xs mt-1">
+                                    הסר תמונה
+                                </button>
                             )}
                         </div>
-                        <button type="submit" disabled={selectedProductIds.length < 2} className="btn-primary w-full disabled:opacity-50">שמור סקר</button>
+
+                        {pollType === 'product' ? (
+                            <>
+                                <p className="text-xs text-[#f0e6d3]/60">בחר/י לפחות 2 מוצרים כאופציות:</p>
+                                <div className="flex flex-col gap-2 max-h-60 overflow-y-auto">
+                                    {products.length === 0 ? (
+                                        <p className="text-[#f0e6d3]/40 text-sm text-center py-4">אין מוצרים במלאי — הוסף מוצרים לפני יצירת סקר.</p>
+                                    ) : (
+                                        products.map((p) => (
+                                            <label key={p.id} className="flex items-center gap-3 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedProductIds.includes(p.id)}
+                                                    onChange={(e) => {
+                                                        setSelectedProductIds((prev) =>
+                                                            e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                                                        );
+                                                    }}
+                                                />
+                                                {p.title_he} ({p.vertical})
+                                            </label>
+                                        ))
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-xs text-[#f0e6d3]/60">הזן/י לפחות 2 תשובות אפשריות:</p>
+                                <div className="flex flex-col gap-2">
+                                    {textOptions.map((opt, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <input
+                                                value={opt}
+                                                onChange={(e) => setTextOptions((prev) => prev.map((o, idx) => (idx === i ? e.target.value : o)))}
+                                                placeholder={`תשובה ${i + 1}`}
+                                                className="flex-1 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm"
+                                            />
+                                            {textOptions.length > 2 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setTextOptions((prev) => prev.filter((_, idx) => idx !== i))}
+                                                    className="text-red-400/60 hover:text-red-400"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setTextOptions((prev) => [...prev, ''])}
+                                    className="text-sm font-bold text-[#d4af37] hover:text-[#f0e6d3] flex items-center gap-1"
+                                >
+                                    <Plus size={14} /> הוסף תשובה
+                                </button>
+                            </>
+                        )}
+
+                        <button type="submit" disabled={optionCount < 2} className="btn-primary w-full disabled:opacity-50">שמור סקר</button>
                     </form>
                 </div>
             )}

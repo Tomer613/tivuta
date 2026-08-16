@@ -63,3 +63,65 @@ def test_share_product_falls_back_to_hebrew_for_invalid_locale(client, db_sessio
     assert resp.status_code == 200
     assert 'lang="he"' in resp.text
     assert f"https://www.tivuta.co.il/he/products?id={product.id}" in resp.text
+
+
+def _make_admin_headers(client, make_user, email="shareadmin@example.com"):
+    make_user(email=email, password="adminpass123", role="admin")
+    login = client.post("/auth/login", data={"username": email, "password": "adminpass123"})
+    token = login.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_share_survey_uses_custom_image(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    resp = client.post(
+        "/admin/surveys",
+        json={
+            "question_he": "איזה טעם יפה יותר?",
+            "poll_type": "text",
+            "image_url": "https://xxx.supabase.co/storage/v1/object/public/product-images/poll.jpg",
+            "options": [{"label_override_he": "כן"}, {"label_override_he": "לא"}],
+        },
+        headers=headers,
+    )
+    survey_id = resp.json()["id"]
+
+    share_resp = client.get(f"/share/surveys/{survey_id}?locale=he")
+    assert share_resp.status_code == 200
+    body = share_resp.text
+    assert "איזה טעם יפה יותר?" in body
+    assert 'og:image" content="https://xxx.supabase.co/storage/v1/object/public/product-images/poll.jpg"' in body
+    assert f"https://www.tivuta.co.il/he/survey?id={survey_id}" in body
+    assert share_resp.headers["X-Robots-Tag"] == "noindex"
+
+
+def test_share_survey_falls_back_to_product_option_image(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    product = _make_product(
+        db_session,
+        title_he="טבעת",
+        image_url="https://xxx.supabase.co/storage/v1/object/public/product-images/ring.jpg",
+    )
+    other = _make_product(db_session, title_he="שרשרת")
+
+    resp = client.post(
+        "/admin/surveys",
+        json={
+            "question_he": "איזו תכשיט יפה יותר?",
+            "poll_type": "product",
+            "options": [{"product_id": product.id}, {"product_id": other.id}],
+        },
+        headers=headers,
+    )
+    survey_id = resp.json()["id"]
+
+    share_resp = client.get(f"/share/surveys/{survey_id}?locale=he")
+    assert share_resp.status_code == 200
+    assert 'og:image" content="https://xxx.supabase.co/storage/v1/object/public/product-images/ring.jpg"' in share_resp.text
+
+
+def test_share_nonexistent_survey_still_returns_valid_redirect_page(client, db_session):
+    resp = client.get("/share/surveys/999999?locale=he")
+    assert resp.status_code == 200
+    assert "https://www.tivuta.co.il/he/survey?id=999999" in resp.text
+    assert resp.headers["X-Robots-Tag"] == "noindex"

@@ -14,6 +14,7 @@ import {
 } from '@/lib/api';
 import { Product } from '@/components/ProductTile';
 import { Survey } from '@/components/SurveyCard';
+import { buildSurveyShareUrl } from '@/lib/share';
 import { Plus, Loader2, X, Send, Mail, MessageCircle, RefreshCw, CheckCircle2, AlertCircle, Trash2, Calendar, Eye, Users, Filter } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -160,7 +161,7 @@ export default function AdminDistributionPage() {
         if (d.distribution_type === 'survey' && d.survey_id) {
             const survey = surveys.find((s) => s.id === d.survey_id);
             const question = survey?.question_he || d.survey_title || d.title_he;
-            const url = `https://tivuta.co.il/he/survey/${d.survey_id}`;
+            const url = buildSurveyShareUrl(d.survey_id, 'he');
             return `${intro}${d.title_he}\n${question}\n\nלחץ להצביע:\n${url}`.trim();
         }
         if (d.distribution_type === 'daily_deal' && d.product_id) {
@@ -235,7 +236,7 @@ export default function AdminDistributionPage() {
     };
 
     const selectedSurvey = surveys.find((s) => s.id === Number(form.survey_id));
-    const surveyUrl = selectedSurvey ? `https://tivuta.co.il/he/survey/${selectedSurvey.id}` : null;
+    const surveyUrl = selectedSurvey ? buildSurveyShareUrl(selectedSurvey.id, 'he') : null;
 
     const statusBadge = (status: string) => {
         const map: Record<string, string> = {

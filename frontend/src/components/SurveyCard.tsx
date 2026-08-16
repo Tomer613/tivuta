@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { CheckCircle2, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { voteSurvey } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
+import { requireLogin } from '@/lib/requireLogin';
 
 export interface SurveyOption {
     id: number;
-    product_id: number;
+    product_id: number | null;
     label_override_he?: string | null;
     product_title_he?: string | null;
     vote_count: number;
@@ -21,6 +23,8 @@ export interface Survey {
     question_yi?: string | null;
     is_active: boolean;
     max_choices: number;
+    poll_type: string;
+    image_url?: string | null;
     has_voted: boolean;
     my_option_ids: number[];
     options: SurveyOption[];
@@ -34,6 +38,7 @@ interface T {
     votes: string;
     selectUpTo: (n: number) => string;
     error: string;
+    thanks: string;
 }
 
 const translations: Record<string, T> = {
@@ -45,6 +50,7 @@ const translations: Record<string, T> = {
         votes: 'קולות',
         selectUpTo: (n) => `בחר עד ${n} אפשרויות`,
         error: 'שגיאה בהצבעה, נסה שוב',
+        thanks: 'תודה שהצבעת!',
     },
     en: {
         vote: 'Vote',
@@ -54,6 +60,7 @@ const translations: Record<string, T> = {
         votes: 'votes',
         selectUpTo: (n) => `Select up to ${n} options`,
         error: 'Something went wrong, try again',
+        thanks: 'Thanks for voting!',
     },
     fr: {
         vote: 'Voter',
@@ -63,6 +70,7 @@ const translations: Record<string, T> = {
         votes: 'votes',
         selectUpTo: (n) => `Choisissez jusqu'à ${n} options`,
         error: 'Une erreur est survenue, réessayez',
+        thanks: 'Merci pour votre vote !',
     },
     yi: {
         vote: 'שטים',
@@ -72,6 +80,7 @@ const translations: Record<string, T> = {
         votes: 'קולות',
         selectUpTo: (n) => `קלייב ביז ${n} אפשרויות`,
         error: 'א טעות, פרובירט נאך אמאל',
+        thanks: 'א דאנק פארן שטימען!',
     },
 };
 
@@ -82,16 +91,51 @@ export default function SurveyCard({
     onVoted,
 }: {
     survey: Survey;
-    token: string;
+    token: string | null;
     locale: string;
     onVoted: (updated: Survey) => void;
 }) {
     const st = translations[locale] || translations.he;
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
+    const router = useRouter();
     const [expanded, setExpanded] = useState(false);
     const [selected, setSelected] = useState<Set<number>>(new Set());
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [justVoted, setJustVoted] = useState(false);
+    const autoSubmitRef = useRef(false);
+
+    const pendingKey = `tivuta_pending_vote_${survey.id}`;
+
+    // A visitor can pick an option while logged out (see submitVote); once they log in and land
+    // back here, auto-submit whatever they'd already chosen instead of making them pick again.
+    useEffect(() => {
+        if (!token || survey.has_voted || autoSubmitRef.current) return;
+        let pending: unknown;
+        try {
+            const raw = localStorage.getItem(pendingKey);
+            if (!raw) return;
+            pending = JSON.parse(raw);
+        } catch {
+            return;
+        }
+        if (!Array.isArray(pending) || pending.length === 0) return;
+        autoSubmitRef.current = true;
+        const optionIds = pending as number[];
+        (async () => {
+            try {
+                const updated = await voteSurvey(token, survey.id, optionIds);
+                onVoted(updated);
+                setJustVoted(true);
+            } catch {
+                // The pending vote couldn't be applied (e.g. the poll changed in the meantime) -
+                // drop it silently; the visitor can just vote again normally.
+            } finally {
+                try { localStorage.removeItem(pendingKey); } catch { /* ignore */ }
+            }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [token, survey.has_voted, survey.id]);
 
     const totalVotes = survey.options.reduce((sum, o) => sum + (o.vote_count ?? 0), 0);
 
@@ -99,7 +143,7 @@ export default function SurveyCard({
         (option as unknown as Record<string, unknown>)[`product_title_${localeKey}`] as string
         || option.product_title_he
         || option.label_override_he
-        || `#${option.product_id}`;
+        || `#${option.id}`;
 
     const toggleOption = (id: number) => {
         setSelected((prev) => {
@@ -121,12 +165,22 @@ export default function SurveyCard({
 
     const submitVote = async () => {
         if (selected.size === 0 || submitting) return;
+
+        if (!token) {
+            try {
+                localStorage.setItem(pendingKey, JSON.stringify(Array.from(selected)));
+            } catch { /* ignore - worst case the visitor just has to pick again after login */ }
+            requireLogin(token, router, locale, window.location.pathname + window.location.search);
+            return;
+        }
+
         setSubmitting(true);
         setError(null);
         try {
             const updated = await voteSurvey(token, survey.id, Array.from(selected));
             onVoted(updated);
             setExpanded(false);
+            setJustVoted(true);
         } catch (e) {
             setError(getErrorMessage(e, st.error));
         } finally {
@@ -137,6 +191,9 @@ export default function SurveyCard({
     if (survey.has_voted) {
         return (
             <div>
+                {justVoted && (
+                    <p className="mb-3 text-[#d4af37] text-sm font-bold animate-fade-in">🎉 {st.thanks}</p>
+                )}
                 <div className="flex items-center gap-2 mt-1 text-green-400 text-sm font-bold">
                     <CheckCircle2 size={15} /> {st.voted} ({totalVotes} {st.votes})
                 </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Loader2, Vote } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getSurvey } from '@/lib/api';
+import { getSurvey, productImageUrl } from '@/lib/api';
 import SurveyCard, { Survey } from '@/components/SurveyCard';
 
 interface T {
@@ -53,9 +53,15 @@ export default function SurveyVoteClient({ surveyId }: { surveyId: number }) {
                 </div>
 
                 <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-3xl p-8">
+                    {survey.image_url && (
+                        <div className="mb-6 rounded-2xl overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={productImageUrl(survey.image_url)} alt="" className="w-full max-h-80 object-cover" />
+                        </div>
+                    )}
                     <h2 className="text-2xl font-bold text-[#f0e6d3] mb-8">{question}</h2>
 
-                    {token && <SurveyCard survey={survey} token={token} locale={locale} onVoted={setSurvey} />}
+                    <SurveyCard survey={survey} token={token} locale={locale} onVoted={setSurvey} />
                 </div>
             </div>
         </main>

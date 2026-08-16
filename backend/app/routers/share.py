@@ -2,10 +2,11 @@ import html
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models
 from ..security import get_db
+from ..services.surveys import resolve_survey_image_url
 
 router = APIRouter(prefix="/share", tags=["share"])
 
@@ -13,11 +14,13 @@ FRONTEND_BASE_URL = "https://www.tivuta.co.il"
 _VALID_LOCALES = {"he", "en", "fr", "yi"}
 _DESCRIPTION_MAX_LEN = 200
 
+# Kept generic ("there", not "the product") so this same copy reads correctly for both the
+# product and survey redirect pages below.
 _TEXT = {
-    "he": {"redirecting": "מעביר אותך למוצר...", "fallback_link": "לחץ כאן אם אינך מועבר אוטומטית"},
-    "en": {"redirecting": "Taking you to the product...", "fallback_link": "Click here if you are not redirected automatically"},
-    "fr": {"redirecting": "Nous vous redirigeons vers le produit...", "fallback_link": "Cliquez ici si vous n'êtes pas redirigé automatiquement"},
-    "yi": {"redirecting": "מ'ר איבערפירט אייך צום פראדוקט...", "fallback_link": "קליקט דא אויב איר ווערט נישט אויטאמאטיש איבערגעפירט"},
+    "he": {"redirecting": "מעביר אותך הלאה...", "fallback_link": "לחץ כאן אם אינך מועבר אוטומטית"},
+    "en": {"redirecting": "Taking you there...", "fallback_link": "Click here if you are not redirected automatically"},
+    "fr": {"redirecting": "Nous vous redirigeons...", "fallback_link": "Cliquez ici si vous n'êtes pas redirigé automatiquement"},
+    "yi": {"redirecting": "מ'ר איבערפירט אייך...", "fallback_link": "קליקט דא אויב איר ווערט נישט אויטאמאטיש איבערגעפירט"},
 }
 
 
@@ -88,6 +91,33 @@ def share_product(product_id: int, request: Request, locale: str = "he", db: Ses
             description = description[:_DESCRIPTION_MAX_LEN] + "…"
         image = _resolve_image_url(request, product.image_url)
         body = _redirect_page(destination, title=title, description=description, image=image, locale=locale)
+
+    return HTMLResponse(
+        content=body,
+        headers={
+            "Content-Security-Policy": "default-src 'self'; style-src 'unsafe-inline'",
+            "X-Robots-Tag": "noindex",
+        },
+    )
+
+
+@router.get("/surveys/{survey_id}", response_class=HTMLResponse)
+def share_survey(survey_id: int, request: Request, locale: str = "he", db: Session = Depends(get_db)):
+    locale = locale if locale in _VALID_LOCALES else "he"
+    destination = f"{FRONTEND_BASE_URL}/{locale}/survey?id={survey_id}"
+
+    survey = (
+        db.query(models.Survey)
+        .options(selectinload(models.Survey.options).selectinload(models.SurveyOption.product))
+        .filter(models.Survey.id == survey_id)
+        .first()
+    )
+    if not survey or not survey.is_active:
+        body = _redirect_page(destination, locale=locale)
+    else:
+        title = getattr(survey, f"question_{locale}", None) or survey.question_he
+        image = _resolve_image_url(request, resolve_survey_image_url(survey))
+        body = _redirect_page(destination, title=title, image=image, locale=locale)
 
     return HTMLResponse(
         content=body,

@@ -807,23 +807,6 @@ export async function enterPromotion(token: string, promotionId: number, product
     return res.json();
 }
 
-// output:'export' requires at least one entry per dynamic segment at build time,
-// so we always fall back to a placeholder id - the real content is fetched
-// client-side at runtime anyway (same pattern as items/[id]).
-const FALLBACK_SURVEY_IDS = [{ id: 1 }];
-
-export async function getAllSurveysStatic() {
-    try {
-        const res = await fetch(`${BASE_URL}/surveys`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
-        if (!res.ok) return FALLBACK_SURVEY_IDS;
-        const data = await res.json();
-        return data.length > 0 ? data : FALLBACK_SURVEY_IDS;
-    } catch (e) {
-        console.warn('Backend unreachable during build, using a placeholder survey id.');
-        return FALLBACK_SURVEY_IDS;
-    }
-}
-
 export async function createLead(token: string, payload: { product_id: number; scheduled_at?: string | null; locale?: string }) {
     const res = await fetch(`${BASE_URL}/leads`, {
         method: 'POST',

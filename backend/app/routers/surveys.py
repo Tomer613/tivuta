@@ -46,6 +46,8 @@ def _serialize_survey(survey: models.Survey, db: Session = None, current_user: O
         question_yi=survey.question_yi,
         is_active=survey.is_active,
         max_choices=survey.max_choices,
+        poll_type=survey.poll_type,
+        image_url=survey.image_url,
         has_voted=has_voted,
         my_option_ids=my_option_ids,
         options=options,
@@ -117,6 +119,8 @@ def admin_create_survey(payload: schemas.SurveyCreate, db: Session = Depends(get
         question_fr=payload.question_fr,
         question_yi=payload.question_yi,
         max_choices=payload.max_choices,
+        poll_type=payload.poll_type,
+        image_url=payload.image_url,
     )
     db.add(survey)
     db.flush()

@@ -446,6 +446,13 @@ class Survey(Base):
     question_yi = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
     max_choices = Column(Integer, nullable=False, default=1)
+    # "product" (compare products, the original poll shape) | "text" (plain multiple-choice
+    # answers, no product involved). Immutable after creation - see schemas.SurveyUpdate.
+    poll_type = Column(String(20), nullable=False, default="product", server_default="product")
+    # Admin-set poll image (filename or full Supabase URL, same convention as
+    # Product.image_url). Falls back to an option's product photo when unset - see
+    # services/surveys.py's resolve_survey_image_url().
+    image_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     options = relationship("SurveyOption", back_populates="survey", cascade="all, delete-orphan")
@@ -456,7 +463,8 @@ class SurveyOption(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     survey_id = Column(Integer, ForeignKey("surveys.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    # Nullable since a "text" poll (see Survey.poll_type) has no product per option.
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     label_override_he = Column(String(255), nullable=True)
 
     survey = relationship("Survey", back_populates="options")

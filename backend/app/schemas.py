@@ -791,7 +791,7 @@ class MyOrderRead(BaseModel):
 
 # Survey Schemas
 class SurveyOptionCreate(BaseModel):
-    product_id: int
+    product_id: Optional[int] = None
     label_override_he: Optional[str] = None
 
 class SurveyCreate(BaseModel):
@@ -800,11 +800,35 @@ class SurveyCreate(BaseModel):
     question_fr: Optional[str] = None
     question_yi: Optional[str] = None
     max_choices: int = 1
+    # "product" (compare products) | "text" (plain multiple-choice answers, no product involved).
+    poll_type: str = "product"
+    image_url: Optional[str] = None
     options: List[SurveyOptionCreate]
 
+    @model_validator(mode="after")
+    def _validate_options(self):
+        if self.poll_type not in ("product", "text"):
+            raise ValueError("poll_type must be 'product' or 'text'")
+        if len(self.options) < 2:
+            raise ValueError("A survey needs at least 2 options")
+        for opt in self.options:
+            if self.poll_type == "product":
+                if not opt.product_id:
+                    raise ValueError("Every option needs a product_id for a product poll")
+            else:
+                if opt.product_id:
+                    raise ValueError("Text polls can't have a product_id on an option")
+                if not (opt.label_override_he and opt.label_override_he.strip()):
+                    raise ValueError("Every option needs a label for a text poll")
+        return self
+
 class SurveyUpdate(BaseModel):
+    # poll_type is deliberately not updatable here - immutable after creation, same convention
+    # as Vertical.slug/Vendor.vertical, since flipping it after votes exist would leave
+    # product_id/label_override_he in an inconsistent state.
     is_active: Optional[bool] = None
     max_choices: Optional[int] = None
+    image_url: Optional[str] = None
 
 
 # Loyalty program: system settings, sale transactions
@@ -965,7 +989,7 @@ class VendorPurchaseBatchRead(BaseModel):
 
 class SurveyOptionRead(BaseModel):
     id: int
-    product_id: int
+    product_id: Optional[int] = None
     label_override_he: Optional[str] = None
     product_title_he: Optional[str] = None
     vote_count: int = 0
@@ -981,6 +1005,8 @@ class SurveyRead(BaseModel):
     question_yi: Optional[str] = None
     is_active: bool
     max_choices: int = 1
+    poll_type: str = "product"
+    image_url: Optional[str] = None
     has_voted: bool = False
     my_option_ids: List[int] = []
     options: List[SurveyOptionRead] = []

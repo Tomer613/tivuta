@@ -1,13 +1,17 @@
 import type { Product } from '@/components/ProductTile';
 
 // Dedicated subdomain (CNAME → the backend) rather than the app's own domain, so a static
-// export can still serve a correct per-product WhatsApp preview (og:image/title) — see
+// export can still serve a correct per-product/per-poll WhatsApp preview (og:image/title) — see
 // backend/app/routers/share.py. Kept as a plain constant, matching how SITE_URL is already a
 // hardcoded constant in [locale]/layout.tsx, not an env var.
-const SHARE_BASE_URL = 'https://share.tivuta.co.il/share/products';
+const SHARE_BASE_URL = 'https://share.tivuta.co.il/share';
 
 export function buildProductShareUrl(productId: number, locale: string): string {
-    return `${SHARE_BASE_URL}/${productId}?locale=${locale}`;
+    return `${SHARE_BASE_URL}/products/${productId}?locale=${locale}`;
+}
+
+export function buildSurveyShareUrl(surveyId: number, locale: string): string {
+    return `${SHARE_BASE_URL}/surveys/${surveyId}?locale=${locale}`;
 }
 
 export function shareProductOnWhatsApp(product: Product, locale: 'he' | 'en' | 'fr' | 'yi'): void {

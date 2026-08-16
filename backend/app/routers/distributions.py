@@ -9,10 +9,27 @@ from .. import models, schemas
 from ..database import SessionLocal
 from ..security import get_current_admin, get_db, verify_cron_secret
 from ..services import get_email_sender
+from ..services.surveys import resolve_survey_image_url
 
 router = APIRouter(tags=["distributions"])
 
 APP_BASE_URL = os.environ.get("APP_BASE_URL", "https://tivuta.co.il")
+# Same subdomain frontend/src/lib/share.ts points at - a dedicated CNAME onto this same backend
+# service, so a shared poll link unfurls with a real og:image/title wherever it's forwarded
+# (see routers/share.py), not just when the campaign email itself renders the inline image.
+SHARE_BASE_URL = os.environ.get("SHARE_BASE_URL", "https://share.tivuta.co.il")
+
+
+def _absolute_image_url(raw: Optional[str]) -> Optional[str]:
+    """Resolves a possibly-bare filename (LocalDiskImageStorage) or already-full URL
+    (SupabaseImageStorage) into an absolute URL usable inside an email. Mirrors
+    routers/share.py's _resolve_image_url, minus the Request-based fallback (this runs as a
+    background task with no Request available)."""
+    if not raw:
+        return None
+    if raw.startswith("http://") or raw.startswith("https://"):
+        return raw
+    return f"{APP_BASE_URL}/images/products/{raw}"
 
 
 # ─── Rich email builders ───────────────────────────────────────────────────────
@@ -67,11 +84,12 @@ def _build_survey_email(survey: models.Survey, survey_url: str, product_image_ur
 
 
 def _build_deal_email(product: models.Product, product_url: str) -> str:
+    product_image_url = _absolute_image_url(product.image_url)
     img_block = (
         f'<div style="margin:0 0 28px 0;border-radius:16px;overflow:hidden;">'
-        f'<img src="{APP_BASE_URL}/images/products/{product.image_url}" alt="{product.title_he}"'
+        f'<img src="{product_image_url}" alt="{product.title_he}"'
         f' style="width:100%;display:block;" /></div>'
-    ) if product.image_url else ''
+    ) if product_image_url else ''
 
     price_text = f'₪{int(product.price):,}' if product.price else 'לפי בקשה'
 
@@ -120,16 +138,15 @@ def _send_distribution(distribution_id: int) -> None:
 
         # Build rich email content
         if distribution.distribution_type == "survey" and distribution.survey_id:
-            survey = db.query(models.Survey).filter(models.Survey.id == distribution.survey_id).first()
+            survey = (
+                db.query(models.Survey)
+                .options(selectinload(models.Survey.options).selectinload(models.SurveyOption.product))
+                .filter(models.Survey.id == distribution.survey_id)
+                .first()
+            )
             if survey:
-                survey_url = f"{APP_BASE_URL}/he/survey/{survey.id}"
-                product_image_url: Optional[str] = None
-                for opt in survey.options:
-                    if opt.product_id:
-                        p = db.query(models.Product).filter(models.Product.id == opt.product_id).first()
-                        if p and p.image_url:
-                            product_image_url = f"{APP_BASE_URL}/images/products/{p.image_url}"
-                            break
+                survey_url = f"{SHARE_BASE_URL}/share/surveys/{survey.id}?locale=he"
+                product_image_url = _absolute_image_url(resolve_survey_image_url(survey))
                 email_html = _build_survey_email(survey, survey_url, product_image_url)
 
         elif distribution.distribution_type == "daily_deal" and distribution.product_id:
@@ -275,14 +292,8 @@ def admin_preview_distribution(distribution_id: int, db: Session = Depends(get_d
 
     if distribution.distribution_type == "survey" and distribution.survey_id and distribution.survey:
         survey = distribution.survey
-        survey_url = f"{APP_BASE_URL}/he/survey/{survey.id}"
-        product_image_url: Optional[str] = None
-        for opt in survey.options:
-            if opt.product_id:
-                p = db.query(models.Product).filter(models.Product.id == opt.product_id).first()
-                if p and p.image_url:
-                    product_image_url = f"{APP_BASE_URL}/images/products/{p.image_url}"
-                    break
+        survey_url = f"{SHARE_BASE_URL}/share/surveys/{survey.id}?locale=he"
+        product_image_url = _absolute_image_url(resolve_survey_image_url(survey))
         html = _build_survey_email(survey, survey_url, product_image_url)
     elif distribution.distribution_type == "daily_deal" and distribution.product_id and distribution.product:
         product = distribution.product

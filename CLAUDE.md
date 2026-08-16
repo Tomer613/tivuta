@@ -2817,6 +2817,96 @@ Follow-up bug-fix/hardening pass after the sale-price/quantity-discount session 
 
 ---
 
+## Polls/Surveys: Fixed Broken Share Links + Text-Answer Polls + Admin-Set Images (session 2026-08-17)
+
+Three real gaps in the polls/surveys feature: shared poll links 404'd, every poll had to compare
+real products (no plain "which answer do you agree with" poll existed), and there was no way for
+an admin to set a poll image at all — the only image that ever appeared anywhere was the campaign
+email silently inheriting the first option's *product* photo.
+
+- **Root cause of the 404, and the fix**: `survey/[id]/page.tsx` was a build-time-static dynamic
+  route (`generateStaticParams()` calling `getAllSurveysStatic()`) — the exact same class of bug
+  already diagnosed and fixed for products/worlds (see "Query-param routes" in Key Design
+  Decisions below), just never applied to surveys. A survey created after the last GitHub Pages
+  build had no static HTML file to serve. Fixed the same way: the old dynamic route was deleted
+  outright (no parallel route kept) and replaced with a top-level, query-param page —
+  **`frontend/src/app/[locale]/survey/page.tsx`** + **`components/SurveyQueryPage.tsx`**, mirroring
+  `products/page.tsx`/`ProductQueryPage.tsx` exactly (`generateStaticParams` from `lib/locales.ts`,
+  a `<Suspense>`-wrapped `useSearchParams()` read, canonical/hreflang metadata). The now-dead
+  `getAllSurveysStatic()`/`FALLBACK_SURVEY_IDS` in `lib/api.ts` (which existed solely to feed the
+  old dynamic route's `generateStaticParams`) were deleted, not left as unused code.
+- **The poll page is now public-viewable; only voting is login-gated** — a deliberate, explicitly
+  confirmed UX decision, and a **different** pattern from the existing product-sharing precedent
+  (Public Product-Sharing session): rather than gating the contact/schedule button's *first click*
+  (as `ProductActionButtons.tsx` does via `requireLogin`), a poll lets a logged-out visitor pick an
+  option freely, and only requires login at the moment they click vote. **`SurveyCard.tsx`** now
+  accepts `token: string | null` (was `string`) and, on a logged-out vote attempt, persists the
+  selection to `localStorage['tivuta_pending_vote_' + survey.id]` before calling the existing
+  `requireLogin()` helper to redirect to `/login?redirect=...`. A mount effect (guarded by a ref
+  against React's dev-mode double-invoke) checks for a pending vote once `token` becomes truthy and
+  auto-submits it via the existing `voteSurvey()`, showing a one-time "🎉 thanks for voting"
+  transition (`justVoted` state + the existing `.animate-fade-in` utility — no new library) before
+  settling into the normal quiet results view a plain revisit shows. `SurveyVoteClient.tsx`'s old
+  `{token && <SurveyCard .../>}` guard was removed — the card (and the poll image) render for
+  everyone; the vote button itself is what's gated, exactly as confirmed with the user.
+- **Second poll type: `Survey.poll_type` (`"product"` | `"text"`, default `"product"`, immutable
+  after creation — same convention as `Vertical.slug`/`Vendor.vertical`)**. `SurveyOption.product_id`
+  is now nullable; a `"text"` poll's options carry only `label_override_he` (the same field that
+  already existed as an optional product-title override now does double duty as the actual answer
+  text — no new column needed). `schemas.SurveyCreate` gained a `@model_validator` enforcing
+  at-least-2-options and the right shape per `poll_type` (closing a pre-existing gap: the server
+  never actually enforced "≥2 options," only the admin form's `disabled` attribute did).
+  `admin/surveys/page.tsx` gained a poll-type toggle in the create form; when `"text"`, the product
+  checkbox list is replaced by a repeatable free-text option-row builder (same add/remove-row
+  pattern as `admin/verticals/page.tsx`'s attribute-field builder).
+- **Admin-settable poll image, `Survey.image_url`** — reuses the existing generic
+  `POST /admin/upload-image` endpoint (no new backend upload endpoint needed), same
+  upload-button-with-preview UI already used on `admin/products/page.tsx`. New
+  **`backend/app/services/surveys.py`**'s `resolve_survey_image_url()` is the single shared
+  fallback rule (admin's `image_url` if set, else the first option's product photo, else nothing) —
+  used by both the campaign-email builder and the new share/unfurl page below, so the two can't
+  silently drift on what image a poll "has."
+- **New `GET /share/surveys/{id}`** (`backend/app/routers/share.py`), a near-verbatim copy of the
+  existing `share_product` — confirmed with the user as the preferred fix over showing the image
+  only after the page opens. Reuses the same `_redirect_page`/`_resolve_image_url` helpers (no
+  `main.py` CSP change needed — `/share/` is already exempted from the blanket CSP). The shared
+  `_TEXT` redirect copy ("מעביר אותך למוצר..." / "Taking you to the product...") was generalized to
+  drop the product-specific wording ("מעביר אותך הלאה..." / "Taking you there...") now that the same
+  page serves two resource types.
+- **`frontend/src/lib/share.ts`** gained `buildSurveyShareUrl()` alongside the existing
+  `buildProductShareUrl()` (both now build off one `SHARE_BASE_URL` root constant). Every place that
+  used to hardcode a raw `https://tivuta.co.il/he/survey/{id}` link — `distributions.py`'s campaign
+  email (both the live send and the admin preview endpoint), and `admin/distribution/page.tsx`'s
+  WhatsApp text builder + on-screen link preview — now goes through this one function, so a shared
+  poll link correctly unfurls with the real image/title wherever it's forwarded, not just when the
+  email client itself renders the inline image. `admin/surveys/page.tsx` also gained a per-survey
+  "העתק קישור" (copy link) button using the same helper, the natural place to grab a working link
+  without going through a distribution campaign at all.
+- **Found and fixed a real, unrelated latent bug while touching the email image code**: the
+  pre-existing `f"{APP_BASE_URL}/images/products/{p.image_url}"` construction (both in the survey
+  email and `_build_deal_email`) never checked whether `image_url` was already a full Supabase URL
+  — on production (Supabase image storage, the documented deployment default) the campaign email's
+  inline image has been broken this whole time. Fixed via a small `_absolute_image_url()` helper in
+  `distributions.py` (same http(s)-prefix check `share.py`'s `_resolve_image_url` already does),
+  applied to both call sites.
+- **Migration** (`a2f4c8e19d3b_add_survey_poll_types_and_image.py`) adds `surveys.poll_type`
+  (`server_default='product'`) and `surveys.image_url`, and relaxes `survey_options.product_id` to
+  nullable via `batch_alter_table` (SQLite). No backfill needed — every pre-existing survey already
+  has `poll_type="product"` by default and every option already has `product_id` set.
+- **Verified end-to-end**: migration applied/downgraded/re-applied cleanly against a scratch SQLite
+  DB; backend `pytest` 83/83 (16 new — product/text poll creation, per-type option-shape rejection,
+  minimum-2-options rejection, anonymous read, vote flow, `image_url` update, and 3 new
+  `/share/surveys/{id}` tests covering a custom image, the product-photo fallback, and a
+  nonexistent survey); `tsc --noEmit`, `npm run lint` (0 errors, 39 warnings — one fewer than the
+  prior 40-warning baseline, since the deleted `getAllSurveysStatic()` also removed one of the
+  pre-existing unused-`catch`-variable warnings), and `npm run build` all clean (`/survey` route
+  confirmed built for all 4 locales, `/survey/[id]` confirmed gone). Hit the documented stale-Next-
+  cache gotcha immediately after deleting the old route (`tsc` failed on a phantom reference to the
+  deleted `survey/[id]/page.tsx` until `frontend/.next` was removed) — same known fix as prior
+  sessions, not a new bug.
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -2835,7 +2925,7 @@ Follow-up bug-fix/hardening pass after the sale-price/quantity-discount session 
 - **Printable documents are Blob URLs opened in a new tab, not a route or a backend template**: `printDocument.ts`'s `openPrintableTable()` builds the HTML string client-side from data the page already has and opens it via `URL.createObjectURL` — consistent with the static-export constraint above (a dynamically generated printable page genuinely cannot be a build-time route) and avoiding a second HTML-templating system alongside the existing email-body builders in `services/`.
 - **Procurement claiming reuses the settlement-period atomic-update pattern verbatim**: `VendorPurchaseBatch`'s claim (`vendors.py`, Phase 2) is the same "flush for id, then single `UPDATE ... WHERE ... IS NULL`" shape as `CommissionSettlementPeriod`'s claim — proven correct under double-submit once already, no reason to invent a second way to safely claim a batch of rows.
 - **One code path creates product orders**: both "add to cart" and single-product "contact me now" call `POST /leads/cart-checkout` (the latter with a one-item array) rather than each having its own creation logic — `POST /leads` now rejects a plain contact request outright, forcing every product-order to go through the same quantity/order-number logic instead of two implementations that could drift.
-- **Query-param routes for anything that can't be known at build time**: `output: 'export'` requires `generateStaticParams` to enumerate every value of a dynamic route segment at build time — infeasible for a live database whose rows (products, worlds) can change between deploys. The fix used twice now: a single fixed static page reads an identifier from a query string (`?id=` for `/products`, `?slug=` for `/world`) via `useSearchParams()` and fetches/renders entirely client-side at runtime, so a brand-new row needs zero rebuild. There is deliberately no parallel per-item dynamic route (`/products/[id]`, `/[vertical]`) kept alongside these — pre-launch, with no real external links to preserve, one canonical URL per resource beats carrying a second scheme "just in case."
+- **Query-param routes for anything that can't be known at build time**: `output: 'export'` requires `generateStaticParams` to enumerate every value of a dynamic route segment at build time — infeasible for a live database whose rows (products, worlds, surveys) can change between deploys. The fix used three times now: a single fixed static page reads an identifier from a query string (`?id=` for `/products`, `?slug=` for `/world`, `?id=` for `/survey`) via `useSearchParams()` and fetches/renders entirely client-side at runtime, so a brand-new row needs zero rebuild. There is deliberately no parallel per-item dynamic route (`/products/[id]`, `/[vertical]`, `/survey/[id]`) kept alongside these — pre-launch, with no real external links to preserve, one canonical URL per resource beats carrying a second scheme "just in case." A dynamic route that skips this pattern is a live bug, not a stylistic choice: the surveys session found `/survey/[id]` had been silently 404ing for every survey created since the last GitHub Pages build.
 - **View count fire-and-forget**: `POST /products/{id}/view` is called with `fetch().catch(() => {})` — no auth, no await. A failed view-count increment should never block the user.
 - **Distribution segmentation mix**: `filter_city` uses a SQL WHERE clause (efficient); `filter_membership_track` uses Python in-memory filtering since `membership_tracks` is a JSON array column (not indexable with simple SQL). Trade-off accepted: segment sizes are small.
 - **Email preview in iframe**: HTML is rendered in a sandboxed `<iframe srcdoc>` in the admin preview modal. `sandbox="allow-same-origin"` prevents script execution while allowing CSS rendering.
