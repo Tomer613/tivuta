@@ -12,6 +12,7 @@ from ..security import get_current_admin, get_current_user, get_db
 from ..services import get_image_storage
 from ..services.image_storage import generate_image_filename
 from .product_categories import validate_category
+from .quantity_discounts import validate_quantity_discount_bundle
 from .verticals import validate_vertical_slug
 
 router = APIRouter(tags=["products"])
@@ -26,13 +27,32 @@ def _active_promotions(product: models.Product) -> List[schemas.PromotionBrief]:
     ]
 
 
+def _active_quantity_discount(product: models.Product) -> Optional[schemas.QuantityDiscountBrief]:
+    bundle = product.quantity_discount_bundle
+    if bundle is None or not bundle.is_active:
+        return None
+    return schemas.QuantityDiscountBrief.model_validate(bundle)
+
+
 def _product_read(product: models.Product) -> schemas.ProductRead:
     result = schemas.ProductRead.model_validate(product)
     result.promotions = _active_promotions(product)
+    result.quantity_discount = _active_quantity_discount(product)
     approved = [r for r in product.reviews if r.is_approved]
     result.review_count = len(approved)
     result.avg_rating = round(sum(r.rating for r in approved) / len(approved), 1) if approved else None
     return result
+
+
+def _validate_sale_price(price: Optional[float], sale_price: Optional[float]) -> None:
+    """sale_price=0 (or None) means 'no sale' and needs no base price. Anything above 0 must be
+    a genuine discount off a real, positive price — never >= it."""
+    if not sale_price or sale_price <= 0:
+        return
+    if not price or price <= 0:
+        raise HTTPException(status_code=400, detail="מחיר מבצע דורש מחיר רגיל תקין")
+    if sale_price >= price:
+        raise HTTPException(status_code=400, detail="מחיר מבצע חייב להיות נמוך מהמחיר הרגיל")
 
 
 @router.get("/products", response_model=List[schemas.ProductRead])
@@ -46,7 +66,7 @@ def list_products(
     query = (
         db.query(models.Product)
         .filter(models.Product.is_active == True)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category), selectinload(models.Product.quantity_discount_bundle).selectinload(models.QuantityDiscountBundle.tiers))
     )
     if vertical:
         query = query.filter(models.Product.vertical == vertical)
@@ -79,7 +99,7 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     product = (
         db.query(models.Product)
         .filter(models.Product.id == product_id)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category), selectinload(models.Product.quantity_discount_bundle).selectinload(models.QuantityDiscountBundle.tiers))
         .first()
     )
     if not product:
@@ -111,7 +131,7 @@ def search_products(q: str = "", db: Session = Depends(get_db)):
                 models.Product.description_he.ilike(term),
             ),
         )
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category), selectinload(models.Product.quantity_discount_bundle).selectinload(models.QuantityDiscountBundle.tiers))
         .limit(20)
         .all()
     )
@@ -133,6 +153,8 @@ def admin_create_product(product_in: schemas.ProductCreate, db: Session = Depend
     validate_vertical_slug(db, product_in.vertical)
     _validate_vendor(product_in.vendor_id, product_in.vertical, db)
     validate_category(product_in.category_id, product_in.vertical, db)
+    validate_quantity_discount_bundle(product_in.quantity_discount_bundle_id, db)
+    _validate_sale_price(product_in.price, product_in.sale_price)
     new_product = models.Product(**product_in.model_dump())
     db.add(new_product)
     db.commit()
@@ -171,6 +193,15 @@ def admin_update_product(product_id: int, product_in: schemas.ProductUpdate, db:
         _validate_vendor(update_data["vendor_id"], update_data.get("vertical", product.vertical), db)
     if "category_id" in update_data:
         validate_category(update_data["category_id"], update_data.get("vertical", product.vertical), db)
+    if "quantity_discount_bundle_id" in update_data:
+        validate_quantity_discount_bundle(update_data["quantity_discount_bundle_id"], db)
+    if "price" in update_data or "sale_price" in update_data:
+        # Validate against the *effective* post-update state, not just whatever keys happen to be
+        # in this particular payload — e.g. a PUT that only sends sale_price must still be checked
+        # against the product's existing price, and vice versa.
+        effective_price = update_data.get("price", product.price)
+        effective_sale_price = update_data.get("sale_price", product.sale_price)
+        _validate_sale_price(effective_price, effective_sale_price)
     for key, value in update_data.items():
         setattr(product, key, value)
     db.commit()
@@ -183,7 +214,7 @@ def admin_list_all_products(db: Session = Depends(get_db)):
     """Returns all products including inactive ones — for admin management."""
     products = (
         db.query(models.Product)
-        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category))
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category), selectinload(models.Product.quantity_discount_bundle).selectinload(models.QuantityDiscountBundle.tiers))
         .order_by(models.Product.created_at.desc())
         .all()
     )
@@ -258,9 +289,11 @@ def admin_duplicate_product(product_id: int, db: Session = Depends(get_db)):
         description_yi=product.description_yi,
         image_url=product.image_url,
         price=product.price,
+        sale_price=product.sale_price,
         attributes=product.attributes,
         vendor_id=product.vendor_id,
         category_id=product.category_id,
+        quantity_discount_bundle_id=product.quantity_discount_bundle_id,
         is_active=False,
     )
     db.add(clone)
@@ -364,5 +397,20 @@ def admin_bulk_assign_category(payload: schemas.ProductBulkCategoryAssign, db: S
             )
     for p in products:
         p.category_id = payload.category_id
+    db.commit()
+    return {"updated": len(products)}
+
+
+@router.patch("/admin/products/bulk-quantity-discount", dependencies=[Depends(get_current_admin)])
+def admin_bulk_assign_quantity_discount(payload: schemas.ProductBulkQuantityDiscountAssign, db: Session = Depends(get_db)):
+    """Applies (or, if quantity_discount_bundle_id is null, clears) one quantity-discount bundle
+    across many products at once — mirrors bulk-category exactly. Bundles aren't vertical-scoped,
+    so there's no vertical-mismatch check here."""
+    products = db.query(models.Product).filter(models.Product.id.in_(payload.product_ids)).all()
+    if not products:
+        raise HTTPException(status_code=404, detail="No products found")
+    validate_quantity_discount_bundle(payload.quantity_discount_bundle_id, db)
+    for p in products:
+        p.quantity_discount_bundle_id = payload.quantity_discount_bundle_id
     db.commit()
     return {"updated": len(products)}

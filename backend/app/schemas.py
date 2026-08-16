@@ -226,10 +226,12 @@ class ProductBase(BaseModel):
     description_yi: Optional[str] = None
     image_url: Optional[str] = None
     price: Optional[float] = None
+    sale_price: float = 0
     attributes: Optional[dict] = None
     is_active: bool = True
     vendor_id: Optional[int] = None
     category_id: Optional[int] = None
+    quantity_discount_bundle_id: Optional[int] = None
 
 class ProductCreate(ProductBase):
     pass
@@ -246,14 +248,20 @@ class ProductUpdate(BaseModel):
     description_yi: Optional[str] = None
     image_url: Optional[str] = None
     price: Optional[float] = None
+    sale_price: Optional[float] = None
     attributes: Optional[dict] = None
     is_active: Optional[bool] = None
     vendor_id: Optional[int] = None
     category_id: Optional[int] = None
+    quantity_discount_bundle_id: Optional[int] = None
 
 class ProductBulkCategoryAssign(BaseModel):
     product_ids: List[int]
     category_id: Optional[int] = None
+
+class ProductBulkQuantityDiscountAssign(BaseModel):
+    product_ids: List[int]
+    quantity_discount_bundle_id: Optional[int] = None
 
 class PromotionBrief(BaseModel):
     id: int
@@ -269,6 +277,28 @@ class PromotionBrief(BaseModel):
         from_attributes = True
 
 
+class QuantityDiscountTierBase(BaseModel):
+    min_quantity: int = Field(ge=1)
+    discount_percent: float = Field(gt=0, le=100)
+
+
+class QuantityDiscountTierRead(QuantityDiscountTierBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class QuantityDiscountBrief(BaseModel):
+    id: int
+    bundle_code: str
+    name_he: str
+    tiers: List[QuantityDiscountTierRead] = []
+
+    class Config:
+        from_attributes = True
+
+
 class ProductRead(ProductBase):
     id: int
     view_count: int = 0
@@ -278,6 +308,7 @@ class ProductRead(ProductBase):
     promotions: List[PromotionBrief] = []
     vendor: Optional[VendorBrief] = None
     category: Optional[ProductCategoryBrief] = None
+    quantity_discount: Optional[QuantityDiscountBrief] = None
 
     class Config:
         from_attributes = True
@@ -437,6 +468,35 @@ class ProductCategoryRead(ProductCategoryBase):
         from_attributes = True
 
 
+# Quantity Discount Bundle Schemas ("סל מבצע")
+class QuantityDiscountBundleBase(BaseModel):
+    name_he: str
+    name_en: Optional[str] = None
+    is_active: bool = True
+
+
+class QuantityDiscountBundleCreate(QuantityDiscountBundleBase):
+    tiers: List[QuantityDiscountTierBase] = Field(..., min_length=1)
+
+
+class QuantityDiscountBundleUpdate(BaseModel):
+    name_he: Optional[str] = None
+    name_en: Optional[str] = None
+    is_active: Optional[bool] = None
+    tiers: Optional[List[QuantityDiscountTierBase]] = None  # full replace when given
+
+
+class QuantityDiscountBundleRead(QuantityDiscountBundleBase):
+    id: int
+    bundle_code: str
+    created_at: datetime
+    tiers: List[QuantityDiscountTierRead] = []
+    product_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
 # Promotion Schemas
 class PromotionBase(BaseModel):
     name_he: str
@@ -543,6 +603,9 @@ class LeadRead(BaseModel):
     customer_order_id: Optional[int] = None
     subject: Optional[str] = None
     message: Optional[str] = None
+    unit_price_snapshot: Optional[float] = None
+    list_price_snapshot: Optional[float] = None
+    quantity_discount_percent_snapshot: Optional[float] = None
     created_at: datetime
 
     class Config:
@@ -603,6 +666,9 @@ class CustomerOrderLineRead(BaseModel):
     shipping_address: Optional[dict] = None
     quantity: Optional[int] = None
     vendor_batch_id: Optional[int] = None
+    unit_price_snapshot: Optional[float] = None
+    list_price_snapshot: Optional[float] = None
+    quantity_discount_percent_snapshot: Optional[float] = None
 
     class Config:
         from_attributes = True
@@ -705,6 +771,9 @@ class MyOrderLineRead(BaseModel):
     product_price: Optional[float] = None
     shipping_address: Optional[dict] = None
     quantity: Optional[int] = None
+    unit_price_snapshot: Optional[float] = None
+    list_price_snapshot: Optional[float] = None
+    quantity_discount_percent_snapshot: Optional[float] = None
     created_at: datetime
 
     class Config:

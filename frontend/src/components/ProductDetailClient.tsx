@@ -11,7 +11,7 @@ import {
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { requireLogin } from '@/lib/requireLogin';
 import { shareProductOnWhatsApp } from '@/lib/share';
-import { Product, PromotionBrief, promotionLabel } from '@/components/ProductTile';
+import { Product, PromotionBrief, promotionLabel, QuantityDiscountNote } from '@/components/ProductTile';
 import ProductActionButtons from '@/components/ProductActionButtons';
 import { useAttrLabels } from '@/lib/useVerticals';
 import { useCountdown } from '@/lib/useCountdown';
@@ -443,9 +443,22 @@ export default function ProductDetailClient({ productId }: { productId: number }
 
                         <div>
                             <span className="text-[10px] font-black text-[#f0e6d3]/40 uppercase tracking-widest">{t.price}</span>
-                            <p className="text-3xl font-black text-[#d4af37]">
-                                {product.price ? `₪${product.price.toLocaleString()}` : t.on_request}
-                            </p>
+                            {product.sale_price && product.price && product.sale_price > 0 && product.sale_price < product.price ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-base font-bold text-[#f0e6d3]/40 line-through">₪{product.price.toLocaleString()}</span>
+                                    <p className="text-3xl font-black text-[#d4af37]">₪{product.sale_price.toLocaleString()}</p>
+                                    <span className="bg-[#d4af37]/15 text-[#d4af37] text-[11px] font-black px-2 py-0.5 rounded-full">
+                                        ‑{Math.round((1 - product.sale_price / product.price) * 100)}%
+                                    </span>
+                                </div>
+                            ) : (
+                                <p className="text-3xl font-black text-[#d4af37]">
+                                    {product.price ? `₪${product.price.toLocaleString()}` : t.on_request}
+                                </p>
+                            )}
+                            {product.quantity_discount && product.quantity_discount.tiers.length > 0 && (
+                                <QuantityDiscountNote tiers={product.quantity_discount.tiers} locale={locale} />
+                            )}
                         </div>
 
                         {/* Appointment / Contact */}

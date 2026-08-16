@@ -2640,6 +2640,89 @@ a given world.
 
 ---
 
+## Sale Price + Quantity-Discount Bundles + Order Price Snapshotting (session 2026-08-16)
+
+Two pricing features requested for the product tile and cart: a per-product "מחיר מבצע" (sale
+price) shown struck-through against the regular price, and admin-defined "מבצעי כמות" (quantity-
+discount bundles) — a named group of products where the *combined* quantity of a customer's cart
+items drawn from the bundle crosses a tier threshold and every item in the bundle gets that tier's
+percentage off. Mid-plan, the user raised a real gap in the original (display-only) design: once an
+order is actually placed, it must permanently record what was charged, not keep re-deriving it from
+the live `Product` row forever — a later price/sale/bundle edit would otherwise silently rewrite
+every past order. That became a third piece, **order price snapshotting**, built the same session.
+
+- **`Product.sale_price`** (`Float`, default `0.0`, migration `71938ad2ba93`) — `0` is the explicit
+  "no sale" sentinel. **Only one value is ever stored** — no separate discount-percent column exists
+  anywhere in the DB. The admin form's "אחוז הנחה" field is pure UI convenience: typing in either
+  the sale-price or percent input recomputes the *other* fresh from `form.price` every keystroke
+  (never chained from one derived value to the next), so there's nothing that can drift or race —
+  this is the direct answer to the user's explicit "avoid race condition" ask. Validated
+  server-side (`_validate_sale_price()`, `routers/products.py`) against the **effective post-update
+  state** (`update_data.get("price", product.price)`), not just whatever keys happen to be in a
+  given PATCH payload — a PUT that only sends `sale_price` is still checked against the product's
+  existing `price`, and vice versa.
+- **`QuantityDiscountBundle`/`QuantityDiscountTier`** (new tables, migration `d1def6807a27`) +
+  **`Product.quantity_discount_bundle_id`** (nullable FK) — reuses the exact `Vendor.vendor_id`/
+  `ProductCategory.category_id`-on-`Product` shape (a product belongs to at most one bundle at a
+  time, keeping "which bundle applies" unambiguous) rather than a many-to-many, per the pattern
+  CLAUDE.md already flags as the one to copy for a new world-scoped-or-global taggable entity. The
+  bundle's own code is a computed property, not a column (`bundle_code` = `f"QD-{id:06d}"`, same
+  convention as `Vendor.vendor_code`/`CustomerOrder.order_number`). Multiple tiers per bundle
+  (confirmed with the user over a single-tier alternative), validated (`routers/quantity_discounts.
+  py`) to be non-empty, have unique `min_quantity` values, and have **non-decreasing
+  `discount_percent` as `min_quantity` increases** — rejects a "buy more, pay a higher rate"
+  misconfiguration. New `PATCH /admin/products/bulk-quantity-discount` mirrors the existing
+  `bulk-category` endpoint exactly (no vertical-mismatch check needed — bundles aren't
+  vertical-scoped, unlike categories).
+- **Order price snapshotting**: three new nullable `Lead` columns (migration `671716ab86a4`) —
+  `unit_price_snapshot`, `list_price_snapshot`, `quantity_discount_percent_snapshot` — populated
+  only for `contact_request` leads (`NULL` elsewhere, same "type-specific optional column on the
+  shared `Lead` row" precedent as `shipping_address`/`subject`/`message`). One shared function,
+  **`services/pricing.py`'s `compute_effective_unit_price()`**, is the single server-side source of
+  truth: base price = `sale_price` if set else `price`; the quantity-discount tier applies **on top
+  of** that (stacks multiplicatively — a deliberate choice, documented at the call site). Called
+  from `leads.py`'s `cart_checkout()`, which groups the checkout's own items by
+  `quantity_discount_bundle_id` and sums quantities per bundle **within that one call only** — two
+  separate single-item "contact me now" checkouts don't combine, matching how quantity deals
+  conventionally require being in the same order. The client **never supplies a price** —
+  `CartCheckoutItem` is unchanged (`{product_id, quantity}`); the server independently derives the
+  snapshot from the authoritative `Product`/bundle rows at that instant. Verified live against a
+  real running server (not just the pytest in-memory suite): checked out a sale-priced product
+  crossing a bundle tier, confirmed the snapshot reflected both discounts stacked correctly, then
+  changed the product's price/sale_price afterward and confirmed `GET /users/me/orders` still
+  returned the original, unchanged snapshot — the actual scenario the user raised, proven working.
+- **Frontend**: `ProductTile.tsx`/`ProductDetailClient.tsx` show the struck-through regular price +
+  sale price + a "‑X%" badge, and a `QuantityDiscountNote` (exported from `ProductTile.tsx`, shared
+  by both) reading "קנה {lowest tier's min}+ וחסוך עד {highest tier's %}" whenever a product carries
+  an active bundle. New admin page `admin/quantity-discounts/page.tsx` (nav tab "מבצעי כמות") with a
+  repeatable tier-row builder, mirroring the existing `attribute_fields` builder pattern from
+  `admin/verticals/page.tsx`. `admin/products/page.tsx` gained the two-way sale-price/percent inputs,
+  a bundle `<select>`, and a second bulk-apply bar (reusing `useBulkSelection`) alongside the
+  existing bulk-category one. **`frontend/src/lib/pricing.ts`** is a TypeScript port of the exact
+  same formula as `services/pricing.py`, used only for `cart/page.tsx`'s **pre-checkout preview**
+  (struck-through subtotal + "חיסכון" savings line, plus a per-item "✓ מבצע כמות הופעל" /
+  "עוד N יח' ותקבלו הנחה" hint) — the post-checkout success screen and `admin/orders`/profile's
+  "מעקב הזמנות" instead render the real numbers returned by `POST /leads/cart-checkout`/
+  `GET /users/me/orders`, never the client's own estimate, so what's displayed is guaranteed to
+  match what got persisted.
+- **Verified end-to-end**: backend `pytest` 58/58 (13 new — sale-price validation including the
+  effective-post-update-state case, bundle CRUD + tier-ordering validation, bulk assign/clear, a
+  deactivated bundle disappearing from `ProductRead` while the FK is preserved, and the full
+  checkout-snapshotting scenario including the immutability-after-price-change case); all 3
+  migrations applied and downgraded cleanly against a scratch SQLite DB; `tsc --noEmit` and
+  `npm run build` both clean (new `/admin/quantity-discounts` route built for all 4 locales);
+  `npm run lint` 0 errors (40 warnings, all pre-existing patterns, e.g. the same missing-`load`-
+  dependency warning already present on every other admin page). Real browser session (Playwright,
+  admin/member JWTs minted via a live signup+DB-role-promote, not the seeded dev accounts) against
+  a live `uvicorn`+`next dev` pair confirmed: the storefront tile renders the strikethrough+badge
+  for a real sale-priced product and the quantity-discount note on bundle-tagged products; the admin
+  products table shows the same strikethrough+badge; the admin edit form's discount-percent input
+  live-recomputes the sale-price input (typed `50` against a ₪2,000 base → sale price field updated
+  to `1,000` with no page reload); the new admin quantity-discounts page lists a real bundle with
+  its tiers and product count. Test data and dev-server processes cleaned up afterward.
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -2681,6 +2764,8 @@ a given world.
 - **jsPDF's `setR2L(true)` only handles RTL reversal correctly for strings that actually contain a Hebrew character** — a table cell or line mixing Hebrew and Latin/digits (a product name with an embedded "PDF") is fine on its own once `setR2L(true)` is active, but a *purely* Latin/digit string (an order number, a phone number) gets blindly reversed character-by-character with no Hebrew-detection safety net. `printDocument.ts`'s `fixRtlCell()` pre-reverses any Hebrew-free table cell before it reaches `jspdf-autotable` so the library's own reversal cancels back out; direct `doc.text()` calls (the title/timestamp lines) instead toggle `setR2L(false)` off just long enough to draw a pure-Latin/digit value, then restore it to `true`. Any future PDF export in this codebase mixing Hebrew and Latin/digit content needs one of these two techniques, not a fresh assumption that `setR2L(true)` "just works."
 - **A world-scoped lookup entity that products get tagged with reuses the `Vendor.vendor_id`-on-`Product` shape, not a new pattern**: `ProductCategory`/`Product.category_id` is a nullable FK + a dropdown filtered by `form.vertical`, validated cross-vertical at both single-update and bulk-assign time — the same shape as `Vendor`. Any *future* "admin-managed, world-scoped, taggable-on-products" entity should copy this pair (`Vertical`→`Vendor`/`ProductCategory`→`Product`), not invent a fourth variant.
 - **A lookup entity's public-facing filter UI should render conditionally on having any rows, not unconditionally with an empty state**: `FilterSortSidebar`'s category chip block only renders `if (categories.length > 0)` — a world with zero categories shows no filter section at all, rather than an empty "Category: [All]" block. This is what makes a not-yet-configured admin feature genuinely invisible instead of a confusing dead control, and is the same instinct behind promotions only showing a badge `if (promotions.length > 0)` on a product tile.
+- **Two fields that must always agree shouldn't both be stored — store one, derive the other**: `Product.sale_price` is the only persisted pricing field; the admin form's discount-percent input is pure UI convenience, recomputed fresh from `price` on every keystroke rather than chained from the other field's previous derived value. This is what makes a two-way-synced pair of inputs race-free by construction instead of needing reconciliation logic — prefer this shape over a stored, mutually-derived pair whenever one field is always mechanically computable from the other.
+- **An order must snapshot its price at checkout time, not keep re-deriving it from the live row forever**: `Lead.unit_price_snapshot`/`list_price_snapshot`/`quantity_discount_percent_snapshot` are computed once by `services/pricing.py`'s `compute_effective_unit_price()` at `cart_checkout()` time and never touched again — the same principle as `SaleTransaction.commission_rate_percent_snapshot`. A later price edit, a sale ending, or a bundle being deactivated must never silently rewrite what an already-placed order shows; verified live that changing a product's price after checkout left the stored order snapshot untouched. Any future "what did this cost" field on an order-like row should snapshot at write time, not join to a live, mutable source.
 
 The primary audience uses internet access through community-approved **kosher filters** (e.g. Rimon, Netspark, Genigram). These filters have specific technical characteristics that affect web development decisions.
 

@@ -3,12 +3,26 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Trash2, ShoppingCart, MessageCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Trash2, ShoppingCart, MessageCircle, CheckCircle2, Loader2, Tag } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useCart } from '@/context/CartContext';
+import { useCart, CartItem } from '@/context/CartContext';
 import { cartCheckout, productImageUrl } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
+import { computeEffectiveUnitPrice } from '@/lib/pricing';
 import QuantityStepper from '@/components/QuantityStepper';
+
+/** Combined quantity per quantity-discount bundle across the whole cart — mirrors the backend's
+ *  own aggregation in POST /leads/cart-checkout (services/pricing.py), so the preview shown here
+ *  matches what actually gets snapshotted at checkout time. */
+function bundleAggregates(items: CartItem[]): Record<number, number> {
+    const totals: Record<number, number> = {};
+    for (const item of items) {
+        if (item.quantity_discount_bundle_id != null) {
+            totals[item.quantity_discount_bundle_id] = (totals[item.quantity_discount_bundle_id] || 0) + item.quantity;
+        }
+    }
+    return totals;
+}
 
 interface T {
     title: string;
@@ -27,13 +41,17 @@ interface T {
     view_orders: string;
     dec_qty: string;
     inc_qty: string;
+    before_discount: string;
+    savings: string;
+    qty_discount_active: (percent: number) => string;
+    qty_discount_more_needed: (count: number) => string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות' },
-    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity' },
-    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité' },
-    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות' },
+    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', before_discount: 'לפני הנחה', savings: 'חיסכון', qty_discount_active: (p) => `✓ מבצע כמות הופעל (${p}% הנחה)`, qty_discount_more_needed: (n) => `עוד ${n} יח' ותקבלו הנחת כמות` },
+    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', before_discount: 'Before discount', savings: 'Savings', qty_discount_active: (p) => `✓ Quantity discount applied (${p}% off)`, qty_discount_more_needed: (n) => `${n} more unit(s) for a quantity discount` },
+    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', before_discount: 'Avant remise', savings: 'Économie', qty_discount_active: (p) => `✓ Remise quantité appliquée (${p}%)`, qty_discount_more_needed: (n) => `Encore ${n} unité(s) pour une remise quantité` },
+    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', before_discount: 'פאר הנחה', savings: 'שפּאָרן', qty_discount_active: (p) => `✓ מבצע כמות אקטיוו (${p}% הנחה)`, qty_discount_more_needed: (n) => `נאך ${n} יח' פאר א הנחת כמות` },
 };
 
 export default function CartPage() {
@@ -48,8 +66,23 @@ export default function CartPage() {
     const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [orderNumber, setOrderNumber] = useState<string | null>(null);
+    const [savedSummary, setSavedSummary] = useState<{ original: number; paid: number } | null>(null);
 
-    const totalPrice = items.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
+    // Pre-checkout preview only — the server independently recomputes and stores the
+    // authoritative snapshot at checkout time (see services/pricing.py); this is display only.
+    const aggregates = bundleAggregates(items);
+    const priced = items.map((item) => ({
+        item,
+        eff: computeEffectiveUnitPrice(
+            item.price,
+            item.sale_price,
+            item.quantity_discount_tiers,
+            item.quantity_discount_bundle_id != null ? (aggregates[item.quantity_discount_bundle_id] || 0) : 0
+        ),
+    }));
+    const totalPrice = priced.reduce((sum, { item, eff }) => sum + (eff.unitPrice ?? 0) * item.quantity, 0);
+    const originalTotal = items.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
+    const totalSavings = Math.max(0, originalTotal - totalPrice);
     const hasOnRequestItem = items.some((i) => !i.price);
 
     const handleCheckout = async () => {
@@ -63,6 +96,11 @@ export default function CartPage() {
             });
             const orderId = leads?.[0]?.customer_order_id;
             setOrderNumber(orderId ? `ORD-${String(orderId).padStart(6, '0')}` : null);
+            // The success screen shows the real, server-computed numbers (not the pre-checkout
+            // estimate above) — guarantees what's displayed matches what actually got persisted.
+            const original = leads.reduce((sum, l) => sum + (l.list_price_snapshot ?? 0) * (l.quantity ?? 1), 0);
+            const paid = leads.reduce((sum, l) => sum + (l.unit_price_snapshot ?? 0) * (l.quantity ?? 1), 0);
+            setSavedSummary(original > paid ? { original, paid } : null);
             setStatus('done');
             clearCart();
         } catch (err) {
@@ -77,6 +115,11 @@ export default function CartPage() {
                 <div className="text-center max-w-md">
                     <CheckCircle2 size={48} className="text-green-400 mx-auto mb-4" />
                     <p className="text-[#f0e6d3] text-lg font-bold mb-3">{t.done}</p>
+                    {savedSummary && (
+                        <p className="text-green-400 font-bold text-sm mb-3">
+                            {t.savings}: ₪{Math.round(savedSummary.original - savedSummary.paid).toLocaleString()}
+                        </p>
+                    )}
                     {orderNumber && (
                         <>
                             <p className="text-[#d4af37] font-black text-lg mb-2" dir="ltr">{t.order_number}: {orderNumber}</p>
@@ -108,8 +151,13 @@ export default function CartPage() {
                 ) : (
                     <>
                         <div className="space-y-4 mb-8">
-                            {items.map((item) => {
+                            {priced.map(({ item, eff }) => {
                                 const title = item[`title_${localeKey}`] || item.title_he;
+                                const hasDiscount = eff.unitPrice != null && eff.listPrice != null && eff.unitPrice < eff.listPrice;
+                                const bundleQty = item.quantity_discount_bundle_id != null ? (aggregates[item.quantity_discount_bundle_id] || 0) : 0;
+                                const nextTier = (item.quantity_discount_tiers || [])
+                                    .filter((tr) => tr.min_quantity > bundleQty)
+                                    .sort((a, b) => a.min_quantity - b.min_quantity)[0];
                                 return (
                                     <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-4">
                                         <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -120,9 +168,26 @@ export default function CartPage() {
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-bold text-[#f0e6d3] truncate">{title}</p>
                                                 <p className="text-xs text-[#f0e6d3]/40">{VERTICAL_LABEL[item.vertical] || item.vertical}</p>
-                                                <p className="text-[#d4af37] font-black mt-1">
-                                                    {item.price ? `₪${item.price.toLocaleString()}` : t.on_request}
-                                                </p>
+                                                {hasDiscount ? (
+                                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                        <span className="text-xs text-[#f0e6d3]/40 line-through">₪{eff.listPrice!.toLocaleString()}</span>
+                                                        <span className="text-[#d4af37] font-black">₪{eff.unitPrice!.toLocaleString()}</span>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[#d4af37] font-black mt-1">
+                                                        {item.price ? `₪${item.price.toLocaleString()}` : t.on_request}
+                                                    </p>
+                                                )}
+                                                {item.quantity_discount_bundle_id != null && item.quantity_discount_tiers && item.quantity_discount_tiers.length > 0 && (
+                                                    <div className="flex items-center gap-1 mt-1">
+                                                        <Tag size={10} className="text-[#d4af37]/60 shrink-0" />
+                                                        <span className={`text-[11px] ${eff.discountPercent > 0 ? 'text-green-400/80' : 'text-[#f0e6d3]/40'}`}>
+                                                            {eff.discountPercent > 0
+                                                                ? t.qty_discount_active(eff.discountPercent)
+                                                                : nextTier ? t.qty_discount_more_needed(nextTier.min_quantity - bundleQty) : null}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between sm:justify-end gap-4 sm:shrink-0">
@@ -153,6 +218,18 @@ export default function CartPage() {
                         </div>
 
                         <div className="border-t border-[#d4af37]/20 pt-6">
+                            {totalSavings > 0 && (
+                                <div className="space-y-1 mb-3">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-[#f0e6d3]/40">{t.before_discount}</span>
+                                        <span className="text-[#f0e6d3]/40 line-through">₪{originalTotal.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-green-400/80 font-bold">{t.savings}</span>
+                                        <span className="text-green-400 font-bold">‑₪{Math.round(totalSavings).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                            )}
                             <div className="flex items-center justify-between mb-6">
                                 <span className="text-[#f0e6d3]/60 font-bold">{t.total} ({totalCount} {t.items_count})</span>
                                 <span className="text-2xl font-black text-[#d4af37]">

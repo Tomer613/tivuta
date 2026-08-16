@@ -40,6 +40,7 @@ const tr: Record<string, Record<string, string>> = {
         orders_title: 'מעקב הזמנות',
         no_orders: 'אין הזמנות עדיין.',
         order_items_done: 'הושלמו',
+        order_savings: 'חסכת',
         activity_title: 'היסטוריית פעילות',
         no_activity: 'טרם בוצעו פניות.',
         lead_appointment: 'פגישה', lead_contact: 'פנייה', lead_other: 'בקשה', lead_card_order: 'הזמנת כרטיס',
@@ -68,6 +69,7 @@ const tr: Record<string, Record<string, string>> = {
         orders_title: 'Order Tracking',
         no_orders: 'No orders yet.',
         order_items_done: 'done',
+        order_savings: 'You saved',
         activity_title: 'Activity history',
         no_activity: 'No activity yet.',
         lead_appointment: 'Appointment', lead_contact: 'Contact', lead_other: 'Request', lead_card_order: 'Card Order',
@@ -96,6 +98,7 @@ const tr: Record<string, Record<string, string>> = {
         orders_title: 'Suivi des commandes',
         no_orders: 'Aucune commande.',
         order_items_done: 'terminés',
+        order_savings: 'Économisé',
         activity_title: "Historique d'activité",
         no_activity: 'Aucune activité.',
         lead_appointment: 'Rendez-vous', lead_contact: 'Contact', lead_other: 'Demande', lead_card_order: 'Commande de carte',
@@ -124,6 +127,7 @@ const tr: Record<string, Record<string, string>> = {
         orders_title: 'מעקב הזמנות',
         no_orders: 'קיין הזמנות נאָך ניט.',
         order_items_done: 'פֿאַרטיק',
+        order_savings: 'געשפּאָרט',
         activity_title: 'פּעולה היסטאָריע',
         no_activity: 'קיין פּעולות נאָך ניט.',
         lead_appointment: 'פּגישה', lead_contact: 'פּנייה', lead_other: 'בקשה', lead_card_order: 'הזמנת כרטיס',
@@ -851,20 +855,31 @@ export default function ProfileClient() {
                                             </p>
                                         )}
                                         <div className="space-y-1.5">
-                                            {order.items.map((item) => (
+                                            {order.items.map((item) => {
+                                                const hasSavings = item.unit_price_snapshot != null && item.list_price_snapshot != null && item.unit_price_snapshot < item.list_price_snapshot;
+                                                return (
                                                 <div key={item.id} className="flex items-center justify-between gap-3">
                                                     <div className="min-w-0">
                                                         <p className="text-sm text-[#f0e6d3] truncate">
                                                             {item.product_title_he || leadTypeLabel(item.lead_type)}
                                                             {item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : ''}
                                                         </p>
-                                                        <p className="text-xs text-[#f0e6d3]/40">{leadTypeLabel(item.lead_type)}</p>
+                                                        <p className="text-xs text-[#f0e6d3]/40">
+                                                            {leadTypeLabel(item.lead_type)}
+                                                            {item.unit_price_snapshot != null && ` · ₪${item.unit_price_snapshot.toLocaleString()}`}
+                                                        </p>
+                                                        {hasSavings && (
+                                                            <p className="text-[11px] text-green-400/80">
+                                                                {t.order_savings} ₪{Math.round(((item.list_price_snapshot ?? 0) - (item.unit_price_snapshot ?? 0)) * (item.quantity ?? 1)).toLocaleString()}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                     <span className={`text-xs font-bold shrink-0 ${statusColor(item.status)}`}>
                                                         {statusLabel(item.status)}
                                                     </span>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 );

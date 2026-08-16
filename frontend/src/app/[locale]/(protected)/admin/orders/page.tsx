@@ -553,6 +553,14 @@ export default function AdminOrdersPage() {
                                                                                     <p dir="ltr" className="text-[#d4af37]/70">{line.shipping_address.phone}</p>
                                                                                 </div>
                                                                             ) : <span className="text-[#f0e6d3]/25 text-sm">—</span>}
+                                                                            {line.unit_price_snapshot != null && (
+                                                                                <p className="text-[11px] text-[#d4af37]/70 mt-0.5">
+                                                                                    ₪{line.unit_price_snapshot.toLocaleString()}
+                                                                                    {line.quantity_discount_percent_snapshot != null && line.quantity_discount_percent_snapshot > 0 && (
+                                                                                        <span className="text-green-400/70"> (‑{line.quantity_discount_percent_snapshot}% מבצע כמות)</span>
+                                                                                    )}
+                                                                                </p>
+                                                                            )}
                                                                             {line.scheduled_at && (
                                                                                 <div className="flex items-center gap-1 text-xs text-[#d4af37]/70 mt-0.5">
                                                                                     <CalendarDays size={11} />

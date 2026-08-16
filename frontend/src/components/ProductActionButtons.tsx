@@ -5,12 +5,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { CalendarCheck, MessageCircle, ShoppingCart, CheckCircle2, Send } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
 import QuantityStepper from '@/components/QuantityStepper';
-import { createLead, cartCheckout, Vendor } from '@/lib/api';
+import { createLead, cartCheckout, Vendor, QuantityDiscountBrief } from '@/lib/api';
 import { useCart, CartItem } from '@/context/CartContext';
 import { requireLogin } from '@/lib/requireLogin';
 
 interface ProductActionButtonsProps {
-    product: Omit<CartItem, 'quantity'>;
+    product: Omit<CartItem, 'quantity'> & { quantity_discount?: QuantityDiscountBrief | null };
     title: string;
     locale: string;
     actionType: 'appointment' | 'contact';
@@ -57,6 +57,9 @@ export default function ProductActionButtons({ product, title, locale, actionTyp
         title_yi: product.title_yi,
         image_url: product.image_url,
         price: product.price,
+        sale_price: product.sale_price,
+        quantity_discount_bundle_id: product.quantity_discount_bundle_id,
+        quantity_discount_tiers: product.quantity_discount?.tiers ?? null,
     };
 
     const addOneToCart = (e: React.MouseEvent) => {

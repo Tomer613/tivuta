@@ -708,6 +708,87 @@ export async function adminBulkAssignCategory(token: string, product_ids: number
     return res.json();
 }
 
+// ── Quantity Discount Bundles ("סל מבצע") — an admin-managed group of products that get a
+// percentage off once the combined quantity of the group's items in one checkout crosses a
+// tier threshold. A product belongs to at most one bundle (nullable FK), same shape as
+// vendor_id/category_id on Product. ─────────────────────────────────────────────────────────
+
+export interface QuantityDiscountTier {
+    id: number;
+    min_quantity: number;
+    discount_percent: number;
+}
+
+export interface QuantityDiscountBrief {
+    id: number;
+    bundle_code: string;
+    name_he: string;
+    tiers: QuantityDiscountTier[];
+}
+
+export interface QuantityDiscountBundle {
+    id: number;
+    bundle_code: string;
+    name_he: string;
+    name_en?: string | null;
+    is_active: boolean;
+    created_at: string;
+    tiers: QuantityDiscountTier[];
+    product_count: number;
+}
+
+export async function adminListQuantityDiscounts(token: string): Promise<QuantityDiscountBundle[]> {
+    const res = await fetch(`${BASE_URL}/admin/quantity-discounts`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load quantity discount bundles');
+    return res.json();
+}
+
+export async function adminCreateQuantityDiscount(
+    token: string,
+    payload: { name_he: string; name_en?: string | null; is_active?: boolean; tiers: { min_quantity: number; discount_percent: number }[] }
+): Promise<QuantityDiscountBundle> {
+    const res = await fetch(`${BASE_URL}/admin/quantity-discounts`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to create quantity discount bundle');
+    }
+    return res.json();
+}
+
+export async function adminUpdateQuantityDiscount(
+    token: string,
+    id: number,
+    payload: Record<string, unknown>
+): Promise<QuantityDiscountBundle> {
+    const res = await fetch(`${BASE_URL}/admin/quantity-discounts/${id}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update quantity discount bundle');
+    }
+    return res.json();
+}
+
+export async function adminBulkAssignQuantityDiscount(token: string, product_ids: number[], quantity_discount_bundle_id: number | null) {
+    const res = await fetch(`${BASE_URL}/admin/products/bulk-quantity-discount`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_ids, quantity_discount_bundle_id }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Bulk quantity discount assignment failed');
+    }
+    return res.json();
+}
+
 export async function getPromotionStatus(token: string, promotionId: number) {
     const res = await fetch(`${BASE_URL}/promotions/${promotionId}/status`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load promotion status');
@@ -753,7 +834,20 @@ export async function createLead(token: string, payload: { product_id: number; s
     return res.json();
 }
 
-export async function cartCheckout(token: string, payload: { items: { product_id: number; quantity: number }[]; locale?: string }) {
+/** One Lead row as returned by POST /leads/cart-checkout — includes the server-computed price
+ *  snapshot (unit_price_snapshot/list_price_snapshot/quantity_discount_percent_snapshot), the
+ *  one authoritative source for "what this order actually cost" (see services/pricing.py). */
+export interface CartCheckoutLead {
+    id: number;
+    product_id: number | null;
+    quantity: number | null;
+    customer_order_id: number | null;
+    unit_price_snapshot?: number | null;
+    list_price_snapshot?: number | null;
+    quantity_discount_percent_snapshot?: number | null;
+}
+
+export async function cartCheckout(token: string, payload: { items: { product_id: number; quantity: number }[]; locale?: string }): Promise<CartCheckoutLead[]> {
     const res = await fetch(`${BASE_URL}/leads/cart-checkout`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -965,6 +1059,9 @@ export interface CustomerOrderLine {
     shipping_address?: { full_name: string; street: string; city: string; zip_code?: string | null; phone: string } | null;
     quantity?: number | null;
     vendor_batch_id?: number | null;
+    unit_price_snapshot?: number | null;
+    list_price_snapshot?: number | null;
+    quantity_discount_percent_snapshot?: number | null;
 }
 
 export interface CustomerOrder {
@@ -1461,6 +1558,9 @@ export interface MyOrderLine {
     product_price?: number | null;
     shipping_address?: ShippingAddress | null;
     quantity?: number | null;
+    unit_price_snapshot?: number | null;
+    list_price_snapshot?: number | null;
+    quantity_discount_percent_snapshot?: number | null;
     created_at: string;
 }
 

@@ -8,7 +8,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from .rate_limit import limiter
-from .routers import analytics, auth, catalog, distributions, favorites, leads, notifications, product_categories, products, promotions, reviews, sales, share, surveys, translate, users, vendor_portal, vendors, verticals
+from .routers import analytics, auth, catalog, distributions, favorites, leads, notifications, product_categories, products, promotions, quantity_discounts, reviews, sales, share, surveys, translate, users, vendor_portal, vendors, verticals
 from .security import AccountLockedError, account_locked_handler
 
 # Error monitoring — inert until SENTRY_DSN is set (same "skip until configured" pattern as
@@ -106,5 +106,6 @@ app.include_router(sales.router)
 app.include_router(vendor_portal.router)
 app.include_router(verticals.router)
 app.include_router(product_categories.router)
+app.include_router(quantity_discounts.router)
 app.include_router(share.router)
 app.include_router(analytics.router)

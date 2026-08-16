@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Info, Heart, Share2, Star, Clock } from 'lucide-react';
-import { addFavorite, removeFavorite, productImageUrl, Vendor } from '@/lib/api';
+import { Info, Heart, Share2, Star, Clock, Tag } from 'lucide-react';
+import { addFavorite, removeFavorite, productImageUrl, Vendor, QuantityDiscountBrief } from '@/lib/api';
 import { shareProductOnWhatsApp } from '@/lib/share';
 import ProductActionButtons from '@/components/ProductActionButtons';
 import { useCountdown } from '@/lib/useCountdown';
@@ -30,6 +30,7 @@ export interface Product {
     description_yi?: string | null;
     image_url?: string | null;
     price?: number | null;
+    sale_price?: number | null;
     attributes?: Record<string, string | number> | null;
     promotions?: PromotionBrief[];
     avg_rating?: number | null;
@@ -40,6 +41,8 @@ export interface Product {
     vendor_id?: number | null;
     category?: { id: number; label_he: string; label_en?: string | null; is_active?: boolean } | null;
     category_id?: number | null;
+    quantity_discount_bundle_id?: number | null;
+    quantity_discount?: QuantityDiscountBrief | null;
     is_active?: boolean;
 }
 
@@ -86,6 +89,27 @@ function FlashCountdown({ endDate, locale }: { endDate: string; locale: string }
             <span className="text-[11px] font-black text-[#d4af37] tabular-nums">
                 {r.d > 0 && `${r.d}י `}{String(r.h).padStart(2,'0')}:{String(r.m).padStart(2,'0')}:{String(r.s).padStart(2,'0')}
             </span>
+        </div>
+    );
+}
+
+const QTY_DISCOUNT_LABELS: Record<string, (min: number, max: number) => string> = {
+    he: (min, max) => `מבצע כמות: קנה ${min}+ פריטים מהמבצע וחסוך עד ${max}%`,
+    en: (min, max) => `Quantity deal: buy ${min}+ items from the bundle, save up to ${max}%`,
+    fr: (min, max) => `Offre quantité : ${min}+ articles du lot, jusqu'à ${max}% d'économie`,
+    yi: (min, max) => `מבצע כמות: קויף ${min}+ פּראָדוקטן פֿון דעם מבצע און שפּאָר ביז ${max}%`,
+};
+
+export function QuantityDiscountNote({ tiers, locale }: { tiers: { min_quantity: number; discount_percent: number }[]; locale: string }) {
+    if (tiers.length === 0) return null;
+    const sorted = [...tiers].sort((a, b) => a.min_quantity - b.min_quantity);
+    const minQty = sorted[0].min_quantity;
+    const maxPercent = Math.max(...sorted.map((t) => t.discount_percent));
+    const label = (QTY_DISCOUNT_LABELS[locale] || QTY_DISCOUNT_LABELS.he)(minQty, maxPercent);
+    return (
+        <div className="flex items-center gap-1.5 mt-1">
+            <Tag size={11} className="text-[#d4af37]/70 shrink-0" />
+            <span className="text-[11px] text-[#f0e6d3]/50">{label}</span>
         </div>
     );
 }
@@ -214,9 +238,22 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                 <div className="mt-auto flex flex-col gap-4 w-full pt-4 border-t border-[#d4af37]/20">
                     <div className="flex flex-col items-start">
                         <span className="text-[10px] font-black text-[#f0e6d3]/40 uppercase tracking-widest">{t.price_label}</span>
-                        <span className="text-2xl font-black text-[#d4af37]">
-                            {product.price ? `₪${product.price.toLocaleString()}` : t.on_request}
-                        </span>
+                        {product.sale_price && product.price && product.sale_price > 0 && product.sale_price < product.price ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-bold text-[#f0e6d3]/40 line-through">₪{product.price.toLocaleString()}</span>
+                                <span className="text-2xl font-black text-[#d4af37]">₪{product.sale_price.toLocaleString()}</span>
+                                <span className="bg-[#d4af37]/15 text-[#d4af37] text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                                    ‑{Math.round((1 - product.sale_price / product.price) * 100)}%
+                                </span>
+                            </div>
+                        ) : (
+                            <span className="text-2xl font-black text-[#d4af37]">
+                                {product.price ? `₪${product.price.toLocaleString()}` : t.on_request}
+                            </span>
+                        )}
+                        {product.quantity_discount && product.quantity_discount.tiers.length > 0 && (
+                            <QuantityDiscountNote tiers={product.quantity_discount.tiers} locale={locale} />
+                        )}
                     </div>
 
                     <ProductActionButtons

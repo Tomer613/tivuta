@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
 from ..services import get_email_sender
+from ..services.pricing import compute_effective_unit_price
 
 router = APIRouter(tags=["leads"])
 
@@ -180,7 +181,12 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
         merged_quantities[item.product_id] = merged_quantities.get(item.product_id, 0) + item.quantity
 
     product_ids = list(merged_quantities.keys())
-    products = db.query(models.Product).filter(models.Product.id.in_(product_ids)).all()
+    products = (
+        db.query(models.Product)
+        .filter(models.Product.id.in_(product_ids))
+        .options(selectinload(models.Product.quantity_discount_bundle).selectinload(models.QuantityDiscountBundle.tiers))
+        .all()
+    )
     products_by_id = {p.id: p for p in products}
     missing = [pid for pid in product_ids if pid not in products_by_id]
     if missing:
@@ -188,6 +194,15 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
 
     locale = payload.locale or "he"
     cart_group_id = uuid.uuid4().hex
+
+    # Combined quantity per quantity-discount bundle across this one checkout call — the
+    # "cumulative across the bundle's items in the cart" scope decided for this feature. A
+    # separate checkout call (e.g. two single-item "contact me now" clicks) does not combine.
+    bundle_aggregates: dict[int, int] = {}
+    for product_id, quantity in merged_quantities.items():
+        bundle_id = products_by_id[product_id].quantity_discount_bundle_id
+        if bundle_id is not None:
+            bundle_aggregates[bundle_id] = bundle_aggregates.get(bundle_id, 0) + quantity
 
     order = models.CustomerOrder(user_id=current_user.id)
     db.add(order)
@@ -198,6 +213,9 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
     for product_id, quantity in merged_quantities.items():
         product = products_by_id[product_id]
         product_title = getattr(product, f"title_{locale}", None) or product.title_he
+        unit_price, list_price, discount_percent = compute_effective_unit_price(
+            product, bundle_aggregates.get(product.quantity_discount_bundle_id, 0)
+        )
         lead = models.Lead(
             user_id=current_user.id,
             product_id=product.id,
@@ -208,6 +226,9 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
             quantity=quantity,
             cart_group_id=cart_group_id,
             customer_order_id=order.id,
+            unit_price_snapshot=unit_price,
+            list_price_snapshot=list_price,
+            quantity_discount_percent_snapshot=discount_percent,
         )
         db.add(lead)
         new_leads.append(lead)
@@ -259,6 +280,9 @@ def _my_order_line_from_lead(lead: models.Lead) -> schemas.MyOrderLineRead:
         product_price=product.price if product else None,
         shipping_address=lead.shipping_address,
         quantity=lead.quantity,
+        unit_price_snapshot=lead.unit_price_snapshot,
+        list_price_snapshot=lead.list_price_snapshot,
+        quantity_discount_percent_snapshot=lead.quantity_discount_percent_snapshot,
         created_at=lead.created_at,
     )
 
@@ -492,6 +516,9 @@ def _order_line_from_lead(lead: models.Lead) -> schemas.CustomerOrderLineRead:
         shipping_address=lead.shipping_address,
         quantity=lead.quantity,
         vendor_batch_id=lead.vendor_batch_id,
+        unit_price_snapshot=lead.unit_price_snapshot,
+        list_price_snapshot=lead.list_price_snapshot,
+        quantity_discount_percent_snapshot=lead.quantity_discount_percent_snapshot,
     )
 
 

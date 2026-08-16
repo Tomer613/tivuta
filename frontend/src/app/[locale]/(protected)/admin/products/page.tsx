@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, adminListProductCategories, adminBulkAssignCategory, productImageUrl, Vendor, Vertical, ProductCategory } from '@/lib/api';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, adminListProductCategories, adminBulkAssignCategory, adminListQuantityDiscounts, adminBulkAssignQuantityDiscount, productImageUrl, Vendor, Vertical, ProductCategory, QuantityDiscountBundle } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { useBulkSelection } from '@/lib/useBulkSelection';
 import { Product } from '@/components/ProductTile';
@@ -39,10 +39,13 @@ const EMPTY_FORM = {
     title_he: '', title_en: '', title_fr: '', title_yi: '',
     description_he: '', description_en: '', description_fr: '', description_yi: '',
     price: '',
+    sale_price: '',
+    discount_percent: '', // UI-only convenience, derived from (price, sale_price) — never submitted
     image_url: '',
     attributes: {} as Record<string, string>,
     vendor_id: '' as string | number,
     category_id: '' as string | number,
+    quantity_discount_bundle_id: '' as string | number,
 };
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -79,8 +82,11 @@ export default function AdminProductsPage() {
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [verticals, setVerticals] = useState<Vertical[]>([]);
     const [categories, setCategories] = useState<ProductCategory[]>([]);
+    const [bundles, setBundles] = useState<QuantityDiscountBundle[]>([]);
     const [bulkCategoryValue, setBulkCategoryValue] = useState('');
     const [bulkCategoryLoading, setBulkCategoryLoading] = useState(false);
+    const [bulkBundleValue, setBulkBundleValue] = useState('');
+    const [bulkBundleLoading, setBulkBundleLoading] = useState(false);
     const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
     const [translating, setTranslating] = useState(false);
     const [translateAvailable, setTranslateAvailable] = useState(true);
@@ -123,6 +129,11 @@ export default function AdminProductsPage() {
 
     useEffect(() => {
         if (!token) return;
+        adminListQuantityDiscounts(token).then(setBundles).catch(() => {});
+    }, [token]);
+
+    useEffect(() => {
+        if (!token) return;
         adminGetTranslateStatus(token).then((s) => setTranslateAvailable(s.available)).catch(() => setTranslateAvailable(true));
     }, [token]);
 
@@ -133,6 +144,7 @@ export default function AdminProductsPage() {
     const activeVerticals = useMemo(() => verticals.filter((v) => v.is_active), [verticals]);
     const activeCategories = useMemo(() => categories.filter((c) => c.is_active), [categories]);
     const formCategories = useMemo(() => activeCategories.filter((c) => c.vertical === form.vertical), [activeCategories, form.vertical]);
+    const activeBundles = useMemo(() => bundles.filter((b) => b.is_active), [bundles]);
     const getVerticalAttrs = (slug: string): AttrField[] =>
         (verticals.find((v) => v.slug === slug)?.attribute_fields || []).map((f) => ({
             key: f.key, label: f.label_he, type: f.type, placeholder: f.placeholder || undefined, options: f.options || undefined,
@@ -186,6 +198,23 @@ export default function AdminProductsPage() {
         }
     };
 
+    const handleBulkApplyBundle = async () => {
+        if (!token || selectedIds.size === 0 || bulkBundleValue === '') return;
+        setBulkBundleLoading(true);
+        try {
+            const quantity_discount_bundle_id = bulkBundleValue === BULK_CLEAR_VALUE ? null : Number(bulkBundleValue);
+            await adminBulkAssignQuantityDiscount(token, Array.from(selectedIds), quantity_discount_bundle_id);
+            setProducts((prev) => prev.map((p) => selectedIds.has(p.id) ? { ...p, quantity_discount_bundle_id } : p));
+            showToast('סל המבצע עודכן עבור המוצרים שנבחרו ✓');
+            clearSelection();
+            setBulkBundleValue('');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בעדכון סל מבצע'), 'error');
+        } finally {
+            setBulkBundleLoading(false);
+        }
+    };
+
     const handleDuplicate = async (p: Product) => {
         if (!token) return;
         try {
@@ -217,15 +246,20 @@ export default function AdminProductsPage() {
         if (p.attributes) {
             Object.entries(p.attributes).forEach(([k, v]) => { attrs[k] = String(v ?? ''); });
         }
+        const salePrice = p.sale_price && p.sale_price > 0 ? p.sale_price : null;
+        const discountPercent = salePrice && p.price ? Math.round((1 - salePrice / p.price) * 1000) / 10 : null;
         setForm({
             vertical: p.vertical,
             title_he: p.title_he || '', title_en: p.title_en || '', title_fr: p.title_fr || '', title_yi: p.title_yi || '',
             description_he: p.description_he || '', description_en: p.description_en || '', description_fr: p.description_fr || '', description_yi: p.description_yi || '',
             price: p.price ? String(p.price) : '',
+            sale_price: salePrice ? String(salePrice) : '',
+            discount_percent: discountPercent != null ? String(discountPercent) : '',
             image_url: p.image_url || '',
             attributes: attrs,
             vendor_id: p.vendor_id ?? '',
             category_id: p.category_id ?? '',
+            quantity_discount_bundle_id: p.quantity_discount_bundle_id ?? '',
         });
         setLangTab('he');
         setShowForm(true);
@@ -253,6 +287,28 @@ export default function AdminProductsPage() {
         }
     };
 
+    // Two-way sync between "sale price" and "discount %" — both are always recomputed fresh from
+    // form.price (never chained from each other's previous derived value), so there's no feedback
+    // loop and nothing that can drift: only form.sale_price is ever submitted, discount_percent is
+    // pure UI convenience.
+    const handleSalePriceChange = (value: string) => {
+        const priceNum = Number(form.price);
+        const saleNum = Number(value);
+        const percent = value !== '' && priceNum > 0 && !isNaN(saleNum)
+            ? Math.round((1 - saleNum / priceNum) * 1000) / 10
+            : '';
+        setForm({ ...form, sale_price: value, discount_percent: percent === '' ? '' : String(percent) });
+    };
+
+    const handleDiscountPercentChange = (value: string) => {
+        const priceNum = Number(form.price);
+        const percentNum = Number(value);
+        const sale = value !== '' && priceNum > 0 && !isNaN(percentNum)
+            ? Math.round(priceNum * (1 - percentNum / 100) * 100) / 100
+            : '';
+        setForm({ ...form, discount_percent: value, sale_price: sale === '' ? '' : String(sale) });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
@@ -268,10 +324,12 @@ export default function AdminProductsPage() {
             title_he: form.title_he, title_en: form.title_en || null, title_fr: form.title_fr || null, title_yi: form.title_yi || null,
             description_he: form.description_he, description_en: form.description_en || null, description_fr: form.description_fr || null, description_yi: form.description_yi || null,
             price: form.price ? Number(form.price) : null,
+            sale_price: form.sale_price ? Number(form.sale_price) : 0,
             image_url: form.image_url || null,
             attributes: Object.keys(cleanAttrs).length > 0 ? cleanAttrs : null,
             vendor_id: form.vendor_id ? Number(form.vendor_id) : null,
             category_id: form.category_id ? Number(form.category_id) : null,
+            quantity_discount_bundle_id: form.quantity_discount_bundle_id ? Number(form.quantity_discount_bundle_id) : null,
             is_active: true,
         };
         try {
@@ -526,6 +584,25 @@ export default function AdminProductsPage() {
                 </div>
             )}
 
+            {selectedIds.size > 0 && activeBundles.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 mb-4 bg-[#0e1628] border border-[#d4af37]/30 rounded-2xl px-5 py-3">
+                    <span className="text-sm font-bold text-[#d4af37]">{selectedIds.size} נבחרו</span>
+                    <select value={bulkBundleValue} onChange={(e) => setBulkBundleValue(e.target.value)} className="bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-3 py-1.5 text-xs text-[#f0e6d3]">
+                        <option value="" disabled>בחר סל מבצע כמות...</option>
+                        <option value={BULK_CLEAR_VALUE}>ללא סל מבצע (נקה)</option>
+                        {activeBundles.map((b) => <option key={b.id} value={b.id}>{b.name_he} ({b.bundle_code})</option>)}
+                    </select>
+                    <button
+                        onClick={handleBulkApplyBundle}
+                        disabled={bulkBundleLoading || bulkBundleValue === ''}
+                        className="bg-[#d4af37] text-[#080d1f] px-4 py-1.5 rounded-xl text-xs font-black disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                        {bulkBundleLoading ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} החל סל מבצע
+                    </button>
+                    <button onClick={clearSelection} className="text-xs text-[#f0e6d3]/40 hover:text-[#f0e6d3]"><X size={14} /></button>
+                </div>
+            )}
+
             {loading ? (
                 <Loader2 className="animate-spin text-[#d4af37] mx-auto" size={32} />
             ) : (
@@ -580,7 +657,21 @@ export default function AdminProductsPage() {
                                                 {translatedCount}/3
                                             </span>
                                         </td>
-                                        <td className="p-4 text-sm">{p.price ? `₪${Number(p.price).toLocaleString()}` : '-'}</td>
+                                        <td className="p-4 text-sm">
+                                            {p.sale_price && p.sale_price > 0 && p.price ? (
+                                                <div className="flex flex-col">
+                                                    <span className="text-[#f0e6d3]/30 line-through text-xs">₪{Number(p.price).toLocaleString()}</span>
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span className="text-[#d4af37] font-bold">₪{Number(p.sale_price).toLocaleString()}</span>
+                                                        <span className="bg-[#d4af37]/15 text-[#d4af37] text-[10px] font-black px-1.5 py-0.5 rounded-full">
+                                                            ‑{Math.round((1 - p.sale_price / p.price) * 100)}%
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                p.price ? `₪${Number(p.price).toLocaleString()}` : '-'
+                                            )}
+                                        </td>
                                         <td className="p-4">
                                             <button
                                                 onClick={() => handleToggleActive(p)}
@@ -669,6 +760,20 @@ export default function AdminProductsPage() {
                             )}
                         </div>
 
+                        {/* Quantity discount bundle */}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סל מבצע כמות</label>
+                            <select value={form.quantity_discount_bundle_id} onChange={(e) => setForm({ ...form, quantity_discount_bundle_id: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]">
+                                <option value="">ללא סל מבצע</option>
+                                {activeBundles.map((b) => (
+                                    <option key={b.id} value={b.id}>{b.name_he} ({b.bundle_code})</option>
+                                ))}
+                            </select>
+                            {activeBundles.length === 0 && (
+                                <p className="text-[11px] text-[#f0e6d3]/30 mt-1">אין סלי מבצע עדיין — ניתן להוסיף בעמוד &quot;מבצעי כמות&quot;</p>
+                            )}
+                        </div>
+
                         {/* Language tabs */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
@@ -742,6 +847,37 @@ export default function AdminProductsPage() {
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מחיר (₪)</label>
                             <input type="number" min={0} placeholder="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
                         </div>
+
+                        {/* Sale price / discount % — two-way sync, only sale_price is submitted */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מחיר מבצע סופי (₪)</label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    placeholder="0 = ללא מבצע"
+                                    value={form.sale_price}
+                                    onChange={(e) => handleSalePriceChange(e.target.value)}
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-1 block">אחוז הנחה</label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    placeholder="0"
+                                    disabled={!form.price}
+                                    value={form.discount_percent}
+                                    onChange={(e) => handleDiscountPercentChange(e.target.value)}
+                                    className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] disabled:opacity-40"
+                                />
+                            </div>
+                        </div>
+                        {!form.price && form.sale_price && (
+                            <p className="text-[11px] text-red-400/70">יש להזין מחיר רגיל לפני הגדרת מחיר מבצע</p>
+                        )}
 
                         {/* Vertical-specific attributes */}
                         {verticalAttrs.length > 0 && (

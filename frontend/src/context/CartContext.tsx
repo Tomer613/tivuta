@@ -13,6 +13,9 @@ export interface CartItem {
     title_yi?: string | null;
     image_url?: string | null;
     price?: number | null;
+    sale_price?: number | null;
+    quantity_discount_bundle_id?: number | null;
+    quantity_discount_tiers?: { min_quantity: number; discount_percent: number }[] | null;
     quantity: number;
 }
 

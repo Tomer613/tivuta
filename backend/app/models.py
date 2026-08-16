@@ -230,6 +230,47 @@ class ProductCategory(Base):
     products = relationship("Product", back_populates="category")
 
 
+class QuantityDiscountBundle(Base):
+    """
+    An admin-defined "deal basket" ("סל מבצע") grouping any set of products. If the combined
+    quantity of a customer's cart items drawn from this bundle's products crosses a tier
+    threshold, every item in the bundle gets that tier's percentage off. A product belongs to at
+    most one bundle at a time (nullable FK on Product, same shape as Vendor/ProductCategory) so
+    "which bundle applies" is never ambiguous.
+    """
+    __tablename__ = "quantity_discount_bundles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name_he = Column(String(255), nullable=False)
+    name_en = Column(String(255), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    tiers = relationship(
+        "QuantityDiscountTier",
+        back_populates="bundle",
+        cascade="all, delete-orphan",
+        order_by="QuantityDiscountTier.min_quantity",
+    )
+    products = relationship("Product", back_populates="quantity_discount_bundle")
+
+    @property
+    def bundle_code(self) -> str:
+        return f"QD-{self.id:06d}"
+
+
+class QuantityDiscountTier(Base):
+    """One quantity break within a QuantityDiscountBundle, e.g. '5+ units -> 15% off'."""
+    __tablename__ = "quantity_discount_tiers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    bundle_id = Column(Integer, ForeignKey("quantity_discount_bundles.id", ondelete="CASCADE"), nullable=False, index=True)
+    min_quantity = Column(Integer, nullable=False)
+    discount_percent = Column(Float, nullable=False)
+
+    bundle = relationship("QuantityDiscountBundle", back_populates="tiers")
+
+
 class Product(Base):
     """
     A catalog item for the new multi-vertical site (diamonds / cars / insurance).
@@ -252,18 +293,23 @@ class Product(Base):
 
     image_url = Column(String(255), nullable=True)
     price = Column(Float, nullable=True)
+    sale_price = Column(Float, nullable=False, default=0.0)  # 0 = no sale; the one stored source of
+    # truth for "מחיר מבצע" — a discount percent is always derived from (price, sale_price) at
+    # display/edit time, never stored, so there is nothing that can drift out of sync.
     attributes = Column(JSON, nullable=True)  # vertical-specific facets, e.g. {"carat": 1.2, "clarity": "VS1"}
     is_active = Column(Boolean, default=True)
     view_count = Column(Integer, default=0, nullable=False)
     popularity_score = Column(Integer, default=0, nullable=False)  # count of confirmed SaleTransaction rows
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True)
+    quantity_discount_bundle_id = Column(Integer, ForeignKey("quantity_discount_bundles.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     promotions = relationship("Promotion", secondary=product_promotions_table, back_populates="products")
     reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan")
     vendor = relationship("Vendor", back_populates="products")
     category = relationship("ProductCategory", back_populates="products")
+    quantity_discount_bundle = relationship("QuantityDiscountBundle", back_populates="products")
 
 
 class Promotion(Base):
@@ -346,6 +392,13 @@ class Lead(Base):
     shipping_address = Column(JSON, nullable=True)  # {full_name, street, city, zip_code, phone} — 'card_order' leads only
     quantity = Column(Integer, nullable=True, default=1)
     cart_group_id = Column(String(40), nullable=True, index=True)  # shared across leads created from one cart checkout
+    # Price snapshot, 'contact_request' leads only — computed once at checkout time by
+    # services/pricing.py and never re-derived from the live Product row afterward, so a later
+    # price/sale/bundle change never rewrites what an already-placed order shows. NULL for every
+    # other lead_type and for "on request" products (Product.price is None).
+    unit_price_snapshot = Column(Float, nullable=True)  # actual per-unit price charged
+    list_price_snapshot = Column(Float, nullable=True)  # plain regular price at that moment
+    quantity_discount_percent_snapshot = Column(Float, nullable=True)  # tier percent applied (0 if none)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", foreign_keys=[user_id])
