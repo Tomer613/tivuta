@@ -373,10 +373,11 @@ export default function AdminProductsPage() {
         try {
             await adminDeleteProduct(token, id);
             setDeletingId(null);
-            showToast('המוצר נמחק');
-            load();
-        } catch {
-            showToast('שגיאה במחיקה', 'error');
+            setProducts((prev) => prev.filter((p) => p.id !== id));
+            showToast('המוצר נמחק לצמיתות ✓');
+        } catch (err) {
+            setDeletingId(null);
+            showToast(getErrorMessage(err, 'שגיאה במחיקה'), 'error');
         }
     };
 

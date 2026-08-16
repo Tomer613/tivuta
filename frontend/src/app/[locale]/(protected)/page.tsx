@@ -119,7 +119,7 @@ export default function HomePage() {
                     <p className="text-xl text-[#f0e6d3]/60 font-light">{t.subtitle}</p>
                 </div>
 
-                <div className="flex flex-col gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                     {verticals.map((v) => {
                         const Icon = getVerticalIcon(v.icon);
                         const title = v[`label_${localeKey}`] || v.label_he;

@@ -362,12 +362,32 @@ async def admin_import_csv(file: UploadFile = File(...), db: Session = Depends(g
 
 @router.delete("/admin/products/{product_id}", dependencies=[Depends(get_current_admin)])
 def admin_delete_product(product_id: int, db: Session = Depends(get_db)):
+    """Permanently deletes the product when nothing historical references it (a real DELETE, not
+    the is_active=False hide — that remains a separate action, PUT .../admin/products/{id} with
+    {is_active: false}, wired to the products table's status-pill toggle). Blocked (409) whenever
+    a Lead/PromotionEntry/SurveyOption/Distribution/SaleTransaction row points at
+    this product — exactly the set of FKs that have no `ondelete=` and would make Postgres reject
+    the delete outright in production anyway, so this check just surfaces that as a clear message
+    instead of a raw IntegrityError. Favorite rows are cleaned up explicitly (no ORM relationship
+    declared on the Product side to cascade them automatically); Review rows and product_promotions
+    association rows are handled by the existing ORM cascade / SQLAlchemy's automatic secondary-
+    table cleanup."""
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    product.is_active = False
+
+    blockers = [models.Lead, models.PromotionEntry, models.SurveyOption, models.Distribution, models.SaleTransaction]
+    for model in blockers:
+        if db.query(model.id).filter(model.product_id == product_id).first():
+            raise HTTPException(
+                status_code=409,
+                detail="למוצר זה יש היסטוריית הזמנות/מבצעים/סקרים ולכן לא ניתן למחוק אותו לצמיתות — ניתן להסתיר אותו באמצעות כפתור הסטטוס",
+            )
+
+    db.query(models.Favorite).filter(models.Favorite.product_id == product_id).delete()
+    db.delete(product)
     db.commit()
-    return {"message": "Product deactivated"}
+    return {"message": "Product deleted"}
 
 
 @router.patch("/admin/products/bulk-category", dependencies=[Depends(get_current_admin)])

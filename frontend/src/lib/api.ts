@@ -1030,7 +1030,10 @@ export async function adminDeleteProduct(token: string, id: number) {
         method: 'DELETE',
         headers: authHeaders(token),
     });
-    if (!res.ok) throw new Error('Failed to delete product');
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to delete product');
+    }
     return res.json();
 }
 
