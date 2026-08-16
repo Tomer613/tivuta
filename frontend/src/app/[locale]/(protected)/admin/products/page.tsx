@@ -374,6 +374,9 @@ export default function AdminProductsPage() {
             await adminDeleteProduct(token, id);
             setDeletingId(null);
             setProducts((prev) => prev.filter((p) => p.id !== id));
+            // The row (and its checkbox) is gone from the table now — drop it from the bulk
+            // selection too, so a stale id can't linger in a "N selected" count/bulk action.
+            if (selectedIds.has(id)) toggleSelect(id);
             showToast('המוצר נמחק לצמיתות ✓');
         } catch (err) {
             setDeletingId(null);
