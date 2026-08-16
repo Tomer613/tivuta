@@ -44,6 +44,20 @@ def _product_read(product: models.Product) -> schemas.ProductRead:
     return result
 
 
+def _parse_optional_id(raw: str) -> Optional[int]:
+    """Tolerates a whole-number-valued float string (e.g. "5.0") — a common artifact of a CSV
+    round-tripping through Excel/Sheets, which auto-formats an integer ID column that way. A
+    genuinely fractional value (e.g. "5.5") is not a valid row id and still raises, same as
+    plain int() would for any other non-numeric garbage."""
+    raw = raw.strip()
+    if not raw:
+        return None
+    value = float(raw)
+    if not value.is_integer():
+        raise ValueError(f"'{raw}' is not a valid id")
+    return int(value)
+
+
 def _validate_sale_price(price: Optional[float], sale_price: Optional[float]) -> None:
     """sale_price=0 (or None) means 'no sale' and needs no base price. Anything above 0 must be
     a genuine discount off a real, positive price — never >= it."""
@@ -336,12 +350,9 @@ async def admin_import_csv(file: UploadFile = File(...), db: Session = Depends(g
             price = float(price_raw) if price_raw else None
             sale_price_raw = (row.get("sale_price") or "").strip()
             sale_price = float(sale_price_raw) if sale_price_raw else 0.0
-            vendor_id_raw = (row.get("vendor_id") or "").strip()
-            vendor_id = int(vendor_id_raw) if vendor_id_raw else None
-            category_id_raw = (row.get("category_id") or "").strip()
-            category_id = int(category_id_raw) if category_id_raw else None
-            bundle_id_raw = (row.get("quantity_discount_bundle_id") or "").strip()
-            bundle_id = int(bundle_id_raw) if bundle_id_raw else None
+            vendor_id = _parse_optional_id(row.get("vendor_id") or "")
+            category_id = _parse_optional_id(row.get("category_id") or "")
+            bundle_id = _parse_optional_id(row.get("quantity_discount_bundle_id") or "")
         except ValueError:
             errors.append(f"Row {i+2}: price/sale_price/vendor_id/category_id/quantity_discount_bundle_id must be numeric")
             continue

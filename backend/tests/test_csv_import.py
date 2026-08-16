@@ -99,3 +99,39 @@ def test_import_csv_skips_row_with_non_numeric_id_gracefully(client, db_session,
     imported = resp.json()
     assert len(imported) == 1
     assert imported[0]["title_he"] == "מוצר תקין שני"
+
+
+def test_import_csv_tolerates_excel_float_formatted_ids(client, db_session, make_user):
+    """Excel/Sheets commonly reformats an integer ID column as e.g. "5.0" when a CSV round-trips
+    through it — this must still resolve to vendor id 5, not be rejected as non-numeric."""
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
+    db_session.commit()
+    headers = _make_admin_headers(client, make_user)
+
+    vendor = models.Vendor(vertical="diamonds", name_he="ספק")
+    db_session.add(vendor)
+    db_session.commit()
+    db_session.refresh(vendor)
+
+    csv_text = (
+        "vertical,title_he,description_he,price,vendor_id\n"
+        f"diamonds,מוצר עם ספק בפורמט אקסל,תיאור,100,{vendor.id}.0\n"
+    )
+    resp = _upload(client, headers, csv_text)
+    assert resp.status_code == 200
+    imported = resp.json()
+    assert len(imported) == 1
+    assert imported[0]["vendor_id"] == vendor.id
+
+
+def test_import_csv_rejects_genuinely_fractional_id(client, db_session, make_user):
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
+    db_session.commit()
+    headers = _make_admin_headers(client, make_user)
+
+    csv_text = (
+        "vertical,title_he,description_he,price,vendor_id\n"
+        "diamonds,מוצר עם ספק שגוי חלקית,תיאור,100,5.5\n"
+    )
+    resp = _upload(client, headers, csv_text)
+    assert resp.status_code == 400
