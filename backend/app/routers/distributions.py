@@ -279,7 +279,10 @@ def admin_send_distribution(distribution_id: int, background_tasks: BackgroundTa
 def admin_preview_distribution(distribution_id: int, db: Session = Depends(get_db)):
     distribution = (
         db.query(models.Distribution)
-        .options(selectinload(models.Distribution.survey), selectinload(models.Distribution.product))
+        .options(
+            selectinload(models.Distribution.survey).selectinload(models.Survey.options).selectinload(models.SurveyOption.product),
+            selectinload(models.Distribution.product),
+        )
         .filter(models.Distribution.id == distribution_id)
         .first()
     )

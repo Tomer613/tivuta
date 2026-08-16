@@ -106,14 +106,27 @@ export default function SurveyCard({
     const autoSubmitRef = useRef(false);
 
     const pendingKey = `tivuta_pending_vote_${survey.id}`;
+    const RESUME_PARAM = 'resume_vote';
 
     // A visitor can pick an option while logged out (see submitVote); once they log in and land
     // back here, auto-submit whatever they'd already chosen instead of making them pick again.
+    //
+    // Critically, this ONLY fires when the URL carries the one-time `resume_vote=1` marker that
+    // submitVote() itself appends to the login redirect target below - never merely because a
+    // token happens to be present. A token-only check is not enough to prove "the person who just
+    // logged in in this tab is the same person who picked this option": sessionStorage is scoped
+    // to the tab, not to a login session, so on a shared/family computer someone else logging into
+    // their own unrelated account in that same still-open tab (no logout by the original visitor
+    // required at all) would otherwise silently inherit and auto-cast the earlier pick as their
+    // own vote. The marker is stripped from the URL right after this effect resolves so a reload
+    // or a copied/shared link can never be mistaken for a fresh resume.
     useEffect(() => {
         if (!token || survey.has_voted || autoSubmitRef.current) return;
+        if (new URLSearchParams(window.location.search).get(RESUME_PARAM) !== '1') return;
+
         let pending: unknown;
         try {
-            const raw = localStorage.getItem(pendingKey);
+            const raw = sessionStorage.getItem(pendingKey);
             if (!raw) return;
             pending = JSON.parse(raw);
         } catch {
@@ -122,6 +135,14 @@ export default function SurveyCard({
         if (!Array.isArray(pending) || pending.length === 0) return;
         autoSubmitRef.current = true;
         const optionIds = pending as number[];
+
+        const stripResumeMarker = () => {
+            const params = new URLSearchParams(window.location.search);
+            params.delete(RESUME_PARAM);
+            const qs = params.toString();
+            router.replace(`${window.location.pathname}${qs ? `?${qs}` : ''}`);
+        };
+
         (async () => {
             try {
                 const updated = await voteSurvey(token, survey.id, optionIds);
@@ -131,7 +152,8 @@ export default function SurveyCard({
                 // The pending vote couldn't be applied (e.g. the poll changed in the meantime) -
                 // drop it silently; the visitor can just vote again normally.
             } finally {
-                try { localStorage.removeItem(pendingKey); } catch { /* ignore */ }
+                try { sessionStorage.removeItem(pendingKey); } catch { /* ignore */ }
+                stripResumeMarker();
             }
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,9 +190,11 @@ export default function SurveyCard({
 
         if (!token) {
             try {
-                localStorage.setItem(pendingKey, JSON.stringify(Array.from(selected)));
+                sessionStorage.setItem(pendingKey, JSON.stringify(Array.from(selected)));
             } catch { /* ignore - worst case the visitor just has to pick again after login */ }
-            requireLogin(token, router, locale, window.location.pathname + window.location.search);
+            const params = new URLSearchParams(window.location.search);
+            params.set(RESUME_PARAM, '1');
+            requireLogin(token, router, locale, `${window.location.pathname}?${params.toString()}`);
             return;
         }
 
