@@ -2723,6 +2723,100 @@ every past order. That became a third piece, **order price snapshotting**, built
 
 ---
 
+## Product Delete Fix + Home Page Layout + CSV Import Extension + E2E Coverage (session 2026-08-16)
+
+Follow-up bug-fix/hardening pass after the sale-price/quantity-discount session above.
+
+- **Admin "delete product" now actually deletes.** `DELETE /admin/products/{id}` (`routers/
+  products.py`) used to just set `is_active = False` — identical to the separate status-pill
+  toggle already on that page, so the trash-can-with-confirm control silently did nothing extra
+  despite promising permanent deletion. Checked every `ForeignKey("products.id")` in `models.py`
+  first: an unconditional hard delete isn't safe (Postgres would reject it outright for a product
+  ever entered into a promotion or survey, since those FKs have no `ondelete=`). Fixed with a
+  **conditional real delete**: removes the row for real when nothing historical
+  (`Lead`/`PromotionEntry`/`SurveyOption`/`Distribution`/`SaleTransaction`) references it,
+  explicitly cleaning up `Favorite` rows (no ORM relationship declared on the `Product` side, so
+  neither the ORM cascade nor SQLite's inert `ondelete="CASCADE"` — never enforced, no `PRAGMA
+  foreign_keys=ON` anywhere — would catch it), and returns a clear 409 otherwise, leaving the
+  product completely untouched (not silently hidden as a fallback). `Review` rows and
+  `product_promotions` association rows are cleaned up automatically (verified live with a
+  dedicated test, not just assumed — `Product.reviews` has `cascade="all, delete-orphan"`, and
+  SQLAlchemy auto-manages `secondary=` association-table rows on delete of either side; the
+  `Promotion` itself correctly survives, only the membership row and the product go). Frontend
+  (`admin/products/page.tsx`) branches on the real outcome: 200 removes the row from local state
+  with an honest "נמחק לצמיתות" toast; 409 shows the backend's explanation and leaves the row in
+  place. Also found and fixed a real stale-selection bug while reviewing this: deleting a
+  checkbox-selected row didn't clear it from `useBulkSelection`'s `selectedIds`, so a "N נבחרו"
+  bulk-action count could keep counting a row no longer in the table.
+- **A related, independently-found bug**: the product edit form's submit payload hardcoded
+  `is_active: true` unconditionally (shared between the create and edit branches), so editing
+  *any* field of a hidden product — fixing a typo, adjusting price, anything — silently
+  re-published it. Confirmed live (hide → edit unrelated field → `is_active` flips back to `true`
+  with no indication anything changed). Fixed by carrying the product's actual current `is_active`
+  into the form on open (`openEditForm`) and submitting that instead of a literal `true`; new
+  products still default to active via `EMPTY_FORM`.
+- **Home page world tiles are 2-per-row on desktop.** `(protected)/page.tsx`'s tile container had
+  `flex flex-col gap-8` with zero responsive variants, so every tile stretched to the full
+  `max-w-5xl` (1024px) content width at every screen size — fine on mobile, oversized on desktop.
+  Changed to `grid grid-cols-1 sm:grid-cols-2 gap-8`, the same 1→2-column pattern already used
+  elsewhere in this codebase (`register/page.tsx`, `admin/loyalty/page.tsx`) — `VerticalTile.tsx`
+  itself needed no changes, since it has no fixed width and already scales its padding/icon/text
+  responsively. Verified via real screenshots at 1280px (2-per-row, normal size) and 390px
+  (unchanged single column).
+- **CSV product import/export gained the newer fields**: `sale_price`, `vendor_id`, `category_id`,
+  `quantity_discount_bundle_id` — all optional, by numeric ID (matching how the admin form already
+  stores/sends these as bare integers, no fuzzy name-matching). `admin_import_csv` reuses the exact
+  same validation helpers as the single-product endpoints (`_validate_sale_price`, `_validate_vendor`,
+  `validate_category`, `validate_quantity_discount_bundle`) rather than duplicating the rules,
+  wrapped to fit the existing per-row "collect errors, skip the row, keep going" pattern instead of
+  aborting the whole batch on one bad row. A malformed numeric cell (e.g. non-numeric `vendor_id`)
+  is now also caught and skipped per-row — previously would have thrown an unhandled `ValueError`
+  and 500'd the entire import. `exportCsv()` (`admin/products/page.tsx`) and the CSV-modal help text
+  were updated to match, keeping export/import column-symmetric as CLAUDE.md's own convention notes.
+- **New E2E spec `frontend/e2e/product-pricing.spec.ts`** (3 tests): storefront tile strikethrough +
+  discount badge for a seeded sale-price product; a quantity-discount bundle created and assigned
+  via the API, checked out through the real cart UI, and its stacked-discount math (sale price ×
+  tier percent) confirmed to survive into `/profile#my-orders` — proving the discount was actually
+  persisted server-side, not just a client preview; and the admin delete flow both ways (real
+  delete for an unused product, blocked-with-explanation for one with real order history, product
+  untouched). `backend/scripts/seed_e2e.py` gained one new stable seeded product (price 2000,
+  sale_price 1500) for the first test; the bundle in the second test is a throwaway per-run fixture
+  created by the test itself (matching `admin-bulk-actions.spec.ts`'s existing precedent for
+  single-spec-owned fixtures), unassigned again at the end so it doesn't linger discounting the two
+  shared seeded products for any spec running after it.
+- **Found and fixed an unrelated, pre-existing E2E drift while running the full suite**: `auth.
+  spec.ts`'s lockout assertion checked for the English string `'Too many failed login attempts'`,
+  but the "Live Countdown in the Lockout Message" session (see above) had replaced that static
+  423 `detail` text with a live, Hebrew-localized `<LockoutCountdown>` component weeks earlier —
+  the spec was never updated to match and had been silently broken since. Not caused by this
+  session's changes (confirmed: nothing here touches auth/lockout code), just never caught because
+  the full E2E suite hadn't been run end-to-end since that countdown session shipped. Fixed the
+  assertion to check the actual Hebrew string.
+- **A verification false-start worth recording**: an earlier explore pass (this session's own
+  agent output) claimed `adminListVendors`/`adminListProductCategories` (`lib/api.ts`) built their
+  fetch URLs with literal backslashes (`` `${BASE_URL}\admin\vendors` ``) instead of forward
+  slashes — which would be a real, severe bug (`\v` is a genuine JS escape sequence, vertical tab,
+  so `\vendors` would silently mangle into a control character). Investigated with a live network
+  capture (Playwright) before reporting it, found the actual request hit the correct URL, then
+  resolved the contradiction with a raw `od -c` byte dump of the file — the source has always had
+  real forward slashes; the backslash claim was a transcription artifact somewhere in how the
+  content had been relayed, not a bug in the file. **Lesson for future sessions**: don't trust an
+  agent's (or your own) quoted "verbatim" code snippet for a claim this specific without checking
+  the raw bytes directly first, especially when a live behavioral test already contradicts it —
+  trust the live result over the quoted text.
+- **Verified end-to-end**: backend `pytest` 69/69 (4 new CSV-import tests: new columns round-trip
+  correctly, an invalid `sale_price` row is skipped while other rows still import, a nonexistent
+  `vendor_id` row is skipped with a clear error, a non-numeric id column is skipped instead of
+  crashing the batch); `tsc --noEmit`, `npm run lint` (0 errors, same 40 pre-existing warnings),
+  and `npm run build` all clean; full Playwright E2E suite green (9/9, all specs including the
+  3 new ones and the fixed `auth.spec.ts`), run twice against a freshly-seeded DB each time
+  (CLAUDE.md's own documented rule — `auth.spec.ts` locks an account for 15 real minutes, so a
+  reused DB changes the spec's starting state and was confirmed live to cause a spurious failure
+  on the first, accidental reused-DB run). Dev DB/E2E DB and server processes cleaned up
+  afterward.
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.

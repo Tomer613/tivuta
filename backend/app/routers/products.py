@@ -331,10 +331,32 @@ async def admin_import_csv(file: UploadFile = File(...), db: Session = Depends(g
             attributes = _json.loads(attrs_raw) if attrs_raw else None
         except Exception:
             attributes = None
-        price_raw = (row.get("price") or "").strip()
-        price = float(price_raw) if price_raw else None
+        try:
+            price_raw = (row.get("price") or "").strip()
+            price = float(price_raw) if price_raw else None
+            sale_price_raw = (row.get("sale_price") or "").strip()
+            sale_price = float(sale_price_raw) if sale_price_raw else 0.0
+            vendor_id_raw = (row.get("vendor_id") or "").strip()
+            vendor_id = int(vendor_id_raw) if vendor_id_raw else None
+            category_id_raw = (row.get("category_id") or "").strip()
+            category_id = int(category_id_raw) if category_id_raw else None
+            bundle_id_raw = (row.get("quantity_discount_bundle_id") or "").strip()
+            bundle_id = int(bundle_id_raw) if bundle_id_raw else None
+        except ValueError:
+            errors.append(f"Row {i+2}: price/sale_price/vendor_id/category_id/quantity_discount_bundle_id must be numeric")
+            continue
         is_active_raw = (row.get("is_active") or "true").strip().lower()
         is_active = is_active_raw not in ("false", "0", "no")
+
+        try:
+            _validate_sale_price(price, sale_price)
+            _validate_vendor(vendor_id, vertical, db)
+            validate_category(category_id, vertical, db)
+            validate_quantity_discount_bundle(bundle_id, db)
+        except HTTPException as e:
+            errors.append(f"Row {i+2}: {e.detail}")
+            continue
+
         product = models.Product(
             vertical=vertical,
             title_he=title_he,
@@ -347,7 +369,11 @@ async def admin_import_csv(file: UploadFile = File(...), db: Session = Depends(g
             description_yi=(row.get("description_yi") or "").strip() or None,
             image_url=(row.get("image") or row.get("image_url") or "").strip() or None,
             price=price,
+            sale_price=sale_price,
             attributes=attributes,
+            vendor_id=vendor_id,
+            category_id=category_id,
+            quantity_discount_bundle_id=bundle_id,
             is_active=is_active,
         )
         db.add(product)

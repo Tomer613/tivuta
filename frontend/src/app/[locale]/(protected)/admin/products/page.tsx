@@ -46,6 +46,7 @@ const EMPTY_FORM = {
     vendor_id: '' as string | number,
     category_id: '' as string | number,
     quantity_discount_bundle_id: '' as string | number,
+    is_active: true,
 };
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -260,6 +261,7 @@ export default function AdminProductsPage() {
             vendor_id: p.vendor_id ?? '',
             category_id: p.category_id ?? '',
             quantity_discount_bundle_id: p.quantity_discount_bundle_id ?? '',
+            is_active: p.is_active ?? true,
         });
         setLangTab('he');
         setShowForm(true);
@@ -330,7 +332,10 @@ export default function AdminProductsPage() {
             vendor_id: form.vendor_id ? Number(form.vendor_id) : null,
             category_id: form.category_id ? Number(form.category_id) : null,
             quantity_discount_bundle_id: form.quantity_discount_bundle_id ? Number(form.quantity_discount_bundle_id) : null,
-            is_active: true,
+            // Preserves the product's current hidden/visible state on edit — a hardcoded `true`
+            // here used to silently re-publish a hidden product on any unrelated edit (e.g. fixing
+            // a typo). New products (no editProduct) still default to active via EMPTY_FORM.
+            is_active: form.is_active,
         };
         try {
             if (editProduct) {
@@ -409,11 +414,12 @@ export default function AdminProductsPage() {
     const verticalAttrs = getVerticalAttrs(form.vertical);
 
     const exportCsv = () => {
-        const header = ['vertical', 'title_he', 'title_en', 'title_fr', 'title_yi', 'description_he', 'description_en', 'description_fr', 'description_yi', 'price', 'image', 'is_active', 'attributes'];
+        const header = ['vertical', 'title_he', 'title_en', 'title_fr', 'title_yi', 'description_he', 'description_en', 'description_fr', 'description_yi', 'price', 'sale_price', 'vendor_id', 'category_id', 'quantity_discount_bundle_id', 'image', 'is_active', 'attributes'];
         const rows = filtered.map((p) => [
             p.vertical, p.title_he, p.title_en || '', p.title_fr || '', p.title_yi || '',
             p.description_he, p.description_en || '', p.description_fr || '', p.description_yi || '',
-            p.price ?? '', p.image_url || '', p.is_active ? 'true' : 'false',
+            p.price ?? '', p.sale_price ?? '', p.vendor_id ?? '', p.category_id ?? '', p.quantity_discount_bundle_id ?? '',
+            p.image_url || '', p.is_active ? 'true' : 'false',
             p.attributes ? JSON.stringify(p.attributes) : '',
         ]);
         const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -969,6 +975,7 @@ export default function AdminProductsPage() {
                             <p><code className="text-[#f0e6d3]/70">vertical</code> — {verticals.map((v) => v.slug).join(' | ')}</p>
                             <p><code className="text-[#f0e6d3]/70">title_he</code> — כותרת בעברית (חובה)</p>
                             <p><code className="text-[#f0e6d3]/70">description_he</code>, <code className="text-[#f0e6d3]/70">price</code>, <code className="text-[#f0e6d3]/70">image</code>, <code className="text-[#f0e6d3]/70">is_active</code>, <code className="text-[#f0e6d3]/70">attributes</code> (JSON)</p>
+                            <p className="pt-1"><code className="text-[#f0e6d3]/70">sale_price</code> (מחיר מבצע, 0 = ללא), <code className="text-[#f0e6d3]/70">vendor_id</code>, <code className="text-[#f0e6d3]/70">category_id</code>, <code className="text-[#f0e6d3]/70">quantity_discount_bundle_id</code> — כולן אופציונליות, לפי מזהה מספרי (ID)</p>
                         </div>
                         <div
                             className="border-2 border-dashed border-[#d4af37]/20 rounded-2xl p-8 text-center cursor-pointer hover:border-[#d4af37]/40 transition-colors"

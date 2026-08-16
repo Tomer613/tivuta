@@ -25,9 +25,12 @@ test('locks the account after repeated wrong passwords and shows the specific lo
     }
 
     // 4th attempt uses the CORRECT password, but the account is now locked — must show the
-    // specific 423 message, not the generic wrong-password one.
+    // specific 423 message, not the generic wrong-password one. This renders via the live
+    // <LockoutCountdown> component (see the "Live Countdown in the Lockout Message" session in
+    // CLAUDE.md), which is Hebrew-localized here (the spec logs in via /he/login) — asserting on
+    // the English string this used to be a static 423 `detail` would never match.
     await page.fill('input[type="email"]', LOCKOUT_EMAIL);
     await page.fill('input[type="password"]', LOCKOUT_PASSWORD);
     await page.click('button[type="submit"]');
-    await expect(page.getByText('Too many failed login attempts')).toBeVisible();
+    await expect(page.getByText('יותר מדי ניסיונות כניסה כושלים')).toBeVisible();
 });

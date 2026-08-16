@@ -132,6 +132,23 @@ def seed_e2e():
                 },
             )
 
+        # Dedicated to product-pricing.spec.ts's sale-price display test — a stable, idempotent
+        # fixture (unlike the quantity-discount bundle in that same spec, which the test creates
+        # itself via the API each run, matching admin-bulk-actions.spec.ts's precedent for
+        # single-spec-owned fixtures).
+        get_or_create(
+            db,
+            models.Product,
+            {"vertical": E2E_VERTICAL_SLUG, "title_he": "טבעת יהלום מבצע E2E"},
+            {
+                "title_en": "טבעת יהלום מבצע E2E",
+                "description_he": "מוצר לבדיקות E2E עם מחיר מבצע",
+                "price": 2000.0,
+                "sale_price": 1500.0,
+                "is_active": True,
+            },
+        )
+
         # Keeps the lockout spec's 3-wrong-attempts-then-1-correct sequence (4 requests total)
         # safely under slowapi's 5/minute per-IP limit on /auth/login.
         set_setting(db, "max_failed_login_attempts", "3")
