@@ -6,7 +6,7 @@ import { adminListProducts, adminCreateSurvey, adminListSurveys, adminUpdateSurv
 import { buildSurveyShareUrl } from '@/lib/share';
 import { Product } from '@/components/ProductTile';
 import { Survey, SurveyOption } from '@/components/SurveyCard';
-import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle, Pencil, Check, ImagePlus, Link2 } from 'lucide-react';
+import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle, Pencil, Check, ImagePlus, Link2, Download } from 'lucide-react';
 
 function MaxChoicesEditor({ value, onSave }: { value: number; onSave: (n: number) => Promise<void> }) {
     const [editing, setEditing] = useState(false);
@@ -224,6 +224,27 @@ export default function AdminSurveysPage() {
         }
     };
 
+    const handleDownloadImage = async (s: Survey) => {
+        if (!s.image_url) return;
+        try {
+            const url = productImageUrl(s.image_url);
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('fetch failed');
+            const blob = await res.blob();
+            const ext = url.split('?')[0].split('.').pop();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `poll-${s.id}${ext ? `.${ext}` : ''}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+        } catch {
+            showToast('שגיאה בהורדת התמונה', 'error');
+        }
+    };
+
     const productTitle = (id: number) => products.find((p) => p.id === id)?.title_he || `#${id}`;
     const optionLabel = (opt: SurveyOption) => opt.label_override_he || (opt.product_id ? productTitle(opt.product_id) : `#${opt.id}`);
 
@@ -275,6 +296,15 @@ export default function AdminSurveysPage() {
                                         >
                                             <Link2 size={14} /> העתק קישור
                                         </button>
+                                        {s.image_url && (
+                                            <button
+                                                onClick={() => handleDownloadImage(s)}
+                                                className="text-[#d4af37]/60 hover:text-[#d4af37] transition-colors flex items-center gap-1 text-xs font-bold"
+                                                title="הורד את תמונת הסקר לצירוף ידני בוואטסאפ"
+                                            >
+                                                <Download size={14} /> הורד תמונה
+                                            </button>
+                                        )}
                                         <button
                                             onClick={async () => {
                                                 if (!token) return;
