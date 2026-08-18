@@ -71,12 +71,15 @@ export default function RootHeader() {
                 </Link>
 
                 <div ref={headerMenuRef} className="relative flex items-center gap-2">
+                    <CartIcon locale={locale} />
                     <div
                         className={`${showMobileMenu ? 'flex absolute top-full inset-x-0 mt-2 flex-col items-start gap-3 bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-4 shadow-xl z-40' : 'hidden'} md:flex md:static md:mt-0 md:flex-row md:items-center md:gap-2 md:bg-transparent md:border-0 md:p-0 md:shadow-none`}
                     >
-                        {user && <GlobalSearch ref={searchRef} locale={locale} onOpenChange={setSearchActive} />}
                         <div className={searchActive ? 'hidden md:contents' : 'contents'}>
                             {token && <NotificationBell token={token} />}
+                        </div>
+                        {user && <GlobalSearch ref={searchRef} locale={locale} onOpenChange={setSearchActive} />}
+                        <div className={searchActive ? 'hidden md:contents' : 'contents'}>
                             <div ref={langMenuRef} className="relative">
                                 <button
                                     onClick={() => setShowLangMenu(!showLangMenu)}
@@ -101,7 +104,6 @@ export default function RootHeader() {
                             </div>
                         </div>
                     </div>
-                    <CartIcon locale={locale} />
                     {user?.role === 'admin' && (
                         <Link
                             href={`/${locale}/admin/products`}
