@@ -1084,7 +1084,7 @@ export async function adminListSurveys(token: string) {
     return res.json();
 }
 
-export async function adminUpdateSurvey(token: string, surveyId: number, payload: { is_active?: boolean; max_choices?: number }) {
+export async function adminUpdateSurvey(token: string, surveyId: number, payload: { is_active?: boolean; max_choices?: number; image_url?: string | null }) {
     const res = await fetch(`${BASE_URL}/admin/surveys/${surveyId}`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },

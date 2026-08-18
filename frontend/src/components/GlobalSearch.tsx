@@ -132,8 +132,8 @@ const GlobalSearch = forwardRef<GlobalSearchHandle, Props>(function GlobalSearch
             <div
                 className={`relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#111a2f] border select-none max-w-[90vw] [transition:width_0.45s_cubic-bezier(0.34,1.56,0.64,1),border-color_0.2s,box-shadow_0.2s] ${
                     open
-                        ? 'w-full md:w-[360px] border-[#d4af37]/50 shadow-[0_0_20px_rgba(212,175,55,0.15)] cursor-default'
-                        : 'w-[130px] border-[#d4af37]/20 cursor-pointer hover:border-[#d4af37]/40 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)]'
+                        ? 'w-full md:w-[440px] border-[#d4af37]/50 shadow-[0_0_20px_rgba(212,175,55,0.15)] cursor-default'
+                        : 'w-[130px] md:w-[220px] border-[#d4af37]/20 cursor-pointer hover:border-[#d4af37]/40 hover:shadow-[0_0_12px_rgba(212,175,55,0.08)]'
                 }`}
                 onClick={() => { if (!open) { setOpen(true); onOpenChange?.(true); } }}
             >

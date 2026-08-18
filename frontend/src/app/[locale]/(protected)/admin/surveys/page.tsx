@@ -49,6 +49,72 @@ function MaxChoicesEditor({ value, onSave }: { value: number; onSave: (n: number
     );
 }
 
+function SurveyImageEditor({ imageUrl, token, onSave, onError }: { imageUrl: string | null; token: string | null; onSave: (filename: string | null) => Promise<void>; onError: () => void }) {
+    const [editing, setEditing] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    if (!editing) {
+        return (
+            <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1 text-[10px] font-bold text-[#d4af37]/60 hover:text-[#d4af37] transition-colors"
+                title="ערוך תמונת סקר"
+            >
+                <Pencil size={10} /> {imageUrl ? 'ערוך תמונה' : 'הוסף תמונה'}
+            </button>
+        );
+    }
+
+    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !token) return;
+        setUploading(true);
+        try {
+            const { filename } = await adminUploadImage(token, file);
+            await onSave(filename);
+            setEditing(false);
+        } catch {
+            onError();
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
+
+    const handleRemove = async () => {
+        setUploading(true);
+        try {
+            await onSave(null);
+        } finally {
+            setUploading(false);
+            setEditing(false);
+        }
+    };
+
+    return (
+        <div className="flex items-center gap-2">
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+            <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1 text-[10px] font-bold text-[#d4af37] hover:text-[#f0e6d3] disabled:opacity-60"
+            >
+                {uploading ? <Loader2 size={12} className="animate-spin" /> : 'בחר קובץ'}
+            </button>
+            {imageUrl && (
+                <button type="button" disabled={uploading} onClick={handleRemove} className="text-[10px] font-bold text-red-400/70 hover:text-red-400 disabled:opacity-60">
+                    הסר
+                </button>
+            )}
+            <button type="button" disabled={uploading} onClick={() => setEditing(false)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">
+                <X size={12} />
+            </button>
+        </div>
+    );
+}
+
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
     return (
@@ -138,6 +204,17 @@ export default function AdminSurveysPage() {
         }
     };
 
+    const handleSaveImage = async (surveyId: number, filename: string | null) => {
+        if (!token) return;
+        try {
+            await adminUpdateSurvey(token, surveyId, { image_url: filename });
+            showToast(filename ? 'התמונה עודכנה ✓' : 'התמונה הוסרה');
+            load();
+        } catch {
+            showToast('שגיאה בעדכון תמונה', 'error');
+        }
+    };
+
     const handleCopyLink = async (surveyId: number) => {
         try {
             await navigator.clipboard.writeText(buildSurveyShareUrl(surveyId, 'he'));
@@ -171,10 +248,18 @@ export default function AdminSurveysPage() {
                             <div key={s.id} className={`bg-[#0e1628] border rounded-3xl p-6 ${s.is_active ? 'border-[#d4af37]/20' : 'border-red-500/20 opacity-60'}`}>
                                 <div className="flex items-start justify-between mb-3 gap-4">
                                     <div className="flex items-start gap-4">
-                                        {s.image_url && (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={productImageUrl(s.image_url)} alt="" className="w-14 h-14 rounded-xl object-cover bg-[#111a2f] flex-shrink-0" />
-                                        )}
+                                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                                            {s.image_url && (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={productImageUrl(s.image_url)} alt="" className="w-14 h-14 rounded-xl object-cover bg-[#111a2f]" />
+                                            )}
+                                            <SurveyImageEditor
+                                                imageUrl={s.image_url ?? null}
+                                                token={token}
+                                                onSave={(filename) => handleSaveImage(s.id, filename)}
+                                                onError={() => showToast('שגיאה בהעלאת תמונה', 'error')}
+                                            />
+                                        </div>
                                         <div>
                                             <span className={`inline-block mb-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${s.poll_type === 'text' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                                 {s.poll_type === 'text' ? 'סקר תשובות' : 'סקר מוצרים'}
