@@ -304,6 +304,12 @@ export default function ProfileClient() {
     const [cardOrderLeadOverride, setCardOrderLeadOverride] = useState<ActivityLead | null>(null);
 
     useEffect(() => {
+        if (typeof window === 'undefined' || !window.location.hash) return;
+        const el = document.getElementById(window.location.hash.slice(1));
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, []);
+
+    useEffect(() => {
         if (!user) return;
         Promise.resolve().then(() => setForm({
             phone: user.phone || '',
