@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Bell, X, CheckCheck } from 'lucide-react';
 import { getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead } from '@/lib/api';
 import { useOutsideClick } from '@/lib/useOutsideClick';
@@ -18,6 +18,7 @@ interface Notification {
 
 export default function NotificationBell({ token }: { token: string }) {
     const params = useParams();
+    const router = useRouter();
     const locale = (params?.locale as string) || 'he';
     const isRTL = locale === 'he' || locale === 'yi';
     const [open, setOpen] = useState(false);
@@ -44,6 +45,14 @@ export default function NotificationBell({ token }: { token: string }) {
         await markNotificationRead(token, id);
         setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
         setUnread((c) => Math.max(0, c - 1));
+    };
+
+    const handleNotificationClick = (n: Notification) => {
+        handleMarkRead(n.id);
+        if (n.link) {
+            setOpen(false);
+            router.push(`/${locale}${n.link}`);
+        }
     };
 
     const handleMarkAll = async () => {
@@ -96,8 +105,8 @@ export default function NotificationBell({ token }: { token: string }) {
                             notifications.map((n) => (
                                 <div
                                     key={n.id}
-                                    className={`px-4 py-3 border-b border-[#d4af37]/5 cursor-pointer hover:bg-[#111a2f] transition-colors ${!n.is_read ? 'bg-[#d4af37]/5' : ''}`}
-                                    onClick={() => handleMarkRead(n.id)}
+                                    className={`px-4 py-3 border-b border-[#d4af37]/5 ${n.link ? 'cursor-pointer' : 'cursor-default'} hover:bg-[#111a2f] transition-colors ${!n.is_read ? 'bg-[#d4af37]/5' : ''}`}
+                                    onClick={() => handleNotificationClick(n)}
                                 >
                                     <div className="flex items-start gap-2">
                                         <span className="text-base leading-none mt-0.5">{typeIcon[n.type] || '🔔'}</span>

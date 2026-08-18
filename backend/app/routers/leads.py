@@ -703,7 +703,7 @@ def send_appointment_reminder(lead_id: int, db: Session = Depends(get_db)):
         type="appointment_reminder",
         title_he=f"תזכורת לפגישה: {product_title}",
         message_he=f"הפגישה שלך נקבעה ל-{scheduled_str}",
-        link=f"/profile",
+        link="/profile#my-orders",
     )
     db.add(notif)
     db.commit()
@@ -776,7 +776,7 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
                 type="lead_status",
                 title_he=title_map.get(status, "עדכון סטטוס פנייה"),
                 message_he=f"הפנייה שלך לגבי {product_title} עודכנה לסטטוס: {status}",
-                link="/profile",
+                link="/profile#my-orders",
             )
             db.add(notif)
             db.commit()
