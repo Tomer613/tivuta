@@ -503,7 +503,7 @@ export default function AdminDistributionPage() {
                                                 <CheckCircle2 size={13} /> {d.whatsapp_manual_mode ? 'אישרתי ששלחתי' : 'נשלח'}
                                             </button>
                                         )}
-                                        {(d.status === 'draft' || d.status === 'awaiting_whatsapp_confirmation' || d.status === 'failed') && (
+                                        {(d.status === 'draft' || d.status === 'awaiting_whatsapp_confirmation' || d.status === 'failed' || d.status === 'sending') && (
                                             deletingId === d.id ? (
                                                 <div className="flex items-center gap-1 text-xs">
                                                     <button onClick={() => handleDelete(d.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
@@ -511,7 +511,11 @@ export default function AdminDistributionPage() {
                                                     <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
                                                 </div>
                                             ) : (
-                                                <button onClick={() => setDeletingId(d.id)} className="text-red-400/40 hover:text-red-400 transition-colors" title="מחק">
+                                                <button
+                                                    onClick={() => setDeletingId(d.id)}
+                                                    className="text-red-400/40 hover:text-red-400 transition-colors"
+                                                    title={d.status === 'sending' ? 'תקוע ב"שולח..."? ניתן למחוק' : 'מחק'}
+                                                >
                                                     <Trash2 size={14} />
                                                 </button>
                                             )

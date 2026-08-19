@@ -484,11 +484,14 @@ def admin_delete_distribution(distribution_id: int, db: Session = Depends(get_db
     distribution = db.query(models.Distribution).filter(models.Distribution.id == distribution_id).first()
     if not distribution:
         raise HTTPException(status_code=404, detail="Distribution not found")
-    # awaiting_whatsapp_confirmation and failed are included alongside draft - nothing was
-    # confirmably sent yet in any of these states, so abandoning one should stay possible (unlike
-    # a real "sent" campaign).
-    if distribution.status not in ("draft", "awaiting_whatsapp_confirmation", "failed"):
-        raise HTTPException(status_code=400, detail="ניתן למחוק רק טיוטות, הפצות שממתינות לאישור שיתוף, או הפצות שנכשלו")
+    # awaiting_whatsapp_confirmation, failed, and sending are all included alongside draft -
+    # nothing was confirmably sent yet in any of these states. "sending" specifically is a manual
+    # escape hatch: it's meant to be transient (the background task should move it to a terminal
+    # status within moments), but if it's ever stuck there for any reason not caught by
+    # _send_distribution's own exception handling, the admin needs a way out that doesn't require
+    # a direct DB fix.
+    if distribution.status not in ("draft", "awaiting_whatsapp_confirmation", "failed", "sending"):
+        raise HTTPException(status_code=400, detail="לא ניתן למחוק הפצה שכבר נשלחה")
     db.delete(distribution)
     db.commit()
     return {"message": "deleted"}

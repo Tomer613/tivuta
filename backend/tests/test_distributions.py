@@ -437,3 +437,19 @@ def test_log_committed_immediately_survives_later_crash(client, db_session, make
     recipients = recipients_resp.json()
     assert len(recipients) == 1
     assert recipients[0]["status"] == "sent"
+
+
+def test_delete_allowed_from_stuck_sending(client, db_session, make_user):
+    """A distribution genuinely stuck at 'sending' (e.g. from before the crash-recovery fix
+    existed, or any future edge case not caught by it) must have a manual escape hatch - the
+    admin shouldn't need a direct DB fix just to get rid of a permanently-stuck row."""
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    row = db_session.query(models.Distribution).filter(models.Distribution.id == dist["id"]).first()
+    row.status = "sending"
+    db_session.commit()
+
+    delete_resp = client.delete(f"/admin/distributions/{dist['id']}", headers=headers)
+    assert delete_resp.status_code == 200
