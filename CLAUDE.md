@@ -44,7 +44,7 @@ tivuta/
 │   │   │   └── sales.py         Loyalty program: admin-manual sale reporting, system settings (Phase 1)
 │   │   └── services/
 │   │       ├── email_resend.py    Resend.com email provider
-│   │       ├── whatsapp_meta.py   Meta WhatsApp Business API
+│   │       ├── (whatsapp_meta.py removed — see "WhatsApp Sending" note below)
 │   │       ├── notifications.py   Generic dispatcher
 │   │       └── loyalty.py         Customer-number generation, system-setting lookup, points/commission math
 │   ├── alembic/           Migrations (Alembic)
@@ -258,7 +258,7 @@ real minutes, and reusing a DB within that window changes the spec's starting st
 | Backend (FastAPI) | **Render** | Not on GitHub Pages — hosted as its own service. All backend env vars (`RESEND_API_KEY`, `EMAIL_PROVIDER`, `EMAIL_FROM`, `ADMIN_NOTIFICATION_EMAIL`, `DATABASE_URL`, `JWT_SECRET_KEY`, `APP_BASE_URL`, `WHATSAPP_*`, `CORS_ORIGINS`, `GITHUB_REPO`, `GITHUB_DEPLOY_PAT`, `GITHUB_DEPLOY_WORKFLOW`) live in **Render's dashboard → service → Environment**, not in a repo `.env` file. Note: `backend/.env` in the working tree is an empty directory (not a file) and the app never calls `load_dotenv()` anywhere — so a local `.env` file would be ignored even if one existed; env vars must be real OS/platform environment variables.
 | Database | **Supabase** (PostgreSQL) | Production `DATABASE_URL` points here. Falls back to local SQLite (`./tivuta.db`) only when `DATABASE_URL` is unset (local dev). |
 | Outbound email | **Resend.com** | `EMAIL_PROVIDER=resend` selects `ResendEmailSender` (backend/app/services/email_resend.py) over the no-op `ConsoleEmailSender` fallback. Confirmed set up on Render as of 2026-07-19. |
-| Outbound WhatsApp | Meta WhatsApp Business API | `WHATSAPP_PROVIDER=meta_cloud` + `WHATSAPP_CLOUD_API_TOKEN`/`WHATSAPP_CLOUD_PHONE_NUMBER_ID`, same pattern as email (console fallback otherwise). |
+| Outbound WhatsApp | Manual click-to-chat only | No automated/server-to-server sending exists today. Both the distribution-campaign WhatsApp channel (`admin/distribution/page.tsx`) and poll sharing open `https://api.whatsapp.com/send?text=...` in the admin's own browser — text-only, requires a human to pick a recipient and press send. A real Meta WhatsApp Business Cloud API sender (`services/whatsapp_meta.py`, server-to-server, no human needed) existed at one point but was **removed** in commit `ef6d190`; even that version was text-only (no image/media support). `WHATSAPP_PROVIDER`/`WHATSAPP_CLOUD_API_TOKEN`/`WHATSAPP_CLOUD_PHONE_NUMBER_ID` in `.env.example` are stale/orphaned — nothing reads them. Building real automated sending (images included) needs a Meta-approved WhatsApp Business Account + message templates — external approval, not just re-adding the code. |
 | Auto-redeploy trigger | GitHub Actions REST API | `services/deploy_trigger.py` fires `workflow_dispatch` on `deploy.yml` when an admin saves a vertical — see "Worlds / Verticals" below. No-op until `GITHUB_REPO`/`GITHUB_DEPLOY_PAT` are set on Render. |
 
 ### Real email addresses in use (confirmed set up 2026-07-19)

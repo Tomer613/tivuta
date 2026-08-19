@@ -110,6 +110,12 @@ class UserProfileUpdate(BaseModel):
 class UserRoleUpdate(BaseModel):
     role: str  # "member" | "admin"
 
+class UserAdminUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
 # Auth Schemas
 class Token(BaseModel):
     access_token: str
@@ -822,13 +828,26 @@ class SurveyCreate(BaseModel):
                     raise ValueError("Every option needs a label for a text poll")
         return self
 
+class SurveyOptionUpdate(BaseModel):
+    # id=None means "add this as a new option"; id set means "update this existing option".
+    id: Optional[int] = None
+    product_id: Optional[int] = None
+    label_override_he: Optional[str] = None
+
 class SurveyUpdate(BaseModel):
     # poll_type is deliberately not updatable here - immutable after creation, same convention
     # as Vertical.slug/Vendor.vertical, since flipping it after votes exist would leave
     # product_id/label_override_he in an inconsistent state.
+    question_he: Optional[str] = None
+    question_en: Optional[str] = None
+    question_fr: Optional[str] = None
+    question_yi: Optional[str] = None
     is_active: Optional[bool] = None
     max_choices: Optional[int] = None
     image_url: Optional[str] = None
+    # Any existing option not present in this list (by id) is a removal request - rejected if
+    # that option already has votes. See admin_update_survey for the full diff/validation logic.
+    options: Optional[List[SurveyOptionUpdate]] = None
 
 
 # Loyalty program: system settings, sale transactions

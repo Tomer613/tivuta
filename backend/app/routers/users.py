@@ -134,6 +134,28 @@ def admin_create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)
     return new_user
 
 
+@router.patch("/admin/users/{user_id}", response_model=schemas.UserRead, dependencies=[Depends(get_current_admin)])
+def admin_update_user(user_id: int, payload: schemas.UserAdminUpdate, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    new_email = updates.get("email")
+    if new_email and new_email != user.email:
+        if db.query(models.User).filter(models.User.email == new_email, models.User.id != user_id).first():
+            raise HTTPException(status_code=400, detail="Email already registered")
+        if db.query(models.Vendor).filter(models.Vendor.login_email == new_email).first():
+            raise HTTPException(status_code=400, detail="Email already in use by a vendor portal account")
+
+    for field, value in updates.items():
+        setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.patch("/admin/users/{user_id}/role", response_model=schemas.UserRead, dependencies=[Depends(get_current_admin)])
 def admin_set_user_role(user_id: int, payload: schemas.UserRoleUpdate, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id == user_id).first()

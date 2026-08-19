@@ -186,3 +186,159 @@ def test_admin_update_survey_image_url(client, db_session, make_user):
     assert update_resp.json()["image_url"] == "new-image.jpg"
     # poll_type is immutable - not part of SurveyUpdate at all, so it can't drift via this endpoint.
     assert update_resp.json()["poll_type"] == "product"
+
+
+def test_admin_update_survey_question_text(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    p1, p2 = _make_product(db_session, "א"), _make_product(db_session, "ב")
+    resp = client.post(
+        "/admin/surveys",
+        json={"question_he": "שאלה ישנה", "poll_type": "product", "options": [{"product_id": p1.id}, {"product_id": p2.id}]},
+        headers=headers,
+    )
+    survey_id = resp.json()["id"]
+
+    update_resp = client.patch(
+        f"/admin/surveys/{survey_id}",
+        json={"question_he": "שאלה מתוקנת", "question_en": "Fixed question"},
+        headers=headers,
+    )
+    assert update_resp.status_code == 200
+    body = update_resp.json()
+    assert body["question_he"] == "שאלה מתוקנת"
+    assert body["question_en"] == "Fixed question"
+
+
+def test_admin_update_survey_relabel_option_and_add_new(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    resp = client.post(
+        "/admin/surveys",
+        json={
+            "question_he": "שאלה",
+            "poll_type": "text",
+            "options": [{"label_override_he": "כן"}, {"label_override_he": "לא"}],
+        },
+        headers=headers,
+    )
+    survey = resp.json()
+    opt1_id = survey["options"][0]["id"]
+    opt2_id = survey["options"][1]["id"]
+
+    update_resp = client.patch(
+        f"/admin/surveys/{survey['id']}",
+        json={
+            "options": [
+                {"id": opt1_id, "label_override_he": "כן, בהחלט"},
+                {"id": opt2_id, "label_override_he": "לא"},
+                {"label_override_he": "אולי"},
+            ]
+        },
+        headers=headers,
+    )
+    assert update_resp.status_code == 200
+    body = update_resp.json()
+    assert len(body["options"]) == 3
+    labels = {o["id"]: o["label_override_he"] for o in body["options"]}
+    assert labels[opt1_id] == "כן, בהחלט"
+    assert labels[opt2_id] == "לא"
+    assert "אולי" in labels.values()
+
+
+def test_admin_update_survey_reassign_product_option(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    p1, p2, p3 = _make_product(db_session, "א"), _make_product(db_session, "ב"), _make_product(db_session, "ג")
+    resp = client.post(
+        "/admin/surveys",
+        json={"question_he": "שאלה", "poll_type": "product", "options": [{"product_id": p1.id}, {"product_id": p2.id}]},
+        headers=headers,
+    )
+    survey = resp.json()
+    opt1_id = survey["options"][0]["id"]
+    opt2_id = survey["options"][1]["id"]
+
+    update_resp = client.patch(
+        f"/admin/surveys/{survey['id']}",
+        json={"options": [{"id": opt1_id, "product_id": p3.id}, {"id": opt2_id, "product_id": p2.id}]},
+        headers=headers,
+    )
+    assert update_resp.status_code == 200
+    product_ids = {o["product_id"] for o in update_resp.json()["options"]}
+    assert product_ids == {p3.id, p2.id}
+
+
+def test_admin_update_survey_deletes_zero_vote_option(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    resp = client.post(
+        "/admin/surveys",
+        json={
+            "question_he": "שאלה",
+            "poll_type": "text",
+            "options": [{"label_override_he": "כן"}, {"label_override_he": "לא"}, {"label_override_he": "אולי"}],
+        },
+        headers=headers,
+    )
+    survey = resp.json()
+    keep_ids = [survey["options"][0]["id"], survey["options"][1]["id"]]
+
+    update_resp = client.patch(
+        f"/admin/surveys/{survey['id']}",
+        json={"options": [{"id": keep_ids[0], "label_override_he": "כן"}, {"id": keep_ids[1], "label_override_he": "לא"}]},
+        headers=headers,
+    )
+    assert update_resp.status_code == 200
+    assert {o["id"] for o in update_resp.json()["options"]} == set(keep_ids)
+
+
+def test_admin_update_survey_blocks_deleting_voted_option(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    resp = client.post(
+        "/admin/surveys",
+        json={
+            "question_he": "שאלה",
+            "poll_type": "text",
+            "options": [{"label_override_he": "כן"}, {"label_override_he": "לא"}],
+        },
+        headers=headers,
+    )
+    survey = resp.json()
+    voted_id = survey["options"][0]["id"]
+    other_id = survey["options"][1]["id"]
+
+    member_headers = _login(client, make_user)
+    vote_resp = client.post(f"/surveys/{survey['id']}/vote", json={"survey_option_ids": [voted_id]}, headers=member_headers)
+    assert vote_resp.status_code == 200
+
+    update_resp = client.patch(
+        f"/admin/surveys/{survey['id']}",
+        json={"options": [{"id": other_id, "label_override_he": "לא"}, {"label_override_he": "אולי"}]},
+        headers=headers,
+    )
+    assert update_resp.status_code == 400
+    assert "vote" in update_resp.json()["detail"].lower()
+
+    # The survey must be completely unchanged - no partial application.
+    get_resp = client.get(f"/admin/surveys", headers=headers)
+    unchanged = next(s for s in get_resp.json() if s["id"] == survey["id"])
+    assert {o["id"] for o in unchanged["options"]} == {voted_id, other_id}
+
+
+def test_admin_update_survey_options_requires_at_least_two(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    resp = client.post(
+        "/admin/surveys",
+        json={
+            "question_he": "שאלה",
+            "poll_type": "text",
+            "options": [{"label_override_he": "כן"}, {"label_override_he": "לא"}],
+        },
+        headers=headers,
+    )
+    survey = resp.json()
+    opt1_id = survey["options"][0]["id"]
+
+    update_resp = client.patch(
+        f"/admin/surveys/{survey['id']}",
+        json={"options": [{"id": opt1_id}]},
+        headers=headers,
+    )
+    assert update_resp.status_code == 400

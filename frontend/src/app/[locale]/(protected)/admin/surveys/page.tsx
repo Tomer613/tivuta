@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListProducts, adminCreateSurvey, adminListSurveys, adminUpdateSurvey, adminDeleteSurvey, adminUploadImage, productImageUrl } from '@/lib/api';
 import { buildSurveyShareUrl } from '@/lib/share';
+import { getErrorMessage } from '@/lib/getErrorMessage';
 import { Product } from '@/components/ProductTile';
 import { Survey, SurveyOption } from '@/components/SurveyCard';
 import { Plus, Loader2, X, ToggleLeft, ToggleRight, Trash2, CheckCircle2, AlertCircle, Pencil, Check, ImagePlus, Link2, Download } from 'lucide-react';
@@ -115,6 +116,140 @@ function SurveyImageEditor({ imageUrl, token, onSave, onError }: { imageUrl: str
     );
 }
 
+interface EditableOption {
+    id?: number;
+    product_id: number | null;
+    label_he: string;
+    vote_count: number;
+}
+
+function SurveyEditModal({ survey, products, token, onClose, onSaved, onError }: {
+    survey: Survey;
+    products: Product[];
+    token: string | null;
+    onClose: () => void;
+    onSaved: (updated: Survey) => void;
+    onError: (msg: string) => void;
+}) {
+    const [questionHe, setQuestionHe] = useState(survey.question_he);
+    const [maxChoices, setMaxChoices] = useState(survey.max_choices ?? 1);
+    const [options, setOptions] = useState<EditableOption[]>(() =>
+        survey.options.map((opt) => ({
+            id: opt.id,
+            product_id: opt.product_id,
+            label_he: survey.poll_type === 'text' ? (opt.label_override_he || '') : (opt.product_title_he || (opt.product_id ? `#${opt.product_id}` : '')),
+            vote_count: opt.vote_count,
+        }))
+    );
+    const [saving, setSaving] = useState(false);
+
+    const updateOption = (idx: number, patch: Partial<EditableOption>) => {
+        setOptions((prev) => prev.map((o, i) => (i === idx ? { ...o, ...patch } : o)));
+    };
+
+    const removeOption = (idx: number) => setOptions((prev) => prev.filter((_, i) => i !== idx));
+    const addOption = () => setOptions((prev) => [...prev, { product_id: null, label_he: '', vote_count: 0 }]);
+
+    const completeOptions = options.filter((o) => (survey.poll_type === 'product' ? o.product_id != null : o.label_he.trim() !== ''));
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token || completeOptions.length < 2) return;
+        setSaving(true);
+        try {
+            const payloadOptions = completeOptions.map((o) =>
+                survey.poll_type === 'product'
+                    ? { id: o.id, product_id: o.product_id }
+                    : { id: o.id, label_override_he: o.label_he.trim() }
+            );
+            const updated = await adminUpdateSurvey(token, survey.id, {
+                question_he: questionHe,
+                max_choices: Math.min(maxChoices, completeOptions.length),
+                options: payloadOptions,
+            });
+            onSaved(updated);
+            onClose();
+        } catch (err) {
+            onError(getErrorMessage(err, 'שגיאה בעדכון הסקר'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={onClose}>
+            <form onSubmit={handleSubmit} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-lg space-y-4 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-2">
+                    <h2 className="text-xl font-black text-[#f0e6d3]">ערוך סקר</h2>
+                    <button type="button" onClick={onClose}><X size={20} className="text-[#f0e6d3]/60" /></button>
+                </div>
+                <input required placeholder="שאלת הסקר" value={questionHe} onChange={(e) => setQuestionHe(e.target.value)} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+
+                <label className="flex items-center gap-3 text-sm text-[#f0e6d3]/80">
+                    מספר אפשרויות לבחירה:
+                    <input
+                        type="number"
+                        min={1}
+                        max={Math.max(1, completeOptions.length)}
+                        value={maxChoices}
+                        onChange={(e) => setMaxChoices(Math.max(1, Number(e.target.value) || 1))}
+                        className="w-20 bg-[#111a2f] rounded-xl px-3 py-2 text-[#f0e6d3]"
+                    />
+                </label>
+
+                <p className="text-xs text-[#f0e6d3]/60">
+                    {survey.poll_type === 'product' ? 'אפשרויות (מוצרים):' : 'תשובות אפשריות:'} אופציה עם הצבעות לא ניתנת למחיקה.
+                </p>
+                <div className="flex flex-col gap-2">
+                    {options.map((opt, idx) => {
+                        const hasVotes = opt.vote_count > 0;
+                        return (
+                            <div key={opt.id ?? `new-${idx}`} className="flex items-center gap-2">
+                                {survey.poll_type === 'product' ? (
+                                    <select
+                                        value={opt.product_id ?? ''}
+                                        onChange={(e) => updateOption(idx, { product_id: e.target.value ? Number(e.target.value) : null })}
+                                        className="flex-1 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm"
+                                    >
+                                        <option value="">בחר מוצר...</option>
+                                        {products.map((p) => (
+                                            <option key={p.id} value={p.id}>{p.title_he} ({p.vertical})</option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        value={opt.label_he}
+                                        onChange={(e) => updateOption(idx, { label_he: e.target.value })}
+                                        placeholder={`תשובה ${idx + 1}`}
+                                        className="flex-1 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm"
+                                    />
+                                )}
+                                {hasVotes && <span className="text-[10px] text-[#d4af37]/60 whitespace-nowrap">{opt.vote_count} הצבעות</span>}
+                                <button
+                                    type="button"
+                                    disabled={hasVotes}
+                                    onClick={() => removeOption(idx)}
+                                    title={hasVotes ? 'לא ניתן למחוק אופציה עם הצבעות' : 'הסר אופציה'}
+                                    className="text-red-400/60 hover:text-red-400 disabled:opacity-20 disabled:cursor-not-allowed"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+                <button type="button" onClick={addOption} className="text-sm font-bold text-[#d4af37] hover:text-[#f0e6d3] flex items-center gap-1">
+                    <Plus size={14} /> הוסף אופציה
+                </button>
+
+                <button type="submit" disabled={saving || completeOptions.length < 2} className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2">
+                    {saving && <Loader2 size={16} className="animate-spin" />} שמור שינויים
+                </button>
+            </form>
+        </div>
+    );
+}
+
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
     return (
@@ -144,10 +279,15 @@ export default function AdminSurveysPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [maxChoices, setMaxChoices] = useState(1);
     const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [editingSurvey, setEditingSurvey] = useState<Survey | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
+    // Loads both lists once, on mount. Products never change as a side effect of any survey
+    // action, so mutation handlers below patch `surveys` state directly from each mutation's own
+    // response instead of ever calling this again — refetching the whole (heavily-loaded,
+    // unpaginated) product catalog after every poll edit was what made saves feel slow.
     const load = () => {
         if (!token) return;
         setLoading(true);
@@ -157,6 +297,8 @@ export default function AdminSurveysPage() {
     };
 
     useEffect(() => { Promise.resolve().then(load); }, [token]);
+
+    const patchSurvey = (updated: Survey) => setSurveys((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
 
     const resetForm = () => {
         setQuestion('');
@@ -176,17 +318,17 @@ export default function AdminSurveysPage() {
             const options = pollType === 'product'
                 ? selectedProductIds.map((id) => ({ product_id: id }))
                 : textOptions.filter((t) => t.trim()).map((t) => ({ label_override_he: t.trim() }));
-            await adminCreateSurvey(token, {
+            const created = await adminCreateSurvey(token, {
                 question_he: question,
                 poll_type: pollType,
                 image_url: imageUrl || null,
                 max_choices: Math.min(maxChoices, options.length),
                 options,
             });
+            setSurveys((prev) => [created, ...prev]);
             resetForm();
             setShowForm(false);
             showToast('הסקר נוצר בהצלחה ✓');
-            load();
         } catch {
             showToast('שגיאה ביצירת סקר', 'error');
         }
@@ -196,9 +338,9 @@ export default function AdminSurveysPage() {
         if (!token) return;
         try {
             await adminDeleteSurvey(token, id);
+            setSurveys((prev) => prev.filter((s) => s.id !== id));
             setDeletingId(null);
             showToast('הסקר נמחק');
-            load();
         } catch {
             showToast('שגיאה במחיקה', 'error');
         }
@@ -207,9 +349,9 @@ export default function AdminSurveysPage() {
     const handleSaveImage = async (surveyId: number, filename: string | null) => {
         if (!token) return;
         try {
-            await adminUpdateSurvey(token, surveyId, { image_url: filename });
+            const updated = await adminUpdateSurvey(token, surveyId, { image_url: filename });
+            patchSurvey(updated);
             showToast(filename ? 'התמונה עודכנה ✓' : 'התמונה הוסרה');
-            load();
         } catch {
             showToast('שגיאה בעדכון תמונה', 'error');
         }
@@ -224,24 +366,41 @@ export default function AdminSurveysPage() {
         }
     };
 
-    const handleDownloadImage = async (s: Survey) => {
+    const downloadSurveyImage = async (s: Survey) => {
         if (!s.image_url) return;
+        const url = productImageUrl(s.image_url);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('fetch failed');
+        const blob = await res.blob();
+        const ext = url.split('?')[0].split('.').pop();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `poll-${s.id}${ext ? `.${ext}` : ''}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(blobUrl);
+    };
+
+    // Combines the two separate manual steps (save the poll photo, then separately compose a
+    // caption) into one click — WhatsApp itself has no way to pre-attach an image via a share
+    // link (see CLAUDE.md's WhatsApp Sending note), so this is the closest one-click flow to
+    // "share the beautiful package": download the photo here, then attach it + paste in WhatsApp.
+    const handleShareToWhatsApp = async (s: Survey) => {
+        if (!s.image_url) return;
+        let downloadFailed = false;
         try {
-            const url = productImageUrl(s.image_url);
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('fetch failed');
-            const blob = await res.blob();
-            const ext = url.split('?')[0].split('.').pop();
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = blobUrl;
-            a.download = `poll-${s.id}${ext ? `.${ext}` : ''}`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(blobUrl);
+            await downloadSurveyImage(s);
         } catch {
-            showToast('שגיאה בהורדת התמונה', 'error');
+            downloadFailed = true;
+        }
+        const caption = `${s.question_he}\n\nלחץ להצביע:\n${buildSurveyShareUrl(s.id, 'he')}`;
+        try {
+            await navigator.clipboard.writeText(caption);
+            showToast(downloadFailed ? 'הטקסט הועתק, אך הורדת התמונה נכשלה' : 'התמונה הורדה והטקסט הועתק ✓', downloadFailed ? 'error' : 'success');
+        } catch {
+            showToast(downloadFailed ? 'שגיאה בהורדת התמונה ובהעתקת הטקסט' : 'התמונה הורדה, אך העתקת הטקסט נכשלה', 'error');
         }
     };
 
@@ -298,18 +457,25 @@ export default function AdminSurveysPage() {
                                         </button>
                                         {s.image_url && (
                                             <button
-                                                onClick={() => handleDownloadImage(s)}
+                                                onClick={() => handleShareToWhatsApp(s)}
                                                 className="text-[#d4af37]/60 hover:text-[#d4af37] transition-colors flex items-center gap-1 text-xs font-bold"
-                                                title="הורד את תמונת הסקר לצירוף ידני בוואטסאפ"
+                                                title="הורד את תמונת הסקר והעתק טקסט מוכן לשיתוף בוואטסאפ"
                                             >
-                                                <Download size={14} /> הורד תמונה
+                                                <Download size={14} /> שתף בוואטסאפ
                                             </button>
                                         )}
                                         <button
+                                            onClick={() => setEditingSurvey(s)}
+                                            className="text-[#d4af37]/60 hover:text-[#d4af37] transition-colors flex items-center gap-1 text-xs font-bold"
+                                            title="ערוך שאלה ואפשרויות"
+                                        >
+                                            <Pencil size={14} /> ערוך
+                                        </button>
+                                        <button
                                             onClick={async () => {
                                                 if (!token) return;
-                                                await adminUpdateSurvey(token, s.id, { is_active: !s.is_active });
-                                                load();
+                                                const updated = await adminUpdateSurvey(token, s.id, { is_active: !s.is_active });
+                                                patchSurvey(updated);
                                             }}
                                             className={`flex items-center gap-1.5 text-sm font-bold ${s.is_active ? 'text-red-400 hover:text-red-300' : 'text-green-400 hover:text-green-300'}`}
                                         >
@@ -334,8 +500,8 @@ export default function AdminSurveysPage() {
                                         value={s.max_choices ?? 1}
                                         onSave={async (n) => {
                                             if (!token) return;
-                                            await adminUpdateSurvey(token, s.id, { max_choices: Math.min(n, s.options.length) });
-                                            load();
+                                            const updated = await adminUpdateSurvey(token, s.id, { max_choices: Math.min(n, s.options.length) });
+                                            patchSurvey(updated);
                                         }}
                                     />
                                 </div>
@@ -495,6 +661,17 @@ export default function AdminSurveysPage() {
                         <button type="submit" disabled={optionCount < 2} className="btn-primary w-full disabled:opacity-50">שמור סקר</button>
                     </form>
                 </div>
+            )}
+
+            {editingSurvey && (
+                <SurveyEditModal
+                    survey={editingSurvey}
+                    products={products}
+                    token={token}
+                    onClose={() => setEditingSurvey(null)}
+                    onSaved={(updated) => { patchSurvey(updated); showToast('הסקר עודכן ✓'); }}
+                    onError={(msg) => showToast(msg, 'error')}
+                />
             )}
         </div>
     );

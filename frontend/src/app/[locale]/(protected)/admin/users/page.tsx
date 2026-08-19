@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth, User } from '@/context/AuthContext';
-import { adminListUsers, adminCreateUser, adminSetUserRole, adminDeleteUser, adminUnlockUser } from '@/lib/api';
+import { adminListUsers, adminCreateUser, adminUpdateUser, adminSetUserRole, adminDeleteUser, adminUnlockUser } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { isAccountLocked } from '@/lib/useCountdown';
 import { LockedBadge, UnlockButton } from '@/components/admin/LockoutControls';
-import { Plus, Loader2, X, ShieldCheck, ShieldOff, Trash2, CheckCircle2, AlertCircle, Search } from 'lucide-react';
+import { Plus, Loader2, X, ShieldCheck, ShieldOff, Trash2, CheckCircle2, AlertCircle, Search, Pencil } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -27,6 +27,7 @@ export default function AdminUsersPage() {
     const [search, setSearch] = useState('');
     const [filterRole, setFilterRole] = useState('');
     const [showForm, setShowForm] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
     const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', password: '' });
     const [confirmRoleId, setConfirmRoleId] = useState<number | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -95,17 +96,38 @@ export default function AdminUsersPage() {
         }
     };
 
-    const handleCreate = async (e: React.FormEvent) => {
+    const closeForm = () => {
+        setShowForm(false);
+        setEditingUser(null);
+        setForm({ first_name: '', last_name: '', email: '', phone: '', password: '' });
+    };
+
+    const openEditForm = (u: User) => {
+        setEditingUser(u);
+        setForm({ first_name: u.first_name, last_name: u.last_name, email: u.email, phone: u.phone || '', password: '' });
+        setShowForm(true);
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
         try {
-            await adminCreateUser(token, form);
-            setForm({ first_name: '', last_name: '', email: '', phone: '', password: '' });
-            setShowForm(false);
-            showToast('המשתמש נוצר בהצלחה ✓');
+            if (editingUser) {
+                await adminUpdateUser(token, editingUser.id, {
+                    first_name: form.first_name,
+                    last_name: form.last_name,
+                    email: form.email,
+                    phone: form.phone,
+                });
+                showToast('המשתמש עודכן בהצלחה ✓');
+            } else {
+                await adminCreateUser(token, form);
+                showToast('המשתמש נוצר בהצלחה ✓');
+            }
+            closeForm();
             load();
         } catch (err) {
-            showToast(getErrorMessage(err, 'שגיאה ביצירת המשתמש'), 'error');
+            showToast(getErrorMessage(err, editingUser ? 'שגיאה בעדכון המשתמש' : 'שגיאה ביצירת המשתמש'), 'error');
         }
     };
 
@@ -187,6 +209,10 @@ export default function AdminUsersPage() {
                                     </td>
                                     <td className="p-4">
                                         <div className="flex items-center gap-4">
+                                            {/* Edit name/email/phone */}
+                                            <button onClick={() => openEditForm(u)} className="text-[#d4af37]/40 hover:text-[#d4af37] transition-colors" title="ערוך פרטי משתמש">
+                                                <Pencil size={14} />
+                                            </button>
                                             {/* Unlock — only shown while actually locked */}
                                             {isAccountLocked(u.locked_until) && (
                                                 <UnlockButton onClick={() => handleUnlock(u)} />
@@ -228,11 +254,11 @@ export default function AdminUsersPage() {
             )}
 
             {showForm && (
-                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={() => setShowForm(false)}>
-                    <form onSubmit={handleCreate} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-black/70 z-[150] flex items-center justify-center p-6" onClick={closeForm}>
+                    <form onSubmit={handleSubmit} className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl p-8 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-2">
-                            <h2 className="text-xl font-black text-[#f0e6d3]">הוסף משתמש</h2>
-                            <button type="button" onClick={() => setShowForm(false)}><X size={20} className="text-[#f0e6d3]/60" /></button>
+                            <h2 className="text-xl font-black text-[#f0e6d3]">{editingUser ? 'ערוך משתמש' : 'הוסף משתמש'}</h2>
+                            <button type="button" onClick={closeForm}><X size={20} className="text-[#f0e6d3]/60" /></button>
                         </div>
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">שם פרטי</label>
@@ -250,10 +276,12 @@ export default function AdminUsersPage() {
                             <label className="text-xs text-[#f0e6d3]/50 mb-1 block">טלפון (אופציונלי)</label>
                             <input placeholder="050-0000000" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" dir="ltr" />
                         </div>
-                        <div>
-                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סיסמה</label>
-                            <input required type="password" placeholder="לפחות 8 תווים" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
-                        </div>
+                        {!editingUser && (
+                            <div>
+                                <label className="text-xs text-[#f0e6d3]/50 mb-1 block">סיסמה</label>
+                                <input required type="password" placeholder="לפחות 8 תווים" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]" />
+                            </div>
+                        )}
                         <button type="submit" className="btn-primary w-full">שמור</button>
                     </form>
                 </div>

@@ -960,6 +960,19 @@ export async function adminCreateUser(token: string, payload: Record<string, unk
     return res.json();
 }
 
+export async function adminUpdateUser(token: string, userId: number, payload: { first_name?: string; last_name?: string; email?: string; phone?: string }) {
+    const res = await fetch(`${BASE_URL}/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update user');
+    }
+    return res.json();
+}
+
 export async function adminSetUserRole(token: string, userId: number, role: string) {
     const res = await fetch(`${BASE_URL}/admin/users/${userId}/role`, {
         method: 'PATCH',
@@ -1084,13 +1097,25 @@ export async function adminListSurveys(token: string) {
     return res.json();
 }
 
-export async function adminUpdateSurvey(token: string, surveyId: number, payload: { is_active?: boolean; max_choices?: number; image_url?: string | null }) {
+export async function adminUpdateSurvey(token: string, surveyId: number, payload: {
+    is_active?: boolean;
+    max_choices?: number;
+    image_url?: string | null;
+    question_he?: string;
+    question_en?: string | null;
+    question_fr?: string | null;
+    question_yi?: string | null;
+    options?: { id?: number; product_id?: number | null; label_override_he?: string | null }[];
+}) {
     const res = await fetch(`${BASE_URL}/admin/surveys/${surveyId}`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error('Failed to update survey');
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to update survey');
+    }
     return res.json();
 }
 
