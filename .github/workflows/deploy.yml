@@ -18,6 +18,7 @@ concurrency:
 jobs:
   backend-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: ./backend
@@ -37,6 +38,7 @@ jobs:
 
   frontend-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: ./frontend
@@ -58,6 +60,7 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [backend-tests, frontend-checks]
     env:
       # Shared by alembic/seed (backend/) and `npx playwright test` (frontend/, whose webServer
@@ -125,6 +128,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [backend-tests, frontend-checks, e2e-tests]
     defaults:
       run:
@@ -159,6 +163,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: build
     steps:
       - name: Deploy to GitHub Pages
