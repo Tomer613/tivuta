@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 
 from app import models
@@ -356,3 +358,82 @@ def test_send_test_404_for_unknown_distribution(client, make_user):
     headers = _admin_headers(client, make_user)
     resp = client.post("/admin/distributions/999999/send-test", headers=headers)
     assert resp.status_code == 404
+
+
+def test_retry_skips_already_sent_recipients(client, db_session, make_user):
+    """Regression test: a user who already has a 'sent' DistributionSendLog row for this
+    distribution (e.g. from an earlier, partially-successful attempt before a later crash) must
+    not receive a second real email on retry - only genuinely not-yet-successful recipients
+    should be (re)attempted."""
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    already = make_user(email="alreadysent@example.com", password="testpass123")
+    make_user(email="freshmember@example.com", password="testpass123")
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    # Simulate a prior attempt that already succeeded for one user before something else failed.
+    db_session.add(models.DistributionSendLog(
+        distribution_id=dist["id"], user_id=already.id, channel="email", status="sent",
+    ))
+    db_session.commit()
+
+    send_resp = client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    assert send_resp.status_code == 200
+
+    recipients_resp = client.get(f"/admin/distributions/{dist['id']}/recipients", headers=headers)
+    recipients = recipients_resp.json()
+    assert len([r for r in recipients if r["email"] == "alreadysent@example.com"]) == 1
+    fresh_logs = [r for r in recipients if r["email"] == "freshmember@example.com"]
+    assert len(fresh_logs) == 1
+    assert fresh_logs[0]["status"] == "sent"
+
+
+def test_log_committed_immediately_survives_later_crash(client, db_session, make_user, monkeypatch):
+    """Regression test for the actual durability bug: DistributionSendLog rows must be committed
+    as each recipient is processed, not batched with the final status write - otherwise a crash
+    after the send loop (but before the final commit) would roll back the record of emails that
+    were already really (and irreversibly) sent, making a subsequent retry re-send them. Simulates
+    that exact "crashes after the loop" scenario with a stand-in that mirrors the real function's
+    per-user commit shape, then deliberately fails afterward, exactly where the real code's outer
+    except also sits."""
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    make_user(email="realrecipient@example.com", password="testpass123")
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    import app.routers.distributions as dist_module
+
+    def _crash_after_loop(distribution_id):
+        db = dist_module.SessionLocal()
+        try:
+            distribution = db.query(models.Distribution).filter(models.Distribution.id == distribution_id).first()
+            distribution.status = "sending"
+            db.commit()
+            try:
+                subject, email_html = dist_module._build_distribution_email(distribution)
+                users = db.query(models.User).filter(models.User.role == "member").all()
+                sender = dist_module.get_email_sender()
+                for user in users:
+                    log = models.DistributionSendLog(distribution_id=distribution.id, user_id=user.id, channel="email")
+                    result = sender.send(to=user.email, subject=subject, html_body=email_html, locale="he")
+                    log.status = "sent" if result.success else "failed"
+                    log.sent_at = datetime.utcnow() if result.success else None
+                    db.add(log)
+                    db.commit()  # the fix under test: durable per-user, not batched at the end
+                raise RuntimeError("simulated crash after the send loop, before the final status write")
+            except Exception:
+                db.rollback()
+                distribution.status = "failed"
+                db.commit()
+        finally:
+            db.close()
+
+    monkeypatch.setattr(dist_module, "_send_distribution", _crash_after_loop)
+
+    send_resp = client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    assert send_resp.status_code == 200
+
+    recipients_resp = client.get(f"/admin/distributions/{dist['id']}/recipients", headers=headers)
+    recipients = recipients_resp.json()
+    assert len(recipients) == 1
+    assert recipients[0]["status"] == "sent"

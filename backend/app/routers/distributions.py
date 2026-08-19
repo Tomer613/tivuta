@@ -172,12 +172,23 @@ def _send_distribution(distribution_id: int) -> None:
                 track = distribution.filter_membership_track
                 users = [u for u in users if u.membership_tracks and track in u.membership_tracks]
 
+            # Retrying a "failed" distribution (admin_send_distribution allows this) must never
+            # re-send to someone who already got a real email in an earlier attempt - skip anyone
+            # with an existing "sent" log for this distribution. A "failed" log doesn't skip, since
+            # retrying is precisely for the people it didn't reach yet.
+            already_sent_user_ids = {
+                row.user_id
+                for row in db.query(models.DistributionSendLog.user_id)
+                .filter(models.DistributionSendLog.distribution_id == distribution.id, models.DistributionSendLog.status == "sent")
+                .all()
+            }
+
             email_sender = get_email_sender()
             actual_sends = 0
             actual_failures = 0
 
             for user in users:
-                if "email" not in distribution.channels:
+                if "email" not in distribution.channels or user.id in already_sent_user_ids:
                     continue
                 log = models.DistributionSendLog(
                     distribution_id=distribution.id,
@@ -199,7 +210,14 @@ def _send_distribution(distribution_id: int) -> None:
                     log.status = "failed"
                     log.error = str(e)
                     actual_failures += 1
+                # Committed immediately, not batched with the final status write below - the
+                # email these rows describe was already actually (and irreversibly) sent, so the
+                # record of it must survive even if something later in this function throws.
+                # Without this, a crash between here and the final commit would roll back the
+                # log entries for emails that genuinely went out, and a subsequent retry (now
+                # possible from "failed") would have no way to know they'd already been sent.
                 db.add(log)
+                db.commit()
 
             # Re-read whatsapp_confirmed_at before deciding the final status - POST .../send
             # returns (and schedules this background task) before the task actually starts
