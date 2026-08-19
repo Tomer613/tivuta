@@ -98,12 +98,16 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends lsb-release
+      # cache: "pip" deliberately omitted here (unlike backend-tests' identical step) — confirmed
+      # live (2026-08-19) that setup-python's pip-cache feature tries to run `pip cache dir` to
+      # find where to cache, and that exact binary doesn't exist at its expected path inside this
+      # container, failing before the job ever reaches a real `pip install`. Dropping the caching
+      # optimization avoids that call entirely; the actual `pip install -r requirements.txt` step
+      # right after doesn't go through this code path at all.
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-          cache: "pip"
-          cache-dependency-path: backend/requirements.txt
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
