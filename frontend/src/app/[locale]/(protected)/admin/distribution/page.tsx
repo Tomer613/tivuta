@@ -140,10 +140,16 @@ export default function AdminDistributionPage() {
     }, [distributions, token]);
 
     const toggleChannel = (channel: string) => {
-        setForm((f) => ({
-            ...f,
-            channels: f.channels.includes(channel) ? f.channels.filter((c) => c !== channel) : [...f.channels, channel],
-        }));
+        setForm((f) => {
+            const channels = f.channels.includes(channel) ? f.channels.filter((c) => c !== channel) : [...f.channels, channel];
+            return {
+                ...f,
+                channels,
+                // Deselecting WhatsApp also hides the manual-mode checkbox — reset it too, so a
+                // distribution with no WhatsApp channel can't still be flagged manual-mode.
+                whatsapp_manual_mode: channel === 'whatsapp' && !channels.includes('whatsapp') ? false : f.whatsapp_manual_mode,
+            };
+        });
     };
 
     const handleCreate = async (e: React.FormEvent) => {
