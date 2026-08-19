@@ -86,6 +86,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # actions/setup-python shells out to `lsb_release` to detect the container's distro, and
+      # Playwright's image doesn't ship that tiny utility — confirmed live (2026-08-19): the job
+      # failed fast with "Unable to locate executable file: lsb_release" right after the image
+      # pulled successfully. This installs only that one small package, not the ~40+ Chromium
+      # system libs the old apt-based browser install used to pull — a much smaller, faster call,
+      # kept on its own short timeout so a repeat of the original mirror hang fails fast here
+      # too instead of eating the job's full budget.
+      - name: Install lsb-release (required by actions/setup-python inside a container)
+        timeout-minutes: 2
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends lsb-release
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
