@@ -196,6 +196,14 @@ def _send_distribution(distribution_id: int) -> None:
                 actual_failures += 1
             db.add(log)
 
+        # Re-read whatsapp_confirmed_at before deciding the final status - POST .../send returns
+        # (and schedules this background task) before the task actually starts running, so an
+        # admin can plausibly hit "confirm" via a completely separate request while this function
+        # is still mid-flight. Without refreshing, the stale in-memory `distribution` loaded at the
+        # top of this function would blindly overwrite status back to
+        # awaiting_whatsapp_confirmation even after a genuine concurrent confirmation.
+        db.refresh(distribution)
+
         # WhatsApp has no server-to-server delivery confirmation (it's a client-side deep link the
         # admin has to press send on themselves) - an email-less distribution is never marked
         # "sent" on nothing but an empty loop; it lands in awaiting_whatsapp_confirmation until the
@@ -204,7 +212,11 @@ def _send_distribution(distribution_id: int) -> None:
             distribution.status = "sent" if actual_sends > 0 or actual_failures == 0 else "failed"
             distribution.sent_at = datetime.utcnow()
         elif "whatsapp" in distribution.channels:
-            distribution.status = "awaiting_whatsapp_confirmation"
+            if distribution.whatsapp_confirmed_at:
+                distribution.status = "sent"
+                distribution.sent_at = distribution.sent_at or datetime.utcnow()
+            else:
+                distribution.status = "awaiting_whatsapp_confirmation"
         else:
             distribution.status = "failed"
         db.commit()

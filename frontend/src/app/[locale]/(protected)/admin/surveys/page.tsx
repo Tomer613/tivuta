@@ -399,12 +399,14 @@ export default function AdminSurveysPage() {
 
     const handleConfirmShared = async (s: Survey) => {
         if (!token) return;
-        setPendingShareSurvey(null);
         try {
             await adminCreateManualWhatsAppShare(token, { distribution_type: 'survey', survey_id: s.id, title_he: s.question_he });
+            setPendingShareSurvey(null);
             showToast('נרשם בהיסטוריית ההפצה ✓');
         } catch (err) {
-            showToast(getErrorMessage(err, 'שגיאה ברישום השיתוף'), 'error');
+            // Keep the prompt open on failure so the admin can retry the confirm itself without
+            // having to re-download the image and re-copy the caption from scratch.
+            showToast(getErrorMessage(err, 'שגיאה ברישום השיתוף — נסה שוב'), 'error');
         }
     };
 

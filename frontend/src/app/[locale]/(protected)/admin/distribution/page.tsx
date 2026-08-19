@@ -201,7 +201,8 @@ export default function AdminDistributionPage() {
             if (rawImage) {
                 const url = productImageUrl(rawImage);
                 const ext = url.split('?')[0].split('.').pop();
-                downloadImageFile(url, `distribution-${dist.id}${ext ? `.${ext}` : ''}`).catch(() => {});
+                downloadImageFile(url, `distribution-${dist.id}${ext ? `.${ext}` : ''}`)
+                    .catch(() => showToast('שגיאה בהורדת תמונת ההפצה', 'error'));
             }
         }
 

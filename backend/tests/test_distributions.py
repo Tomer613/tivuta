@@ -136,6 +136,31 @@ def test_manual_whatsapp_share_creates_already_confirmed_row(client, db_session,
     assert body["channels"] == ["whatsapp"]
 
 
+def test_send_respects_concurrent_whatsapp_confirmation(client, db_session, make_user):
+    """Regression test: POST .../send returns (merely scheduling the background task) before the
+    task actually runs, so an admin can plausibly confirm via a separate request while
+    _send_distribution is still mid-flight. The background task must not blindly overwrite an
+    out-of-band confirmation back to awaiting_whatsapp_confirmation."""
+    from datetime import datetime
+
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["whatsapp"])
+
+    # Simulate a confirmation that raced ahead of the background task's own final status write.
+    row = db_session.query(models.Distribution).filter(models.Distribution.id == dist["id"]).first()
+    row.whatsapp_confirmed_at = datetime.utcnow()
+    db_session.commit()
+
+    send_resp = client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    assert send_resp.status_code == 200
+
+    list_resp = client.get("/admin/distributions", headers=headers)
+    updated = next(d for d in list_resp.json() if d["id"] == dist["id"])
+    assert updated["status"] == "sent"
+    assert updated["whatsapp_confirmed_at"] is not None
+
+
 def test_manual_whatsapp_share_requires_admin(client, make_user):
     member = make_user(email="plainmember2@example.com", password="testpass123")
     login = client.post("/auth/login", data={"username": "plainmember2@example.com", "password": "testpass123"})
