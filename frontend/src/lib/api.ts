@@ -1138,6 +1138,24 @@ export async function adminListDistributions(token: string) {
     return res.json();
 }
 
+export interface DistributionRecipient {
+    user_id: number;
+    email: string;
+    first_name: string;
+    last_name: string;
+    channel: string;
+    status: string;
+    error?: string | null;
+    provider_message_id?: string | null;
+    sent_at?: string | null;
+}
+
+export async function adminListDistributionRecipients(token: string, id: number): Promise<DistributionRecipient[]> {
+    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/recipients`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load recipients');
+    return res.json();
+}
+
 export async function adminCreateDistribution(token: string, payload: Record<string, unknown>) {
     const res = await fetch(`${BASE_URL}/admin/distributions`, {
         method: 'POST',

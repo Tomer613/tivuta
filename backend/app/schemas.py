@@ -1047,6 +1047,7 @@ class DistributionCreate(BaseModel):
     scheduled_at: Optional[datetime] = None
     filter_membership_track: Optional[str] = None
     filter_city: Optional[str] = None
+    whatsapp_manual_mode: bool = False
 
 class DistributionRead(BaseModel):
     id: int
@@ -1066,6 +1067,7 @@ class DistributionRead(BaseModel):
     sent_at: Optional[datetime] = None
     whatsapp_confirmed_at: Optional[datetime] = None
     is_manual_share: bool = False
+    whatsapp_manual_mode: bool = False
     sent_count: int = 0
     failed_count: int = 0
     skipped_count: int = 0
@@ -1078,6 +1080,17 @@ class ManualWhatsAppShareCreate(BaseModel):
     survey_id: Optional[int] = None
     product_id: Optional[int] = None
     title_he: str
+
+class DistributionRecipientRead(BaseModel):
+    user_id: int
+    email: str
+    first_name: str
+    last_name: str
+    channel: str
+    status: str
+    error: Optional[str] = None
+    provider_message_id: Optional[str] = None
+    sent_at: Optional[datetime] = None
 
 
 # Review Schemas

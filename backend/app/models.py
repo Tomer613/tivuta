@@ -513,6 +513,12 @@ class Distribution(Base):
     # (e.g. the poll page's share button) - distinguishes a one-off share from a real
     # audience-targeted campaign created through the full "הפצה חדשה" form.
     is_manual_share = Column(Boolean, nullable=False, default=False, server_default="false")
+    # Set at creation, read at send time - chooses which WhatsApp send mechanism the frontend uses:
+    # False (default) opens the plain click-to-chat deep link (pre-filled text, no attachment);
+    # True instead copies the caption to the clipboard and downloads the image, for an admin who
+    # wants to attach a real photo manually. Persisted (not just transient form state) because
+    # creation and sending can happen in separate sessions/times.
+    whatsapp_manual_mode = Column(Boolean, nullable=False, default=False, server_default="false")
 
     survey = relationship("Survey")
     product = relationship("Product")
@@ -550,6 +556,7 @@ class DistributionSendLog(Base):
     sent_at = Column(DateTime, nullable=True)
 
     distribution = relationship("Distribution", back_populates="send_logs")
+    user = relationship("User")
 
 
 class SystemSetting(Base):

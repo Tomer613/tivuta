@@ -161,6 +161,92 @@ def test_send_respects_concurrent_whatsapp_confirmation(client, db_session, make
     assert updated["whatsapp_confirmed_at"] is not None
 
 
+def test_whatsapp_manual_mode_round_trips_through_create(client, db_session, make_user):
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+
+    resp = client.post(
+        "/admin/distributions",
+        json={
+            "distribution_type": "survey",
+            "survey_id": survey.id,
+            "title_he": "כותרת",
+            "channels": ["whatsapp"],
+            "whatsapp_manual_mode": True,
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["whatsapp_manual_mode"] is True
+
+    list_resp = client.get("/admin/distributions", headers=headers)
+    updated = next(d for d in list_resp.json() if d["id"] == resp.json()["id"])
+    assert updated["whatsapp_manual_mode"] is True
+
+
+def test_whatsapp_manual_mode_defaults_false(client, db_session, make_user):
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["whatsapp"])
+    assert dist["whatsapp_manual_mode"] is False
+
+
+def test_recipients_endpoint_returns_per_user_email_status(client, db_session, make_user):
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    make_user(email="member1@example.com", password="testpass123")
+    make_user(email="member2@example.com", password="testpass123")
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+
+    recipients_resp = client.get(f"/admin/distributions/{dist['id']}/recipients", headers=headers)
+    assert recipients_resp.status_code == 200
+    recipients = recipients_resp.json()
+    assert {r["email"] for r in recipients} == {"member1@example.com", "member2@example.com"}
+    assert all(r["channel"] == "email" for r in recipients)
+    assert all(r["status"] == "sent" for r in recipients)
+
+
+def test_recipients_endpoint_survives_deleted_user(client, db_session, make_user):
+    """Regression test: SQLite has no FK enforcement here and user deletion has no check for
+    historical references, so a recipient's user row can legitimately be gone by the time an
+    admin views this list. Must degrade gracefully, not 500."""
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    member = make_user(email="willbedeleted@example.com", password="testpass123")
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+    client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+
+    db_session.delete(db_session.query(models.User).filter(models.User.id == member.id).first())
+    db_session.commit()
+
+    recipients_resp = client.get(f"/admin/distributions/{dist['id']}/recipients", headers=headers)
+    assert recipients_resp.status_code == 200
+    recipients = recipients_resp.json()
+    assert len(recipients) == 1
+    assert recipients[0]["email"] == "(משתמש נמחק)"
+
+
+def test_recipients_endpoint_requires_admin(client, db_session, make_user):
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    member = make_user(email="plainmember3@example.com", password="testpass123")
+    login = client.post("/auth/login", data={"username": "plainmember3@example.com", "password": "testpass123"})
+    member_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    resp = client.get(f"/admin/distributions/{dist['id']}/recipients", headers=member_headers)
+    assert resp.status_code == 403
+
+
+def test_recipients_endpoint_404_for_unknown_distribution(client, make_user):
+    headers = _admin_headers(client, make_user)
+    resp = client.get("/admin/distributions/999999/recipients", headers=headers)
+    assert resp.status_code == 404
+
+
 def test_manual_whatsapp_share_requires_admin(client, make_user):
     member = make_user(email="plainmember2@example.com", password="testpass123")
     login = client.post("/auth/login", data={"username": "plainmember2@example.com", "password": "testpass123"})

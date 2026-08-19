@@ -12,6 +12,8 @@ import {
     adminListSurveys,
     adminListProducts,
     adminPreviewDistribution,
+    adminListDistributionRecipients,
+    DistributionRecipient,
     productImageUrl,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
@@ -50,6 +52,7 @@ interface Distribution {
     sent_at?: string | null;
     whatsapp_confirmed_at?: string | null;
     is_manual_share?: boolean;
+    whatsapp_manual_mode?: boolean;
     sent_count: number;
     failed_count: number;
     skipped_count: number;
@@ -76,6 +79,10 @@ export default function AdminDistributionPage() {
     const [previewData, setPreviewData] = useState<{ html: string; subject: string; recipient_count: number } | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
 
+    const [recipientsDistId, setRecipientsDistId] = useState<number | null>(null);
+    const [recipients, setRecipients] = useState<DistributionRecipient[] | null>(null);
+    const [recipientsLoading, setRecipientsLoading] = useState(false);
+
     const [form, setForm] = useState({
         distribution_type: 'survey' as 'daily_deal' | 'survey',
         survey_id: '',
@@ -83,6 +90,7 @@ export default function AdminDistributionPage() {
         title_he: '',
         message_he: '',
         channels: [] as string[],
+        whatsapp_manual_mode: false,
         scheduled_at: '',
         filter_membership_track: '',
         filter_city: '',
@@ -149,12 +157,13 @@ export default function AdminDistributionPage() {
                 title_he: form.title_he,
                 message_he: form.message_he || null,
                 channels: form.channels,
+                whatsapp_manual_mode: form.whatsapp_manual_mode,
                 scheduled_at: form.scheduled_at || null,
                 filter_membership_track: form.filter_membership_track || null,
                 filter_city: form.filter_city || null,
             });
             setShowForm(false);
-            setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: [], scheduled_at: '', filter_membership_track: '', filter_city: '' });
+            setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: [], whatsapp_manual_mode: false, scheduled_at: '', filter_membership_track: '', filter_city: '' });
             showToast('ההפצה נוצרה — תוכל לשלוח אותה מהרשימה ✓');
             load();
         } catch {
@@ -187,22 +196,51 @@ export default function AdminDistributionPage() {
 
         const hasEmail = dist.channels.includes('email');
         const hasWhatsApp = dist.channels.includes('whatsapp');
+        // Collected here instead of shown immediately, then merged into one final toast below —
+        // otherwise this message would be clobbered near-instantly by the post-send toast that
+        // follows a moment later, since both share the same single-toast slot.
+        let whatsappNote: { text: string; failed: boolean } | null = null;
 
-        // Open WhatsApp deep link immediately (same event-loop tick as the click, before any awaits)
-        if (hasWhatsApp) {
+        if (hasWhatsApp && !dist.whatsapp_manual_mode) {
+            // Deep-link mode (default, unchanged from before manual mode existed): open WhatsApp
+            // immediately (same event-loop tick as the click, before any awaits) with the caption
+            // pre-filled via the URL's own text param — no clipboard copy needed for this mode,
+            // and no image download either (there's nowhere to attach it to automatically anyway).
             const text = buildWhatsAppText(dist);
             window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-
-            // Best-effort image download so the admin can attach a real photo, not just text —
-            // never blocks opening the deep link above on a download failure.
+        } else if (hasWhatsApp && dist.whatsapp_manual_mode) {
+            // Manual mode: no deep link — genuinely copy the caption to the clipboard and download
+            // the image, so the admin can attach a real photo themselves (same mechanism already
+            // proven on the Surveys page's share button).
             const survey = dist.distribution_type === 'survey' && dist.survey_id ? surveys.find((s) => s.id === dist.survey_id) : null;
             const product = dist.distribution_type === 'daily_deal' && dist.product_id ? products.find((p) => p.id === dist.product_id) : null;
             const rawImage = survey?.image_url || product?.image_url;
+            let downloadFailed = false;
             if (rawImage) {
-                const url = productImageUrl(rawImage);
-                const ext = url.split('?')[0].split('.').pop();
-                downloadImageFile(url, `distribution-${dist.id}${ext ? `.${ext}` : ''}`)
-                    .catch(() => showToast('שגיאה בהורדת תמונת ההפצה', 'error'));
+                try {
+                    const url = productImageUrl(rawImage);
+                    const ext = url.split('?')[0].split('.').pop();
+                    await downloadImageFile(url, `distribution-${dist.id}${ext ? `.${ext}` : ''}`);
+                } catch {
+                    downloadFailed = true;
+                }
+            }
+            let copyFailed = false;
+            try {
+                await navigator.clipboard.writeText(buildWhatsAppText(dist));
+            } catch {
+                copyFailed = true;
+            }
+            // No image on the linked survey/product at all is a normal, valid case (not every one
+            // has a custom image set) — the message must not falsely claim one was downloaded.
+            if (copyFailed) {
+                whatsappNote = { text: downloadFailed ? 'שגיאה בהורדת התמונה ובהעתקת הטקסט' : 'העתקת הטקסט נכשלה', failed: true };
+            } else if (downloadFailed) {
+                whatsappNote = { text: 'הטקסט הועתק, אך הורדת התמונה נכשלה', failed: true };
+            } else if (rawImage) {
+                whatsappNote = { text: 'התמונה הורדה והטקסט הועתק', failed: false };
+            } else {
+                whatsappNote = { text: 'הטקסט הועתק', failed: false };
             }
         }
 
@@ -210,13 +248,17 @@ export default function AdminDistributionPage() {
         setSendingId(id);
         try {
             await adminSendDistribution(token, id);
-            if (hasEmail && hasWhatsApp) {
-                showToast('האימיילים נשלחו ✓ — WhatsApp נפתח לשליחה ידנית');
+            let message: string;
+            if (whatsappNote) {
+                message = hasEmail ? `האימיילים נשלחו ✓ — ${whatsappNote.text}` : `${whatsappNote.text} — אשר שליחה ברשימה למטה לאחר שתשלח בפועל`;
+            } else if (hasEmail && hasWhatsApp) {
+                message = 'האימיילים נשלחו ✓ — לאחר השליחה בוואטסאפ, אשר זאת ברשימה למטה';
             } else if (hasWhatsApp) {
-                showToast('WhatsApp נפתח — לאחר השליחה בפועל, אשר זאת ברשימה למטה ✓');
+                message = 'לאחר השליחה בפועל בוואטסאפ, אשר זאת ברשימה למטה ✓';
             } else {
-                showToast('ההפצה נשלחה בהצלחה ✓');
+                message = 'ההפצה נשלחה בהצלחה ✓';
             }
+            showToast(message, whatsappNote?.failed ? 'error' : 'success');
             await load();
         } catch {
             showToast('שגיאה בשליחה', 'error');
@@ -261,6 +303,22 @@ export default function AdminDistributionPage() {
             setPreviewDistId(null);
         } finally {
             setPreviewLoading(false);
+        }
+    };
+
+    const handleShowRecipients = async (id: number) => {
+        if (!token) return;
+        setRecipientsDistId(id);
+        setRecipients(null);
+        setRecipientsLoading(true);
+        try {
+            const data = await adminListDistributionRecipients(token, id);
+            setRecipients(data);
+        } catch {
+            showToast('שגיאה בטעינת רשימת נמענים', 'error');
+            setRecipientsDistId(null);
+        } finally {
+            setRecipientsLoading(false);
         }
     };
 
@@ -359,11 +417,15 @@ export default function AdminDistributionPage() {
                                     </td>
                                     <td className="p-4">
                                         {(d.sent_count > 0 || d.failed_count > 0 || d.skipped_count > 0) ? (
-                                            <div className="text-xs space-y-0.5">
+                                            <button
+                                                onClick={() => handleShowRecipients(d.id)}
+                                                className="text-xs space-y-0.5 text-start hover:underline decoration-dotted"
+                                                title="הצג רשימת נמענים"
+                                            >
                                                 {d.sent_count > 0 && <div className="text-green-400">{d.sent_count} נשלחו ✓</div>}
                                                 {d.failed_count > 0 && <div className="text-red-400">{d.failed_count} נכשלו</div>}
                                                 {d.skipped_count > 0 && <div className="text-[#f0e6d3]/40">{d.skipped_count} דולגו</div>}
-                                            </div>
+                                            </button>
                                         ) : <span className="text-[#f0e6d3]/25 text-xs">—</span>}
                                     </td>
                                     <td className="p-4">
@@ -396,13 +458,13 @@ export default function AdminDistributionPage() {
                                                 </button>
                                             )
                                         )}
-                                        {d.channels.includes('whatsapp') && !d.whatsapp_confirmed_at && d.status !== 'draft' && (
+                                        {d.channels.includes('whatsapp') && !d.whatsapp_confirmed_at && d.status !== 'draft' && d.status !== 'sending' && (
                                             <button
                                                 onClick={() => handleConfirmWhatsApp(d.id)}
                                                 className="flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300"
                                                 title="לחץ לאחר שבאמת שלחת בוואטסאפ"
                                             >
-                                                <CheckCircle2 size={13} /> אשרתי ששלחתי
+                                                <CheckCircle2 size={13} /> אישרתי ששלחתי
                                             </button>
                                         )}
                                         {(d.status === 'draft' || d.status === 'awaiting_whatsapp_confirmation') && (
@@ -461,6 +523,45 @@ export default function AdminDistributionPage() {
                                 </div>
                             ) : (
                                 <div className="text-center py-16 text-[#f0e6d3]/40">לא ניתן לטעון תצוגה מקדימה</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Recipients Modal */}
+            {recipientsDistId !== null && (
+                <div className="fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-6" onClick={() => setRecipientsDistId(null)}>
+                    <div className="bg-[#0e1628] border border-[#d4af37]/30 rounded-3xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-5 border-b border-[#d4af37]/10 flex-shrink-0">
+                            <h2 className="text-lg font-black text-[#f0e6d3] flex items-center gap-2"><Users size={16} className="text-[#d4af37]" /> נמענים</h2>
+                            <button onClick={() => setRecipientsDistId(null)}><X size={20} className="text-[#f0e6d3]/60 hover:text-[#f0e6d3]" /></button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {recipientsLoading ? (
+                                <div className="flex items-center justify-center py-16"><Loader2 size={28} className="animate-spin text-[#d4af37]" /></div>
+                            ) : recipients && recipients.length > 0 ? (
+                                <div className="flex flex-col gap-2">
+                                    {recipients.map((r) => (
+                                        <div key={r.user_id} className="bg-[#111a2f] rounded-xl px-4 py-3">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm text-[#f0e6d3] font-semibold">{r.first_name} {r.last_name}</p>
+                                                    <p className="text-xs text-[#f0e6d3]/50" dir="ltr">{r.email}</p>
+                                                </div>
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap ${r.status === 'sent' ? 'bg-green-500/20 text-green-400' : r.status === 'failed' ? 'bg-red-500/20 text-red-400' : 'bg-[#111a2f] text-[#f0e6d3]/50'}`}>
+                                                    {r.status === 'sent' ? 'נשלח' : r.status === 'failed' ? 'נכשל' : r.status}
+                                                </span>
+                                            </div>
+                                            {r.error && <p className="text-xs text-red-400/80 mt-1">{r.error}</p>}
+                                            {r.provider_message_id && (
+                                                <p className="text-[10px] text-[#f0e6d3]/25 mt-1 font-mono" dir="ltr">ID: {r.provider_message_id}</p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-16 text-[#f0e6d3]/40">אין נתוני נמענים</div>
                             )}
                         </div>
                     </div>
@@ -580,6 +681,22 @@ export default function AdminDistributionPage() {
                             </div>
                             {form.channels.length === 0 && (
                                 <p className="text-red-400 text-xs mt-1">יש לבחור לפחות ערוץ אחד</p>
+                            )}
+                            {form.channels.includes('whatsapp') && (
+                                <label className="flex items-start gap-2 mt-3 bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3] text-sm cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.whatsapp_manual_mode}
+                                        onChange={() => setForm({ ...form, whatsapp_manual_mode: !form.whatsapp_manual_mode })}
+                                        className="mt-0.5"
+                                    />
+                                    <span>
+                                        שליחה ידנית (העתק טקסט + הורדת תמונה)
+                                        <span className="block text-[10px] text-[#f0e6d3]/30 mt-0.5">
+                                            במקום לפתוח את WhatsApp עם טקסט מוכן, יועתק הטקסט ותורד התמונה — כדי לצרף תמונה אמיתית בעצמך.
+                                        </span>
+                                    </span>
+                                </label>
                             )}
                         </div>
 

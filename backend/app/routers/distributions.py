@@ -256,6 +256,42 @@ def admin_list_distributions(db: Session = Depends(get_db)):
     return [_serialize_distribution(dist) for dist in distributions]
 
 
+@router.get("/admin/distributions/{distribution_id}/recipients", response_model=List[schemas.DistributionRecipientRead], dependencies=[Depends(get_current_admin)])
+def admin_list_distribution_recipients(distribution_id: int, db: Session = Depends(get_db)):
+    distribution = (
+        db.query(models.Distribution)
+        .options(selectinload(models.Distribution.send_logs).selectinload(models.DistributionSendLog.user))
+        .filter(models.Distribution.id == distribution_id)
+        .first()
+    )
+    if not distribution:
+        raise HTTPException(status_code=404, detail="Distribution not found")
+
+    # Failures first (most actionable), then sent, then anything still pending.
+    order = {"failed": 0, "sent": 1, "pending": 2}
+    logs = sorted(distribution.send_logs, key=lambda log: order.get(log.status, 3))
+    result = []
+    for log in logs:
+        # SQLite has no FK enforcement in this app and admin_delete_user has no check for
+        # historical references, so a member who received a past distribution could later be
+        # deleted, leaving this log's user_id dangling - degrade gracefully instead of a 500.
+        user = log.user
+        result.append(
+            schemas.DistributionRecipientRead(
+                user_id=log.user_id,
+                email=user.email if user else "(משתמש נמחק)",
+                first_name=user.first_name if user else "",
+                last_name=user.last_name if user else "",
+                channel=log.channel,
+                status=log.status,
+                error=log.error,
+                provider_message_id=log.provider_message_id,
+                sent_at=log.sent_at,
+            )
+        )
+    return result
+
+
 @router.post("/admin/distributions", response_model=schemas.DistributionRead)
 def admin_create_distribution(
     payload: schemas.DistributionCreate,
@@ -275,6 +311,7 @@ def admin_create_distribution(
         scheduled_at=payload.scheduled_at,
         filter_membership_track=payload.filter_membership_track,
         filter_city=payload.filter_city,
+        whatsapp_manual_mode=payload.whatsapp_manual_mode,
         created_by=current_user.id,
     )
     db.add(distribution)
