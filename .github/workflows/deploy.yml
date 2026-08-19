@@ -60,6 +60,19 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-latest
+    # Runs inside Playwright's official image (Chromium + all OS deps preinstalled) instead of
+    # installing them live via apt-get on the bare runner — that live apt/mirror dependency is
+    # what caused this job to hang indefinitely twice in a row (2026-08-19), confirmed via the
+    # raw job log showing apt-get going silent mid-fetch with no error, no output, no recovery.
+    # Tag must match the "@playwright/test" version pinned in frontend/package.json, or Playwright
+    # refuses to run (version mismatch check) — bumping one requires bumping the other.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      # --ipc=host: without it Chromium can exhaust shared memory and crash mid-test (Docker's
+      # default /dev/shm is only 64MB) — official Playwright Docker guidance for CI.
+      # --init: the container's PID 1 is the test process, not a real init system; --init adds
+      # one so zombie child processes (e.g. from a killed browser) get reaped correctly.
+      options: --ipc=host --init
     timeout-minutes: 15
     needs: [backend-tests, frontend-checks]
     env:
@@ -91,24 +104,6 @@ jobs:
       - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm install
-      - name: Get installed Playwright version
-        working-directory: ./frontend
-        id: playwright-version
-        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> $GITHUB_OUTPUT
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        working-directory: ./frontend
-        run: npx playwright install --with-deps chromium
-      - name: Install Playwright OS dependencies only (browsers cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        working-directory: ./frontend
-        run: npx playwright install-deps chromium
       - name: Migrate E2E database
         working-directory: ./backend
         run: alembic upgrade head
