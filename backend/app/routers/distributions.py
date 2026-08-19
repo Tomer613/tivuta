@@ -118,6 +118,34 @@ def _build_fallback_email(subject: str, message: str) -> str:
     return _email_wrapper(inner)
 
 
+# ─── Shared email content builder ──────────────────────────────────────────────
+
+def _build_distribution_email(distribution: models.Distribution) -> tuple[str, str]:
+    """Builds (subject, html) for a distribution's email content - survey/daily_deal-specific
+    template with a fallback. Shared by the real send, the preview, and the send-test endpoint so
+    exactly one code path decides what an email looks like. Reads distribution.survey/.product via
+    ORM relationship access (lazy-loads if not already eager-loaded by the caller's own query) -
+    the caller's session must still be open."""
+    subject = distribution.title_he or "TIVUTA"
+    message = distribution.message_he or ""
+    html: Optional[str] = None
+
+    if distribution.distribution_type == "survey" and distribution.survey_id and distribution.survey:
+        survey = distribution.survey
+        survey_url = f"{SHARE_BASE_URL}/share/surveys/{survey.id}?locale=he"
+        product_image_url = _absolute_image_url(resolve_survey_image_url(survey))
+        html = _build_survey_email(survey, survey_url, product_image_url)
+    elif distribution.distribution_type == "daily_deal" and distribution.product_id and distribution.product:
+        product = distribution.product
+        product_url = f"{APP_BASE_URL}/he/{product.vertical}?product={product.id}"
+        html = _build_deal_email(product, product_url)
+
+    if not html:
+        html = _build_fallback_email(subject, message)
+
+    return subject, html
+
+
 # ─── Background send task ──────────────────────────────────────────────────────
 
 def _send_distribution(distribution_id: int) -> None:
@@ -132,94 +160,81 @@ def _send_distribution(distribution_id: int) -> None:
         distribution.status = "sending"
         db.commit()
 
-        subject = distribution.title_he or "TIVUTA"
-        message = distribution.message_he or ""
-        email_html: Optional[str] = None
+        try:
+            subject, email_html = _build_distribution_email(distribution)
 
-        # Build rich email content
-        if distribution.distribution_type == "survey" and distribution.survey_id:
-            survey = (
-                db.query(models.Survey)
-                .options(selectinload(models.Survey.options).selectinload(models.SurveyOption.product))
-                .filter(models.Survey.id == distribution.survey_id)
-                .first()
-            )
-            if survey:
-                survey_url = f"{SHARE_BASE_URL}/share/surveys/{survey.id}?locale=he"
-                product_image_url = _absolute_image_url(resolve_survey_image_url(survey))
-                email_html = _build_survey_email(survey, survey_url, product_image_url)
+            # Only send to member users; apply segmentation filters
+            user_query = db.query(models.User).filter(models.User.role == "member")
+            if distribution.filter_city:
+                user_query = user_query.filter(models.User.city == distribution.filter_city)
+            users = user_query.all()
+            if distribution.filter_membership_track:
+                track = distribution.filter_membership_track
+                users = [u for u in users if u.membership_tracks and track in u.membership_tracks]
 
-        elif distribution.distribution_type == "daily_deal" and distribution.product_id:
-            product = db.query(models.Product).filter(models.Product.id == distribution.product_id).first()
-            if product:
-                product_url = f"{APP_BASE_URL}/he/{product.vertical}?product={product.id}"
-                email_html = _build_deal_email(product, product_url)
+            email_sender = get_email_sender()
+            actual_sends = 0
+            actual_failures = 0
 
-        if not email_html:
-            email_html = _build_fallback_email(subject, message)
-
-        # Only send to member users; apply segmentation filters
-        user_query = db.query(models.User).filter(models.User.role == "member")
-        if distribution.filter_city:
-            user_query = user_query.filter(models.User.city == distribution.filter_city)
-        users = user_query.all()
-        if distribution.filter_membership_track:
-            track = distribution.filter_membership_track
-            users = [u for u in users if u.membership_tracks and track in u.membership_tracks]
-
-        email_sender = get_email_sender()
-        actual_sends = 0
-        actual_failures = 0
-
-        for user in users:
-            if "email" not in distribution.channels:
-                continue
-            log = models.DistributionSendLog(
-                distribution_id=distribution.id,
-                user_id=user.id,
-                channel="email",
-            )
-            try:
-                result = email_sender.send(to=user.email, subject=subject, html_body=email_html, locale="he")
-                if result.success:
-                    log.status = "sent"
-                    log.provider_message_id = result.provider_message_id
-                    log.sent_at = datetime.utcnow()
-                    actual_sends += 1
-                else:
+            for user in users:
+                if "email" not in distribution.channels:
+                    continue
+                log = models.DistributionSendLog(
+                    distribution_id=distribution.id,
+                    user_id=user.id,
+                    channel="email",
+                )
+                try:
+                    result = email_sender.send(to=user.email, subject=subject, html_body=email_html, locale="he")
+                    if result.success:
+                        log.status = "sent"
+                        log.provider_message_id = result.provider_message_id
+                        log.sent_at = datetime.utcnow()
+                        actual_sends += 1
+                    else:
+                        log.status = "failed"
+                        log.error = result.error
+                        actual_failures += 1
+                except Exception as e:
                     log.status = "failed"
-                    log.error = result.error
+                    log.error = str(e)
                     actual_failures += 1
-            except Exception as e:
-                log.status = "failed"
-                log.error = str(e)
-                actual_failures += 1
-            db.add(log)
+                db.add(log)
 
-        # Re-read whatsapp_confirmed_at before deciding the final status - POST .../send returns
-        # (and schedules this background task) before the task actually starts running, so an
-        # admin can plausibly hit "confirm" via a completely separate request while this function
-        # is still mid-flight. Without refreshing, the stale in-memory `distribution` loaded at the
-        # top of this function would blindly overwrite status back to
-        # awaiting_whatsapp_confirmation even after a genuine concurrent confirmation.
-        db.refresh(distribution)
+            # Re-read whatsapp_confirmed_at before deciding the final status - POST .../send
+            # returns (and schedules this background task) before the task actually starts
+            # running, so an admin can plausibly hit "confirm" via a completely separate request
+            # while this function is still mid-flight. Without refreshing, the stale in-memory
+            # `distribution` loaded at the top of this function would blindly overwrite status
+            # back to awaiting_whatsapp_confirmation even after a genuine concurrent confirmation.
+            db.refresh(distribution)
 
-        # WhatsApp has no server-to-server delivery confirmation (it's a client-side deep link the
-        # admin has to press send on themselves) - an email-less distribution is never marked
-        # "sent" on nothing but an empty loop; it lands in awaiting_whatsapp_confirmation until the
-        # admin explicitly confirms via PATCH .../confirm-whatsapp.
-        if "email" in distribution.channels:
-            distribution.status = "sent" if actual_sends > 0 or actual_failures == 0 else "failed"
-            distribution.sent_at = datetime.utcnow()
-        elif "whatsapp" in distribution.channels:
-            if distribution.whatsapp_confirmed_at:
-                distribution.status = "sent"
-                distribution.sent_at = distribution.sent_at or datetime.utcnow()
+            # WhatsApp has no server-to-server delivery confirmation (it's a client-side deep
+            # link the admin has to press send on themselves) - an email-less distribution is
+            # never marked "sent" on nothing but an empty loop; it lands in
+            # awaiting_whatsapp_confirmation until the admin explicitly confirms via
+            # PATCH .../confirm-whatsapp.
+            if "email" in distribution.channels:
+                distribution.status = "sent" if actual_sends > 0 or actual_failures == 0 else "failed"
+                distribution.sent_at = datetime.utcnow()
+            elif "whatsapp" in distribution.channels:
+                if distribution.whatsapp_confirmed_at:
+                    distribution.status = "sent"
+                    distribution.sent_at = distribution.sent_at or datetime.utcnow()
+                else:
+                    distribution.status = "awaiting_whatsapp_confirmation"
             else:
-                distribution.status = "awaiting_whatsapp_confirmation"
-        else:
+                distribution.status = "failed"
+            db.commit()
+        except Exception:
+            # Never leave a distribution stuck at "sending" forever - any unexpected failure
+            # anywhere above (DB hiccup, template bug, etc.) must still land on a terminal,
+            # recoverable status. Background task failures are otherwise invisible - nothing
+            # surfaces them anywhere - so silently dying here would strand the row with no way to
+            # delete or retry it (the exact "stuck at שולח..." dead end this was written to fix).
+            db.rollback()
             distribution.status = "failed"
-        db.commit()
+            db.commit()
     finally:
         db.close()
 
@@ -325,8 +340,10 @@ def admin_send_distribution(distribution_id: int, background_tasks: BackgroundTa
     distribution = db.query(models.Distribution).filter(models.Distribution.id == distribution_id).first()
     if not distribution:
         raise HTTPException(status_code=404, detail="Distribution not found")
-    if distribution.status != "draft":
-        raise HTTPException(status_code=400, detail="ניתן לשלוח רק הפצות במצב טיוטה")
+    # "failed" is included so a genuine transient failure (network blip, etc.) can be retried
+    # without deleting and recreating the whole distribution.
+    if distribution.status not in ("draft", "failed"):
+        raise HTTPException(status_code=400, detail="ניתן לשלוח רק הפצות במצב טיוטה או הפצות שנכשלו")
     background_tasks.add_task(_send_distribution, distribution_id)
     return {"message": "Distribution send started"}
 
@@ -402,22 +419,7 @@ def admin_preview_distribution(distribution_id: int, db: Session = Depends(get_d
     if not distribution:
         raise HTTPException(status_code=404, detail="Distribution not found")
 
-    subject = distribution.title_he or "TIVUTA"
-    message = distribution.message_he or ""
-    html = None
-
-    if distribution.distribution_type == "survey" and distribution.survey_id and distribution.survey:
-        survey = distribution.survey
-        survey_url = f"{SHARE_BASE_URL}/share/surveys/{survey.id}?locale=he"
-        product_image_url = _absolute_image_url(resolve_survey_image_url(survey))
-        html = _build_survey_email(survey, survey_url, product_image_url)
-    elif distribution.distribution_type == "daily_deal" and distribution.product_id and distribution.product:
-        product = distribution.product
-        product_url = f"{APP_BASE_URL}/he/{product.vertical}?product={product.id}"
-        html = _build_deal_email(product, product_url)
-
-    if not html:
-        html = _build_fallback_email(subject, message)
+    subject, html = _build_distribution_email(distribution)
 
     # Count target audience
     user_query = db.query(models.User).filter(models.User.role == "member")
@@ -431,15 +433,44 @@ def admin_preview_distribution(distribution_id: int, db: Session = Depends(get_d
     return {"html": html, "subject": subject, "recipient_count": len(users)}
 
 
+@router.post("/admin/distributions/{distribution_id}/send-test", dependencies=[Depends(get_current_admin)])
+def admin_send_test_distribution(
+    distribution_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    """Sends exactly one real email to the admin's own address, using the same template a real
+    send would use - a side-channel verification action, not a real send. Deliberately never
+    touches status/sent_at/DistributionSendLog, since a test send must never look like (or count
+    toward) a real campaign send. This is how an admin can actually check their own system, since
+    real campaign sends only ever go to role == "member" users - admins are never recipients."""
+    distribution = (
+        db.query(models.Distribution)
+        .options(
+            selectinload(models.Distribution.survey).selectinload(models.Survey.options).selectinload(models.SurveyOption.product),
+            selectinload(models.Distribution.product),
+        )
+        .filter(models.Distribution.id == distribution_id)
+        .first()
+    )
+    if not distribution:
+        raise HTTPException(status_code=404, detail="Distribution not found")
+
+    subject, html = _build_distribution_email(distribution)
+    result = get_email_sender().send(to=current_user.email, subject=f"[בדיקה] {subject}", html_body=html, locale="he")
+    return {"success": result.success, "error": result.error}
+
+
 @router.delete("/admin/distributions/{distribution_id}", dependencies=[Depends(get_current_admin)])
 def admin_delete_distribution(distribution_id: int, db: Session = Depends(get_db)):
     distribution = db.query(models.Distribution).filter(models.Distribution.id == distribution_id).first()
     if not distribution:
         raise HTTPException(status_code=404, detail="Distribution not found")
-    # awaiting_whatsapp_confirmation is included alongside draft - nothing was confirmably sent
-    # yet in either state, so abandoning one should stay possible (unlike a real "sent" campaign).
-    if distribution.status not in ("draft", "awaiting_whatsapp_confirmation"):
-        raise HTTPException(status_code=400, detail="ניתן למחוק רק טיוטות או הפצות שממתינות לאישור שיתוף")
+    # awaiting_whatsapp_confirmation and failed are included alongside draft - nothing was
+    # confirmably sent yet in any of these states, so abandoning one should stay possible (unlike
+    # a real "sent" campaign).
+    if distribution.status not in ("draft", "awaiting_whatsapp_confirmation", "failed"):
+        raise HTTPException(status_code=400, detail="ניתן למחוק רק טיוטות, הפצות שממתינות לאישור שיתוף, או הפצות שנכשלו")
     db.delete(distribution)
     db.commit()
     return {"message": "deleted"}

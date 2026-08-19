@@ -1706,3 +1706,15 @@ export async function adminPreviewDistribution(token: string, id: number) {
     if (!res.ok) throw new Error('Preview failed');
     return res.json() as Promise<{ html: string; subject: string; recipient_count: number }>;
 }
+
+export async function adminSendTestEmail(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/send-test`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to send test email');
+    }
+    return res.json() as Promise<{ success: boolean; error: string | null }>;
+}

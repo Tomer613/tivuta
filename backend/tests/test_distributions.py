@@ -258,3 +258,101 @@ def test_manual_whatsapp_share_requires_admin(client, make_user):
         headers=headers,
     )
     assert resp.status_code == 403
+
+
+def test_send_failure_lands_on_failed_not_stuck_sending(client, db_session, make_user, monkeypatch):
+    """Regression test for the actual root cause of the "stuck at שולח..." report: any unexpected
+    exception during _send_distribution must land the row on status='failed', never leave it
+    stranded at 'sending' with no recovery path (background task failures are otherwise invisible
+    - nothing surfaces them anywhere)."""
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("simulated failure")
+
+    monkeypatch.setattr("app.routers.distributions._build_distribution_email", _boom)
+
+    send_resp = client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    assert send_resp.status_code == 200
+
+    list_resp = client.get("/admin/distributions", headers=headers)
+    updated = next(d for d in list_resp.json() if d["id"] == dist["id"])
+    assert updated["status"] == "failed"
+
+
+def test_delete_allowed_from_failed(client, db_session, make_user, monkeypatch):
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+    monkeypatch.setattr("app.routers.distributions._build_distribution_email", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
+    client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+
+    delete_resp = client.delete(f"/admin/distributions/{dist['id']}", headers=headers)
+    assert delete_resp.status_code == 200
+
+
+def test_resend_allowed_from_failed(client, db_session, make_user, monkeypatch):
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    import app.routers.distributions as dist_module
+    real_builder = dist_module._build_distribution_email
+    call_count = {"n": 0}
+
+    def _boom_once(distribution):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise RuntimeError("simulated failure")
+        return real_builder(distribution)
+
+    monkeypatch.setattr("app.routers.distributions._build_distribution_email", _boom_once)
+
+    client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    list_resp = client.get("/admin/distributions", headers=headers)
+    assert next(d for d in list_resp.json() if d["id"] == dist["id"])["status"] == "failed"
+
+    retry_resp = client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    assert retry_resp.status_code == 200
+    list_resp2 = client.get("/admin/distributions", headers=headers)
+    final_status = next(d for d in list_resp2.json() if d["id"] == dist["id"])["status"]
+    assert final_status == "sent"
+
+
+def test_send_test_sends_to_admin_without_touching_status_or_logs(client, db_session, make_user):
+    headers = _admin_headers(client, make_user, email="testadmin@example.com")
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    resp = client.post(f"/admin/distributions/{dist['id']}/send-test", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["success"] is True
+
+    list_resp = client.get("/admin/distributions", headers=headers)
+    updated = next(d for d in list_resp.json() if d["id"] == dist["id"])
+    assert updated["status"] == "draft"
+    assert updated["sent_count"] == 0
+
+    recipients_resp = client.get(f"/admin/distributions/{dist['id']}/recipients", headers=headers)
+    assert recipients_resp.json() == []
+
+
+def test_send_test_requires_admin(client, db_session, make_user):
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    make_user(email="plainmember4@example.com", password="testpass123")
+    login = client.post("/auth/login", data={"username": "plainmember4@example.com", "password": "testpass123"})
+    member_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    resp = client.post(f"/admin/distributions/{dist['id']}/send-test", headers=member_headers)
+    assert resp.status_code == 403
+
+
+def test_send_test_404_for_unknown_distribution(client, make_user):
+    headers = _admin_headers(client, make_user)
+    resp = client.post("/admin/distributions/999999/send-test", headers=headers)
+    assert resp.status_code == 404

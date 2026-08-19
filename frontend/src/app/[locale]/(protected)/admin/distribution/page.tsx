@@ -12,6 +12,7 @@ import {
     adminListSurveys,
     adminListProducts,
     adminPreviewDistribution,
+    adminSendTestEmail,
     adminListDistributionRecipients,
     DistributionRecipient,
     productImageUrl,
@@ -21,7 +22,7 @@ import { downloadImageFile } from '@/lib/shareImage';
 import { Product } from '@/components/ProductTile';
 import { Survey } from '@/components/SurveyCard';
 import { buildSurveyShareUrl } from '@/lib/share';
-import { Plus, Loader2, X, Send, Mail, MessageCircle, RefreshCw, CheckCircle2, AlertCircle, Trash2, Calendar, Eye, Users, Filter } from 'lucide-react';
+import { Plus, Loader2, X, Send, Mail, MessageCircle, RefreshCw, CheckCircle2, AlertCircle, Trash2, Calendar, Eye, Users, Filter, MailCheck } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -67,6 +68,7 @@ export default function AdminDistributionPage() {
     const [showForm, setShowForm] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [sendingId, setSendingId] = useState<number | null>(null);
+    const [sendingTestId, setSendingTestId] = useState<number | null>(null);
     const [confirmSendId, setConfirmSendId] = useState<number | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [memberCount, setMemberCount] = useState<number | null>(null);
@@ -328,6 +330,22 @@ export default function AdminDistributionPage() {
         }
     };
 
+    // Sends a real email straight to the current admin's own address, using the exact same
+    // template a real send would use — since real campaign sends only ever go to role=="member"
+    // users, this is the only way an admin can actually verify their own system end-to-end.
+    const handleSendTest = async (id: number) => {
+        if (!token) return;
+        setSendingTestId(id);
+        try {
+            const result = await adminSendTestEmail(token, id);
+            showToast(result.success ? 'מייל בדיקה נשלח לכתובת שלך ✓' : `שגיאה בשליחת הבדיקה: ${result.error ?? ''}`, result.success ? 'success' : 'error');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בשליחת מייל בדיקה'), 'error');
+        } finally {
+            setSendingTestId(null);
+        }
+    };
+
     const selectedSurvey = surveys.find((s) => s.id === Number(form.survey_id));
     const surveyUrl = selectedSurvey ? buildSurveyShareUrl(selectedSurvey.id, 'he') : null;
 
@@ -439,12 +457,22 @@ export default function AdminDistributionPage() {
                                         <button onClick={() => handlePreview(d.id)} className="text-[#f0e6d3]/30 hover:text-[#f0e6d3]/70 transition-colors" title="תצוגה מקדימה">
                                             <Eye size={14} />
                                         </button>
-                                        {d.status === 'draft' && (
+                                        <button
+                                            onClick={() => handleSendTest(d.id)}
+                                            disabled={sendingTestId === d.id}
+                                            className="text-[#f0e6d3]/30 hover:text-[#f0e6d3]/70 transition-colors disabled:opacity-40"
+                                            title="שלח מייל בדיקה לכתובת שלך"
+                                        >
+                                            {sendingTestId === d.id ? <Loader2 size={14} className="animate-spin" /> : <MailCheck size={14} />}
+                                        </button>
+                                        {(d.status === 'draft' || d.status === 'failed') && (
                                             confirmSendId === d.id ? (
                                                 <div className="flex items-center gap-2 text-xs">
                                                     <span className="text-[#f0e6d3]/60">
                                                         {d.channels.includes('whatsapp') && !d.channels.includes('email')
-                                                            ? 'יפתח WhatsApp — בחר קבוצה ושלח?'
+                                                            ? d.whatsapp_manual_mode
+                                                                ? 'יועתק טקסט ותורד תמונה לשליחה ב-WhatsApp?'
+                                                                : 'יפתח WhatsApp — בחר קבוצה ושלח?'
                                                             : d.channels.includes('whatsapp')
                                                                 ? `${memberCount ?? '...'} מיילים + WhatsApp?`
                                                                 : `שלח ל-${memberCount ?? '...'} חברים?`}
@@ -459,7 +487,9 @@ export default function AdminDistributionPage() {
                                                     className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
                                                 >
                                                     {d.channels.includes('whatsapp') && !d.channels.includes('email')
-                                                        ? <><MessageCircle size={13} /> פתח WhatsApp</>
+                                                        ? d.whatsapp_manual_mode
+                                                            ? <><MessageCircle size={13} /> הכן לשליחה ב-WhatsApp</>
+                                                            : <><MessageCircle size={13} /> פתח WhatsApp</>
                                                         : <><Send size={14} /> שלח</>}
                                                 </button>
                                             )
@@ -468,12 +498,12 @@ export default function AdminDistributionPage() {
                                             <button
                                                 onClick={() => handleConfirmWhatsApp(d.id)}
                                                 className="flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300"
-                                                title="לחץ לאחר שבאמת שלחת בוואטסאפ"
+                                                title={d.whatsapp_manual_mode ? 'לחץ לאחר שבאמת שלחת בוואטסאפ' : 'סמן שההודעה נשלחה בוואטסאפ'}
                                             >
-                                                <CheckCircle2 size={13} /> אישרתי ששלחתי
+                                                <CheckCircle2 size={13} /> {d.whatsapp_manual_mode ? 'אישרתי ששלחתי' : 'נשלח'}
                                             </button>
                                         )}
-                                        {(d.status === 'draft' || d.status === 'awaiting_whatsapp_confirmation') && (
+                                        {(d.status === 'draft' || d.status === 'awaiting_whatsapp_confirmation' || d.status === 'failed') && (
                                             deletingId === d.id ? (
                                                 <div className="flex items-center gap-1 text-xs">
                                                     <button onClick={() => handleDelete(d.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
