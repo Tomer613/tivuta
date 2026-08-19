@@ -496,13 +496,23 @@ class Distribution(Base):
     title_he = Column(String(255), nullable=True)
     message_he = Column(Text, nullable=True)
     channels = Column(JSON, nullable=False)  # e.g. ["email", "whatsapp"]
-    status = Column(String(20), default="draft")  # draft | sending | sent | failed
+    # draft | sending | awaiting_whatsapp_confirmation | sent | failed. WhatsApp has no automated
+    # delivery confirmation (it's a client-side deep link, not an API) - a whatsapp-only
+    # distribution lands in awaiting_whatsapp_confirmation until the admin explicitly confirms via
+    # whatsapp_confirmed_at below, rather than being marked "sent" on nothing but an empty email loop.
+    status = Column(String(20), default="draft")
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     scheduled_at = Column(DateTime, nullable=True)  # if set, send at this time
     sent_at = Column(DateTime, nullable=True)
     filter_membership_track = Column(String(100), nullable=True)  # if set, send only to users with this track
     filter_city = Column(String(100), nullable=True)  # if set, send only to users in this city
+    # Set only when an admin explicitly confirms they completed the WhatsApp send - never inferred.
+    whatsapp_confirmed_at = Column(DateTime, nullable=True)
+    # True only for rows created via the one-click "manual WhatsApp share" quick-log endpoint
+    # (e.g. the poll page's share button) - distinguishes a one-off share from a real
+    # audience-targeted campaign created through the full "הפצה חדשה" form.
+    is_manual_share = Column(Boolean, nullable=False, default=False, server_default="false")
 
     survey = relationship("Survey")
     product = relationship("Product")

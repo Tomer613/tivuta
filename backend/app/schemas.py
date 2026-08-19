@@ -1064,12 +1064,20 @@ class DistributionRead(BaseModel):
     filter_city: Optional[str] = None
     created_at: datetime
     sent_at: Optional[datetime] = None
+    whatsapp_confirmed_at: Optional[datetime] = None
+    is_manual_share: bool = False
     sent_count: int = 0
     failed_count: int = 0
     skipped_count: int = 0
 
     class Config:
         from_attributes = True
+
+class ManualWhatsAppShareCreate(BaseModel):
+    distribution_type: str  # 'survey' | 'daily_deal'
+    survey_id: Optional[int] = None
+    product_id: Optional[int] = None
+    title_he: str
 
 
 # Review Schemas

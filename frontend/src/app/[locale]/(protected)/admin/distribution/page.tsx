@@ -6,12 +6,16 @@ import {
     adminListDistributions,
     adminCreateDistribution,
     adminSendDistribution,
+    adminConfirmWhatsAppSent,
     adminDeleteDistribution,
     adminGetMemberCount,
     adminListSurveys,
     adminListProducts,
     adminPreviewDistribution,
+    productImageUrl,
 } from '@/lib/api';
+import { getErrorMessage } from '@/lib/getErrorMessage';
+import { downloadImageFile } from '@/lib/shareImage';
 import { Product } from '@/components/ProductTile';
 import { Survey } from '@/components/SurveyCard';
 import { buildSurveyShareUrl } from '@/lib/share';
@@ -44,6 +48,8 @@ interface Distribution {
     product_title?: string | null;
     scheduled_at?: string | null;
     sent_at?: string | null;
+    whatsapp_confirmed_at?: string | null;
+    is_manual_share?: boolean;
     sent_count: number;
     failed_count: number;
     skipped_count: number;
@@ -76,7 +82,7 @@ export default function AdminDistributionPage() {
         product_id: '',
         title_he: '',
         message_he: '',
-        channels: ['email'] as string[],
+        channels: [] as string[],
         scheduled_at: '',
         filter_membership_track: '',
         filter_city: '',
@@ -148,7 +154,7 @@ export default function AdminDistributionPage() {
                 filter_city: form.filter_city || null,
             });
             setShowForm(false);
-            setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: ['email'], scheduled_at: '', filter_membership_track: '', filter_city: '' });
+            setForm({ distribution_type: 'survey', survey_id: '', product_id: '', title_he: '', message_he: '', channels: [], scheduled_at: '', filter_membership_track: '', filter_city: '' });
             showToast('ההפצה נוצרה — תוכל לשלוח אותה מהרשימה ✓');
             load();
         } catch {
@@ -186,6 +192,17 @@ export default function AdminDistributionPage() {
         if (hasWhatsApp) {
             const text = buildWhatsAppText(dist);
             window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+
+            // Best-effort image download so the admin can attach a real photo, not just text —
+            // never blocks opening the deep link above on a download failure.
+            const survey = dist.distribution_type === 'survey' && dist.survey_id ? surveys.find((s) => s.id === dist.survey_id) : null;
+            const product = dist.distribution_type === 'daily_deal' && dist.product_id ? products.find((p) => p.id === dist.product_id) : null;
+            const rawImage = survey?.image_url || product?.image_url;
+            if (rawImage) {
+                const url = productImageUrl(rawImage);
+                const ext = url.split('?')[0].split('.').pop();
+                downloadImageFile(url, `distribution-${dist.id}${ext ? `.${ext}` : ''}`).catch(() => {});
+            }
         }
 
         setConfirmSendId(null);
@@ -195,7 +212,7 @@ export default function AdminDistributionPage() {
             if (hasEmail && hasWhatsApp) {
                 showToast('האימיילים נשלחו ✓ — WhatsApp נפתח לשליחה ידנית');
             } else if (hasWhatsApp) {
-                showToast('WhatsApp נפתח — בחר קבוצה ולחץ שלח ✓');
+                showToast('WhatsApp נפתח — לאחר השליחה בפועל, אשר זאת ברשימה למטה ✓');
             } else {
                 showToast('ההפצה נשלחה בהצלחה ✓');
             }
@@ -204,6 +221,17 @@ export default function AdminDistributionPage() {
             showToast('שגיאה בשליחה', 'error');
         } finally {
             setSendingId(null);
+        }
+    };
+
+    const handleConfirmWhatsApp = async (id: number) => {
+        if (!token) return;
+        try {
+            const updated = await adminConfirmWhatsAppSent(token, id);
+            setDistributions((prev) => prev.map((d) => (d.id === id ? updated : d)));
+            showToast('השיתוף אושר ✓');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה באישור השיתוף'), 'error');
         }
     };
 
@@ -242,10 +270,11 @@ export default function AdminDistributionPage() {
         const map: Record<string, string> = {
             draft: 'bg-[#111a2f] text-[#f0e6d3]/60',
             sending: 'bg-yellow-500/20 text-yellow-400',
+            awaiting_whatsapp_confirmation: 'bg-amber-500/20 text-amber-400',
             sent: 'bg-green-500/20 text-green-400',
             failed: 'bg-red-500/20 text-red-400',
         };
-        const labels: Record<string, string> = { draft: 'טיוטה', sending: 'שולח...', sent: 'נשלח', failed: 'שגיאה' };
+        const labels: Record<string, string> = { draft: 'טיוטה', sending: 'שולח...', awaiting_whatsapp_confirmation: 'ממתין לאישור שיתוף', sent: 'נשלח', failed: 'שגיאה' };
         return (
             <span className={`px-3 py-1 rounded-full text-xs font-bold ${map[status] ?? 'bg-[#111a2f] text-[#f0e6d3]/60'}`}>
                 {labels[status] ?? status}
@@ -286,6 +315,11 @@ export default function AdminDistributionPage() {
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${d.distribution_type === 'survey' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                             {d.distribution_type === 'survey' ? 'סקר' : 'דיל היומי'}
                                         </span>
+                                        {d.is_manual_share && (
+                                            <span className="mr-1 px-2 py-0.5 rounded-full text-xs font-bold bg-[#111a2f] text-[#f0e6d3]/50" title="שיתוף ידני חד-פעמי, לא הפצה מפולחת">
+                                                ידני
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="p-4 max-w-[220px]">
                                         <p className="text-sm text-[#f0e6d3] truncate">{d.survey_title || d.product_title || d.title_he || '-'}</p>
@@ -337,42 +371,51 @@ export default function AdminDistributionPage() {
                                             <Eye size={14} />
                                         </button>
                                         {d.status === 'draft' && (
-                                            <>
-                                                {confirmSendId === d.id ? (
-                                                    <div className="flex items-center gap-2 text-xs">
-                                                        <span className="text-[#f0e6d3]/60">
-                                                            {d.channels.includes('whatsapp') && !d.channels.includes('email')
-                                                                ? 'יפתח WhatsApp — בחר קבוצה ושלח?'
-                                                                : d.channels.includes('whatsapp')
-                                                                    ? `${memberCount ?? '...'} מיילים + WhatsApp?`
-                                                                    : `שלח ל-${memberCount ?? '...'} חברים?`}
-                                                        </span>
-                                                        <button onClick={() => handleSend(d.id)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
-                                                        <button onClick={() => setConfirmSendId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => setConfirmSendId(d.id)}
-                                                        disabled={sendingId === d.id}
-                                                        className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
-                                                    >
+                                            confirmSendId === d.id ? (
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className="text-[#f0e6d3]/60">
                                                         {d.channels.includes('whatsapp') && !d.channels.includes('email')
-                                                            ? <><MessageCircle size={13} /> פתח WhatsApp</>
-                                                            : <><Send size={14} /> שלח</>}
-                                                    </button>
-                                                )}
-                                                {deletingId === d.id ? (
-                                                    <div className="flex items-center gap-1 text-xs">
-                                                        <button onClick={() => handleDelete(d.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
-                                                        <span className="text-[#f0e6d3]/30">/</span>
-                                                        <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
-                                                    </div>
-                                                ) : (
-                                                    <button onClick={() => setDeletingId(d.id)} className="text-red-400/40 hover:text-red-400 transition-colors" title="מחק טיוטה">
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                )}
-                                            </>
+                                                            ? 'יפתח WhatsApp — בחר קבוצה ושלח?'
+                                                            : d.channels.includes('whatsapp')
+                                                                ? `${memberCount ?? '...'} מיילים + WhatsApp?`
+                                                                : `שלח ל-${memberCount ?? '...'} חברים?`}
+                                                    </span>
+                                                    <button onClick={() => handleSend(d.id)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
+                                                    <button onClick={() => setConfirmSendId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setConfirmSendId(d.id)}
+                                                    disabled={sendingId === d.id}
+                                                    className="flex items-center gap-1 text-xs font-bold text-[#d4af37] hover:underline disabled:opacity-50"
+                                                >
+                                                    {d.channels.includes('whatsapp') && !d.channels.includes('email')
+                                                        ? <><MessageCircle size={13} /> פתח WhatsApp</>
+                                                        : <><Send size={14} /> שלח</>}
+                                                </button>
+                                            )
+                                        )}
+                                        {d.channels.includes('whatsapp') && !d.whatsapp_confirmed_at && d.status !== 'draft' && (
+                                            <button
+                                                onClick={() => handleConfirmWhatsApp(d.id)}
+                                                className="flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300"
+                                                title="לחץ לאחר שבאמת שלחת בוואטסאפ"
+                                            >
+                                                <CheckCircle2 size={13} /> אשרתי ששלחתי
+                                            </button>
+                                        )}
+                                        {(d.status === 'draft' || d.status === 'awaiting_whatsapp_confirmation') && (
+                                            deletingId === d.id ? (
+                                                <div className="flex items-center gap-1 text-xs">
+                                                    <button onClick={() => handleDelete(d.id)} className="text-red-400 font-bold hover:text-red-300">כן</button>
+                                                    <span className="text-[#f0e6d3]/30">/</span>
+                                                    <button onClick={() => setDeletingId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                </div>
+                                            ) : (
+                                                <button onClick={() => setDeletingId(d.id)} className="text-red-400/40 hover:text-red-400 transition-colors" title="מחק">
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )
                                         )}
                                         </div>
                                     </td>

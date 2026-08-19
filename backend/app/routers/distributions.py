@@ -196,11 +196,35 @@ def _send_distribution(distribution_id: int) -> None:
                 actual_failures += 1
             db.add(log)
 
-        distribution.status = "sent" if actual_sends > 0 or actual_failures == 0 else "failed"
-        distribution.sent_at = datetime.utcnow()
+        # WhatsApp has no server-to-server delivery confirmation (it's a client-side deep link the
+        # admin has to press send on themselves) - an email-less distribution is never marked
+        # "sent" on nothing but an empty loop; it lands in awaiting_whatsapp_confirmation until the
+        # admin explicitly confirms via PATCH .../confirm-whatsapp.
+        if "email" in distribution.channels:
+            distribution.status = "sent" if actual_sends > 0 or actual_failures == 0 else "failed"
+            distribution.sent_at = datetime.utcnow()
+        elif "whatsapp" in distribution.channels:
+            distribution.status = "awaiting_whatsapp_confirmation"
+        else:
+            distribution.status = "failed"
         db.commit()
     finally:
         db.close()
+
+
+def _serialize_distribution(dist: models.Distribution) -> schemas.DistributionRead:
+    sent_count = sum(1 for log in dist.send_logs if log.status == "sent")
+    failed_count = sum(1 for log in dist.send_logs if log.status == "failed")
+    skipped_count = sum(1 for log in dist.send_logs if log.status == "skipped")
+    survey_title = (dist.survey.question_he[:60] if dist.survey and dist.survey.question_he else None)
+    product_title = dist.product.title_he if dist.product else None
+    return schemas.DistributionRead.model_validate(dist).model_copy(update={
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+        "skipped_count": skipped_count,
+        "survey_title": survey_title,
+        "product_title": product_title,
+    })
 
 
 # ─── Admin endpoints ───────────────────────────────────────────────────────────
@@ -217,24 +241,7 @@ def admin_list_distributions(db: Session = Depends(get_db)):
         .order_by(models.Distribution.created_at.desc())
         .all()
     )
-
-    result = []
-    for dist in distributions:
-        sent_count = sum(1 for log in dist.send_logs if log.status == "sent")
-        failed_count = sum(1 for log in dist.send_logs if log.status == "failed")
-        skipped_count = sum(1 for log in dist.send_logs if log.status == "skipped")
-        survey_title = (dist.survey.question_he[:60] if dist.survey and dist.survey.question_he else None)
-        product_title = dist.product.title_he if dist.product else None
-        result.append(
-            schemas.DistributionRead.model_validate(dist).model_copy(update={
-                "sent_count": sent_count,
-                "failed_count": failed_count,
-                "skipped_count": skipped_count,
-                "survey_title": survey_title,
-                "product_title": product_title,
-            })
-        )
-    return result
+    return [_serialize_distribution(dist) for dist in distributions]
 
 
 @router.post("/admin/distributions", response_model=schemas.DistributionRead)
@@ -273,6 +280,63 @@ def admin_send_distribution(distribution_id: int, background_tasks: BackgroundTa
         raise HTTPException(status_code=400, detail="ניתן לשלוח רק הפצות במצב טיוטה")
     background_tasks.add_task(_send_distribution, distribution_id)
     return {"message": "Distribution send started"}
+
+
+@router.patch("/admin/distributions/{distribution_id}/confirm-whatsapp", response_model=schemas.DistributionRead, dependencies=[Depends(get_current_admin)])
+def admin_confirm_whatsapp_sent(distribution_id: int, db: Session = Depends(get_db)):
+    """The admin's explicit "yes, I actually pressed send in WhatsApp" confirmation - the only
+    thing that's ever allowed to mark a WhatsApp share as real. See _send_distribution's status
+    logic above for why this can't be inferred automatically."""
+    distribution = (
+        db.query(models.Distribution)
+        .options(selectinload(models.Distribution.send_logs), selectinload(models.Distribution.survey), selectinload(models.Distribution.product))
+        .filter(models.Distribution.id == distribution_id)
+        .first()
+    )
+    if not distribution:
+        raise HTTPException(status_code=404, detail="Distribution not found")
+    if "whatsapp" not in distribution.channels:
+        raise HTTPException(status_code=400, detail="This distribution has no WhatsApp channel to confirm")
+
+    distribution.whatsapp_confirmed_at = datetime.utcnow()
+    if distribution.status == "awaiting_whatsapp_confirmation":
+        distribution.status = "sent"
+        distribution.sent_at = distribution.sent_at or datetime.utcnow()
+    db.commit()
+    db.refresh(distribution)
+    return _serialize_distribution(distribution)
+
+
+@router.post("/admin/distributions/manual-whatsapp-share", response_model=schemas.DistributionRead, dependencies=[Depends(get_current_admin)])
+def admin_create_manual_whatsapp_share(
+    payload: schemas.ManualWhatsAppShareCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_admin),
+):
+    """One-click quick-log for a manual WhatsApp share (e.g. the poll page's share button) - the
+    frontend only ever calls this AFTER the admin has already confirmed "yes I shared it", so the
+    row is created already fully confirmed. There is no unconfirmed intermediate state for this
+    path, unlike a full campaign distribution created via the normal create+send flow."""
+    if payload.distribution_type not in ("survey", "daily_deal"):
+        raise HTTPException(status_code=400, detail="distribution_type must be 'survey' or 'daily_deal'")
+
+    now = datetime.utcnow()
+    distribution = models.Distribution(
+        distribution_type=payload.distribution_type,
+        survey_id=payload.survey_id,
+        product_id=payload.product_id,
+        title_he=payload.title_he,
+        channels=["whatsapp"],
+        status="sent",
+        sent_at=now,
+        whatsapp_confirmed_at=now,
+        is_manual_share=True,
+        created_by=current_user.id,
+    )
+    db.add(distribution)
+    db.commit()
+    db.refresh(distribution)
+    return _serialize_distribution(distribution)
 
 
 @router.get("/admin/distributions/{distribution_id}/preview", dependencies=[Depends(get_current_admin)])
@@ -323,8 +387,10 @@ def admin_delete_distribution(distribution_id: int, db: Session = Depends(get_db
     distribution = db.query(models.Distribution).filter(models.Distribution.id == distribution_id).first()
     if not distribution:
         raise HTTPException(status_code=404, detail="Distribution not found")
-    if distribution.status != "draft":
-        raise HTTPException(status_code=400, detail="ניתן למחוק רק טיוטות")
+    # awaiting_whatsapp_confirmation is included alongside draft - nothing was confirmably sent
+    # yet in either state, so abandoning one should stay possible (unlike a real "sent" campaign).
+    if distribution.status not in ("draft", "awaiting_whatsapp_confirmation"):
+        raise HTTPException(status_code=400, detail="ניתן למחוק רק טיוטות או הפצות שממתינות לאישור שיתוף")
     db.delete(distribution)
     db.commit()
     return {"message": "deleted"}

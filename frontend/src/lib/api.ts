@@ -1160,6 +1160,31 @@ export async function adminSendDistribution(token: string, id: number) {
     return res.json();
 }
 
+export async function adminConfirmWhatsAppSent(token: string, id: number) {
+    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/confirm-whatsapp`, {
+        method: 'PATCH',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to confirm WhatsApp send');
+    }
+    return res.json();
+}
+
+export async function adminCreateManualWhatsAppShare(token: string, payload: { distribution_type: string; survey_id?: number | null; product_id?: number | null; title_he: string }) {
+    const res = await fetch(`${BASE_URL}/admin/distributions/manual-whatsapp-share`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to log manual WhatsApp share');
+    }
+    return res.json();
+}
+
 /** Promotions admin endpoints */
 
 export async function adminListPromotions(token: string, isActive?: boolean) {

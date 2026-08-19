@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateSurvey, adminListSurveys, adminUpdateSurvey, adminDeleteSurvey, adminUploadImage, productImageUrl } from '@/lib/api';
+import { adminListProducts, adminCreateSurvey, adminListSurveys, adminUpdateSurvey, adminDeleteSurvey, adminUploadImage, adminCreateManualWhatsAppShare, productImageUrl } from '@/lib/api';
 import { buildSurveyShareUrl } from '@/lib/share';
+import { downloadImageFile } from '@/lib/shareImage';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { Product } from '@/components/ProductTile';
 import { Survey, SurveyOption } from '@/components/SurveyCard';
@@ -280,6 +281,7 @@ export default function AdminSurveysPage() {
     const [maxChoices, setMaxChoices] = useState(1);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [editingSurvey, setEditingSurvey] = useState<Survey | null>(null);
+    const [pendingShareSurvey, setPendingShareSurvey] = useState<Survey | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
@@ -366,41 +368,43 @@ export default function AdminSurveysPage() {
         }
     };
 
-    const downloadSurveyImage = async (s: Survey) => {
-        if (!s.image_url) return;
-        const url = productImageUrl(s.image_url);
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('fetch failed');
-        const blob = await res.blob();
-        const ext = url.split('?')[0].split('.').pop();
-        const blobUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = `poll-${s.id}${ext ? `.${ext}` : ''}`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(blobUrl);
-    };
-
     // Combines the two separate manual steps (save the poll photo, then separately compose a
     // caption) into one click — WhatsApp itself has no way to pre-attach an image via a share
     // link (see CLAUDE.md's WhatsApp Sending note), so this is the closest one-click flow to
     // "share the beautiful package": download the photo here, then attach it + paste in WhatsApp.
+    // Nothing is logged to Distribution history yet at this point — only an explicit "yes I sent
+    // it" confirmation (below) creates that record, since the app has no way to actually know.
     const handleShareToWhatsApp = async (s: Survey) => {
         if (!s.image_url) return;
         let downloadFailed = false;
         try {
-            await downloadSurveyImage(s);
+            const url = productImageUrl(s.image_url);
+            const ext = url.split('?')[0].split('.').pop();
+            await downloadImageFile(url, `poll-${s.id}${ext ? `.${ext}` : ''}`);
         } catch {
             downloadFailed = true;
         }
         const caption = `${s.question_he}\n\nלחץ להצביע:\n${buildSurveyShareUrl(s.id, 'he')}`;
         try {
             await navigator.clipboard.writeText(caption);
-            showToast(downloadFailed ? 'הטקסט הועתק, אך הורדת התמונה נכשלה' : 'התמונה הורדה והטקסט הועתק ✓', downloadFailed ? 'error' : 'success');
         } catch {
             showToast(downloadFailed ? 'שגיאה בהורדת התמונה ובהעתקת הטקסט' : 'התמונה הורדה, אך העתקת הטקסט נכשלה', 'error');
+            return;
+        }
+        if (downloadFailed) {
+            showToast('הטקסט הועתק, אך הורדת התמונה נכשלה', 'error');
+        }
+        setPendingShareSurvey(s);
+    };
+
+    const handleConfirmShared = async (s: Survey) => {
+        if (!token) return;
+        setPendingShareSurvey(null);
+        try {
+            await adminCreateManualWhatsAppShare(token, { distribution_type: 'survey', survey_id: s.id, title_he: s.question_he });
+            showToast('נרשם בהיסטוריית ההפצה ✓');
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה ברישום השיתוף'), 'error');
         }
     };
 
@@ -672,6 +676,18 @@ export default function AdminSurveysPage() {
                     onSaved={(updated) => { patchSurvey(updated); showToast('הסקר עודכן ✓'); }}
                     onError={(msg) => showToast(msg, 'error')}
                 />
+            )}
+
+            {pendingShareSurvey && (
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-4 px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold bg-[#0e1628] border border-[#d4af37]/50 text-[#f0e6d3] whitespace-nowrap">
+                    <span>שיתפת בהצלחה את הסקר בוואטסאפ?</span>
+                    <button onClick={() => handleConfirmShared(pendingShareSurvey)} className="text-green-400 hover:text-green-300 flex items-center gap-1">
+                        <CheckCircle2 size={14} /> כן, נרשם
+                    </button>
+                    <button onClick={() => setPendingShareSurvey(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">
+                        לא כרגע
+                    </button>
+                </div>
             )}
         </div>
     );
