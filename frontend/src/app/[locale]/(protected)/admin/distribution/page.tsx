@@ -346,7 +346,17 @@ export default function AdminDistributionPage() {
         setSendingTestId(id);
         try {
             const result = await adminSendTestEmail(token, id);
-            showToast(result.success ? 'מייל בדיקה נשלח לכתובת שלך ✓' : `שגיאה בשליחת הבדיקה: ${result.error ?? ''}`, result.success ? 'success' : 'error');
+            if (!result.success) {
+                showToast(`שגיאה בשליחת הבדיקה: ${result.error ?? ''}`, 'error');
+            } else if (result.provider !== 'resend') {
+                // ConsoleEmailSender (the fallback when EMAIL_PROVIDER isn't set to "resend" on
+                // the server) always reports success while only writing to server logs — this is
+                // exactly what makes "I clicked send-test but nothing arrived, not even in spam"
+                // happen with no visible error anywhere. Surface it plainly instead of a false ✓.
+                showToast('"נשלח" אך רק ליומן השרת — EMAIL_PROVIDER אינו מוגדר ל-resend ב-Render, שום מייל אמיתי לא נשלח', 'error');
+            } else {
+                showToast('מייל בדיקה נשלח לכתובת שלך ✓');
+            }
         } catch (err) {
             showToast(getErrorMessage(err, 'שגיאה בשליחת מייל בדיקה'), 'error');
         } finally {

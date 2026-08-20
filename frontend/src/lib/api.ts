@@ -1716,5 +1716,5 @@ export async function adminSendTestEmail(token: string, id: number) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || 'Failed to send test email');
     }
-    return res.json() as Promise<{ success: boolean; error: string | null }>;
+    return res.json() as Promise<{ success: boolean; error: string | null; provider: string }>;
 }

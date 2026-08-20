@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
@@ -475,9 +476,14 @@ def admin_send_test_distribution(
     if not distribution:
         raise HTTPException(status_code=404, detail="Distribution not found")
 
+    # The active provider is surfaced alongside success/error because ConsoleEmailSender (the
+    # unconfigured-EMAIL_PROVIDER fallback) always reports success=True while only ever writing
+    # to server logs the admin never sees - a "successful" test send that's silently going
+    # nowhere would otherwise look identical to a real one on the frontend.
+    provider = os.environ.get("EMAIL_PROVIDER", "console")
     subject, html = _build_distribution_email(distribution)
     result = get_email_sender().send(to=current_user.email, subject=f"[בדיקה] {subject}", html_body=html, locale="he")
-    return {"success": result.success, "error": result.error}
+    return {"success": result.success, "error": result.error, "provider": provider}
 
 
 @router.delete("/admin/distributions/{distribution_id}", dependencies=[Depends(get_current_admin)])
@@ -539,9 +545,11 @@ def timeout_stuck_distributions(request: Request, db: Session = Depends(get_db))
     process on this single-instance Render deployment, so a periodic sweep is the only way to
     reliably close these out instead of leaving an admin staring at "שולח..." forever.
 
-    Rows with no sending_started_at (only possible for a row that reached "sending" before this
-    column existed) are left untouched — there's no recorded start instant to time out from, so
-    those still need a manual delete via the existing "sending" escape-hatch on DELETE.
+    Every current code path that sets status == "sending" also stamps sending_started_at in the
+    same write - so a row with status == "sending" and sending_started_at == NULL can only be one
+    that reached "sending" before this column existed. There's no future start instant coming for
+    it, and it's necessarily already older than any reasonable timeout (it predates this whole
+    feature), so it's swept immediately rather than left waiting for a timestamp it will never get.
 
     A distribution that's still genuinely mid-send when this fires (a real send taking longer
     than the configured timeout) can get marked "failed" here — but _send_distribution's own
@@ -557,8 +565,10 @@ def timeout_stuck_distributions(request: Request, db: Session = Depends(get_db))
         db.query(models.Distribution)
         .filter(
             models.Distribution.status == "sending",
-            models.Distribution.sending_started_at.isnot(None),
-            models.Distribution.sending_started_at <= cutoff,
+            or_(
+                models.Distribution.sending_started_at.is_(None),
+                models.Distribution.sending_started_at <= cutoff,
+            ),
         )
         .all()
     )

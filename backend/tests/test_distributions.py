@@ -341,6 +341,33 @@ def test_send_test_sends_to_admin_without_touching_status_or_logs(client, db_ses
     assert recipients_resp.json() == []
 
 
+def test_send_test_reports_active_email_provider(client, db_session, make_user, monkeypatch):
+    """The provider field lets the admin tell a real send apart from a "successful" console-only
+    fallback that never reaches a real inbox - the actual root cause of a "test send says success
+    but nothing arrived, not even spam" report with no visible error anywhere on its own."""
+    headers = _admin_headers(client, make_user, email="provideradmin@example.com")
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    resp = client.post(f"/admin/distributions/{dist['id']}/send-test", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["provider"] == "console"
+
+    import app.routers.distributions as dist_module
+    from app.services.notifications import SendResult
+
+    monkeypatch.setenv("EMAIL_PROVIDER", "resend")
+    monkeypatch.setattr(
+        dist_module,
+        "get_email_sender",
+        lambda: type("FakeSender", (), {"send": lambda self, **kw: SendResult(success=True, provider_message_id="x")})(),
+    )
+
+    resp2 = client.post(f"/admin/distributions/{dist['id']}/send-test", headers=headers)
+    assert resp2.status_code == 200
+    assert resp2.json()["provider"] == "resend"
+
+
 def test_send_test_requires_admin(client, db_session, make_user):
     headers = _admin_headers(client, make_user)
     survey = _make_survey(db_session)
@@ -506,10 +533,11 @@ def test_timeout_stuck_sending_leaves_recent_sending_alone(client, db_session, m
     assert updated["status"] == "sending"
 
 
-def test_timeout_stuck_sending_ignores_rows_with_no_started_at(client, db_session, make_user, monkeypatch):
-    """A distribution stuck at 'sending' from before this column existed has no recorded start
-    instant to time out from - the sweep must leave it alone rather than guess, matching the
-    documented limitation that those rows still need a manual delete."""
+def test_timeout_stuck_sending_marks_legacy_rows_with_no_started_at_failed(client, db_session, make_user, monkeypatch):
+    """A distribution stuck at 'sending' from before sending_started_at existed has no recorded
+    start instant - but every current code path that sets status=='sending' also stamps this
+    column, so NULL here can only mean a genuinely stale, pre-existing stuck row. It must be swept
+    immediately rather than left waiting for a timestamp that will never arrive."""
     monkeypatch.setenv("CRON_SECRET", "test-secret-123")
     headers = _admin_headers(client, make_user)
     survey = _make_survey(db_session)
@@ -525,11 +553,11 @@ def test_timeout_stuck_sending_ignores_rows_with_no_started_at(client, db_sessio
         headers={"Authorization": "Bearer test-secret-123"},
     )
     assert resp.status_code == 200
-    assert resp.json() == {"timed_out": 0, "ids": []}
+    assert resp.json() == {"timed_out": 1, "ids": [dist["id"]]}
 
     list_resp = client.get("/admin/distributions", headers=headers)
     updated = next(d for d in list_resp.json() if d["id"] == dist["id"])
-    assert updated["status"] == "sending"
+    assert updated["status"] == "failed"
 
 
 def test_timeout_stuck_sending_requires_cron_secret(client, db_session, monkeypatch):
