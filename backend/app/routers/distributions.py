@@ -36,17 +36,22 @@ def _absolute_image_url(raw: Optional[str]) -> Optional[str]:
 # ─── Rich email builders ───────────────────────────────────────────────────────
 
 def _email_wrapper(inner_html: str) -> str:
+    logo_url = f"{APP_BASE_URL}/branding/logo-email.png"
+    unsubscribe_url = f"{APP_BASE_URL}/he/profile#notification-preferences"
     return f"""<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#111a2f;font-family:Arial,Helvetica,sans-serif;">
-  <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
-    <p style="color:#d4af37;font-weight:900;font-size:22px;margin:0 0 24px 0;letter-spacing:2px;">TIVUTA</p>
+  <div dir="rtl" style="max-width:600px;margin:0 auto;padding:32px 16px;direction:rtl;text-align:right;">
+    <div style="text-align:center;margin:0 0 24px 0;">
+      <img src="{logo_url}" width="220" alt="Tivuta" style="width:220px;max-width:220px;height:auto;display:inline-block;" />
+    </div>
     <div style="background:#0e1628;border-radius:24px;padding:36px;border:1px solid rgba(212,175,55,0.25);">
       {inner_html}
     </div>
-    <p style="color:#f0e6d3;opacity:0.3;font-size:11px;text-align:center;margin-top:24px;">
-      הודעה זו נשלחה מ-Tivuta. לביטול הרשמה פנה אלינו.
+    <p style="color:rgba(240,230,211,0.3);font-size:11px;text-align:center;margin-top:24px;">
+      הודעה זו נשלחה מ-Tivuta.
+      <a href="{unsubscribe_url}" style="color:#d4af37;text-decoration:underline;">לביטול הרשמה לחץ כאן</a>
     </p>
   </div>
 </body>
@@ -56,20 +61,20 @@ def _email_wrapper(inner_html: str) -> str:
 def _build_survey_email(survey: models.Survey, survey_url: str, product_image_url: Optional[str]) -> str:
     img_block = (
         f'<div style="margin:0 0 28px 0;border-radius:16px;overflow:hidden;">'
-        f'<img src="{product_image_url}" alt="מוצר" style="width:100%;display:block;" /></div>'
+        f'<img src="{product_image_url}" alt="מוצר" width="500" style="width:100%;max-width:500px;height:auto;display:block;" /></div>'
     ) if product_image_url else ''
 
     options_html = ''.join(
-        f'<div style="background:#111a2f;border-radius:12px;padding:12px 16px;margin:8px 0;">'
+        f'<div dir="rtl" style="background:#111a2f;border-radius:12px;padding:12px 16px;margin:8px 0;direction:rtl;text-align:right;">'
         f'<span style="color:#f0e6d3;font-size:15px;">{opt.label_override_he or f"אפשרות {i + 1}"}</span>'
         f'</div>'
         for i, opt in enumerate(survey.options)
     )
 
     inner = f"""
-    <p style="color:#d4af37;font-size:13px;margin:0 0 12px 0;font-weight:700;">סקר חדש מחכה לך 🗳️</p>
+    <p dir="rtl" style="color:#d4af37;font-size:13px;margin:0 0 12px 0;font-weight:700;direction:rtl;text-align:right;">סקר חדש מחכה לך 🗳️</p>
     {img_block}
-    <h2 style="color:#f0e6d3;font-size:20px;line-height:1.5;margin:0 0 20px 0;">{survey.question_he}</h2>
+    <h2 dir="rtl" style="color:#f0e6d3;font-size:20px;line-height:1.5;margin:0 0 20px 0;direction:rtl;text-align:right;">{survey.question_he}</h2>
     <div style="margin:0 0 28px 0;">{options_html}</div>
     <div style="text-align:center;">
       <a href="{survey_url}"
@@ -89,16 +94,16 @@ def _build_deal_email(product: models.Product, product_url: str) -> str:
     img_block = (
         f'<div style="margin:0 0 28px 0;border-radius:16px;overflow:hidden;">'
         f'<img src="{product_image_url}" alt="{product.title_he}"'
-        f' style="width:100%;display:block;" /></div>'
+        f' width="500" style="width:100%;max-width:500px;height:auto;display:block;" /></div>'
     ) if product_image_url else ''
 
     price_text = f'₪{int(product.price):,}' if product.price else 'לפי בקשה'
 
     inner = f"""
-    <p style="color:#d4af37;font-size:13px;margin:0 0 12px 0;font-weight:700;">דיל מיוחד עבורך ✨</p>
+    <p dir="rtl" style="color:#d4af37;font-size:13px;margin:0 0 12px 0;font-weight:700;direction:rtl;text-align:right;">דיל מיוחד עבורך ✨</p>
     {img_block}
-    <h2 style="color:#f0e6d3;font-size:20px;line-height:1.5;margin:0 0 8px 0;">{product.title_he}</h2>
-    <p style="color:#d4af37;font-size:28px;font-weight:900;margin:0 0 28px 0;">{price_text}</p>
+    <h2 dir="rtl" style="color:#f0e6d3;font-size:20px;line-height:1.5;margin:0 0 8px 0;direction:rtl;text-align:right;">{product.title_he}</h2>
+    <p dir="rtl" style="color:#d4af37;font-size:28px;font-weight:900;margin:0 0 28px 0;direction:rtl;text-align:right;">{price_text}</p>
     <div style="text-align:center;">
       <a href="{product_url}"
          style="display:inline-block;background:#d4af37;color:#080d1f;padding:14px 36px;
@@ -111,9 +116,9 @@ def _build_deal_email(product: models.Product, product_url: str) -> str:
 
 def _build_fallback_email(subject: str, message: str) -> str:
     inner = f"""
-    <h2 style="color:#f0e6d3;font-size:20px;margin:0 0 16px 0;">{subject}</h2>
-    <p style="color:#f0e6d3;opacity:0.8;font-size:15px;line-height:1.7;">{message}</p>
-    <p style="margin-top:24px;">
+    <h2 dir="rtl" style="color:#f0e6d3;font-size:20px;margin:0 0 16px 0;direction:rtl;text-align:right;">{subject}</h2>
+    <p dir="rtl" style="color:#f0e6d3;opacity:0.8;font-size:15px;line-height:1.7;direction:rtl;text-align:right;">{message}</p>
+    <p dir="rtl" style="margin-top:24px;direction:rtl;text-align:right;">
       <a href="{APP_BASE_URL}" style="color:#d4af37;font-weight:700;">לאתר Tivuta</a>
     </p>"""
     return _email_wrapper(inner)

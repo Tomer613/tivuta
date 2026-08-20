@@ -284,7 +284,11 @@ export default function ProfileClient() {
     const [recentlyViewed, setRecentlyViewed] = useState<RecentlyViewedProduct[]>([]);
     const [orders, setOrders] = useState<LegacyOrder[]>([]);
     const [myOrders, setMyOrders] = useState<MyOrder[]>([]);
-    const [showNotifPrefs, setShowNotifPrefs] = useState(false);
+    // Arriving via the campaign email's unsubscribe link (#notification-preferences) should land
+    // on an already-expanded section, not a collapsed one the recipient has to go find and click.
+    const [showNotifPrefs, setShowNotifPrefs] = useState(
+        () => typeof window !== 'undefined' && window.location.hash === '#notification-preferences'
+    );
     const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({ lead_status: true, appointment_reminder: true, system: true, promotions: true });
     const [notifSaving, setNotifSaving] = useState(false);
     const [showCalculator, setShowCalculator] = useState(false);
@@ -1112,7 +1116,7 @@ export default function ProfileClient() {
                 </div>
 
                 {/* ── Notification preferences ── */}
-                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
+                <div id="notification-preferences" className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
                     <button
                         onClick={() => setShowNotifPrefs((v) => !v)}
                         className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-[#111a2f] transition-colors"

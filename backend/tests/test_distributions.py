@@ -341,6 +341,27 @@ def test_send_test_sends_to_admin_without_touching_status_or_logs(client, db_ses
     assert recipients_resp.json() == []
 
 
+def test_distribution_email_has_rtl_alignment_and_sized_images(client, db_session, make_user):
+    """Regression test: the campaign email must not rely on the outer <html dir="rtl"> cascade
+    alone - several email clients (Outlook in particular) don't reliably inherit direction/
+    text-align down into inner blocks, which is exactly what caused a real report of the survey
+    question rendering left-aligned. Every image must also carry an explicit HTML width attribute,
+    not just CSS - some clients ignore CSS-only sizing and render at native resolution, which is
+    what caused a real horizontal-scrollbar report for a large admin-uploaded image."""
+    headers = _admin_headers(client, make_user, email="emaildesignadmin@example.com")
+    survey = _make_survey(db_session, question_he="האם תגיעו לאירוע?")
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    resp = client.get(f"/admin/distributions/{dist['id']}/preview", headers=headers)
+    assert resp.status_code == 200
+    html = resp.json()["html"]
+
+    assert 'dir="rtl"' in html
+    assert f'>{survey.question_he}<' in html
+    # The logo image (always present) must carry an explicit HTML width, not just CSS.
+    assert 'width="220"' in html
+
+
 def test_send_test_reports_active_email_provider(client, db_session, make_user, monkeypatch):
     """The provider field lets the admin tell a real send apart from a "successful" console-only
     fallback that never reaches a real inbox - the actual root cause of a "test send says success
