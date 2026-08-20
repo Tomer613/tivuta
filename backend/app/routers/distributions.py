@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import models, schemas
 from ..database import SessionLocal
 from ..security import get_current_admin, get_db, verify_cron_secret
-from ..services import get_email_sender
+from ..services import get_email_sender, loyalty
 from ..services.surveys import resolve_survey_image_url
 
 router = APIRouter(tags=["distributions"])
@@ -158,6 +158,7 @@ def _send_distribution(distribution_id: int) -> None:
             return
 
         distribution.status = "sending"
+        distribution.sending_started_at = datetime.utcnow()
         db.commit()
 
         try:
@@ -521,9 +522,48 @@ def process_scheduled_distributions(
     # Mark all as "sending" immediately so an overlapping cron run doesn't double-trigger them
     for dist in due:
         dist.status = "sending"
+        dist.sending_started_at = datetime.utcnow()
     db.commit()
 
     for dist in due:
         background_tasks.add_task(_send_distribution, dist.id)
 
     return {"triggered": len(due), "ids": [d.id for d in due]}
+
+
+@router.post("/api/distributions/timeout-stuck-sends")
+def timeout_stuck_distributions(request: Request, db: Session = Depends(get_db)):
+    """Cron endpoint — called by GitHub Actions every 15 minutes, alongside process-scheduled.
+    A distribution stuck at status == "sending" past the configured timeout almost certainly hit
+    a failure _send_distribution's own exception handling didn't catch — there's no live watchdog
+    process on this single-instance Render deployment, so a periodic sweep is the only way to
+    reliably close these out instead of leaving an admin staring at "שולח..." forever.
+
+    Rows with no sending_started_at (only possible for a row that reached "sending" before this
+    column existed) are left untouched — there's no recorded start instant to time out from, so
+    those still need a manual delete via the existing "sending" escape-hatch on DELETE.
+
+    A distribution that's still genuinely mid-send when this fires (a real send taking longer
+    than the configured timeout) can get marked "failed" here — but _send_distribution's own
+    final status write runs after this, unconditionally, once it actually finishes, so the real
+    outcome always wins the last write and the row never ends up stuck on a wrong terminal state
+    either way. Pick a timeout comfortably above real send times to avoid the false-failed window
+    in between."""
+    verify_cron_secret(request)
+
+    timeout_minutes = loyalty.get_setting_float(db, "stuck_sending_timeout_minutes")
+    cutoff = datetime.utcnow() - timedelta(minutes=timeout_minutes)
+    stuck = (
+        db.query(models.Distribution)
+        .filter(
+            models.Distribution.status == "sending",
+            models.Distribution.sending_started_at.isnot(None),
+            models.Distribution.sending_started_at <= cutoff,
+        )
+        .all()
+    )
+    for dist in stuck:
+        dist.status = "failed"
+    db.commit()
+
+    return {"timed_out": len(stuck), "ids": [d.id for d in stuck]}

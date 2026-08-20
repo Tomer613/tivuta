@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -453,3 +453,99 @@ def test_delete_allowed_from_stuck_sending(client, db_session, make_user):
 
     delete_resp = client.delete(f"/admin/distributions/{dist['id']}", headers=headers)
     assert delete_resp.status_code == 200
+
+
+def test_timeout_stuck_sending_marks_failed_after_threshold(client, db_session, make_user, monkeypatch):
+    """The periodic cron sweep must fail out a distribution that's been at status=='sending'
+    longer than the configured timeout (default 30 minutes) - the actual fix for reports of a row
+    stuck at 'שולח...' since the day before with no recovery in sight."""
+    monkeypatch.setenv("CRON_SECRET", "test-secret-123")
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    row = db_session.query(models.Distribution).filter(models.Distribution.id == dist["id"]).first()
+    row.status = "sending"
+    row.sending_started_at = datetime.utcnow() - timedelta(minutes=45)
+    db_session.commit()
+
+    resp = client.post(
+        "/api/distributions/timeout-stuck-sends",
+        headers={"Authorization": "Bearer test-secret-123"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"timed_out": 1, "ids": [dist["id"]]}
+
+    list_resp = client.get("/admin/distributions", headers=headers)
+    updated = next(d for d in list_resp.json() if d["id"] == dist["id"])
+    assert updated["status"] == "failed"
+
+
+def test_timeout_stuck_sending_leaves_recent_sending_alone(client, db_session, make_user, monkeypatch):
+    """A distribution that only just started sending must not be falsely marked failed - only
+    rows that have genuinely exceeded the configured timeout are touched."""
+    monkeypatch.setenv("CRON_SECRET", "test-secret-123")
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    row = db_session.query(models.Distribution).filter(models.Distribution.id == dist["id"]).first()
+    row.status = "sending"
+    row.sending_started_at = datetime.utcnow() - timedelta(minutes=1)
+    db_session.commit()
+
+    resp = client.post(
+        "/api/distributions/timeout-stuck-sends",
+        headers={"Authorization": "Bearer test-secret-123"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"timed_out": 0, "ids": []}
+
+    list_resp = client.get("/admin/distributions", headers=headers)
+    updated = next(d for d in list_resp.json() if d["id"] == dist["id"])
+    assert updated["status"] == "sending"
+
+
+def test_timeout_stuck_sending_ignores_rows_with_no_started_at(client, db_session, make_user, monkeypatch):
+    """A distribution stuck at 'sending' from before this column existed has no recorded start
+    instant to time out from - the sweep must leave it alone rather than guess, matching the
+    documented limitation that those rows still need a manual delete."""
+    monkeypatch.setenv("CRON_SECRET", "test-secret-123")
+    headers = _admin_headers(client, make_user)
+    survey = _make_survey(db_session)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    row = db_session.query(models.Distribution).filter(models.Distribution.id == dist["id"]).first()
+    row.status = "sending"
+    row.sending_started_at = None
+    db_session.commit()
+
+    resp = client.post(
+        "/api/distributions/timeout-stuck-sends",
+        headers={"Authorization": "Bearer test-secret-123"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"timed_out": 0, "ids": []}
+
+    list_resp = client.get("/admin/distributions", headers=headers)
+    updated = next(d for d in list_resp.json() if d["id"] == dist["id"])
+    assert updated["status"] == "sending"
+
+
+def test_timeout_stuck_sending_requires_cron_secret(client, db_session, monkeypatch):
+    monkeypatch.setenv("CRON_SECRET", "test-secret-123")
+
+    resp = client.post("/api/distributions/timeout-stuck-sends")
+    assert resp.status_code == 401
+
+    resp = client.post(
+        "/api/distributions/timeout-stuck-sends",
+        headers={"Authorization": "Bearer wrong-secret"},
+    )
+    assert resp.status_code == 401
+
+    resp = client.post(
+        "/api/distributions/timeout-stuck-sends",
+        headers={"Authorization": "Bearer test-secret-123"},
+    )
+    assert resp.status_code == 200

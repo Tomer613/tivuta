@@ -26,6 +26,7 @@ const SETTING_LABELS: Record<string, string> = {
     max_unsettled_ils_before_deactivate: 'סף חוב להשבתה אוטומטית (₪)',
     unsettled_grace_days: 'ימי חסד לפני השבתה',
     page_view_retention_days: 'תקופת שמירת נתוני תנועה (ימים)',
+    stuck_sending_timeout_minutes: 'זמן קצוב להפצה תקועה ב"שולח..." (דקות)',
 };
 const SETTING_ORDER = Object.keys(SETTING_LABELS);
 

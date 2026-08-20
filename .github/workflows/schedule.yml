@@ -13,3 +13,8 @@ jobs:
         run: |
           curl -s -X POST "https://tivuta.onrender.com/api/distributions/process-scheduled" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Fail out any distribution stuck at "sending" past the configured timeout
+        run: |
+          curl -s -X POST "https://tivuta.onrender.com/api/distributions/timeout-stuck-sends" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

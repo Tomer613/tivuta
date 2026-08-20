@@ -28,6 +28,9 @@ DEFAULT_SETTINGS = {
     "lockout_duration_minutes": "15",
     # Self-hosted analytics retention — same "tunable threshold" shape again.
     "page_view_retention_days": "180",
+    # A distribution stuck at status=="sending" past this many minutes is swept to "failed" by
+    # the /api/distributions/timeout-stuck-sends cron - same "tunable threshold" shape again.
+    "stuck_sending_timeout_minutes": "30",
 }
 
 # Settings that must parse as a STRICTLY positive float — enforced on write so a bad admin
@@ -55,6 +58,9 @@ NON_NEGATIVE_FLOAT_SETTINGS = {
     "lockout_duration_minutes",
     # 0 means "keep nothing" — an extreme but legitimate retention policy, not an error.
     "page_view_retention_days",
+    # 0 means "time out immediately" — aggressive, but a legitimate policy value like the others
+    # in this set.
+    "stuck_sending_timeout_minutes",
 }
 
 

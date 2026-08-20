@@ -501,6 +501,12 @@ class Distribution(Base):
     # distribution lands in awaiting_whatsapp_confirmation until the admin explicitly confirms via
     # whatsapp_confirmed_at below, rather than being marked "sent" on nothing but an empty email loop.
     status = Column(String(20), default="draft")
+    # Stamped the instant status flips to "sending" (both the real send and the scheduled-cron
+    # pre-mark) - lets a periodic cron sweep (see /api/distributions/timeout-stuck-sends) tell a
+    # genuinely stuck row apart from one that started seconds ago. NULL for any row that reached
+    # "sending" before this column existed - those have no recorded start instant to time out
+    # from and are deliberately left alone by the sweep (still need a manual delete).
+    sending_started_at = Column(DateTime, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     scheduled_at = Column(DateTime, nullable=True)  # if set, send at this time
