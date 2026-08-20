@@ -22,7 +22,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!isLoading && !user) {
-            const redirect = pathname ? `?redirect=${encodeURIComponent(pathname)}` : '';
+            // usePathname() never includes a hash fragment (e.g. #notification-preferences) —
+            // dropping it here would silently break any deep-linked anchor (like the campaign
+            // email's unsubscribe link) for a logged-out visitor: they'd land back on the right
+            // page after login, but with the anchored section not expanded/scrolled-to.
+            const target = pathname ? pathname + window.location.hash : pathname;
+            const redirect = target ? `?redirect=${encodeURIComponent(target)}` : '';
             router.replace(`/${locale}/login${redirect}`);
         }
     }, [isLoading, user, locale, router, pathname]);

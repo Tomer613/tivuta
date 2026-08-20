@@ -44,7 +44,7 @@ def _email_wrapper(inner_html: str) -> str:
 <body style="margin:0;padding:0;background:#111a2f;font-family:Arial,Helvetica,sans-serif;">
   <div dir="rtl" style="max-width:600px;margin:0 auto;padding:32px 16px;direction:rtl;text-align:right;">
     <div style="text-align:center;margin:0 0 24px 0;">
-      <img src="{logo_url}" width="220" alt="Tivuta" style="width:220px;max-width:220px;height:auto;display:inline-block;" />
+      <img src="{logo_url}" width="220" height="77" alt="Tivuta" style="width:220px;max-width:220px;height:auto;display:inline-block;" />
     </div>
     <div style="background:#0e1628;border-radius:24px;padding:36px;border:1px solid rgba(212,175,55,0.25);">
       {inner_html}
