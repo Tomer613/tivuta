@@ -22,6 +22,25 @@ if SENTRY_DSN:
         environment="production" if os.environ.get("DATABASE_URL") else "development",
     )
 
+# Email-provider visibility check — 2026-08-20: a real production deployment was found running
+# with EMAIL_PROVIDER unset, silently falling back to ConsoleEmailSender (which always reports
+# success while only writing to server logs), with zero actual emails ever reaching Resend. Not a
+# hard fail like the JWT_SECRET_KEY guard in security.py — email not working doesn't break the
+# site the way a guessable JWT secret would — but this exact misconfiguration must never again go
+# silent until a customer notices a missing email.
+if os.environ.get("DATABASE_URL") and os.environ.get("EMAIL_PROVIDER") != "resend":
+    print("=" * 70)
+    print("WARNING: EMAIL_PROVIDER is not set to 'resend' in what looks like a production")
+    print("deployment (DATABASE_URL is set). All outgoing email is being silently logged to")
+    print("this console instead of actually sent. Set EMAIL_PROVIDER=resend + RESEND_API_KEY")
+    print("in Render's dashboard if real email delivery is expected.")
+    print("=" * 70)
+elif os.environ.get("DATABASE_URL") and not os.environ.get("RESEND_API_KEY"):
+    print("=" * 70)
+    print("WARNING: EMAIL_PROVIDER=resend but RESEND_API_KEY is not set — every real send will")
+    print("fail at the Resend API call itself.")
+    print("=" * 70)
+
 app = FastAPI(title="Tivuta - The Working Haredi Ecosystem")
 
 app.state.limiter = limiter
