@@ -18,6 +18,7 @@ import {
     productImageUrl,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
+import { toUtcIso } from '@/lib/useCountdown';
 import { downloadImageFile } from '@/lib/shareImage';
 import { Product } from '@/components/ProductTile';
 import { Survey } from '@/components/SurveyCard';
@@ -70,6 +71,7 @@ export default function AdminDistributionPage() {
     const [sendingId, setSendingId] = useState<number | null>(null);
     const [sendingTestId, setSendingTestId] = useState<number | null>(null);
     const [confirmSendId, setConfirmSendId] = useState<number | null>(null);
+    const [confirmWhatsAppId, setConfirmWhatsAppId] = useState<number | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [memberCount, setMemberCount] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -279,10 +281,16 @@ export default function AdminDistributionPage() {
         if (!token) return;
         try {
             const updated = await adminConfirmWhatsAppSent(token, id);
+            setConfirmWhatsAppId(null);
             setDistributions((prev) => prev.map((d) => (d.id === id ? updated : d)));
             showToast('השיתוף אושר ✓');
         } catch (err) {
-            showToast(getErrorMessage(err, 'שגיאה באישור השיתוף'), 'error');
+            // The PATCH can fail on the response leg (a slow/cold-started backend, a dropped
+            // connection) even after the server already committed the change - reconciling with
+            // a fresh fetch here means the row never gets stuck showing stale/wrong info until
+            // the admin thinks to manually reload the page.
+            showToast(getErrorMessage(err, 'שגיאה באישור השיתוף — בודק את המצב בפועל...'), 'error');
+            await load();
         }
     };
 
@@ -423,7 +431,7 @@ export default function AdminDistributionPage() {
                                         </div>
                                         {d.sent_at && (
                                             <p className="text-[10px] text-[#f0e6d3]/30 mt-1">
-                                                {new Date(d.sent_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                {new Date(toUtcIso(d.sent_at)).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                             </p>
                                         )}
                                     </td>
@@ -494,14 +502,27 @@ export default function AdminDistributionPage() {
                                                 </button>
                                             )
                                         )}
-                                        {d.channels.includes('whatsapp') && !d.whatsapp_confirmed_at && d.status !== 'draft' && d.status !== 'sending' && (
-                                            <button
-                                                onClick={() => handleConfirmWhatsApp(d.id)}
-                                                className="flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300"
-                                                title={d.whatsapp_manual_mode ? 'לחץ לאחר שבאמת שלחת בוואטסאפ' : 'סמן שההודעה נשלחה בוואטסאפ'}
-                                            >
+                                        {d.channels.includes('whatsapp') && d.whatsapp_confirmed_at && (
+                                            <span className="flex items-center gap-1 text-xs font-bold text-green-400">
                                                 <CheckCircle2 size={13} /> {d.whatsapp_manual_mode ? 'אישרתי ששלחתי' : 'נשלח'}
-                                            </button>
+                                            </span>
+                                        )}
+                                        {d.channels.includes('whatsapp') && !d.whatsapp_confirmed_at && d.status !== 'draft' && d.status !== 'sending' && (
+                                            confirmWhatsAppId === d.id ? (
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className="text-[#f0e6d3]/60">בטוח שנשלח בפועל?</span>
+                                                    <button onClick={() => handleConfirmWhatsApp(d.id)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
+                                                    <button onClick={() => setConfirmWhatsAppId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setConfirmWhatsAppId(d.id)}
+                                                    className="flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300"
+                                                    title={d.whatsapp_manual_mode ? 'לחץ לאחר שבאמת שלחת בוואטסאפ' : 'סמן שההודעה נשלחה בוואטסאפ'}
+                                                >
+                                                    <CheckCircle2 size={13} /> אישור שבוצעה שליחה
+                                                </button>
+                                            )
                                         )}
                                         {(d.status === 'draft' || d.status === 'awaiting_whatsapp_confirmation' || d.status === 'failed' || d.status === 'sending') && (
                                             deletingId === d.id ? (
