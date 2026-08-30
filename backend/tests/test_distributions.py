@@ -304,11 +304,11 @@ def test_resend_allowed_from_failed(client, db_session, make_user, monkeypatch):
     real_builder = dist_module._build_distribution_email
     call_count = {"n": 0}
 
-    def _boom_once(distribution):
+    def _boom_once(distribution, locale, first_name):
         call_count["n"] += 1
         if call_count["n"] == 1:
             raise RuntimeError("simulated failure")
-        return real_builder(distribution)
+        return real_builder(distribution, locale, first_name)
 
     monkeypatch.setattr("app.routers.distributions._build_distribution_email", _boom_once)
 
@@ -360,6 +360,110 @@ def test_distribution_email_has_rtl_alignment_and_sized_images(client, db_sessio
     assert f'>{survey.question_he}<' in html
     # The logo image (always present) must carry an explicit HTML width, not just CSS.
     assert 'width="220"' in html
+
+
+def test_preview_locale_switches_language_direction_and_content(client, db_session, make_user):
+    """The admin preview's ?locale= switcher must actually change the rendered email - direction,
+    the survey question shown, and the button/badge text - not just the outer subject line."""
+    headers = _admin_headers(client, make_user, email="localepreviewadmin@example.com")
+    survey = models.Survey(question_he="שאלה בעברית", question_en="Question in English", poll_type="text", max_choices=1)
+    db_session.add(survey)
+    db_session.commit()
+    db_session.refresh(survey)
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    resp_en = client.get(f"/admin/distributions/{dist['id']}/preview?locale=en", headers=headers)
+    assert resp_en.status_code == 200
+    html_en = resp_en.json()["html"]
+    assert 'dir="ltr"' in html_en
+    assert 'lang="en"' in html_en
+    assert ">Question in English<" in html_en
+    assert "Click to vote" in html_en
+    assert "שאלה בעברית" not in html_en
+
+    resp_he = client.get(f"/admin/distributions/{dist['id']}/preview", headers=headers)
+    html_he = resp_he.json()["html"]
+    assert 'dir="rtl"' in html_he
+    assert "שאלה בעברית" in html_he
+
+
+def test_survey_question_falls_back_to_hebrew_when_locale_translation_missing(client, db_session, make_user):
+    """A survey with no question_fr set must still render (in Hebrew), not blow up or show 'None'."""
+    headers = _admin_headers(client, make_user, email="localefallbackadmin@example.com")
+    survey = _make_survey(db_session, question_he="שאלה ללא תרגום")
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    resp = client.get(f"/admin/distributions/{dist['id']}/preview?locale=fr", headers=headers)
+    assert resp.status_code == 200
+    html = resp.json()["html"]
+    assert "שאלה ללא תרגום" in html
+    assert "None" not in html
+
+
+def test_send_greets_each_recipient_by_name_in_their_own_language(client, db_session, make_user, monkeypatch):
+    """The core feature: two members with different preferred_language in the same distribution's
+    audience must each receive genuinely different, personalized content - not one shared email."""
+    headers = _admin_headers(client, make_user, email="personalizeadmin@example.com")
+    survey = models.Survey(question_he="שאלה", question_en="A question", poll_type="text", max_choices=1)
+    db_session.add(survey)
+    db_session.commit()
+    db_session.refresh(survey)
+    make_user(email="hebrewmember@example.com", password="testpass123", first_name="דוד", preferred_language="he")
+    make_user(email="englishmember@example.com", password="testpass123", first_name="David", preferred_language="en")
+    make_user(email="nopref@example.com", password="testpass123", first_name="Noam")  # preferred_language left unset
+
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    import app.routers.distributions as dist_module
+    from app.services.notifications import SendResult
+
+    sent = {}
+
+    class _CapturingSender:
+        def send(self, *, to, subject, html_body, locale):
+            sent[to] = {"html": html_body, "locale": locale}
+            return SendResult(success=True, provider_message_id="x")
+
+    monkeypatch.setattr(dist_module, "get_email_sender", lambda: _CapturingSender())
+
+    resp = client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    assert resp.status_code == 200
+
+    assert "Hi David," in sent["englishmember@example.com"]["html"]
+    assert "A question" in sent["englishmember@example.com"]["html"]
+    assert sent["englishmember@example.com"]["locale"] == "en"
+
+    assert "שלום דוד," in sent["hebrewmember@example.com"]["html"]
+    assert "שאלה" in sent["hebrewmember@example.com"]["html"]
+    assert sent["hebrewmember@example.com"]["locale"] == "he"
+
+    # No preferred_language set at all - falls back to Hebrew, same as every other locale
+    # resolution in this app (current_user.preferred_language or ... or "he").
+    assert "שלום Noam," in sent["nopref@example.com"]["html"]
+    assert sent["nopref@example.com"]["locale"] == "he"
+
+
+def test_survey_and_deal_urls_carry_recipients_own_locale(client, db_session, make_user, monkeypatch):
+    headers = _admin_headers(client, make_user, email="urllocaleadmin@example.com")
+    survey = _make_survey(db_session)
+    make_user(email="frenchmember@example.com", password="testpass123", first_name="Marie", preferred_language="fr")
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    import app.routers.distributions as dist_module
+    from app.services.notifications import SendResult
+
+    sent = {}
+
+    class _CapturingSender:
+        def send(self, *, to, subject, html_body, locale):
+            sent[to] = html_body
+            return SendResult(success=True, provider_message_id="x")
+
+    monkeypatch.setattr(dist_module, "get_email_sender", lambda: _CapturingSender())
+
+    resp = client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    assert resp.status_code == 200
+    assert f"/share/surveys/{survey.id}?locale=fr" in sent["frenchmember@example.com"]
 
 
 def test_send_test_reports_active_email_provider(client, db_session, make_user, monkeypatch):
@@ -458,7 +562,7 @@ def test_log_committed_immediately_survives_later_crash(client, db_session, make
             distribution.status = "sending"
             db.commit()
             try:
-                subject, email_html = dist_module._build_distribution_email(distribution)
+                subject, email_html = dist_module._build_distribution_email(distribution, "he", "Test")
                 users = db.query(models.User).filter(models.User.role == "member").all()
                 sender = dist_module.get_email_sender()
                 for user in users:

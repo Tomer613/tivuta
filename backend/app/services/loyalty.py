@@ -84,10 +84,12 @@ def validate_setting_value(key: str, value: str) -> None:
 def resolve_locale_or_en(preferred_language: Optional[str]) -> str:
     """Collapses a user's stored/resolved locale preference down to just 'he' or 'en', for the
     templates in this codebase that only have Hebrew and English copy - unset, 'fr', and 'yi' all
-    fall back to English. Shared by every notification/email call site that needs this exact
-    fallback rule (leads.py's appointment-reminder and lead-status notifications, promotions.py's
-    raffle-winner email, and this module's own points-earned notification) so a future change to
-    the rule only needs to happen in one place."""
+    fall back to English. Shared by every notification/email call site that needs *this specific*
+    2-language fallback rule (leads.py's appointment-reminder and lead-status notifications,
+    promotions.py's raffle-winner email, and this module's own points-earned notification) so a
+    future change to the rule only needs to happen in one place. NOT used by
+    routers/distributions.py's campaign emails, which have real he/en/fr/yi copy and resolve a
+    recipient's locale directly (`user.preferred_language or "he"`, no collapsing) instead."""
     return "he" if (preferred_language or "he") == "he" else "en"
 
 

@@ -23,6 +23,7 @@ import { downloadImageFile } from '@/lib/shareImage';
 import { Product } from '@/components/ProductTile';
 import { Survey } from '@/components/SurveyCard';
 import { buildSurveyShareUrl } from '@/lib/share';
+import { LOCALES, Locale } from '@/lib/locales';
 import { Plus, Loader2, X, Send, Mail, MessageCircle, RefreshCw, CheckCircle2, AlertCircle, Trash2, Calendar, Eye, Users, Filter, MailCheck } from 'lucide-react';
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
@@ -82,6 +83,8 @@ export default function AdminDistributionPage() {
     const [previewDistId, setPreviewDistId] = useState<number | null>(null);
     const [previewData, setPreviewData] = useState<{ html: string; subject: string; recipient_count: number } | null>(null);
     const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewLocale, setPreviewLocale] = useState<Locale>('he');
+    const [sendingPreviewTest, setSendingPreviewTest] = useState(false);
 
     const [recipientsDistId, setRecipientsDistId] = useState<number | null>(null);
     const [recipients, setRecipients] = useState<DistributionRecipient[] | null>(null);
@@ -310,15 +313,55 @@ export default function AdminDistributionPage() {
         if (!token) return;
         setPreviewDistId(id);
         setPreviewData(null);
+        setPreviewLocale('he');
         setPreviewLoading(true);
         try {
-            const data = await adminPreviewDistribution(token, id);
+            const data = await adminPreviewDistribution(token, id, 'he');
             setPreviewData(data);
         } catch {
             showToast('שגיאה בטעינת תצוגה מקדימה', 'error');
             setPreviewDistId(null);
         } finally {
             setPreviewLoading(false);
+        }
+    };
+
+    // Re-fetches the same preview in a different language - lets the admin actually check that
+    // the automatic translations (survey question, badges/buttons, greeting) read correctly
+    // before a real campaign goes out in that language.
+    const handlePreviewLocaleChange = async (locale: Locale) => {
+        if (!token || previewDistId === null) return;
+        setPreviewLocale(locale);
+        setPreviewLoading(true);
+        try {
+            const data = await adminPreviewDistribution(token, previewDistId, locale);
+            setPreviewData(data);
+        } catch {
+            showToast('שגיאה בטעינת תצוגה מקדימה', 'error');
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    // Sends a real test email in the language currently shown in the preview - the most reliable
+    // way to check a translation, since a real email client can render RTL/LTR differently than
+    // the sandboxed iframe above.
+    const handleSendTestInPreviewLocale = async () => {
+        if (!token || previewDistId === null) return;
+        setSendingPreviewTest(true);
+        try {
+            const result = await adminSendTestEmail(token, previewDistId, previewLocale);
+            if (!result.success) {
+                showToast(`שגיאה בשליחת הבדיקה: ${result.error ?? ''}`, 'error');
+            } else if (result.provider !== 'resend') {
+                showToast('"נשלח" אך רק ליומן השרת — EMAIL_PROVIDER אינו מוגדר ל-resend ב-Render, שום מייל אמיתי לא נשלח', 'error');
+            } else {
+                showToast('מייל בדיקה נשלח לכתובת שלך ✓');
+            }
+        } catch (err) {
+            showToast(getErrorMessage(err, 'שגיאה בשליחת מייל בדיקה'), 'error');
+        } finally {
+            setSendingPreviewTest(false);
         }
     };
 
@@ -579,6 +622,27 @@ export default function AdminDistributionPage() {
                                 )}
                             </div>
                             <button onClick={() => setPreviewDistId(null)}><X size={20} className="text-[#f0e6d3]/60 hover:text-[#f0e6d3]" /></button>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-[#d4af37]/10 flex-shrink-0">
+                            <div className="flex items-center gap-1.5">
+                                {LOCALES.map((code) => (
+                                    <button
+                                        key={code}
+                                        onClick={() => handlePreviewLocaleChange(code)}
+                                        disabled={previewLoading}
+                                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors disabled:opacity-40 ${previewLocale === code ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]/60 hover:text-[#f0e6d3]'}`}
+                                    >
+                                        {{ he: 'עברית', en: 'English', fr: 'Français', yi: 'יידיש' }[code]}
+                                    </button>
+                                ))}
+                            </div>
+                            <button
+                                onClick={handleSendTestInPreviewLocale}
+                                disabled={sendingPreviewTest || previewLoading}
+                                className="flex items-center gap-1.5 text-xs font-bold text-[#d4af37] hover:text-[#e5c158] disabled:opacity-40 transition-colors"
+                            >
+                                <Send size={12} /> שלח בדיקה בשפה זו
+                            </button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4">
                             {previewLoading ? (

@@ -5,13 +5,13 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models
+from ..schemas import RTL_LOCALES, VALID_PREFERRED_LANGUAGES
 from ..security import get_db
 from ..services.surveys import resolve_survey_image_url
 
 router = APIRouter(prefix="/share", tags=["share"])
 
 FRONTEND_BASE_URL = "https://www.tivuta.co.il"
-_VALID_LOCALES = {"he", "en", "fr", "yi"}
 _DESCRIPTION_MAX_LEN = 200
 
 # Kept generic ("there", not "the product") so this same copy reads correctly for both the
@@ -42,7 +42,7 @@ def _redirect_page(destination: str, *, title: str = "", description: str = "", 
     safe_title = html.escape(title or "Tivuta")
     safe_description = html.escape(description)
     safe_image = html.escape(image, quote=True)
-    dir_attr = "rtl" if locale in ("he", "yi") else "ltr"
+    dir_attr = "rtl" if locale in RTL_LOCALES else "ltr"
 
     meta_tags = f'<meta property="og:title" content="{safe_title}"/>'
     if safe_description:
@@ -78,7 +78,7 @@ a {{ color:#d4af37; }}
 
 @router.get("/products/{product_id}", response_class=HTMLResponse)
 def share_product(product_id: int, request: Request, locale: str = "he", db: Session = Depends(get_db)):
-    locale = locale if locale in _VALID_LOCALES else "he"
+    locale = locale if locale in VALID_PREFERRED_LANGUAGES else "he"
     destination = f"{FRONTEND_BASE_URL}/{locale}/products?id={product_id}"
 
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
@@ -103,7 +103,7 @@ def share_product(product_id: int, request: Request, locale: str = "he", db: Ses
 
 @router.get("/surveys/{survey_id}", response_class=HTMLResponse)
 def share_survey(survey_id: int, request: Request, locale: str = "he", db: Session = Depends(get_db)):
-    locale = locale if locale in _VALID_LOCALES else "he"
+    locale = locale if locale in VALID_PREFERRED_LANGUAGES else "he"
     destination = f"{FRONTEND_BASE_URL}/{locale}/survey?id={survey_id}"
 
     survey = (

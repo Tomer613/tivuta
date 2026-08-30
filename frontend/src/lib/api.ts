@@ -1744,14 +1744,14 @@ export async function adminGetProductAnalytics(token: string) {
 }
 
 // Admin: distribution email preview
-export async function adminPreviewDistribution(token: string, id: number) {
-    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/preview`, { headers: authHeaders(token) });
+export async function adminPreviewDistribution(token: string, id: number, locale: string = 'he') {
+    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/preview?locale=${locale}`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Preview failed');
     return res.json() as Promise<{ html: string; subject: string; recipient_count: number }>;
 }
 
-export async function adminSendTestEmail(token: string, id: number) {
-    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/send-test`, {
+export async function adminSendTestEmail(token: string, id: number, locale: string = 'he') {
+    const res = await fetch(`${BASE_URL}/admin/distributions/${id}/send-test?locale=${locale}`, {
         method: 'POST',
         headers: authHeaders(token),
     });

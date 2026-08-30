@@ -90,6 +90,9 @@ class NotificationPrefsUpdate(BaseModel):
 
 
 VALID_PREFERRED_LANGUAGES = {"he", "en", "fr", "yi"}
+# Shared with routers/share.py and routers/distributions.py, so the RTL/LTR split lives in exactly
+# one place instead of being reimplemented per file.
+RTL_LOCALES = {"he", "yi"}
 
 
 class PreferredLanguageUpdate(BaseModel):
