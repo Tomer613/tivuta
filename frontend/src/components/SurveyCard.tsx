@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Check, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
-import { voteSurvey } from '@/lib/api';
+import { CheckCircle2, Check, Loader2, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { voteSurvey, getSurveyFollowupQuestions, submitSurveyFollowup, productImageUrl } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { requireLogin } from '@/lib/requireLogin';
 
@@ -12,6 +12,7 @@ export interface SurveyOption {
     product_id: number | null;
     label_override_he?: string | null;
     product_title_he?: string | null;
+    product_image_url?: string | null;
     vote_count: number;
 }
 
@@ -39,6 +40,13 @@ interface T {
     selectUpTo: (n: number) => string;
     error: string;
     thanks: string;
+    followupYes: string;
+    followupNo: string;
+    followupNotePlaceholder: string;
+    followupSend: string;
+    followupThanks: string;
+    followupErrorFallback: string;
+    viewProduct: string;
 }
 
 const translations: Record<string, T> = {
@@ -51,6 +59,13 @@ const translations: Record<string, T> = {
         selectUpTo: (n) => `בחר עד ${n} אפשרויות`,
         error: 'שגיאה בהצבעה, נסה שוב',
         thanks: 'תודה שהצבעת!',
+        followupYes: 'כן',
+        followupNo: 'לא',
+        followupNotePlaceholder: 'לדוגמה: ...',
+        followupSend: 'שליחה',
+        followupThanks: 'תודה על התגובה!',
+        followupErrorFallback: 'שגיאה בשליחת התגובה, נסה שוב',
+        viewProduct: 'צפייה במוצר',
     },
     en: {
         vote: 'Vote',
@@ -61,6 +76,13 @@ const translations: Record<string, T> = {
         selectUpTo: (n) => `Select up to ${n} options`,
         error: 'Something went wrong, try again',
         thanks: 'Thanks for voting!',
+        followupYes: 'Yes',
+        followupNo: 'No',
+        followupNotePlaceholder: 'E.g. ...',
+        followupSend: 'Send',
+        followupThanks: 'Thanks for your response!',
+        followupErrorFallback: 'Error sending your response, try again',
+        viewProduct: 'View product',
     },
     fr: {
         vote: 'Voter',
@@ -71,6 +93,13 @@ const translations: Record<string, T> = {
         selectUpTo: (n) => `Choisissez jusqu'à ${n} options`,
         error: 'Une erreur est survenue, réessayez',
         thanks: 'Merci pour votre vote !',
+        followupYes: 'Oui',
+        followupNo: 'Non',
+        followupNotePlaceholder: 'Par ex. ...',
+        followupSend: 'Envoyer',
+        followupThanks: 'Merci pour votre réponse !',
+        followupErrorFallback: 'Erreur lors de l’envoi, réessayez',
+        viewProduct: 'Voir le produit',
     },
     yi: {
         vote: 'שטים',
@@ -81,6 +110,13 @@ const translations: Record<string, T> = {
         selectUpTo: (n) => `קלייב ביז ${n} אפשרויות`,
         error: 'א טעות, פרובירט נאך אמאל',
         thanks: 'א דאנק פארן שטימען!',
+        followupYes: 'יא',
+        followupNo: 'ניין',
+        followupNotePlaceholder: 'למשל: ...',
+        followupSend: 'שיקן',
+        followupThanks: 'א דאנק פאר דיין ענטפער!',
+        followupErrorFallback: 'א טעות ביים שיקן, פרובירט נאך אמאל',
+        viewProduct: 'קוקן דעם פראדוקט',
     },
 };
 
@@ -104,6 +140,40 @@ export default function SurveyCard({
     const [error, setError] = useState<string | null>(null);
     const [justVoted, setJustVoted] = useState(false);
     const autoSubmitRef = useRef(false);
+
+    // Post-vote follow-up form (product polls only - both questions presuppose the poll's options
+    // are products). Question wording is fetched from the backend's settings-backed endpoint, not
+    // hardcoded, per explicit request - an admin can reword it without a code deploy.
+    const [followupQuestions, setFollowupQuestions] = useState<{ question1_he: string; question2_he: string } | null>(null);
+    const [followupSubmitted, setFollowupSubmitted] = useState(false);
+    const [wantsFollowup, setWantsFollowup] = useState<boolean | null>(null);
+    const [additionalNote, setAdditionalNote] = useState('');
+    const [followupSubmitting, setFollowupSubmitting] = useState(false);
+    const [followupError, setFollowupError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!justVoted || survey.poll_type !== 'product' || followupSubmitted) return;
+        let cancelled = false;
+        getSurveyFollowupQuestions().then((q) => { if (!cancelled) setFollowupQuestions(q); }).catch(() => { /* form just won't render */ });
+        return () => { cancelled = true; };
+    }, [justVoted, survey.poll_type, followupSubmitted]);
+
+    const handleSubmitFollowup = async () => {
+        if (!token || wantsFollowup === null || followupSubmitting) return;
+        setFollowupSubmitting(true);
+        setFollowupError(null);
+        try {
+            await submitSurveyFollowup(token, survey.id, {
+                wants_followup: wantsFollowup,
+                additional_products_note: additionalNote.trim() || null,
+            });
+            setFollowupSubmitted(true);
+        } catch (e) {
+            setFollowupError(getErrorMessage(e, st.followupErrorFallback));
+        } finally {
+            setFollowupSubmitting(false);
+        }
+    };
 
     const pendingKey = `tivuta_pending_vote_${survey.id}`;
     const RESUME_PARAM = 'resume_vote';
@@ -218,6 +288,54 @@ export default function SurveyCard({
                 {justVoted && (
                     <p className="mb-3 text-[#d4af37] text-sm font-bold animate-fade-in">🎉 {st.thanks}</p>
                 )}
+                {justVoted && survey.poll_type === 'product' && !followupSubmitted && followupQuestions && (
+                    <div className="mb-4 p-4 rounded-xl bg-[#111a2f] border border-[#d4af37]/15 space-y-3 animate-fade-in">
+                        <div>
+                            <p className="text-sm text-[#f0e6d3]/80 mb-2">{followupQuestions.question1_he}</p>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setWantsFollowup(true)}
+                                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${wantsFollowup === true ? 'border-[#d4af37] bg-[#d4af37]/10 text-[#f0e6d3]' : 'border-[#d4af37]/20 text-[#f0e6d3]/70 hover:border-[#d4af37]/50'}`}
+                                >
+                                    {st.followupYes}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setWantsFollowup(false)}
+                                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${wantsFollowup === false ? 'border-[#d4af37] bg-[#d4af37]/10 text-[#f0e6d3]' : 'border-[#d4af37]/20 text-[#f0e6d3]/70 hover:border-[#d4af37]/50'}`}
+                                >
+                                    {st.followupNo}
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-sm text-[#f0e6d3]/80 mb-2">{followupQuestions.question2_he}</p>
+                            <textarea
+                                value={additionalNote}
+                                onChange={(e) => setAdditionalNote(e.target.value)}
+                                placeholder={st.followupNotePlaceholder}
+                                rows={2}
+                                maxLength={2000}
+                                className="w-full bg-[#0e1628] border border-[#d4af37]/15 rounded-lg px-3 py-2 text-sm text-[#f0e6d3] placeholder:text-[#f0e6d3]/30"
+                                dir="rtl"
+                            />
+                        </div>
+                        {followupError && <p className="text-red-400 text-xs font-bold">{followupError}</p>}
+                        <button
+                            type="button"
+                            onClick={handleSubmitFollowup}
+                            disabled={wantsFollowup === null || followupSubmitting}
+                            className="btn-primary !text-sm px-5 py-2 disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {followupSubmitting && <Loader2 size={14} className="animate-spin" />}
+                            {st.followupSend}
+                        </button>
+                    </div>
+                )}
+                {justVoted && followupSubmitted && (
+                    <p className="mb-4 text-[#d4af37] text-sm font-bold animate-fade-in">{st.followupThanks}</p>
+                )}
                 <div className="flex items-center gap-2 mt-1 text-green-400 text-sm font-bold">
                     <CheckCircle2 size={15} /> {st.voted} ({totalVotes} {st.votes})
                 </div>
@@ -237,12 +355,32 @@ export default function SurveyCard({
                             const isMine = survey.my_option_ids.includes(option.id);
                             return (
                                 <div key={option.id} className="space-y-1.5">
-                                    <div className="flex justify-between text-sm">
-                                        <span className={`font-semibold flex items-center gap-1.5 ${isMine ? 'text-[#d4af37]' : 'text-[#f0e6d3]/80'}`}>
-                                            {isMine && <Check size={14} />}
-                                            {optionTitle(option)}
-                                        </span>
-                                        <span className="text-[#d4af37] font-bold">{pct}%</span>
+                                    <div className="flex items-center justify-between gap-2 text-sm">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            {option.product_id && (
+                                                <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#111a2f] shrink-0 product-img-wrap">
+                                                    {option.product_image_url && (
+                                                        <img src={productImageUrl(option.product_image_url)} alt="" className="w-full h-full object-cover" />
+                                                    )}
+                                                </div>
+                                            )}
+                                            <span className={`font-semibold flex items-center gap-1.5 min-w-0 ${isMine ? 'text-[#d4af37]' : 'text-[#f0e6d3]/80'}`}>
+                                                {isMine && <Check size={14} className="shrink-0" />}
+                                                <span className="truncate">{optionTitle(option)}</span>
+                                            </span>
+                                            {option.product_id && (
+                                                <a
+                                                    href={`/${locale}/products?id=${option.product_id}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={st.viewProduct}
+                                                    className="shrink-0 text-[#f0e6d3]/40 hover:text-[#d4af37] transition-colors"
+                                                >
+                                                    <ExternalLink size={13} />
+                                                </a>
+                                            )}
+                                        </div>
+                                        <span className="text-[#d4af37] font-bold shrink-0">{pct}%</span>
                                     </div>
                                     <div className="h-2 bg-[#111a2f] rounded-full overflow-hidden">
                                         <div
@@ -278,19 +416,38 @@ export default function SurveyCard({
                     const isSelected = selected.has(option.id);
                     const isDisabled = !isSelected && selected.size >= survey.max_choices;
                     return (
-                        <button
-                            key={option.id}
-                            onClick={() => toggleOption(option.id)}
-                            disabled={isDisabled}
-                            className={`w-full text-start px-5 py-3 rounded-xl border font-semibold text-sm transition-all flex items-center justify-between gap-3 disabled:opacity-40 ${
-                                isSelected
-                                    ? 'border-[#d4af37] bg-[#d4af37]/10 text-[#f0e6d3]'
-                                    : 'border-[#d4af37]/20 text-[#f0e6d3]/80 hover:border-[#d4af37]/50 hover:bg-[#111a2f] hover:text-[#f0e6d3]'
-                            }`}
-                        >
-                            {optionTitle(option)}
-                            {isSelected && <Check size={16} className="text-[#d4af37] flex-shrink-0" />}
-                        </button>
+                        <div key={option.id} className="flex items-center gap-2">
+                            <button
+                                onClick={() => toggleOption(option.id)}
+                                disabled={isDisabled}
+                                className={`flex-1 min-w-0 text-start px-4 py-3 rounded-xl border font-semibold text-sm transition-all flex items-center gap-3 disabled:opacity-40 ${
+                                    isSelected
+                                        ? 'border-[#d4af37] bg-[#d4af37]/10 text-[#f0e6d3]'
+                                        : 'border-[#d4af37]/20 text-[#f0e6d3]/80 hover:border-[#d4af37]/50 hover:bg-[#111a2f] hover:text-[#f0e6d3]'
+                                }`}
+                            >
+                                {option.product_id && (
+                                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#111a2f] shrink-0 product-img-wrap">
+                                        {option.product_image_url && (
+                                            <img src={productImageUrl(option.product_image_url)} alt="" className="w-full h-full object-cover" />
+                                        )}
+                                    </div>
+                                )}
+                                <span className="flex-1 min-w-0 truncate text-start">{optionTitle(option)}</span>
+                                {isSelected && <Check size={16} className="text-[#d4af37] flex-shrink-0" />}
+                            </button>
+                            {option.product_id && (
+                                <a
+                                    href={`/${locale}/products?id=${option.product_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={st.viewProduct}
+                                    className="shrink-0 p-2.5 rounded-xl border border-[#d4af37]/20 text-[#f0e6d3]/50 hover:text-[#d4af37] hover:border-[#d4af37]/50 transition-colors"
+                                >
+                                    <ExternalLink size={16} />
+                                </a>
+                            )}
+                        </div>
                     );
                 })}
             </div>

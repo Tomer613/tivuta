@@ -1011,6 +1011,7 @@ class SurveyOptionRead(BaseModel):
     product_id: Optional[int] = None
     label_override_he: Optional[str] = None
     product_title_he: Optional[str] = None
+    product_image_url: Optional[str] = None
     vote_count: int = 0
 
     class Config:
@@ -1035,6 +1036,16 @@ class SurveyRead(BaseModel):
 
 class SurveyVoteCreate(BaseModel):
     survey_option_ids: List[int]
+
+
+class SurveyFollowupQuestionsRead(BaseModel):
+    question1_he: str
+    question2_he: str
+
+
+class SurveyFollowupCreate(BaseModel):
+    wants_followup: bool
+    additional_products_note: Optional[str] = Field(None, max_length=2000)
 
 # Distribution Schemas
 class DistributionCreate(BaseModel):

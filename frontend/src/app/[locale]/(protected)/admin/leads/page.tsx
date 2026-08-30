@@ -48,7 +48,7 @@ const STATUSES = [
     { value: 'closed',    label: 'סגורה',   color: 'bg-[#111a2f] text-[#f0e6d3]/30' },
 ];
 
-const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס', general_inquiry: 'פנייה כללית' };
+const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס', general_inquiry: 'פנייה כללית', survey_followup: 'מעקב סקר' };
 
 function SortIcon({ col, sortKey, sortDir }: { col: 'created_at' | 'scheduled_at'; sortKey: 'created_at' | 'scheduled_at'; sortDir: 'asc' | 'desc' }) {
     if (sortKey !== col) return <ArrowUpDown size={12} className="opacity-30" />;
@@ -467,7 +467,7 @@ export default function AdminLeadsPage() {
                                                     <p>{lead.shipping_address.street}, {lead.shipping_address.city} {lead.shipping_address.zip_code || ''}</p>
                                                     <p dir="ltr" className="text-[#d4af37]/70">{lead.shipping_address.phone}</p>
                                                 </div>
-                                            ) : lead.lead_type === 'general_inquiry' && lead.subject ? (
+                                            ) : (lead.lead_type === 'general_inquiry' || lead.lead_type === 'survey_followup') && lead.subject ? (
                                                 <div className="text-xs text-[#f0e6d3]/70 space-y-0.5 max-w-xs">
                                                     <p className="font-semibold text-[#f0e6d3]">{lead.subject}</p>
                                                     {lead.message && <p className="truncate" title={lead.message}>{lead.message}</p>}

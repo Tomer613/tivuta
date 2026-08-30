@@ -31,6 +31,11 @@ DEFAULT_SETTINGS = {
     # A distribution stuck at status=="sending" past this many minutes is swept to "failed" by
     # the /api/distributions/timeout-stuck-sends cron - same "tunable threshold" shape again.
     "stuck_sending_timeout_minutes": "30",
+    # Wording for the two-question form shown right after voting on a product poll (SurveyCard.tsx)
+    # - kept here (admin-editable via the generic settings mechanism) instead of hardcoded in the
+    # component, per explicit request, so the copy can change without a code deploy.
+    "survey_followup_question1_he": "מעוניין שנחזור אליך עם הצעת מחיר מיוחדת עבור המוצרים שסימנת?",
+    "survey_followup_question2_he": "האם ישנם מוצרים נוספים שאינם ברשימה שאתה צורך עבור הקהילה?",
 }
 
 # Settings that must parse as a STRICTLY positive float — enforced on write so a bad admin

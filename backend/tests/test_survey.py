@@ -15,8 +15,8 @@ def _login(client, make_user, email="surveymember@example.com"):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _make_product(db_session, title_he="מוצר"):
-    product = models.Product(vertical="diamonds", title_he=title_he, description_he="תיאור", price=100.0)
+def _make_product(db_session, title_he="מוצר", image_url=None):
+    product = models.Product(vertical="diamonds", title_he=title_he, description_he="תיאור", price=100.0, image_url=image_url)
     db_session.add(product)
     db_session.commit()
     db_session.refresh(product)
@@ -320,6 +320,143 @@ def test_admin_update_survey_blocks_deleting_voted_option(client, db_session, ma
     get_resp = client.get(f"/admin/surveys", headers=headers)
     unchanged = next(s for s in get_resp.json() if s["id"] == survey["id"])
     assert {o["id"] for o in unchanged["options"]} == {voted_id, other_id}
+
+
+def test_survey_option_includes_product_image_url(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    p1 = _make_product(db_session, "טבעת", image_url="ring.jpg")
+    p2 = _make_product(db_session, "עגילים")  # no image
+    resp = client.post(
+        "/admin/surveys",
+        json={"question_he": "שאלה", "poll_type": "product", "options": [{"product_id": p1.id}, {"product_id": p2.id}]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    options = {o["product_id"]: o for o in resp.json()["options"]}
+    assert options[p1.id]["product_image_url"] == "ring.jpg"
+    assert options[p2.id]["product_image_url"] is None
+
+
+def test_text_poll_option_has_no_product_image_url(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    resp = client.post(
+        "/admin/surveys",
+        json={
+            "question_he": "שאלה",
+            "poll_type": "text",
+            "options": [{"label_override_he": "כן"}, {"label_override_he": "לא"}],
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert all(o["product_image_url"] is None for o in resp.json()["options"])
+
+
+def test_followup_questions_endpoint_is_public_and_returns_defaults(client):
+    resp = client.get("/surveys/followup-questions")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["question1_he"]
+    assert body["question2_he"]
+
+
+def test_followup_rejected_for_text_poll(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    resp = client.post(
+        "/admin/surveys",
+        json={
+            "question_he": "שאלה",
+            "poll_type": "text",
+            "options": [{"label_override_he": "כן"}, {"label_override_he": "לא"}],
+        },
+        headers=headers,
+    )
+    survey = resp.json()
+    option_id = survey["options"][0]["id"]
+
+    member_headers = _login(client, make_user)
+    client.post(f"/surveys/{survey['id']}/vote", json={"survey_option_ids": [option_id]}, headers=member_headers)
+
+    followup_resp = client.post(
+        f"/surveys/{survey['id']}/followup",
+        json={"wants_followup": True, "additional_products_note": None},
+        headers=member_headers,
+    )
+    assert followup_resp.status_code == 400
+
+
+def test_followup_rejected_for_non_voter(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    p1, p2 = _make_product(db_session, "א"), _make_product(db_session, "ב")
+    resp = client.post(
+        "/admin/surveys",
+        json={"question_he": "שאלה", "poll_type": "product", "options": [{"product_id": p1.id}, {"product_id": p2.id}]},
+        headers=headers,
+    )
+    survey_id = resp.json()["id"]
+
+    member_headers = _login(client, make_user)
+    followup_resp = client.post(
+        f"/surveys/{survey_id}/followup",
+        json={"wants_followup": True, "additional_products_note": None},
+        headers=member_headers,
+    )
+    assert followup_resp.status_code == 400
+
+
+def test_followup_creates_lead_with_voted_products(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    p1, p2 = _make_product(db_session, "טבעת יהלום"), _make_product(db_session, "עגילי זהב")
+    resp = client.post(
+        "/admin/surveys",
+        json={"question_he": "מה תרצו שנביא הפעם?", "poll_type": "product", "options": [{"product_id": p1.id}, {"product_id": p2.id}]},
+        headers=headers,
+    )
+    survey = resp.json()
+    option_id = survey["options"][0]["id"]
+
+    member_headers = _login(client, make_user)
+    client.post(f"/surveys/{survey['id']}/vote", json={"survey_option_ids": [option_id]}, headers=member_headers)
+
+    followup_resp = client.post(
+        f"/surveys/{survey['id']}/followup",
+        json={"wants_followup": True, "additional_products_note": "הייתי רוצה גם שרשראות"},
+        headers=member_headers,
+    )
+    assert followup_resp.status_code == 200
+    assert followup_resp.json() == {"created": True}
+
+    lead = db_session.query(models.Lead).filter(models.Lead.lead_type == "survey_followup").first()
+    assert lead is not None
+    assert lead.customer_order_id is None
+    assert "טבעת יהלום" in lead.message
+    assert "כן" in lead.message
+    assert "הייתי רוצה גם שרשראות" in lead.message
+    assert lead.subject == "מה תרצו שנביא הפעם?"
+
+
+def test_followup_empty_response_creates_no_lead(client, db_session, make_user):
+    headers = _make_admin_headers(client, make_user)
+    p1, p2 = _make_product(db_session, "א"), _make_product(db_session, "ב")
+    resp = client.post(
+        "/admin/surveys",
+        json={"question_he": "שאלה", "poll_type": "product", "options": [{"product_id": p1.id}, {"product_id": p2.id}]},
+        headers=headers,
+    )
+    survey = resp.json()
+    option_id = survey["options"][0]["id"]
+
+    member_headers = _login(client, make_user)
+    client.post(f"/surveys/{survey['id']}/vote", json={"survey_option_ids": [option_id]}, headers=member_headers)
+
+    followup_resp = client.post(
+        f"/surveys/{survey['id']}/followup",
+        json={"wants_followup": False, "additional_products_note": "   "},
+        headers=member_headers,
+    )
+    assert followup_resp.status_code == 200
+    assert followup_resp.json() == {"created": False}
+    assert db_session.query(models.Lead).filter(models.Lead.lead_type == "survey_followup").count() == 0
 
 
 def test_admin_update_survey_options_requires_at_least_two(client, db_session, make_user):

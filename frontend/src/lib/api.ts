@@ -923,6 +923,38 @@ export async function voteSurvey(token: string, surveyId: number, surveyOptionId
     return res.json();
 }
 
+let followupQuestionsCache: Promise<{ question1_he: string; question2_he: string }> | null = null;
+
+// Module-level cached, same pattern as useVerticals()/useCategories() - the two question strings
+// are shared, near-static copy, so every SurveyCard on a page fetches them at most once.
+export function getSurveyFollowupQuestions(): Promise<{ question1_he: string; question2_he: string }> {
+    if (!followupQuestionsCache) {
+        followupQuestionsCache = fetch(`${BASE_URL}/surveys/followup-questions`)
+            .then((res) => {
+                if (!res.ok) throw new Error('Failed to load followup questions');
+                return res.json();
+            })
+            .catch((err) => {
+                followupQuestionsCache = null; // allow a retry on the next call rather than caching a failure forever
+                throw err;
+            });
+    }
+    return followupQuestionsCache;
+}
+
+export async function submitSurveyFollowup(token: string, surveyId: number, payload: { wants_followup: boolean; additional_products_note?: string | null }) {
+    const res = await fetch(`${BASE_URL}/surveys/${surveyId}/followup`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to submit followup');
+    }
+    return res.json() as Promise<{ created: boolean }>;
+}
+
 export async function updateUserProfile(token: string, payload: { phone?: string; gender?: string; city?: string; birth_year?: number; id_number?: string; club_affiliation?: string; membership_tracks?: string[] }) {
     const res = await fetch(`${BASE_URL}/users/me`, {
         method: 'PATCH',

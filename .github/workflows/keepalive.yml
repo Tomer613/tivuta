@@ -6,10 +6,17 @@ name: Keep Backend Warm
 # GitHub's cron scheduler can itself run a few minutes late, so this alone
 # won't eliminate cold starts entirely (e.g. overnight), but it removes them
 # during normal usage hours.
+#
+# Tightened from */10 to */5 (2026-08-20) after a real cold-start hit on a
+# shared poll link - the old 10-minute interval left only a 5-minute margin
+# against the 15-minute spin-down window, which a single delayed GitHub
+# Actions run (common, especially overnight) could eat through entirely.
+# This narrows that risk; it does not eliminate it - the only complete fix is
+# a Render plan without spin-down, which is a billing decision, not this file.
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:

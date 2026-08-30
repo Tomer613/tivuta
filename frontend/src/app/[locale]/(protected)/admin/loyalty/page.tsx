@@ -27,8 +27,13 @@ const SETTING_LABELS: Record<string, string> = {
     unsettled_grace_days: 'ימי חסד לפני השבתה',
     page_view_retention_days: 'תקופת שמירת נתוני תנועה (ימים)',
     stuck_sending_timeout_minutes: 'זמן קצוב להפצה תקועה ב"שולח..." (דקות)',
+    survey_followup_question1_he: 'שאלת מעקב 1 (אחרי הצבעה בסקר)',
+    survey_followup_question2_he: 'שאלת מעקב 2 (אחרי הצבעה בסקר)',
 };
 const SETTING_ORDER = Object.keys(SETTING_LABELS);
+// Free-text settings need a wraparound <textarea>, not the numeric <input> every other setting
+// uses - keeps the numeric editor's behavior completely unchanged for every existing key.
+const TEXT_SETTING_KEYS = new Set(['survey_followup_question1_he', 'survey_followup_question2_he']);
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, [onClose]);
@@ -251,16 +256,26 @@ export default function AdminLoyaltyPage() {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {SETTING_ORDER.map((key) => (
-                            <div key={key}>
+                            <div key={key} className={TEXT_SETTING_KEYS.has(key) ? 'sm:col-span-2' : undefined}>
                                 <label className="text-xs text-[#f0e6d3]/50 mb-1 block">{SETTING_LABELS[key] || key}</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    value={settings[key] ?? ''}
-                                    onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
-                                    className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3]"
-                                    dir="ltr"
-                                />
+                                {TEXT_SETTING_KEYS.has(key) ? (
+                                    <textarea
+                                        value={settings[key] ?? ''}
+                                        onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
+                                        rows={2}
+                                        className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3]"
+                                        dir="rtl"
+                                    />
+                                ) : (
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={settings[key] ?? ''}
+                                        onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
+                                        className="w-full bg-[#111a2f] border border-[#d4af37]/20 rounded-xl px-4 py-2.5 text-sm text-[#f0e6d3]"
+                                        dir="ltr"
+                                    />
+                                )}
                             </div>
                         ))}
                     </div>
