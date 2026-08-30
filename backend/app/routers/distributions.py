@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timedelta
+from html import escape as html_escape
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -124,7 +125,7 @@ def _build_survey_email(
 
     options_html = ''.join(_option_html(i, opt) for i, opt in enumerate(survey.options))
     question = getattr(survey, f"question_{locale}", None) or survey.question_he
-    greeting = GREETING.get(locale, GREETING["he"]).format(name=first_name)
+    greeting = GREETING.get(locale, GREETING["he"]).format(name=html_escape(first_name))
     badge = SURVEY_BADGE.get(locale, SURVEY_BADGE["he"])
     vote_label = VOTE_BUTTON.get(locale, VOTE_BUTTON["he"])
 
@@ -158,7 +159,7 @@ def _build_deal_email(product: models.Product, product_url: str, locale: str, fi
     ) if product_image_url else ''
 
     price_text = f'₪{int(product.price):,}' if product.price else PRICE_ON_REQUEST.get(locale, PRICE_ON_REQUEST["he"])
-    greeting = GREETING.get(locale, GREETING["he"]).format(name=first_name)
+    greeting = GREETING.get(locale, GREETING["he"]).format(name=html_escape(first_name))
     badge = DEAL_BADGE.get(locale, DEAL_BADGE["he"])
     purchase_label = PURCHASE_BUTTON.get(locale, PURCHASE_BUTTON["he"])
 
@@ -180,7 +181,7 @@ def _build_deal_email(product: models.Product, product_url: str, locale: str, fi
 
 def _build_fallback_email(subject: str, message: str, locale: str, first_name: str) -> str:
     dir_attr, align = _dir_and_align(locale)
-    greeting = GREETING.get(locale, GREETING["he"]).format(name=first_name)
+    greeting = GREETING.get(locale, GREETING["he"]).format(name=html_escape(first_name))
     site_link = SITE_LINK.get(locale, SITE_LINK["he"])
     # subject/message are distribution.title_he/message_he - admin-authored, Hebrew-only for every
     # recipient by deliberate scope decision, so these two stay hardcoded rtl/right regardless of

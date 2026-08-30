@@ -17,7 +17,7 @@ import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
 import { useOutsideClick } from '@/lib/useOutsideClick';
-import { swapLocaleInPath } from '@/lib/localePreference';
+import { swapLocaleInPath, markManualLocaleOverride } from '@/lib/localePreference';
 
 // ─── Translations ─────────────────────────────────────────────────────────────
 const tr: Record<string, Record<string, string>> = {
@@ -293,6 +293,7 @@ export default function ProfileClient() {
     const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({ lead_status: true, appointment_reminder: true, system: true, promotions: true });
     const [notifSaving, setNotifSaving] = useState(false);
     const [langSaving, setLangSaving] = useState(false);
+    const [langError, setLangError] = useState('');
     const [showCalculator, setShowCalculator] = useState(false);
     const [showPasswordForm, setShowPasswordForm] = useState(false);
     const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
@@ -1193,12 +1194,23 @@ export default function ProfileClient() {
                                 onClick={async () => {
                                     if (!token) return;
                                     setLangSaving(true);
+                                    setLangError('');
                                     try {
                                         await updatePreferredLanguage(token, lang.code);
                                         if (lang.code !== locale) {
+                                            // Without this, AuthContext's preferred-language redirect effect
+                                            // would immediately navigate right back here on the new URL: its
+                                            // in-memory `user.preferred_language` is still the old value (this
+                                            // page never refetches it), so it would see a "mismatch" and
+                                            // silently revert the choice just made. Marking a manual override
+                                            // is exactly the same "this tab's language choice is settled" signal
+                                            // the header switcher already gives it.
+                                            markManualLocaleOverride();
                                             const suffix = window.location.search + window.location.hash;
                                             router.push(swapLocaleInPath(window.location.pathname, lang.code) + suffix);
                                         }
+                                    } catch (err) {
+                                        setLangError(getErrorMessage(err, locale === 'he' ? 'שגיאה בשמירת השפה' : 'Failed to save language'));
                                     } finally {
                                         setLangSaving(false);
                                     }
@@ -1213,6 +1225,7 @@ export default function ProfileClient() {
                             </button>
                         ))}
                     </div>
+                    {langError && <p className="text-red-400 text-xs mt-2">{langError}</p>}
                 </div>
 
                 {/* ── Savings calculator ── */}

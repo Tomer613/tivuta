@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
-import { getPreferredRedirect, swapLocaleInPath } from '@/lib/localePreference';
+import { getPreferredRedirect, swapLocaleInPath, clearManualLocaleOverride } from '@/lib/localePreference';
 
 
 export interface User {
@@ -48,6 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('tivuta_token');
         setToken(null);
         setUser(null);
+        // A shared computer/tab must not let one account's manual language switch silently
+        // suppress the preferred-language auto-redirect for whichever different account logs in
+        // next in this same tab.
+        clearManualLocaleOverride();
     };
 
     const fetchUser = async (authToken: string) => {

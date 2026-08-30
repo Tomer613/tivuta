@@ -443,6 +443,39 @@ def test_send_greets_each_recipient_by_name_in_their_own_language(client, db_ses
     assert sent["nopref@example.com"]["locale"] == "he"
 
 
+def test_recipient_first_name_is_html_escaped_in_campaign_email(client, db_session, make_user, monkeypatch):
+    """A member's first_name is free text with no sanitization at signup. Since this diff started
+    interpolating it directly into a mass-emailed HTML greeting, it must be escaped there - a
+    member could otherwise inject markup into a campaign email every other recipient's mail client
+    renders."""
+    headers = _admin_headers(client, make_user, email="xssadmin@example.com")
+    survey = _make_survey(db_session)
+    make_user(
+        email="xssmember@example.com", password="testpass123",
+        first_name='<img src=x onerror=alert(1)>', preferred_language="en",
+    )
+    dist = _create_distribution(client, headers, survey.id, ["email"])
+
+    import app.routers.distributions as dist_module
+    from app.services.notifications import SendResult
+
+    sent = {}
+
+    class _CapturingSender:
+        def send(self, *, to, subject, html_body, locale):
+            sent[to] = html_body
+            return SendResult(success=True, provider_message_id="x")
+
+    monkeypatch.setattr(dist_module, "get_email_sender", lambda: _CapturingSender())
+
+    resp = client.post(f"/admin/distributions/{dist['id']}/send", headers=headers)
+    assert resp.status_code == 200
+
+    html = sent["xssmember@example.com"]
+    assert "<img src=x onerror=alert(1)>" not in html
+    assert "&lt;img src=x onerror=alert(1)&gt;" in html
+
+
 def test_survey_and_deal_urls_carry_recipients_own_locale(client, db_session, make_user, monkeypatch):
     headers = _admin_headers(client, make_user, email="urllocaleadmin@example.com")
     survey = _make_survey(db_session)

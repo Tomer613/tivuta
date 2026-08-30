@@ -186,15 +186,18 @@ def _do_draw(promotion: models.Promotion, db: Session) -> Optional[models.Promot
     db.refresh(winner_entry)
     winner_user = db.query(models.User).filter(models.User.id == winner_entry.user_id).first()
     if winner_user:
-        locale = winner_user.preferred_language or "he"
-        promotion_name = getattr(promotion, f"name_{locale}", None) or promotion.name_he
+        # Resolve once and reuse everywhere - a Promotion only has name_he/name_en anyway (no
+        # name_fr/name_yi columns), so looking the name up against the *raw* preferred_language
+        # instead of this same collapsed value could silently pair a fetched-but-unrelated locale
+        # with the email template's own he/en decision.
         email_locale = loyalty.resolve_locale_or_en(winner_user.preferred_language)
+        promotion_name = getattr(promotion, f"name_{email_locale}", None) or promotion.name_he
         subject = f"זכית בהגרלה — {promotion_name}" if email_locale == "he" else f"You won the raffle — {promotion_name}"
         get_email_sender().send(
             to=winner_user.email,
             subject=subject,
             html_body=_winner_email_body(email_locale, promotion_name, winner_user.first_name),
-            locale=locale,
+            locale=email_locale,
         )
     return winner_entry
 

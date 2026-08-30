@@ -103,7 +103,15 @@ export default function NotificationBell({ token }: { token: string }) {
                         {notifications.length === 0 ? (
                             <p className="text-center text-[#f0e6d3]/30 text-sm py-8">אין התראות</p>
                         ) : (
-                            notifications.map((n) => (
+                            notifications.map((n) => {
+                                // A notification's title/message are snapshotted in whatever language
+                                // they were created in (n.locale) - that can legitimately differ from
+                                // the page's current locale if the viewer's preferred_language changed
+                                // since, so the text itself must follow its own stored direction rather
+                                // than the surrounding panel's.
+                                const notifIsRTL = n.locale ? (n.locale === 'he' || n.locale === 'yi') : isRTL;
+                                const notifDir = notifIsRTL ? 'rtl' : 'ltr';
+                                return (
                                 <div
                                     key={n.id}
                                     className={`px-4 py-3 border-b border-[#d4af37]/5 ${n.link ? 'cursor-pointer' : 'cursor-default'} hover:bg-[#111a2f] transition-colors ${!n.is_read ? 'bg-[#d4af37]/5' : ''}`}
@@ -112,11 +120,11 @@ export default function NotificationBell({ token }: { token: string }) {
                                     <div className="flex items-start gap-2">
                                         <span className="text-base leading-none mt-0.5">{typeIcon[n.type] || '🔔'}</span>
                                         <div className="flex-1 min-w-0">
-                                            <p className={`text-xs leading-snug mb-0.5 ${!n.is_read ? 'font-bold text-[#f0e6d3]' : 'text-[#f0e6d3]/70'}`}>
+                                            <p dir={notifDir} className={`text-xs leading-snug mb-0.5 ${notifIsRTL ? 'text-right' : 'text-left'} ${!n.is_read ? 'font-bold text-[#f0e6d3]' : 'text-[#f0e6d3]/70'}`}>
                                                 {n.title}
                                             </p>
                                             {n.message && (
-                                                <p className="text-[10px] text-[#f0e6d3]/40 line-clamp-2">{n.message}</p>
+                                                <p dir={notifDir} className={`text-[10px] text-[#f0e6d3]/40 line-clamp-2 ${notifIsRTL ? 'text-right' : 'text-left'}`}>{n.message}</p>
                                             )}
                                             <p className="text-[9px] text-[#f0e6d3]/25 mt-1">
                                                 {new Date(n.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
@@ -125,7 +133,8 @@ export default function NotificationBell({ token }: { token: string }) {
                                         {!n.is_read && <div className="w-2 h-2 rounded-full bg-[#d4af37] shrink-0 mt-1" />}
                                     </div>
                                 </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
                 </div>

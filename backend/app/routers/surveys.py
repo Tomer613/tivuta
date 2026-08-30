@@ -1,4 +1,5 @@
 import os
+from html import escape as html_escape
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -201,7 +202,7 @@ def submit_survey_followup(
               <p><strong>סקר:</strong> {survey.question_he}</p>
               <p><strong>מוצרים שנבחרו:</strong> {products_text}</p>
               <p><strong>מעוניין בהצעת מחיר מיוחדת:</strong> {'כן' if payload.wants_followup else 'לא'}</p>
-              {f'<p><strong>מוצרים נוספים מבוקשים:</strong> {note}</p>' if note else ''}
+              {f'<p><strong>מוצרים נוספים מבוקשים:</strong> {html_escape(note)}</p>' if note else ''}
             </div>""",
             locale="he",
         )

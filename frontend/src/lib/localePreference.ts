@@ -21,6 +21,22 @@ export function markManualLocaleOverride() {
     }
 }
 
+/** Clears a prior manual override so the preferred-language auto-redirect can take effect again.
+ * Called on logout only - a shared computer/tab must not let one account's manual language
+ * choice silently suppress the auto-redirect for whichever different account logs in next in the
+ * same tab. Deliberately NOT called after a preferred-language save: that action calls
+ * markManualLocaleOverride() itself (see ProfileClient.tsx), and clearing it there instead would
+ * reintroduce the exact bug that call exists to prevent - AuthContext's redirect effect would see
+ * its own still-stale in-memory `user.preferred_language` disagree with the just-navigated-to URL
+ * and immediately redirect back to the old language. */
+export function clearManualLocaleOverride() {
+    try {
+        sessionStorage.removeItem(MANUAL_OVERRIDE_KEY);
+    } catch {
+        // Ignore - nothing to clear if storage was never writable to begin with.
+    }
+}
+
 function hasManualLocaleOverride(): boolean {
     try {
         return sessionStorage.getItem(MANUAL_OVERRIDE_KEY) === '1';
