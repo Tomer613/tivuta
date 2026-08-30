@@ -4,19 +4,20 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
 import {
-    updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, productImageUrl,
+    updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, updatePreferredLanguage, productImageUrl,
     getMyPointsHistory, createCardOrder, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
-    Copy, Gift, Package, Send, Loader2,
+    Copy, Gift, Package, Send, Loader2, Languages,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
 import { useOutsideClick } from '@/lib/useOutsideClick';
+import { swapLocaleInPath } from '@/lib/localePreference';
 
 // ─── Translations ─────────────────────────────────────────────────────────────
 const tr: Record<string, Record<string, string>> = {
@@ -291,6 +292,7 @@ export default function ProfileClient() {
     );
     const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({ lead_status: true, appointment_reminder: true, system: true, promotions: true });
     const [notifSaving, setNotifSaving] = useState(false);
+    const [langSaving, setLangSaving] = useState(false);
     const [showCalculator, setShowCalculator] = useState(false);
     const [showPasswordForm, setShowPasswordForm] = useState(false);
     const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
@@ -1163,6 +1165,53 @@ export default function ProfileClient() {
                             </button>
                         </div>
                     )}
+                </div>
+
+                {/* ── Preferred language ── */}
+                <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl overflow-hidden px-5 py-4">
+                    <div className="flex items-center gap-3 mb-3">
+                        <Languages size={16} className="text-[#d4af37]/60" />
+                        <span className="text-sm font-bold text-[#f0e6d3]">
+                            {locale === 'he' ? 'שפה מועדפת' : locale === 'fr' ? 'Langue préférée' : 'Preferred language'}
+                        </span>
+                    </div>
+                    <p className="text-xs text-[#f0e6d3]/50 mb-3">
+                        {locale === 'he'
+                            ? 'האתר ייטען בשפה זו בביקורים הבאים, ומיילים והתראות שנשלח אליך יהיו בשפה זו.'
+                            : 'The site will load in this language on future visits, and emails/notifications sent to you will use it.'}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {[
+                            { code: 'he', label: 'עברית' },
+                            { code: 'en', label: 'English' },
+                            { code: 'fr', label: 'Français' },
+                            { code: 'yi', label: 'יידיש' },
+                        ].map((lang) => (
+                            <button
+                                key={lang.code}
+                                disabled={langSaving}
+                                onClick={async () => {
+                                    if (!token) return;
+                                    setLangSaving(true);
+                                    try {
+                                        await updatePreferredLanguage(token, lang.code);
+                                        if (lang.code !== locale) {
+                                            router.push(swapLocaleInPath(window.location.pathname, lang.code));
+                                        }
+                                    } finally {
+                                        setLangSaving(false);
+                                    }
+                                }}
+                                className={`py-2 rounded-xl text-sm font-bold border transition-all disabled:opacity-50 ${
+                                    (user?.preferred_language || locale) === lang.code
+                                        ? 'bg-[#d4af37] text-[#080d1f] border-[#d4af37]'
+                                        : 'bg-transparent text-[#f0e6d3]/70 border-[#d4af37]/20 hover:border-[#d4af37]/50'
+                                }`}
+                            >
+                                {lang.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* ── Savings calculator ── */}

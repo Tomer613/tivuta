@@ -220,12 +220,24 @@ def _apply_realized_sale_effects(db: Session, sale: models.SaleTransaction, cust
             balance_after=customer.points_balance,
         )
     )
+    # fr/yi fall back to English, same convention as the other Notification-creating call sites.
+    notif_locale = "he" if (customer.preferred_language or "he") == "he" else "en"
+    if notif_locale == "he":
+        # Notification title/message render as plain React text (no dangerouslySetInnerHTML), so
+        # bidi isolation here uses Unicode LRI/PDI marks, not the <span dir="ltr"> HTML technique
+        # used in actual HTML email bodies elsewhere in this codebase.
+        notif_title = "צברת נקודות ב-⁦TIVUTA⁩! 🎁"
+        notif_message = f"קיבלת {sale.points_awarded} נקודות על רכישה ב-{vendor_name_he}"
+    else:
+        notif_title = "You earned points at TIVUTA! 🎁"
+        notif_message = f"You earned {sale.points_awarded} points on a purchase at {vendor_name_he}"
     db.add(
         models.Notification(
             user_id=customer.id,
             type="points_earned",
-            title_he="צברת נקודות ב-TIVUTA! 🎁",
-            message_he=f"קיבלת {sale.points_awarded} נקודות על רכישה ב-{vendor_name_he}",
+            title=notif_title,
+            message=notif_message,
+            locale=notif_locale,
         )
     )
 

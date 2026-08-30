@@ -50,7 +50,7 @@ def _email_wrapper(inner_html: str) -> str:
       {inner_html}
     </div>
     <p style="color:rgba(240,230,211,0.3);font-size:11px;text-align:center;margin-top:24px;">
-      הודעה זו נשלחה מ-Tivuta.
+      הודעה זו נשלחה מ-<span dir="ltr">Tivuta</span>.
       <a href="{unsubscribe_url}" style="color:#d4af37;text-decoration:underline;">לביטול הרשמה לחץ כאן</a>
     </p>
   </div>
@@ -119,7 +119,7 @@ def _build_fallback_email(subject: str, message: str) -> str:
     <h2 dir="rtl" style="color:#f0e6d3;font-size:20px;margin:0 0 16px 0;direction:rtl;text-align:right;">{subject}</h2>
     <p dir="rtl" style="color:#f0e6d3;opacity:0.8;font-size:15px;line-height:1.7;direction:rtl;text-align:right;">{message}</p>
     <p dir="rtl" style="margin-top:24px;direction:rtl;text-align:right;">
-      <a href="{APP_BASE_URL}" style="color:#d4af37;font-weight:700;">לאתר Tivuta</a>
+      <a href="{APP_BASE_URL}" style="color:#d4af37;font-weight:700;">לאתר <span dir="ltr">Tivuta</span></a>
     </p>"""
     return _email_wrapper(inner)
 

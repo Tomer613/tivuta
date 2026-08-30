@@ -29,7 +29,7 @@ def _admin_notification_body(user: models.User, product_title: str, lead_type: s
     scheduled_line = f"<p><strong>מועד פגישה:</strong> {scheduled_at}</p>" if scheduled_at else ""
     return f"""
     <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
-      <h2 style="color:#b8860b;">פנייה חדשה ב-TIVUTA 🔔</h2>
+      <h2 style="color:#b8860b;">פנייה חדשה ב-<span dir="ltr">TIVUTA</span> 🔔</h2>
       <p><strong>סוג:</strong> {type_label}</p>
       <p><strong>מוצר:</strong> {product_title}</p>
       <hr/>
@@ -51,7 +51,7 @@ CONTACT_CONFIRMATION_BODY = {
 def _contact_admin_notification_body(user: models.User, subject: str, message: str) -> str:
     return f"""
     <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
-      <h2 style="color:#b8860b;">פנייה כללית חדשה ב-TIVUTA 📩</h2>
+      <h2 style="color:#b8860b;">פנייה כללית חדשה ב-<span dir="ltr">TIVUTA</span> 📩</h2>
       <p><strong>נושא:</strong> {subject}</p>
       <p><strong>הודעה:</strong> {message}</p>
       <hr/>
@@ -99,7 +99,7 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    locale = payload.locale or "he"
+    locale = current_user.preferred_language or payload.locale or "he"
     vertical = db.query(models.Vertical).filter(models.Vertical.slug == product.vertical).first()
     supports_appointments = bool(vertical and vertical.supports_appointments)
     if not (supports_appointments and payload.scheduled_at):
@@ -192,7 +192,7 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
     if missing:
         raise HTTPException(status_code=404, detail=f"Product(s) not found: {missing}")
 
-    locale = payload.locale or "he"
+    locale = current_user.preferred_language or payload.locale or "he"
     cart_group_id = uuid.uuid4().hex
 
     # Combined quantity per quantity-discount bundle across this one checkout call — the
@@ -329,7 +329,7 @@ def create_card_order(
     if existing:
         return existing
 
-    locale = payload.locale or "he"
+    locale = current_user.preferred_language or payload.locale or "he"
 
     order = models.CustomerOrder(user_id=current_user.id)
     db.add(order)
@@ -379,7 +379,7 @@ def create_contact_us_lead(
     """Creates a general inquiry — deliberately NOT wrapped in a CustomerOrder (unlike every other
     lead-creating path here), so it surfaces in GET /admin/leads instead of /admin/orders. This is
     the one lead type that isn't "an order" in any sense."""
-    locale = payload.locale or "he"
+    locale = current_user.preferred_language or payload.locale or "he"
 
     new_lead = models.Lead(
         user_id=current_user.id,
@@ -690,19 +690,27 @@ def send_appointment_reminder(lead_id: int, db: Session = Depends(get_db)):
     product_title = getattr(lead.product, f"title_{locale}", None) or (lead.product.title_he if lead.product else "מוצר")
     scheduled_str = lead.scheduled_at.strftime("%d/%m/%Y %H:%M")
     if locale == "he":
-        body = f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><h2 style="color:#b8860b;">תזכורת לפגישה — TIVUTA</h2><p>שלום {lead.user.first_name},</p><p>זוהי תזכורת ידידותית לגבי הפגישה שלך עבור <strong>{product_title}</strong>.</p><p><strong>מועד:</strong> {scheduled_str}</p><p>לשאלות, צור איתנו קשר.</p></div>'
+        body = f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><h2 style="color:#b8860b;">תזכורת לפגישה — <span dir="ltr">TIVUTA</span></h2><p>שלום {lead.user.first_name},</p><p>זוהי תזכורת ידידותית לגבי הפגישה שלך עבור <strong>{product_title}</strong>.</p><p><strong>מועד:</strong> {scheduled_str}</p><p>לשאלות, צור איתנו קשר.</p></div>'
         subject = f"תזכורת לפגישה — {product_title}"
+        notif_title = f"תזכורת לפגישה: {product_title}"
+        notif_message = f"הפגישה שלך נקבעה ל-{scheduled_str}"
+        notif_locale = "he"
     else:
         body = f"<p>Hi {lead.user.first_name}, this is a reminder about your appointment for <strong>{product_title}</strong> on {scheduled_str}.</p>"
         subject = f"Appointment reminder — {product_title}"
+        notif_title = f"Appointment reminder: {product_title}"
+        notif_message = f"Your appointment is scheduled for {scheduled_str}"
+        # fr/yi fall back to English here too, matching the email body's own fallback above.
+        notif_locale = "en"
     get_email_sender().send(to=lead.user.email, subject=subject, html_body=body, locale=locale)
 
-    # Create in-app notification for the user
+    # Create in-app notification for the user, in their resolved language
     notif = models.Notification(
         user_id=lead.user_id,
         type="appointment_reminder",
-        title_he=f"תזכורת לפגישה: {product_title}",
-        message_he=f"הפגישה שלך נקבעה ל-{scheduled_str}",
+        title=notif_title,
+        message=notif_message,
+        locale=notif_locale,
         link="/profile#my-orders",
     )
     db.add(notif)
@@ -766,16 +774,29 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
                     get_email_sender().send(to=user.email, subject=subject, html_body=body, locale=locale)
                 except Exception:
                     pass
-            # In-app notification
-            title_map = {
-                "confirmed": f"הפנייה שלך אושרה — {product_title}",
-                "contacted": f"הפנייה שלך טופלה — {product_title}",
-            }
+            # In-app notification, in the same resolved language as the email above.
+            # fr/yi fall back to English, matching _status_update_body's own fallback.
+            notif_locale = locale if locale == "he" else "en"
+            if notif_locale == "he":
+                title_map = {
+                    "confirmed": f"הפנייה שלך אושרה — {product_title}",
+                    "contacted": f"הפנייה שלך טופלה — {product_title}",
+                }
+                notif_title = title_map.get(status, "עדכון סטטוס פנייה")
+                notif_message = f"הפנייה שלך לגבי {product_title} עודכנה לסטטוס: {status}"
+            else:
+                title_map = {
+                    "confirmed": f"Your request confirmed — {product_title}",
+                    "contacted": f"Your request handled — {product_title}",
+                }
+                notif_title = title_map.get(status, "Request status update")
+                notif_message = f"Your request for {product_title} was updated to status: {status}"
             notif = models.Notification(
                 user_id=lead.user_id,
                 type="lead_status",
-                title_he=title_map.get(status, "עדכון סטטוס פנייה"),
-                message_he=f"הפנייה שלך לגבי {product_title} עודכנה לסטטוס: {status}",
+                title=notif_title,
+                message=notif_message,
+                locale=notif_locale,
                 link="/profile#my-orders",
             )
             db.add(notif)

@@ -111,6 +111,18 @@ def update_notification_prefs(
     return current_user
 
 
+@router.patch("/users/me/preferred-language", response_model=schemas.UserRead)
+def update_preferred_language(
+    payload: schemas.PreferredLanguageUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.preferred_language = payload.preferred_language
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 # Admin: user management
 @router.get("/admin/users", response_model=List[schemas.UserRead], dependencies=[Depends(get_current_admin)])
 def admin_list_users(db: Session = Depends(get_db)):

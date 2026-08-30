@@ -99,6 +99,7 @@ class User(Base):
     club_affiliation = Column(String(100), nullable=True)
     membership_tracks = Column(JSON, nullable=True)  # list of selected track keys
     notification_prefs = Column(JSON, nullable=True)  # {"lead_status": true, "appointment_reminder": true, "system": true, "promotions": true}
+    preferred_language = Column(String(5), nullable=True)  # "he" | "en" | "fr" | "yi"; NULL = no preference set
     customer_number = Column(String(24), unique=True, index=True, nullable=True)  # loyalty card serial, e.g. "TVT-XXXXXXXXXX"
     points_balance = Column(Integer, default=0, nullable=False)
     hashed_password = Column(String(255), nullable=False)
@@ -427,8 +428,9 @@ class Notification(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     type = Column(String(50), nullable=False)  # lead_status | appointment_reminder | system | followup
-    title_he = Column(String(255), nullable=False)
-    message_he = Column(Text, nullable=True)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=True)
+    locale = Column(String(5), nullable=False, default="he")  # language the title/message text is actually written in
     is_read = Column(Boolean, default=False)
     link = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

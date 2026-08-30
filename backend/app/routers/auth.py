@@ -89,13 +89,18 @@ def forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db
         token = issue_reset_token(db, user)
 
         base_url = os.environ.get("APP_BASE_URL", "http://localhost:3000")
-        locale = payload.locale or "he"
+        # A member's stored preference wins over whatever locale segment the forgot-password page
+        # happened to be submitted from - fr/yi fall back to the English copy below, matching the
+        # existing he-vs-English convention already used by _status_update_body/_confirmation_body.
+        locale = user.preferred_language or payload.locale or "he"
         reset_link = f"{base_url}/{locale}/reset-password?token={token}"
-        get_email_sender().send(
-            to=user.email,
-            subject="איפוס סיסמה - TIVUTA",
-            html_body=f"<p>לאיפוס הסיסמה שלך, לחץ/י על הקישור הבא (בתוקף לשעה):</p><p><a href=\"{reset_link}\">{reset_link}</a></p>",
-        )
+        if locale == "he":
+            subject = "איפוס סיסמה - TIVUTA"
+            html_body = f"<p>לאיפוס הסיסמה שלך, לחץ/י על הקישור הבא (בתוקף לשעה):</p><p><a href=\"{reset_link}\">{reset_link}</a></p>"
+        else:
+            subject = "Reset your password - TIVUTA"
+            html_body = f"<p>To reset your password, click the link below (valid for 1 hour):</p><p><a href=\"{reset_link}\">{reset_link}</a></p>"
+        get_email_sender().send(to=user.email, subject=subject, html_body=html_body, locale=locale)
 
     # Always return success regardless of whether the email exists, to avoid email enumeration.
     return {"message": "If that email exists, a reset link has been sent."}

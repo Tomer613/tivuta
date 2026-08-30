@@ -143,12 +143,25 @@ def remove_product(promotion_id: int, product_id: int, db: Session = Depends(get
 
 # ─── Promotion Entries (raffle + first_n participation) ───────────────────────
 
-def _winner_email_body(promotion_name: str, user_first_name: str) -> str:
+def _winner_email_body(locale: str, promotion_name: str, user_first_name: str) -> str:
+    if locale == "he":
+        return (
+            f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;text-align:right;">'
+            f"<p>שלום {user_first_name},</p>"
+            f"<p>ברכות! <strong>זכית בהגרלה: {promotion_name}</strong>.</p>"
+            f"<p>נציג שלנו ייצור איתך קשר בקרוב עם פרטי הזכייה.</p>"
+            f'<p>בברכה,<br/>צוות <span dir="ltr">Tivuta</span></p>'
+            f"</div>"
+        )
+    # fr/yi fall back to the English copy below, matching the existing he-vs-English convention
+    # already used by leads.py's _status_update_body/_confirmation_body.
     return (
-        f"<p>שלום {user_first_name},</p>"
-        f"<p>ברכות! <strong>זכית בהגרלה: {promotion_name}</strong>.</p>"
-        f"<p>נציג שלנו ייצור איתך קשר בקרוב עם פרטי הזכייה.</p>"
-        f"<p>בברכה,<br/>צוות Tivuta</p>"
+        f'<div dir="ltr" style="font-family:Arial,sans-serif;color:#111;text-align:left;">'
+        f"<p>Hi {user_first_name},</p>"
+        f"<p>Congratulations! <strong>You won the raffle: {promotion_name}</strong>.</p>"
+        f"<p>A representative will contact you shortly with the winning details.</p>"
+        f"<p>Best regards,<br/>Team Tivuta</p>"
+        f"</div>"
     )
 
 
@@ -173,11 +186,14 @@ def _do_draw(promotion: models.Promotion, db: Session) -> Optional[models.Promot
     db.refresh(winner_entry)
     winner_user = db.query(models.User).filter(models.User.id == winner_entry.user_id).first()
     if winner_user:
+        locale = winner_user.preferred_language or "he"
+        promotion_name = getattr(promotion, f"name_{locale}", None) or promotion.name_he
+        subject = f"זכית בהגרלה — {promotion_name}" if locale == "he" else f"You won the raffle — {promotion_name}"
         get_email_sender().send(
             to=winner_user.email,
-            subject=f"זכית בהגרלה — {promotion.name_he}",
-            html_body=_winner_email_body(promotion.name_he, winner_user.first_name),
-            locale="he",
+            subject=subject,
+            html_body=_winner_email_body(locale, promotion_name, winner_user.first_name),
+            locale=locale,
         )
     return winner_entry
 

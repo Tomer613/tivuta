@@ -1725,6 +1725,17 @@ export async function updateNotificationPrefs(token: string, prefs: Record<strin
     return res.json();
 }
 
+// Preferred language
+export async function updatePreferredLanguage(token: string, preferred_language: string) {
+    const res = await fetch(`${BASE_URL}/users/me/preferred-language`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferred_language }),
+    });
+    if (!res.ok) throw new Error('Failed to update preferred language');
+    return res.json();
+}
+
 // Admin: product analytics
 export async function adminGetProductAnalytics(token: string) {
     const res = await fetch(`${BASE_URL}/admin/products/analytics`, { headers: authHeaders(token) });

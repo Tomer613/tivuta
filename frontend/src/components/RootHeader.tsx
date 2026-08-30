@@ -10,6 +10,7 @@ import NotificationBell from '@/components/NotificationBell';
 import GlobalSearch, { GlobalSearchHandle } from '@/components/GlobalSearch';
 import CartIcon from '@/components/CartIcon';
 import { useOutsideClick } from '@/lib/useOutsideClick';
+import { swapLocaleInPath, markManualLocaleOverride } from '@/lib/localePreference';
 
 const languages = [
     { code: 'he', label: 'עברית' },
@@ -56,10 +57,10 @@ export default function RootHeader() {
     useOutsideClick(langMenuRef, () => setShowLangMenu(false));
 
     const changeLanguage = (newLocale: string) => {
-        // pathname looks like /{locale}/... — locale is segment index 1
-        const segments = pathname.split('/');
-        segments[1] = newLocale;
-        router.replace(segments.join('/'));
+        // A manual pick is remembered for the rest of this tab's session, so the preferred-language
+        // auto-redirect (AuthContext) doesn't immediately override this deliberate choice.
+        markManualLocaleOverride();
+        router.replace(swapLocaleInPath(pathname, newLocale));
         setShowLangMenu(false);
     };
 

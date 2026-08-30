@@ -73,6 +73,7 @@ class UserRead(UserBase):
     club_affiliation: Optional[str] = None
     membership_tracks: Optional[List[str]] = None
     notification_prefs: Optional[dict] = None
+    preferred_language: Optional[str] = None
     customer_number: Optional[str] = None
     points_balance: int = 0
     locked_until: Optional[datetime] = None
@@ -86,6 +87,20 @@ class NotificationPrefsUpdate(BaseModel):
     appointment_reminder: Optional[bool] = None
     system: Optional[bool] = None
     promotions: Optional[bool] = None
+
+
+VALID_PREFERRED_LANGUAGES = {"he", "en", "fr", "yi"}
+
+
+class PreferredLanguageUpdate(BaseModel):
+    preferred_language: str
+
+    @field_validator("preferred_language")
+    @classmethod
+    def _validate_preferred_language(cls, v: str) -> str:
+        if v not in VALID_PREFERRED_LANGUAGES:
+            raise ValueError(f"preferred_language must be one of {sorted(VALID_PREFERRED_LANGUAGES)}")
+        return v
 
 
 class OrderRead(BaseModel):
@@ -733,8 +748,9 @@ class FavoriteRead(BaseModel):
 class NotificationRead(BaseModel):
     id: int
     type: str
-    title_he: str
-    message_he: Optional[str] = None
+    title: str
+    message: Optional[str] = None
+    locale: str = "he"
     is_read: bool
     link: Optional[str] = None
     created_at: datetime

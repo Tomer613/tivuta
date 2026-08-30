@@ -9,8 +9,9 @@ import { useOutsideClick } from '@/lib/useOutsideClick';
 interface Notification {
     id: number;
     type: string;
-    title_he: string;
-    message_he?: string | null;
+    title: string;
+    message?: string | null;
+    locale?: string;
     is_read: boolean;
     link?: string | null;
     created_at: string;
@@ -112,10 +113,10 @@ export default function NotificationBell({ token }: { token: string }) {
                                         <span className="text-base leading-none mt-0.5">{typeIcon[n.type] || '🔔'}</span>
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-xs leading-snug mb-0.5 ${!n.is_read ? 'font-bold text-[#f0e6d3]' : 'text-[#f0e6d3]/70'}`}>
-                                                {n.title_he}
+                                                {n.title}
                                             </p>
-                                            {n.message_he && (
-                                                <p className="text-[10px] text-[#f0e6d3]/40 line-clamp-2">{n.message_he}</p>
+                                            {n.message && (
+                                                <p className="text-[10px] text-[#f0e6d3]/40 line-clamp-2">{n.message}</p>
                                             )}
                                             <p className="text-[9px] text-[#f0e6d3]/25 mt-1">
                                                 {new Date(n.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}

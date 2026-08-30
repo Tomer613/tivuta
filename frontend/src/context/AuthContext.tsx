@@ -1,7 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
+import { getPreferredRedirect, swapLocaleInPath } from '@/lib/localePreference';
 
 
 export interface User {
@@ -18,6 +20,7 @@ export interface User {
     club_affiliation?: string | null;
     membership_tracks?: string[] | null;
     notification_prefs?: Record<string, boolean> | null;
+    preferred_language?: string | null;
     customer_number?: string | null;
     points_balance?: number;
     locked_until?: string | null;
@@ -38,6 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const router = useRouter();
+    const pathname = usePathname();
 
     const logout = () => {
         localStorage.removeItem('tivuta_token');
@@ -77,6 +82,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
         });
     }, []);
+
+    // Once the user's stored preference loads, land them on it by default - the header's language
+    // switcher (markManualLocaleOverride) is what keeps this from fighting a deliberate manual
+    // switch for the rest of this browsing session; a fresh visit later goes back to defaulting
+    // to the stored preference.
+    useEffect(() => {
+        // The legacy /benefits/{locale}/... sub-app has its own separate URL shape (locale is
+        // segment 2, not 1) and is treated as frozen elsewhere in this codebase - skip it here too
+        // rather than risk corrupting its URL by swapping the wrong segment.
+        if (!user || !pathname || pathname.startsWith('/benefits/')) return;
+        const currentLocale = pathname.split('/')[1] || 'he';
+        const target = getPreferredRedirect(user, currentLocale);
+        if (target) {
+            router.replace(swapLocaleInPath(pathname, target));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, pathname]);
 
     const login = async (authToken: string) => {
         localStorage.setItem('tivuta_token', authToken);
