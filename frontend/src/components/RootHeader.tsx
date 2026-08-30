@@ -60,7 +60,10 @@ export default function RootHeader() {
         // A manual pick is remembered for the rest of this tab's session, so the preferred-language
         // auto-redirect (AuthContext) doesn't immediately override this deliberate choice.
         markManualLocaleOverride();
-        router.replace(swapLocaleInPath(pathname, newLocale));
+        // pathname alone excludes the query string/hash - preserve them (e.g. /he/products?id=42)
+        // across the language switch instead of silently dropping them.
+        const suffix = typeof window !== 'undefined' ? window.location.search + window.location.hash : '';
+        router.replace(swapLocaleInPath(pathname, newLocale) + suffix);
         setShowLangMenu(false);
     };
 

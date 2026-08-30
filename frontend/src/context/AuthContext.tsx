@@ -95,7 +95,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const currentLocale = pathname.split('/')[1] || 'he';
         const target = getPreferredRedirect(user, currentLocale);
         if (target) {
-            router.replace(swapLocaleInPath(pathname, target));
+            // usePathname() excludes the query string/hash - read them from window.location so a
+            // deep link like /he/products?id=42 or /he/cart#section keeps its query/anchor across
+            // the redirect instead of silently losing it.
+            const suffix = typeof window !== 'undefined' ? window.location.search + window.location.hash : '';
+            router.replace(swapLocaleInPath(pathname, target) + suffix);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, pathname]);

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
-from ..services import get_email_sender
+from ..services import get_email_sender, loyalty
 from ..services.pricing import compute_effective_unit_price
 
 router = APIRouter(tags=["leads"])
@@ -689,19 +689,17 @@ def send_appointment_reminder(lead_id: int, db: Session = Depends(get_db)):
     locale = lead.locale or "he"
     product_title = getattr(lead.product, f"title_{locale}", None) or (lead.product.title_he if lead.product else "מוצר")
     scheduled_str = lead.scheduled_at.strftime("%d/%m/%Y %H:%M")
-    if locale == "he":
+    notif_locale = loyalty.resolve_locale_or_en(locale)
+    if notif_locale == "he":
         body = f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><h2 style="color:#b8860b;">תזכורת לפגישה — <span dir="ltr">TIVUTA</span></h2><p>שלום {lead.user.first_name},</p><p>זוהי תזכורת ידידותית לגבי הפגישה שלך עבור <strong>{product_title}</strong>.</p><p><strong>מועד:</strong> {scheduled_str}</p><p>לשאלות, צור איתנו קשר.</p></div>'
         subject = f"תזכורת לפגישה — {product_title}"
         notif_title = f"תזכורת לפגישה: {product_title}"
         notif_message = f"הפגישה שלך נקבעה ל-{scheduled_str}"
-        notif_locale = "he"
     else:
         body = f"<p>Hi {lead.user.first_name}, this is a reminder about your appointment for <strong>{product_title}</strong> on {scheduled_str}.</p>"
         subject = f"Appointment reminder — {product_title}"
         notif_title = f"Appointment reminder: {product_title}"
         notif_message = f"Your appointment is scheduled for {scheduled_str}"
-        # fr/yi fall back to English here too, matching the email body's own fallback above.
-        notif_locale = "en"
     get_email_sender().send(to=lead.user.email, subject=subject, html_body=body, locale=locale)
 
     # Create in-app notification for the user, in their resolved language
@@ -775,8 +773,7 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
                 except Exception:
                     pass
             # In-app notification, in the same resolved language as the email above.
-            # fr/yi fall back to English, matching _status_update_body's own fallback.
-            notif_locale = locale if locale == "he" else "en"
+            notif_locale = loyalty.resolve_locale_or_en(locale)
             if notif_locale == "he":
                 title_map = {
                     "confirmed": f"הפנייה שלך אושרה — {product_title}",

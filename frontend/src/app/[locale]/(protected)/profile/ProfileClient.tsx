@@ -1196,7 +1196,8 @@ export default function ProfileClient() {
                                     try {
                                         await updatePreferredLanguage(token, lang.code);
                                         if (lang.code !== locale) {
-                                            router.push(swapLocaleInPath(window.location.pathname, lang.code));
+                                            const suffix = window.location.search + window.location.hash;
+                                            router.push(swapLocaleInPath(window.location.pathname, lang.code) + suffix);
                                         }
                                     } finally {
                                         setLangSaving(false);

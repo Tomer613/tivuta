@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
-from ..services import get_email_sender
+from ..services import get_email_sender, loyalty
 
 router = APIRouter(tags=["promotions"])
 
@@ -188,11 +188,12 @@ def _do_draw(promotion: models.Promotion, db: Session) -> Optional[models.Promot
     if winner_user:
         locale = winner_user.preferred_language or "he"
         promotion_name = getattr(promotion, f"name_{locale}", None) or promotion.name_he
-        subject = f"זכית בהגרלה — {promotion_name}" if locale == "he" else f"You won the raffle — {promotion_name}"
+        email_locale = loyalty.resolve_locale_or_en(winner_user.preferred_language)
+        subject = f"זכית בהגרלה — {promotion_name}" if email_locale == "he" else f"You won the raffle — {promotion_name}"
         get_email_sender().send(
             to=winner_user.email,
             subject=subject,
-            html_body=_winner_email_body(locale, promotion_name, winner_user.first_name),
+            html_body=_winner_email_body(email_locale, promotion_name, winner_user.first_name),
             locale=locale,
         )
     return winner_entry
