@@ -87,6 +87,51 @@ def test_lead_locale_prefers_stored_language_over_payload_locale(client, db_sess
     assert "Thank you" in user_email["html_body"]
 
 
+def test_garbage_payload_locale_never_persists_to_lead_or_notification(client, db_session, make_user, monkeypatch):
+    """Regression test: a raw API caller can send any string as payload.locale (LeadCreate.locale
+    has no field_validator). Before the fr/yi migration, loyalty.resolve_locale_or_en() absorbed
+    this harmlessly by always normalizing to exactly 'he' or 'en'; removing that collapse exposed
+    a real gap where a garbage value could flow straight into Lead.locale and then
+    Notification.locale, which the frontend (NotificationBell.tsx) trusts is always one of the 4
+    real locales to decide RTL vs LTR. schemas.normalize_locale() must catch this at the point the
+    value first enters the system."""
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True, supports_appointments=True))
+    db_session.commit()
+    product = models.Product(vertical="diamonds", title_he="טבעת", description_he="תיאור", price=1000.0)
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    make_user(email="garbagelocale@example.com", password="testpass123")  # no preferred_language set
+    member_headers = _login(client, "garbagelocale@example.com")
+    admin_headers = _make_admin_headers(client, make_user, email="garbagelocaleadmin@example.com")
+
+    fake_sender = _FakeEmailSender()
+    monkeypatch.setattr("app.routers.leads.get_email_sender", lambda: fake_sender)
+
+    resp = client.post(
+        "/leads",
+        json={"product_id": product.id, "scheduled_at": "2026-09-01T10:00:00", "locale": "xyz123"},
+        headers=member_headers,
+    )
+    assert resp.status_code == 200
+    lead_id = resp.json()["id"]
+
+    lead_row = db_session.query(models.Lead).filter(models.Lead.id == lead_id).first()
+    assert lead_row.locale == "he"  # clamped, not "xyz123"
+
+    status_resp = client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
+    assert status_resp.status_code == 200
+
+    notif = (
+        db_session.query(models.Notification)
+        .filter(models.Notification.type == "lead_status")
+        .order_by(models.Notification.id.desc())
+        .first()
+    )
+    assert notif.locale == "he"
+
+
 def test_status_change_email_and_notification_use_preferred_language(client, db_session, make_user, monkeypatch):
     db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True, supports_appointments=True))
     db_session.commit()

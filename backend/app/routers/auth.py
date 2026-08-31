@@ -103,7 +103,7 @@ def forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db
         base_url = os.environ.get("APP_BASE_URL", "http://localhost:3000")
         # A member's stored preference wins over whatever locale segment the forgot-password page
         # happened to be submitted from.
-        locale = user.preferred_language or payload.locale or "he"
+        locale = schemas.normalize_locale(user.preferred_language or payload.locale)
         reset_link = f"{base_url}/{locale}/reset-password?token={token}"
         subject = _FORGOT_PASSWORD_SUBJECT.get(locale, _FORGOT_PASSWORD_SUBJECT["he"])
         html_body = _FORGOT_PASSWORD_BODY.get(locale, _FORGOT_PASSWORD_BODY["he"]).format(link=reset_link)

@@ -125,7 +125,7 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    locale = current_user.preferred_language or payload.locale or "he"
+    locale = schemas.normalize_locale(current_user.preferred_language or payload.locale)
     vertical = db.query(models.Vertical).filter(models.Vertical.slug == product.vertical).first()
     supports_appointments = bool(vertical and vertical.supports_appointments)
     if not (supports_appointments and payload.scheduled_at):
@@ -225,7 +225,7 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
     if missing:
         raise HTTPException(status_code=404, detail=f"Product(s) not found: {missing}")
 
-    locale = current_user.preferred_language or payload.locale or "he"
+    locale = schemas.normalize_locale(current_user.preferred_language or payload.locale)
     cart_group_id = uuid.uuid4().hex
 
     # Combined quantity per quantity-discount bundle across this one checkout call — the
@@ -362,7 +362,7 @@ def create_card_order(
     if existing:
         return existing
 
-    locale = current_user.preferred_language or payload.locale or "he"
+    locale = schemas.normalize_locale(current_user.preferred_language or payload.locale)
 
     order = models.CustomerOrder(user_id=current_user.id)
     db.add(order)
@@ -412,7 +412,7 @@ def create_contact_us_lead(
     """Creates a general inquiry — deliberately NOT wrapped in a CustomerOrder (unlike every other
     lead-creating path here), so it surfaces in GET /admin/leads instead of /admin/orders. This is
     the one lead type that isn't "an order" in any sense."""
-    locale = current_user.preferred_language or payload.locale or "he"
+    locale = schemas.normalize_locale(current_user.preferred_language or payload.locale)
 
     new_lead = models.Lead(
         user_id=current_user.id,

@@ -95,6 +95,19 @@ VALID_PREFERRED_LANGUAGES = {"he", "en", "fr", "yi"}
 RTL_LOCALES = {"he", "yi"}
 
 
+def normalize_locale(raw: Optional[str]) -> str:
+    """Clamps an arbitrary, possibly-client-supplied locale string down to one of the 4 real
+    values, defaulting to 'he' for anything else (unset, garbage, a typo). Several request
+    schemas (LeadCreate.locale, CartCheckoutCreate.locale, CardOrderCreate.locale,
+    ContactUsCreate.locale, ForgotPasswordRequest.locale) accept `locale` as a bare unvalidated
+    string with no field_validator - this is the one place that actually enforces it's one of the
+    4 supported values before it's used to pick template content or, especially, before it's
+    persisted into a stored `.locale` column (Lead.locale, Notification.locale) that later code
+    trusts implicitly. Call this at the point a request-supplied locale first enters the system,
+    not separately at every downstream consumer."""
+    return raw if raw in VALID_PREFERRED_LANGUAGES else "he"
+
+
 class PreferredLanguageUpdate(BaseModel):
     preferred_language: str
 

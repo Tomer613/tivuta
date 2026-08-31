@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models
-from ..schemas import RTL_LOCALES, VALID_PREFERRED_LANGUAGES
+from ..schemas import RTL_LOCALES, normalize_locale
 from ..security import get_db
 from ..services.surveys import resolve_survey_image_url
 
@@ -78,7 +78,7 @@ a {{ color:#d4af37; }}
 
 @router.get("/products/{product_id}", response_class=HTMLResponse)
 def share_product(product_id: int, request: Request, locale: str = "he", db: Session = Depends(get_db)):
-    locale = locale if locale in VALID_PREFERRED_LANGUAGES else "he"
+    locale = normalize_locale(locale)
     destination = f"{FRONTEND_BASE_URL}/{locale}/products?id={product_id}"
 
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
@@ -103,7 +103,7 @@ def share_product(product_id: int, request: Request, locale: str = "he", db: Ses
 
 @router.get("/surveys/{survey_id}", response_class=HTMLResponse)
 def share_survey(survey_id: int, request: Request, locale: str = "he", db: Session = Depends(get_db)):
-    locale = locale if locale in VALID_PREFERRED_LANGUAGES else "he"
+    locale = normalize_locale(locale)
     destination = f"{FRONTEND_BASE_URL}/{locale}/survey?id={survey_id}"
 
     survey = (

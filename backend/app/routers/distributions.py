@@ -535,7 +535,7 @@ def admin_preview_distribution(
     if not distribution:
         raise HTTPException(status_code=404, detail="Distribution not found")
 
-    locale = locale if locale in schemas.VALID_PREFERRED_LANGUAGES else "he"
+    locale = schemas.normalize_locale(locale)
     subject, html = _build_distribution_email(distribution, locale, current_user.first_name)
 
     # Count target audience
@@ -579,7 +579,7 @@ def admin_send_test_distribution(
     # to server logs the admin never sees - a "successful" test send that's silently going
     # nowhere would otherwise look identical to a real one on the frontend.
     provider = os.environ.get("EMAIL_PROVIDER", "console")
-    locale = locale if locale in schemas.VALID_PREFERRED_LANGUAGES else "he"
+    locale = schemas.normalize_locale(locale)
     subject, html = _build_distribution_email(distribution, locale, current_user.first_name)
     result = get_email_sender().send(to=current_user.email, subject=f"[בדיקה] {subject}", html_body=html, locale=locale)
     return {"success": result.success, "error": result.error, "provider": provider}
