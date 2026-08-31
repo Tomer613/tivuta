@@ -140,3 +140,122 @@ def test_forgot_password_uses_preferred_language(client, make_user, monkeypatch)
     assert len(fake_sender.sent) == 1
     assert fake_sender.sent[0]["locale"] == "en"
     assert "reset" in fake_sender.sent[0]["subject"].lower()
+
+
+def test_forgot_password_supports_french_and_yiddish_natively(client, make_user, monkeypatch):
+    """Regression test: fr/yi used to silently collapse to English for every transactional email
+    in this codebase (loyalty.resolve_locale_or_en) - the profile page promises all 4 languages,
+    so these must now be genuinely distinct from both Hebrew and English, not a fallback."""
+    make_user(email="langmemberfr@example.com", password="testpass123", preferred_language="fr")
+    make_user(email="langmemberyi@example.com", password="testpass123", preferred_language="yi")
+
+    fake_sender = _FakeEmailSender()
+    monkeypatch.setattr("app.routers.auth.get_email_sender", lambda: fake_sender)
+
+    client.post("/auth/forgot-password", json={"email": "langmemberfr@example.com"})
+    client.post("/auth/forgot-password", json={"email": "langmemberyi@example.com"})
+
+    fr_mail = next(m for m in fake_sender.sent if m["to"] == "langmemberfr@example.com")
+    yi_mail = next(m for m in fake_sender.sent if m["to"] == "langmemberyi@example.com")
+    assert fr_mail["locale"] == "fr"
+    assert "réinitialis" in fr_mail["subject"].lower()
+    assert "reset your password" not in fr_mail["html_body"].lower()
+    assert yi_mail["locale"] == "yi"
+    assert "reset your password" not in yi_mail["html_body"].lower()
+    assert "לאיפוס הסיסמה" not in yi_mail["html_body"]  # not the Hebrew body either
+
+
+def test_status_change_supports_french_and_yiddish_natively(client, db_session, make_user, monkeypatch):
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True, supports_appointments=True))
+    db_session.commit()
+    product = models.Product(vertical="diamonds", title_he="טבעת", description_he="תיאור", price=1000.0)
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    make_user(email="statusfr@example.com", password="testpass123", preferred_language="fr")
+    member_headers = _login(client, "statusfr@example.com")
+    admin_headers = _make_admin_headers(client, make_user, email="statusfradmin@example.com")
+
+    fake_sender = _FakeEmailSender()
+    monkeypatch.setattr("app.routers.leads.get_email_sender", lambda: fake_sender)
+
+    create_resp = client.post(
+        "/leads", json={"product_id": product.id, "scheduled_at": "2026-09-01T10:00:00"}, headers=member_headers,
+    )
+    lead_id = create_resp.json()["id"]
+    fake_sender.sent.clear()
+
+    status_resp = client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
+    assert status_resp.status_code == 200
+
+    assert fake_sender.sent[0]["locale"] == "fr"
+    assert "confirmée" in fake_sender.sent[0]["html_body"].lower()
+
+    notif = (
+        db_session.query(models.Notification)
+        .filter(models.Notification.type == "lead_status")
+        .order_by(models.Notification.id.desc())
+        .first()
+    )
+    assert notif.locale == "fr"
+    assert "confirmée" in notif.title.lower()
+
+
+def test_appointment_reminder_supports_french_and_yiddish_natively(client, db_session, make_user, monkeypatch):
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True, supports_appointments=True))
+    db_session.commit()
+    product = models.Product(vertical="diamonds", title_he="טבעת", description_he="תיאור", price=1000.0)
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    make_user(email="remindfr@example.com", password="testpass123", preferred_language="fr")
+    member_headers = _login(client, "remindfr@example.com")
+    admin_headers = _make_admin_headers(client, make_user, email="remindfradmin@example.com")
+
+    fake_sender = _FakeEmailSender()
+    monkeypatch.setattr("app.routers.leads.get_email_sender", lambda: fake_sender)
+
+    create_resp = client.post(
+        "/leads", json={"product_id": product.id, "scheduled_at": "2026-09-01T10:00:00"}, headers=member_headers,
+    )
+    lead_id = create_resp.json()["id"]
+    fake_sender.sent.clear()
+
+    resp = client.post(f"/admin/leads/{lead_id}/send-appointment-reminder", headers=admin_headers)
+    assert resp.status_code == 200
+
+    assert fake_sender.sent[0]["locale"] == "fr"
+    assert "rendez-vous" in fake_sender.sent[0]["html_body"].lower()
+
+    notif = (
+        db_session.query(models.Notification)
+        .filter(models.Notification.type == "appointment_reminder")
+        .order_by(models.Notification.id.desc())
+        .first()
+    )
+    assert notif.locale == "fr"
+    assert "rendez-vous" in notif.title.lower()
+
+
+def test_points_earned_notification_supports_french_and_yiddish_natively(db_session, make_user, make_vendor):
+    from app.services import loyalty
+
+    customer = make_user(email="pointsfr@example.com", preferred_language="fr")
+    vendor = make_vendor(commission_rate_percent=10.0, points_rate_percent=5.0)
+
+    loyalty.create_sale_transaction(
+        db_session, vendor, customer, None, amount_ils=100.0, idempotency_key="points-fr-1", actor="test"
+    )
+    db_session.commit()
+
+    notif = (
+        db_session.query(models.Notification)
+        .filter(models.Notification.user_id == customer.id, models.Notification.type == "points_earned")
+        .first()
+    )
+    assert notif is not None
+    assert notif.locale == "fr"
+    assert "gagné" in notif.title.lower()
+    assert "you earned points" not in notif.title.lower()

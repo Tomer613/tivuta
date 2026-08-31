@@ -81,18 +81,6 @@ def validate_setting_value(key: str, value: str) -> None:
             raise ValueError(f"{key} must be 0 or greater")
 
 
-def resolve_locale_or_en(preferred_language: Optional[str]) -> str:
-    """Collapses a user's stored/resolved locale preference down to just 'he' or 'en', for the
-    templates in this codebase that only have Hebrew and English copy - unset, 'fr', and 'yi' all
-    fall back to English. Shared by every notification/email call site that needs *this specific*
-    2-language fallback rule (leads.py's appointment-reminder and lead-status notifications,
-    promotions.py's raffle-winner email, and this module's own points-earned notification) so a
-    future change to the rule only needs to happen in one place. NOT used by
-    routers/distributions.py's campaign emails, which have real he/en/fr/yi copy and resolve a
-    recipient's locale directly (`user.preferred_language or "he"`, no collapsing) instead."""
-    return "he" if (preferred_language or "he") == "he" else "en"
-
-
 def generate_customer_number(db: Session) -> str:
     """Non-sequential ~50-bit random serial, so a card can't be guessed/enumerated."""
     for _ in range(10):
@@ -207,6 +195,23 @@ def determine_sale_status(db: Session, vendor: models.Vendor, customer: models.U
     return "confirmed"
 
 
+# Notification title/message render as plain React text (no dangerouslySetInnerHTML), so bidi
+# isolation for "TIVUTA" inside the RTL (he/yi) titles below uses Unicode LRI/PDI marks, not the
+# <span dir="ltr"> HTML technique used in actual HTML email bodies elsewhere in this codebase.
+_POINTS_EARNED_TITLE = {
+    "he": "צברת נקודות ב-⁦TIVUTA⁩! 🎁",
+    "en": "You earned points at TIVUTA! 🎁",
+    "fr": "Vous avez gagné des points chez TIVUTA ! 🎁",
+    "yi": "איר האָט פארדינט פונקטן ביי ⁦TIVUTA⁩! 🎁",
+}
+_POINTS_EARNED_MESSAGE = {
+    "he": "קיבלת {points} נקודות על רכישה ב-{vendor}",
+    "en": "You earned {points} points on a purchase at {vendor}",
+    "fr": "Vous avez gagné {points} points sur un achat chez {vendor}",
+    "yi": "איר האָט פארדינט {points} פונקטן פאר אַ קניה ביי {vendor}",
+}
+
+
 def _apply_realized_sale_effects(db: Session, sale: models.SaleTransaction, customer: models.User, vendor_id: int, vendor_name_he: str, product_id: Optional[int]) -> None:
     """The atomic balance/popularity increments + points-ledger entry + notification that a sale
     actually 'counts' for. Shared by the synchronous-confirm path and the admin flagged-review
@@ -232,16 +237,14 @@ def _apply_realized_sale_effects(db: Session, sale: models.SaleTransaction, cust
             balance_after=customer.points_balance,
         )
     )
-    notif_locale = resolve_locale_or_en(customer.preferred_language)
-    if notif_locale == "he":
-        # Notification title/message render as plain React text (no dangerouslySetInnerHTML), so
-        # bidi isolation here uses Unicode LRI/PDI marks, not the <span dir="ltr"> HTML technique
-        # used in actual HTML email bodies elsewhere in this codebase.
-        notif_title = "צברת נקודות ב-⁦TIVUTA⁩! 🎁"
-        notif_message = f"קיבלת {sale.points_awarded} נקודות על רכישה ב-{vendor_name_he}"
-    else:
-        notif_title = "You earned points at TIVUTA! 🎁"
-        notif_message = f"You earned {sale.points_awarded} points on a purchase at {vendor_name_he}"
+    notif_locale = customer.preferred_language or "he"
+    # vendor_name_he is admin/vendor-entered, always Hebrew (no per-language vendor name field
+    # exists) - it appears as-is inside the translated sentence regardless of locale, same
+    # accepted limitation as a Hebrew-only Promotion name inside an English raffle-winner email.
+    notif_title = _POINTS_EARNED_TITLE.get(notif_locale, _POINTS_EARNED_TITLE["he"])
+    notif_message = _POINTS_EARNED_MESSAGE.get(notif_locale, _POINTS_EARNED_MESSAGE["he"]).format(
+        points=sale.points_awarded, vendor=vendor_name_he
+    )
     db.add(
         models.Notification(
             user_id=customer.id,

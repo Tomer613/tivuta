@@ -81,6 +81,18 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+_FORGOT_PASSWORD_SUBJECT = {
+    "he": "איפוס סיסמה - TIVUTA", "en": "Reset your password - TIVUTA",
+    "fr": "Réinitialisation du mot de passe - TIVUTA", "yi": "פאַרריכטן פאַסווארד - TIVUTA",
+}
+_FORGOT_PASSWORD_BODY = {
+    "he": '<p>לאיפוס הסיסמה שלך, לחץ/י על הקישור הבא (בתוקף לשעה):</p><p><a href="{link}">{link}</a></p>',
+    "en": '<p>To reset your password, click the link below (valid for 1 hour):</p><p><a href="{link}">{link}</a></p>',
+    "fr": '<p>Pour réinitialiser votre mot de passe, cliquez sur le lien ci-dessous (valable pendant 1 heure) :</p><p><a href="{link}">{link}</a></p>',
+    "yi": '<p>צו פאַרריכטן אײַער פאַסווארד, קליקט אויף דעם לינק אונטן (גילטיק פאר 1 שעה):</p><p><a href="{link}">{link}</a></p>',
+}
+
+
 @router.post("/forgot-password")
 @limiter.limit("3/hour")
 def forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db: Session = Depends(get_db)):
@@ -90,16 +102,11 @@ def forgot_password(request: Request, payload: schemas.ForgotPasswordRequest, db
 
         base_url = os.environ.get("APP_BASE_URL", "http://localhost:3000")
         # A member's stored preference wins over whatever locale segment the forgot-password page
-        # happened to be submitted from - fr/yi fall back to the English copy below, matching the
-        # existing he-vs-English convention already used by _status_update_body/_confirmation_body.
+        # happened to be submitted from.
         locale = user.preferred_language or payload.locale or "he"
         reset_link = f"{base_url}/{locale}/reset-password?token={token}"
-        if locale == "he":
-            subject = "איפוס סיסמה - TIVUTA"
-            html_body = f"<p>לאיפוס הסיסמה שלך, לחץ/י על הקישור הבא (בתוקף לשעה):</p><p><a href=\"{reset_link}\">{reset_link}</a></p>"
-        else:
-            subject = "Reset your password - TIVUTA"
-            html_body = f"<p>To reset your password, click the link below (valid for 1 hour):</p><p><a href=\"{reset_link}\">{reset_link}</a></p>"
+        subject = _FORGOT_PASSWORD_SUBJECT.get(locale, _FORGOT_PASSWORD_SUBJECT["he"])
+        html_body = _FORGOT_PASSWORD_BODY.get(locale, _FORGOT_PASSWORD_BODY["he"]).format(link=reset_link)
         get_email_sender().send(to=user.email, subject=subject, html_body=html_body, locale=locale)
 
     # Always return success regardless of whether the email exists, to avoid email enumeration.

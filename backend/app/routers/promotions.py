@@ -1,5 +1,6 @@
 import random
 from datetime import datetime
+from html import escape as html_escape
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
-from ..services import get_email_sender, loyalty
+from ..services import get_email_sender
 
 router = APIRouter(tags=["promotions"])
 
@@ -143,26 +144,49 @@ def remove_product(promotion_id: int, product_id: int, db: Session = Depends(get
 
 # ─── Promotion Entries (raffle + first_n participation) ───────────────────────
 
+_WINNER_EMAIL_SUBJECT = {
+    "he": "זכית בהגרלה — {name}", "en": "You won the raffle — {name}",
+    "fr": "Vous avez gagné le tirage au sort — {name}", "yi": "איר האָט געוואונען די הגרלה — {name}",
+}
+_WINNER_EMAIL_BODY = {
+    "he": (
+        '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;text-align:right;">'
+        "<p>שלום {greeting_name},</p>"
+        "<p>ברכות! <strong>זכית בהגרלה: {promotion_name}</strong>.</p>"
+        "<p>נציג שלנו ייצור איתך קשר בקרוב עם פרטי הזכייה.</p>"
+        '<p>בברכה,<br/>צוות <span dir="ltr">Tivuta</span></p>'
+        "</div>"
+    ),
+    "en": (
+        '<div dir="ltr" style="font-family:Arial,sans-serif;color:#111;text-align:left;">'
+        "<p>Hi {greeting_name},</p>"
+        "<p>Congratulations! <strong>You won the raffle: {promotion_name}</strong>.</p>"
+        "<p>A representative will contact you shortly with the winning details.</p>"
+        "<p>Best regards,<br/>Team Tivuta</p>"
+        "</div>"
+    ),
+    "fr": (
+        '<div dir="ltr" style="font-family:Arial,sans-serif;color:#111;text-align:left;">'
+        "<p>Bonjour {greeting_name},</p>"
+        "<p>Félicitations ! <strong>Vous avez gagné le tirage au sort : {promotion_name}</strong>.</p>"
+        "<p>Notre représentant vous contactera bientôt avec les détails du gain.</p>"
+        "<p>Cordialement,<br/>L'équipe Tivuta</p>"
+        "</div>"
+    ),
+    "yi": (
+        '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;text-align:right;">'
+        "<p>שלום {greeting_name},</p>"
+        "<p>מזל טוב! <strong>איר האָט געוואונען די הגרלה: {promotion_name}</strong>.</p>"
+        "<p>אונדזער פארשטייער וועט זיך באַלד מיט אײַך פארבינדן מיט די פרטים פֿון געווין.</p>"
+        '<p>מיט ברכה,<br/>די <span dir="ltr">Tivuta</span> קרובֿ</p>'
+        "</div>"
+    ),
+}
+
+
 def _winner_email_body(locale: str, promotion_name: str, user_first_name: str) -> str:
-    if locale == "he":
-        return (
-            f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;text-align:right;">'
-            f"<p>שלום {user_first_name},</p>"
-            f"<p>ברכות! <strong>זכית בהגרלה: {promotion_name}</strong>.</p>"
-            f"<p>נציג שלנו ייצור איתך קשר בקרוב עם פרטי הזכייה.</p>"
-            f'<p>בברכה,<br/>צוות <span dir="ltr">Tivuta</span></p>'
-            f"</div>"
-        )
-    # fr/yi fall back to the English copy below, matching the existing he-vs-English convention
-    # already used by leads.py's _status_update_body/_confirmation_body.
-    return (
-        f'<div dir="ltr" style="font-family:Arial,sans-serif;color:#111;text-align:left;">'
-        f"<p>Hi {user_first_name},</p>"
-        f"<p>Congratulations! <strong>You won the raffle: {promotion_name}</strong>.</p>"
-        f"<p>A representative will contact you shortly with the winning details.</p>"
-        f"<p>Best regards,<br/>Team Tivuta</p>"
-        f"</div>"
-    )
+    template = _WINNER_EMAIL_BODY.get(locale, _WINNER_EMAIL_BODY["he"])
+    return template.format(greeting_name=html_escape(user_first_name), promotion_name=promotion_name)
 
 
 def _do_draw(promotion: models.Promotion, db: Session) -> Optional[models.PromotionEntry]:
@@ -186,18 +210,18 @@ def _do_draw(promotion: models.Promotion, db: Session) -> Optional[models.Promot
     db.refresh(winner_entry)
     winner_user = db.query(models.User).filter(models.User.id == winner_entry.user_id).first()
     if winner_user:
-        # Resolve once and reuse everywhere - a Promotion only has name_he/name_en anyway (no
-        # name_fr/name_yi columns), so looking the name up against the *raw* preferred_language
-        # instead of this same collapsed value could silently pair a fetched-but-unrelated locale
-        # with the email template's own he/en decision.
-        email_locale = loyalty.resolve_locale_or_en(winner_user.preferred_language)
-        promotion_name = getattr(promotion, f"name_{email_locale}", None) or promotion.name_he
-        subject = f"זכית בהגרלה — {promotion_name}" if email_locale == "he" else f"You won the raffle — {promotion_name}"
+        # Resolved once and reused everywhere - a Promotion only has name_he/name_en columns (no
+        # name_fr/name_yi), so an fr/yi winner's promotion_name still falls back to Hebrew, but the
+        # email template itself (greeting/congratulations/sign-off) is now genuinely translated,
+        # not collapsed to English the way it used to be.
+        locale = winner_user.preferred_language or "he"
+        promotion_name = getattr(promotion, f"name_{locale}", None) or promotion.name_he
+        subject = _WINNER_EMAIL_SUBJECT.get(locale, _WINNER_EMAIL_SUBJECT["he"]).format(name=promotion_name)
         get_email_sender().send(
             to=winner_user.email,
             subject=subject,
-            html_body=_winner_email_body(email_locale, promotion_name, winner_user.first_name),
-            locale=email_locale,
+            html_body=_winner_email_body(locale, promotion_name, winner_user.first_name),
+            locale=locale,
         )
     return winner_entry
 

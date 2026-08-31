@@ -1,6 +1,7 @@
 import os
 import uuid
 from datetime import datetime
+from html import escape as html_escape
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
-from ..services import get_email_sender, loyalty
+from ..services import get_email_sender
 from ..services.pricing import compute_effective_unit_price
 
 router = APIRouter(tags=["leads"])
@@ -67,26 +68,51 @@ STATUS_EMAIL_SUBJECT: dict[str, dict[str, str]] = {
 }
 
 
+# Real he/en copy; fr/yi are best-effort AI translations, not sourced from a native speaker -
+# worth a native-speaker review before relying on them, same caveat as distributions.py's campaign
+# copy. Every locale here is a genuine, distinct translation - this codebase used to collapse
+# fr/yi to English for these templates, but that was a real gap (the profile page's own "emails
+# and notifications will use this language" promise covers all 4) that's now fixed everywhere.
+_STATUS_UPDATE_BODY = {
+    "confirmed": {
+        "he": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>שמחים לבשר שהפנייה שלך לגבי <strong>{title}</strong> אושרה.</p><p>נציג שלנו ייצור איתך קשר בקרוב לתיאום הפרטים.</p></div>',
+        "en": "<p>Your request regarding <strong>{title}</strong> has been confirmed. Our representative will contact you soon.</p>",
+        "fr": "<p>Votre demande concernant <strong>{title}</strong> a été confirmée. Notre représentant vous contactera bientôt pour finaliser les détails.</p>",
+        "yi": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>אייער פארלאנג וועגן <strong>{title}</strong> איז באשטעטיגט געוואָרן.</p><p>אונדזער פארשטייער וועט זיך באַלד מיט אײַך פארבינדן.</p></div>',
+    },
+    "contacted": {
+        "he": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>הפנייה שלך לגבי <strong>{title}</strong> טופלה.</p><p>אנו מקווים שהשירות עמד בציפיותיך. לשאלות נוספות, פנה אלינו בכל עת.</p></div>',
+        "en": "<p>Your request regarding <strong>{title}</strong> has been handled. We hope the service met your expectations.</p>",
+        "fr": "<p>Votre demande concernant <strong>{title}</strong> a été traitée. Nous espérons que le service a répondu à vos attentes.</p>",
+        "yi": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>אייער פארלאנג וועגן <strong>{title}</strong> איז שוין באהאנדלט געוואָרן.</p><p>מיר האָפן אַז דער סערוויס האָט אָנגעטראָפן אײַערע ערוואַרטונגען.</p></div>',
+    },
+}
+
+
 def _status_update_body(locale: str, product_title: str, status: str) -> str:
-    if status == "confirmed":
-        if locale == "he":
-            return f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>שמחים לבשר שהפנייה שלך לגבי <strong>{product_title}</strong> אושרה.</p><p>נציג שלנו ייצור איתך קשר בקרוב לתיאום הפרטים.</p></div>'
-        return f"<p>Your request regarding <strong>{product_title}</strong> has been confirmed. Our representative will contact you soon.</p>"
-    if status == "contacted":
-        if locale == "he":
-            return f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>הפנייה שלך לגבי <strong>{product_title}</strong> טופלה.</p><p>אנו מקווים שהשירות עמד בציפיותיך. לשאלות נוספות, פנה אלינו בכל עת.</p></div>'
-        return f"<p>Your request regarding <strong>{product_title}</strong> has been handled. We hope the service met your expectations.</p>"
-    return ""
+    template = _STATUS_UPDATE_BODY.get(status)
+    if not template:
+        return ""
+    return template.get(locale, template["he"]).format(title=product_title)
+
+
+_CONFIRMATION_BODY_SCHEDULED = {
+    "he": "<p>תודה שקבעת פגישה להתרשמות עבור <strong>{title}</strong>.</p><p>נציג שלנו ייצור איתך קשר לאישור הפרטים.</p>",
+    "en": "<p>Thank you for scheduling an appointment for <strong>{title}</strong>.</p><p>Our representative will contact you to confirm the details.</p>",
+    "fr": "<p>Merci d'avoir programmé un rendez-vous pour <strong>{title}</strong>.</p><p>Notre représentant vous contactera pour confirmer les détails.</p>",
+    "yi": "<p>אַ דאַנק וואָס איר האָט פארטיילט אַ טרעפונג פאר <strong>{title}</strong>.</p><p>אונדזער פארשטייער וועט זיך מיט אײַך פארבינדן צו באַשטעטיגן די פרטים.</p>",
+}
+_CONFIRMATION_BODY_UNSCHEDULED = {
+    "he": "<p>תודה על פנייתך בנושא <strong>{title}</strong>.</p><p>נציג שלנו ייצור איתך קשר בהקדם.</p>",
+    "en": "<p>Thank you for your interest in <strong>{title}</strong>.</p><p>Our representative will reach out to you shortly.</p>",
+    "fr": "<p>Merci pour votre intérêt concernant <strong>{title}</strong>.</p><p>Notre représentant vous contactera sous peu.</p>",
+    "yi": "<p>אַ דאַנק פֿאַר אײַער אינטערעס אין <strong>{title}</strong>.</p><p>אונדזער פארשטייער וועט זיך באַלד מיט אײַך פארבינדן.</p>",
+}
 
 
 def _confirmation_body(locale: str, product_title: str, scheduled_at):
-    if scheduled_at:
-        if locale == "he":
-            return f"<p>תודה שקבעת פגישה להתרשמות עבור <strong>{product_title}</strong>.</p><p>נציג שלנו ייצור איתך קשר לאישור הפרטים.</p>"
-        return f"<p>Thank you for scheduling an appointment for <strong>{product_title}</strong>.</p><p>Our representative will contact you to confirm the details.</p>"
-    if locale == "he":
-        return f"<p>תודה על פנייתך בנושא <strong>{product_title}</strong>.</p><p>נציג שלנו ייצור איתך קשר בהקדם.</p>"
-    return f"<p>Thank you for your interest in <strong>{product_title}</strong>.</p><p>Our representative will reach out to you shortly.</p>"
+    template = _CONFIRMATION_BODY_SCHEDULED if scheduled_at else _CONFIRMATION_BODY_UNSCHEDULED
+    return template.get(locale, template["he"]).format(title=product_title)
 
 
 @router.post("/leads", response_model=schemas.LeadRead)
@@ -147,11 +173,18 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
     return new_lead
 
 
+_CART_CONFIRMATION_BODY = {
+    "he": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>תודה על פנייתך. ריכזנו את הבקשה שלך (הזמנה <strong>{order_number}</strong>) עבור {count} מוצרים:</p><ul>{rows}</ul><p>נציג שלנו ייצור איתך קשר בהקדם.</p></div>',
+    "en": "<p>Thank you for your interest. We received your request (order <strong>{order_number}</strong>) for {count} products:</p><ul>{rows}</ul><p>Our representative will reach out to you shortly.</p>",
+    "fr": "<p>Merci pour votre intérêt. Nous avons bien reçu votre demande (commande <strong>{order_number}</strong>) pour {count} produits :</p><ul>{rows}</ul><p>Notre représentant vous contactera sous peu.</p>",
+    "yi": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>אַ דאַנק פֿאַר אײַער אינטערעס. מיר האָבן באַקומען אײַער פארלאנג (בעשטעלונג <strong>{order_number}</strong>) פאר {count} פראָדוקטן:</p><ul>{rows}</ul><p>אונדזער פארשטייער וועט זיך באַלד מיט אײַך פארבינדן.</p></div>',
+}
+
+
 def _cart_confirmation_body(locale: str, items: list, order_number: str) -> str:
     rows = "".join(f"<li>{title} × {qty}</li>" for title, qty in items)
-    if locale == "he":
-        return f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>תודה על פנייתך. ריכזנו את הבקשה שלך (הזמנה <strong>{order_number}</strong>) עבור {len(items)} מוצרים:</p><ul>{rows}</ul><p>נציג שלנו ייצור איתך קשר בהקדם.</p></div>'
-    return f"<p>Thank you for your interest. We received your request (order <strong>{order_number}</strong>) for {len(items)} products:</p><ul>{rows}</ul><p>Our representative will reach out to you shortly.</p>"
+    template = _CART_CONFIRMATION_BODY.get(locale, _CART_CONFIRMATION_BODY["he"])
+    return template.format(order_number=order_number, count=len(items), rows=rows)
 
 
 def _cart_admin_notification_body(user: models.User, items: list, order_number: str) -> str:
@@ -674,6 +707,32 @@ def send_followup_reminders(stale_days: int = 3, db: Session = Depends(get_db)):
     return {"sent": sent, "total_stale": len(stale_leads)}
 
 
+_APPOINTMENT_REMINDER_BODY = {
+    "he": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><h2 style="color:#b8860b;">תזכורת לפגישה — <span dir="ltr">TIVUTA</span></h2><p>שלום {name},</p><p>זוהי תזכורת ידידותית לגבי הפגישה שלך עבור <strong>{title}</strong>.</p><p><strong>מועד:</strong> {date}</p><p>לשאלות, צור איתנו קשר.</p></div>',
+    "en": "<p>Hi {name}, this is a reminder about your appointment for <strong>{title}</strong> on {date}.</p>",
+    "fr": "<p>Bonjour {name}, ceci est un rappel amical concernant votre rendez-vous pour <strong>{title}</strong> le {date}.</p>",
+    "yi": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>שלום {name},</p><p>דאָס איז אַ פרײַנדלעכע דערמאָנונג וועגן אײַער טרעפונג פאר <strong>{title}</strong> דעם {date}.</p></div>',
+}
+_APPOINTMENT_REMINDER_SUBJECT = {
+    "he": "תזכורת לפגישה — {title}",
+    "en": "Appointment reminder — {title}",
+    "fr": "Rappel de rendez-vous — {title}",
+    "yi": "דערמאָנונג פֿון טרעפונג — {title}",
+}
+_APPOINTMENT_REMINDER_NOTIF_TITLE = {
+    "he": "תזכורת לפגישה: {title}",
+    "en": "Appointment reminder: {title}",
+    "fr": "Rappel de rendez-vous : {title}",
+    "yi": "דערמאָנונג פֿון טרעפונג: {title}",
+}
+_APPOINTMENT_REMINDER_NOTIF_MESSAGE = {
+    "he": "הפגישה שלך נקבעה ל-{date}",
+    "en": "Your appointment is scheduled for {date}",
+    "fr": "Votre rendez-vous est prévu pour le {date}",
+    "yi": "אײַער טרעפונג איז פארטיילט פאר {date}",
+}
+
+
 @router.post("/admin/leads/{lead_id}/send-appointment-reminder", dependencies=[Depends(get_current_admin)])
 def send_appointment_reminder(lead_id: int, db: Session = Depends(get_db)):
     lead = (
@@ -689,17 +748,13 @@ def send_appointment_reminder(lead_id: int, db: Session = Depends(get_db)):
     locale = lead.locale or "he"
     product_title = getattr(lead.product, f"title_{locale}", None) or (lead.product.title_he if lead.product else "מוצר")
     scheduled_str = lead.scheduled_at.strftime("%d/%m/%Y %H:%M")
-    notif_locale = loyalty.resolve_locale_or_en(locale)
-    if notif_locale == "he":
-        body = f'<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><h2 style="color:#b8860b;">תזכורת לפגישה — <span dir="ltr">TIVUTA</span></h2><p>שלום {lead.user.first_name},</p><p>זוהי תזכורת ידידותית לגבי הפגישה שלך עבור <strong>{product_title}</strong>.</p><p><strong>מועד:</strong> {scheduled_str}</p><p>לשאלות, צור איתנו קשר.</p></div>'
-        subject = f"תזכורת לפגישה — {product_title}"
-        notif_title = f"תזכורת לפגישה: {product_title}"
-        notif_message = f"הפגישה שלך נקבעה ל-{scheduled_str}"
-    else:
-        body = f"<p>Hi {lead.user.first_name}, this is a reminder about your appointment for <strong>{product_title}</strong> on {scheduled_str}.</p>"
-        subject = f"Appointment reminder — {product_title}"
-        notif_title = f"Appointment reminder: {product_title}"
-        notif_message = f"Your appointment is scheduled for {scheduled_str}"
+    safe_name = html_escape(lead.user.first_name)
+    body = _APPOINTMENT_REMINDER_BODY.get(locale, _APPOINTMENT_REMINDER_BODY["he"]).format(
+        name=safe_name, title=product_title, date=scheduled_str
+    )
+    subject = _APPOINTMENT_REMINDER_SUBJECT.get(locale, _APPOINTMENT_REMINDER_SUBJECT["he"]).format(title=product_title)
+    notif_title = _APPOINTMENT_REMINDER_NOTIF_TITLE.get(locale, _APPOINTMENT_REMINDER_NOTIF_TITLE["he"]).format(title=product_title)
+    notif_message = _APPOINTMENT_REMINDER_NOTIF_MESSAGE.get(locale, _APPOINTMENT_REMINDER_NOTIF_MESSAGE["he"]).format(date=scheduled_str)
     get_email_sender().send(to=lead.user.email, subject=subject, html_body=body, locale=locale)
 
     # Create in-app notification for the user, in their resolved language
@@ -708,7 +763,7 @@ def send_appointment_reminder(lead_id: int, db: Session = Depends(get_db)):
         type="appointment_reminder",
         title=notif_title,
         message=notif_message,
-        locale=notif_locale,
+        locale=locale,
         link="/profile#my-orders",
     )
     db.add(notif)
@@ -743,6 +798,28 @@ def admin_lead_stats(days: int = 14, db: Session = Depends(get_db)):
     return [{"date": k, "count": v} for k, v in sorted(counts.items())]
 
 
+_LEAD_STATUS_NOTIF_TITLE = {
+    "confirmed": {
+        "he": "הפנייה שלך אושרה — {title}", "en": "Your request confirmed — {title}",
+        "fr": "Votre demande confirmée — {title}", "yi": "אײַער פארלאנג איז באַשטעטיגט — {title}",
+    },
+    "contacted": {
+        "he": "הפנייה שלך טופלה — {title}", "en": "Your request handled — {title}",
+        "fr": "Votre demande traitée — {title}", "yi": "אײַער פארלאנג איז באַהאַנדלט — {title}",
+    },
+}
+_LEAD_STATUS_NOTIF_FALLBACK_TITLE = {
+    "he": "עדכון סטטוס פנייה", "en": "Request status update",
+    "fr": "Mise à jour du statut de la demande", "yi": "אַ סטאַטוס־אַפּדעיט פֿון אײַער פארלאנג",
+}
+_LEAD_STATUS_NOTIF_MESSAGE = {
+    "he": "הפנייה שלך לגבי {title} עודכנה לסטטוס: {status}",
+    "en": "Your request for {title} was updated to status: {status}",
+    "fr": "Votre demande concernant {title} a été mise à jour au statut : {status}",
+    "yi": "אײַער פארלאנג וועגן {title} איז געביטן געוואָרן צום סטאַטוס: {status}",
+}
+
+
 @router.patch("/admin/leads/{lead_id}/status", response_model=schemas.LeadRead, dependencies=[Depends(get_current_admin)])
 def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(get_db)):
     valid = {"new", "confirmed", "contacted", "closed"}
@@ -773,27 +850,15 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
                 except Exception:
                     pass
             # In-app notification, in the same resolved language as the email above.
-            notif_locale = loyalty.resolve_locale_or_en(locale)
-            if notif_locale == "he":
-                title_map = {
-                    "confirmed": f"הפנייה שלך אושרה — {product_title}",
-                    "contacted": f"הפנייה שלך טופלה — {product_title}",
-                }
-                notif_title = title_map.get(status, "עדכון סטטוס פנייה")
-                notif_message = f"הפנייה שלך לגבי {product_title} עודכנה לסטטוס: {status}"
-            else:
-                title_map = {
-                    "confirmed": f"Your request confirmed — {product_title}",
-                    "contacted": f"Your request handled — {product_title}",
-                }
-                notif_title = title_map.get(status, "Request status update")
-                notif_message = f"Your request for {product_title} was updated to status: {status}"
+            title_template = _LEAD_STATUS_NOTIF_TITLE.get(status, _LEAD_STATUS_NOTIF_FALLBACK_TITLE)
+            notif_title = title_template.get(locale, title_template["he"]).format(title=product_title)
+            notif_message = _LEAD_STATUS_NOTIF_MESSAGE.get(locale, _LEAD_STATUS_NOTIF_MESSAGE["he"]).format(title=product_title, status=status)
             notif = models.Notification(
                 user_id=lead.user_id,
                 type="lead_status",
                 title=notif_title,
                 message=notif_message,
-                locale=notif_locale,
+                locale=locale,
                 link="/profile#my-orders",
             )
             db.add(notif)
