@@ -16,7 +16,7 @@ import CalendarView from '@/components/admin/CalendarView';
 import {
     Loader2, CheckCircle2, AlertCircle, Phone, Mail, CalendarDays, Download, ExternalLink,
     MessageSquare, Check, X, LayoutList, CalendarRange, Bell,
-    History, Kanban, Store, Square, CheckSquare,
+    History, Kanban, Store, Square, CheckSquare, MapPin, Users, NotebookPen,
 } from 'lucide-react';
 
 const STATUSES = [
@@ -325,12 +325,15 @@ export default function AdminOrdersPage() {
     };
 
     const exportCsv = () => {
-        const header = ['הזמנה', 'שם לקוח', 'מייל', 'טלפון', 'מוצר', 'עולם', 'ספק', 'סוג', 'כמות', 'סטטוס', 'תאריך'];
+        const header = ['הזמנה', 'שם לקוח', 'מייל', 'טלפון', 'תפקיד מזמין', 'קהילה', 'כתובת בית כנסת', 'מוצר', 'עולם', 'ספק', 'סוג', 'כמות', 'סטטוס', 'תאריך'];
         const rows = filteredOrders.flatMap((order) => order.items.map((l) => [
             order.order_number,
             order.user_name ?? '',
             order.user_email ?? '',
             order.user_phone ?? '',
+            order.orderer_role === 'gabbai' ? 'גבאי' : 'חבר',
+            order.gabbai_community_name_snapshot ?? '',
+            order.gabbai_synagogue_address_snapshot ?? '',
             l.product_title_he ?? '',
             VERTICAL_LABEL[l.product_vertical ?? ''] ?? l.product_vertical ?? '',
             l.vendor_name_he ?? '',
@@ -442,6 +445,11 @@ export default function AdminOrdersPage() {
                                     <div>
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="text-lg font-black text-[#d4af37]">{order.order_number}</span>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                order.orderer_role === 'gabbai' ? 'bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40' : 'bg-[#111a2f] text-[#f0e6d3]/50'
+                                            }`}>
+                                                {order.orderer_role === 'gabbai' ? 'גבאי' : 'חבר'}
+                                            </span>
                                             {otherActive > 0 && (
                                                 <span className="text-[10px] font-bold bg-[#d4af37]/15 text-[#d4af37] px-2 py-0.5 rounded-full">
                                                     {otherActive} הזמנות פעילות נוספות מלקוח זה
@@ -462,6 +470,22 @@ export default function AdminOrdersPage() {
                                             )}
                                             <span>{new Date(order.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
                                         </div>
+                                        {order.orderer_role === 'gabbai' && (order.gabbai_community_name_snapshot || order.gabbai_synagogue_address_snapshot) && (
+                                            <div className="flex flex-col gap-0.5 text-xs text-[#f0e6d3]/50 mt-1.5">
+                                                {order.gabbai_community_name_snapshot && (
+                                                    <span className="flex items-center gap-1"><Users size={11} /> {order.gabbai_community_name_snapshot}</span>
+                                                )}
+                                                {order.gabbai_synagogue_address_snapshot && (
+                                                    <span className="flex items-center gap-1"><MapPin size={11} /> {order.gabbai_synagogue_address_snapshot}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {order.custom_items_note && (
+                                            <div className="flex items-start gap-1.5 text-xs text-[#d4af37] bg-[#d4af37]/10 rounded-lg px-2.5 py-1.5 mt-2 max-w-md">
+                                                <NotebookPen size={12} className="mt-0.5 shrink-0" />
+                                                <span><strong>בקשות/מוצרים נוספים:</strong> {order.custom_items_note}</span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="min-w-[220px]">
                                         {editingOrderNoteId === order.id ? (

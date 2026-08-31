@@ -1,0 +1,170 @@
+from app import models
+
+
+def _login(client, email, password="testpass123"):
+    resp = client.post("/auth/login", data={"username": email, "password": password})
+    token = resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _make_vertical(db_session, slug, requires_gabbai=False, allows_custom_items_note=False):
+    vertical = models.Vertical(
+        slug=slug,
+        label_he=slug,
+        requires_gabbai=requires_gabbai,
+        allows_custom_items_note=allows_custom_items_note,
+    )
+    db_session.add(vertical)
+    db_session.commit()
+    db_session.refresh(vertical)
+    return vertical
+
+
+def _make_product(db_session, vertical, title="מוצר בדיקה", price=100.0):
+    product = models.Product(vertical=vertical, title_he=title, description_he="תיאור", price=price)
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+    return product
+
+
+def test_register_gabbai_promotes_role_and_stores_fields(client, db_session, make_user):
+    make_user(email="gabbai1@example.com", password="testpass123")
+    headers = _login(client, "gabbai1@example.com")
+
+    resp = client.post(
+        "/users/me/register-gabbai",
+        json={
+            "community_name": "קהילת בדיקה",
+            "synagogue_address": "רחוב הדוגמה 1, ירושלים",
+            "contact_name": "משה כהן",
+            "contact_phone": "0501234567",
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["role"] == "gabbai"
+    assert data["gabbai_community_name"] == "קהילת בדיקה"
+    assert data["gabbai_synagogue_address"] == "רחוב הדוגמה 1, ירושלים"
+
+    # Calling again (editing details) updates the fields but keeps role == "gabbai" — an upsert,
+    # not a second promotion.
+    resp2 = client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "קהילה חדשה", "synagogue_address": "כתובת חדשה"},
+        headers=headers,
+    )
+    assert resp2.status_code == 200
+    data2 = resp2.json()
+    assert data2["role"] == "gabbai"
+    assert data2["gabbai_community_name"] == "קהילה חדשה"
+    assert data2["gabbai_contact_name"] is None  # not resent, so cleared per the upsert schema
+
+
+def test_checkout_from_gabbai_vertical_requires_registration(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush", requires_gabbai=True)
+    product = _make_product(db_session, "kiddush")
+    make_user(email="notgabbai@example.com", password="testpass123")
+    headers = _login(client, "notgabbai@example.com")
+
+    resp = client.post(
+        "/leads/cart-checkout",
+        json={"items": [{"product_id": product.id, "quantity": 1}]},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+
+
+def test_checkout_from_gabbai_vertical_tags_order_and_snapshots(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush", requires_gabbai=True, allows_custom_items_note=True)
+    product = _make_product(db_session, "kiddush")
+    make_user(email="realgabbai@example.com", password="testpass123")
+    headers = _login(client, "realgabbai@example.com")
+
+    client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "בית הכנסת הגדול", "synagogue_address": "רחוב הרב 5"},
+        headers=headers,
+    )
+
+    resp = client.post(
+        "/leads/cart-checkout",
+        json={
+            "items": [{"product_id": product.id, "quantity": 2}],
+            "custom_items_note": "צריך גם יין נוסף",
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    order_id = resp.json()[0]["customer_order_id"]
+
+    my_orders = client.get("/users/me/orders", headers=headers).json()
+    order = next(o for o in my_orders if o["id"] == order_id)
+    assert order["orderer_role"] == "gabbai"
+    assert order["gabbai_community_name_snapshot"] == "בית הכנסת הגדול"
+    assert order["custom_items_note"] == "צריך גם יין נוסף"
+
+    # Editing the profile afterward must NOT rewrite the already-placed order's snapshot.
+    client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "שם אחר לגמרי", "synagogue_address": "כתובת אחרת"},
+        headers=headers,
+    )
+    my_orders_after = client.get("/users/me/orders", headers=headers).json()
+    order_after = next(o for o in my_orders_after if o["id"] == order_id)
+    assert order_after["gabbai_community_name_snapshot"] == "בית הכנסת הגדול"
+
+
+def test_mixed_gabbai_and_ordinary_vertical_checkout_blocked(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush", requires_gabbai=True)
+    _make_vertical(db_session, "diamonds", requires_gabbai=False)
+    kiddush_product = _make_product(db_session, "kiddush", title="יין קידוש")
+    diamond_product = _make_product(db_session, "diamonds", title="טבעת")
+    make_user(email="mixedcart@example.com", password="testpass123")
+    headers = _login(client, "mixedcart@example.com")
+
+    client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "קהילה", "synagogue_address": "כתובת"},
+        headers=headers,
+    )
+
+    resp = client.post(
+        "/leads/cart-checkout",
+        json={
+            "items": [
+                {"product_id": kiddush_product.id, "quantity": 1},
+                {"product_id": diamond_product.id, "quantity": 1},
+            ]
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 400
+
+
+def test_admin_can_set_gabbai_role(client, db_session, make_user):
+    make_user(email="plainmember@example.com", password="testpass123")
+    admin = make_user(email="realadmin@example.com", password="testpass123", role="admin")
+    admin_headers = _login(client, "realadmin@example.com")
+
+    target = db_session.query(models.User).filter(models.User.email == "plainmember@example.com").first()
+    resp = client.patch(
+        f"/admin/users/{target.id}/role",
+        json={"role": "gabbai"},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "gabbai"
+
+
+def test_admin_member_count_includes_gabbai_users(client, db_session, make_user):
+    make_user(email="member2@example.com", password="testpass123")
+    make_user(email="gabbai2@example.com", password="testpass123", role="gabbai")
+    admin = make_user(email="admin2@example.com", password="testpass123", role="admin")
+    admin_headers = _login(client, "admin2@example.com")
+
+    resp = client.get("/admin/users/member-count", headers=admin_headers)
+    assert resp.status_code == 200
+    # 2 non-admin users (member + gabbai) — the admin itself is excluded.
+    assert resp.json()["count"] == 2

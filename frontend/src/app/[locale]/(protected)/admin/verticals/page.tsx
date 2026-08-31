@@ -31,6 +31,8 @@ const EMPTY_FORM = {
     subtitle_he: '', subtitle_en: '', subtitle_fr: '', subtitle_yi: '',
     icon: 'Store',
     supports_appointments: false,
+    requires_gabbai: false,
+    allows_custom_items_note: false,
     display_order: 0,
     is_active: true,
     attribute_fields: [] as FormAttrField[],
@@ -85,6 +87,8 @@ export default function AdminVerticalsPage() {
             subtitle_he: v.subtitle_he || '', subtitle_en: v.subtitle_en || '', subtitle_fr: v.subtitle_fr || '', subtitle_yi: v.subtitle_yi || '',
             icon: v.icon,
             supports_appointments: v.supports_appointments,
+            requires_gabbai: v.requires_gabbai,
+            allows_custom_items_note: v.allows_custom_items_note,
             display_order: v.display_order,
             is_active: v.is_active,
             attribute_fields: (v.attribute_fields || []).map((f) => ({
@@ -149,6 +153,8 @@ export default function AdminVerticalsPage() {
                     subtitle_he: form.subtitle_he || null, subtitle_en: form.subtitle_en || null, subtitle_fr: form.subtitle_fr || null, subtitle_yi: form.subtitle_yi || null,
                     icon: form.icon,
                     supports_appointments: form.supports_appointments,
+                    requires_gabbai: form.requires_gabbai,
+                    allows_custom_items_note: form.allows_custom_items_note,
                     display_order: form.display_order,
                     is_active: form.is_active,
                     attribute_fields,
@@ -161,6 +167,8 @@ export default function AdminVerticalsPage() {
                     subtitle_he: form.subtitle_he || null, subtitle_en: form.subtitle_en || null, subtitle_fr: form.subtitle_fr || null, subtitle_yi: form.subtitle_yi || null,
                     icon: form.icon,
                     supports_appointments: form.supports_appointments,
+                    requires_gabbai: form.requires_gabbai,
+                    allows_custom_items_note: form.allows_custom_items_note,
                     display_order: form.display_order,
                     is_active: form.is_active,
                     attribute_fields,
@@ -205,6 +213,7 @@ export default function AdminVerticalsPage() {
                                 <th className="p-4 text-start">שם</th>
                                 <th className="p-4 text-start">slug</th>
                                 <th className="p-4 text-start">פגישות</th>
+                                <th className="p-4 text-start">גבאי</th>
                                 <th className="p-4 text-start">סדר</th>
                                 <th className="p-4 text-start">סטטוס</th>
                                 <th className="p-4 text-start"></th>
@@ -212,7 +221,7 @@ export default function AdminVerticalsPage() {
                         </thead>
                         <tbody>
                             {verticals.length === 0 && (
-                                <tr><td colSpan={7} className="p-8 text-center text-[#f0e6d3]/40">אין עולמות עדיין</td></tr>
+                                <tr><td colSpan={8} className="p-8 text-center text-[#f0e6d3]/40">אין עולמות עדיין</td></tr>
                             )}
                             {verticals.map((v) => {
                                 const Icon = getVerticalIcon(v.icon);
@@ -226,6 +235,7 @@ export default function AdminVerticalsPage() {
                                         <td className="p-4 font-semibold">{v.label_he}</td>
                                         <td className="p-4 text-sm text-[#f0e6d3]/50" dir="ltr">{v.slug}</td>
                                         <td className="p-4 text-sm">{v.supports_appointments ? 'כן' : 'לא'}</td>
+                                        <td className="p-4 text-sm">{v.requires_gabbai ? 'כן' : 'לא'}</td>
                                         <td className="p-4 text-sm">{v.display_order}</td>
                                         <td className="p-4">
                                             <button
@@ -327,7 +337,7 @@ export default function AdminVerticalsPage() {
                         </div>
 
                         {/* Options row */}
-                        <div className="flex items-center gap-6">
+                        <div className="flex flex-wrap items-center gap-6">
                             <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
                                 <input type="checkbox" checked={form.supports_appointments} onChange={(e) => setForm({ ...form, supports_appointments: e.target.checked })} />
                                 מבוסס פגישות (כמו יהלומים)
@@ -335,6 +345,16 @@ export default function AdminVerticalsPage() {
                             <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
                                 <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
                                 פעיל
+                            </label>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-6">
+                            <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
+                                <input type="checkbox" checked={form.requires_gabbai} onChange={(e) => setForm({ ...form, requires_gabbai: e.target.checked })} />
+                                מצריך רישום כגבאי (כמו קידושים)
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
+                                <input type="checkbox" checked={form.allows_custom_items_note} onChange={(e) => setForm({ ...form, allows_custom_items_note: e.target.checked })} />
+                                מאפשר הערת פריטים נוספים בעגלה
                             </label>
                         </div>
 

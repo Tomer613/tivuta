@@ -29,6 +29,28 @@ def update_users_me(
     return current_user
 
 
+@router.post("/users/me/register-gabbai", response_model=schemas.UserRead)
+def register_gabbai(
+    payload: schemas.GabbaiRegistrationUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Self-service gabbai registration — no admin approval needed, matching the codebase's other
+    instant self-service flows (e.g. card-order requests). Idempotent/upsert: the first call
+    promotes role "member" -> "gabbai"; later calls (editing community/synagogue details) just
+    update the fields in place without touching role again. An admin can also unset/reset a
+    user's role separately via PATCH /admin/users/{id}/role."""
+    if current_user.role == "member":
+        current_user.role = "gabbai"
+    current_user.gabbai_community_name = payload.community_name
+    current_user.gabbai_synagogue_address = payload.synagogue_address
+    current_user.gabbai_contact_name = payload.contact_name
+    current_user.gabbai_contact_phone = payload.contact_phone
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 @router.get("/users/dashboard", response_model=schemas.DashboardData)
 def get_user_dashboard(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """
@@ -173,7 +195,7 @@ def admin_set_user_role(user_id: int, payload: schemas.UserRoleUpdate, db: Sessi
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if payload.role not in ("member", "admin"):
+    if payload.role not in ("member", "admin", "gabbai"):
         raise HTTPException(status_code=400, detail="Invalid role")
     user.role = payload.role
     db.commit()
@@ -210,7 +232,9 @@ def admin_delete_user(user_id: int, db: Session = Depends(get_db)):
 
 @router.get("/admin/users/member-count", dependencies=[Depends(get_current_admin)])
 def admin_member_count(db: Session = Depends(get_db)):
-    count = db.query(models.User).filter(models.User.role == "member").count()
+    # "member" here means "not an admin" (a gabbai is still a member with an extra hat), matching
+    # admin_stats' member_count below.
+    count = db.query(models.User).filter(models.User.role != "admin").count()
     return {"count": count}
 
 
@@ -236,7 +260,7 @@ def admin_stats(db: Session = Depends(get_db)):
     return {
         "open_leads": db.query(models.Lead).filter(models.Lead.status == "new").count(),
         "active_products": db.query(models.Product).filter(models.Product.is_active == True).count(),
-        "member_count": db.query(models.User).filter(models.User.role == "member").count(),
+        "member_count": db.query(models.User).filter(models.User.role != "admin").count(),
         "active_promotions": db.query(models.Promotion).filter(models.Promotion.is_active == True).count(),
         "draft_distributions": db.query(models.Distribution).filter(models.Distribution.status == "draft").count(),
     }

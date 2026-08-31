@@ -103,7 +103,13 @@ class User(Base):
     customer_number = Column(String(24), unique=True, index=True, nullable=True)  # loyalty card serial, e.g. "TVT-XXXXXXXXXX"
     points_balance = Column(Integer, default=0, nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(String(20), default="member", nullable=False)  # "member" | "admin"
+    role = Column(String(20), default="member", nullable=False)  # "member" | "admin" | "gabbai"
+    # Gabbai (synagogue warden) self-service registration fields — populated once a "member"
+    # completes the gabbai registration form in their profile; role becomes "gabbai" at that point.
+    gabbai_community_name = Column(String(255), nullable=True)
+    gabbai_synagogue_address = Column(String(255), nullable=True)
+    gabbai_contact_name = Column(String(150), nullable=True)
+    gabbai_contact_phone = Column(String(30), nullable=True)
     reset_token = Column(String(255), nullable=True)
     reset_token_expires = Column(DateTime, nullable=True)
     failed_login_attempts = Column(Integer, default=0, nullable=False)
@@ -155,6 +161,12 @@ class Vertical(Base):
 
     icon = Column(String(50), nullable=False, default="Store")  # key into the frontend's fixed icon map
     supports_appointments = Column(Boolean, default=False, nullable=False)
+    # If true, checking out from this vertical requires the buyer to be a registered gabbai
+    # (User.role == "gabbai") and the resulting CustomerOrder is snapshotted as a gabbai order.
+    requires_gabbai = Column(Boolean, default=False, nullable=False)
+    # If true, the cart page shows a free-text "additional items/requests" box when the cart
+    # contains an item from this vertical; the text is stored on CustomerOrder.custom_items_note.
+    allows_custom_items_note = Column(Boolean, default=False, nullable=False)
     # [{"key": "carat", "label_he": "קרט", "label_en": "Carat", "type": "number"|"text"|"select", "options": [...]}]
     attribute_fields = Column(JSON, nullable=False, default=list)
     display_order = Column(Integer, nullable=False, default=0)
@@ -359,6 +371,20 @@ class CustomerOrder(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     notes = Column(Text, nullable=True)
     history = Column(JSON, nullable=True, default=list)
+    # "Hat" snapshot, computed once at order-creation time (never re-derived from the live User
+    # row afterward) — see User.gabbai_* fields. NULL/"member" for an ordinary order; "gabbai" plus
+    # the 4 snapshot fields below when the order was placed from a vertical with
+    # Vertical.requires_gabbai=True.
+    orderer_role = Column(String(20), nullable=True)  # "member" | "gabbai"
+    gabbai_community_name_snapshot = Column(String(255), nullable=True)
+    gabbai_synagogue_address_snapshot = Column(String(255), nullable=True)
+    gabbai_contact_name_snapshot = Column(String(150), nullable=True)
+    gabbai_contact_phone_snapshot = Column(String(30), nullable=True)
+    # Customer-submitted free text ("additional items not yet on the site") entered on the cart
+    # page — deliberately separate from `notes` above, which is admin-authored (see PATCH
+    # /admin/orders/{id}/notes). Only ever populated when the checkout included an item from a
+    # vertical with Vertical.allows_custom_items_note=True.
+    custom_items_note = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

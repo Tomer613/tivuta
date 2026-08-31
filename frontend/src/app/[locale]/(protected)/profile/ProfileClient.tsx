@@ -5,13 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
 import {
     updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, updatePreferredLanguage, productImageUrl,
-    getMyPointsHistory, createCardOrder, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct,
+    getMyPointsHistory, createCardOrder, registerGabbai, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
-    Copy, Gift, Package, Send, Loader2, Languages,
+    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
@@ -24,7 +24,7 @@ const tr: Record<string, Record<string, string>> = {
     he: {
         title: 'האזור האישי',
         greeting_male: 'ברוך הבא', greeting_female: 'ברוכה הבאה', greeting_neutral: 'ברוכים הבאים',
-        role_member: 'חבר מועדון', role_admin: 'מנהל מערכת',
+        role_member: 'חבר מועדון', role_admin: 'מנהל מערכת', role_gabbai: 'גבאי',
         profile_completion: 'השלמת פרופיל',
         complete_profile: 'השלם את הפרופיל שלך',
         complete_sub: 'פרטים נוספים עוזרים לנו להתאים לך את החוויה הטובה ביותר',
@@ -39,9 +39,23 @@ const tr: Record<string, Record<string, string>> = {
         backoffice_sub: 'ניהול מוצרים, משתמשים, מבצעים, הפצות וסקרים',
         logout: 'התנתק',
         orders_title: 'מעקב הזמנות',
+        orders_personal_title: 'הזמנות אישיות',
+        orders_gabbai_title: 'הזמנות כגבאי',
         no_orders: 'אין הזמנות עדיין.',
         order_items_done: 'הושלמו',
         order_savings: 'חסכת',
+        gabbai_section_title: 'רישום כגבאי',
+        gabbai_register_cta: 'הרשמה כגבאי',
+        gabbai_register_sub: 'גבאי בית כנסת יכול להזמין קידושים ודברים לבית הכנסת בשם הקהילה. מלא/י את הפרטים כדי להתחיל.',
+        gabbai_community_name: 'שם הקהילה',
+        gabbai_synagogue_address: 'כתובת בית הכנסת',
+        gabbai_contact_name: 'איש קשר נוסף (שם, אופציונלי)',
+        gabbai_contact_phone: 'איש קשר נוסף (טלפון, אופציונלי)',
+        gabbai_submit: 'שמור',
+        gabbai_cancel: 'ביטול',
+        gabbai_registered_status: 'רשום/ה כגבאי ✓',
+        gabbai_edit: 'עריכת פרטים',
+        gabbai_error: 'שגיאה בשמירת הפרטים',
         activity_title: 'היסטוריית פעילות',
         no_activity: 'טרם בוצעו פניות.',
         lead_appointment: 'פגישה', lead_contact: 'פנייה', lead_other: 'בקשה', lead_card_order: 'הזמנת כרטיס',
@@ -53,7 +67,7 @@ const tr: Record<string, Record<string, string>> = {
     en: {
         title: 'My Profile',
         greeting_male: 'Hello', greeting_female: 'Hello', greeting_neutral: 'Welcome',
-        role_member: 'Club Member', role_admin: 'System Admin',
+        role_member: 'Club Member', role_admin: 'System Admin', role_gabbai: 'Gabbai',
         profile_completion: 'Profile completion',
         complete_profile: 'Complete your profile',
         complete_sub: 'More details help us tailor the best experience for you',
@@ -68,9 +82,23 @@ const tr: Record<string, Record<string, string>> = {
         backoffice_sub: 'Manage products, users, promotions, distributions and surveys',
         logout: 'Log out',
         orders_title: 'Order Tracking',
+        orders_personal_title: 'Personal orders',
+        orders_gabbai_title: 'Gabbai orders',
         no_orders: 'No orders yet.',
         order_items_done: 'done',
         order_savings: 'You saved',
+        gabbai_section_title: 'Gabbai registration',
+        gabbai_register_cta: 'Register as gabbai',
+        gabbai_register_sub: 'A synagogue gabbai can order kiddush items and synagogue supplies on behalf of their community. Fill in the details to get started.',
+        gabbai_community_name: 'Community name',
+        gabbai_synagogue_address: 'Synagogue address',
+        gabbai_contact_name: 'Additional contact (name, optional)',
+        gabbai_contact_phone: 'Additional contact (phone, optional)',
+        gabbai_submit: 'Save',
+        gabbai_cancel: 'Cancel',
+        gabbai_registered_status: 'Registered as gabbai ✓',
+        gabbai_edit: 'Edit details',
+        gabbai_error: 'Failed to save details',
         activity_title: 'Activity history',
         no_activity: 'No activity yet.',
         lead_appointment: 'Appointment', lead_contact: 'Contact', lead_other: 'Request', lead_card_order: 'Card Order',
@@ -82,7 +110,7 @@ const tr: Record<string, Record<string, string>> = {
     fr: {
         title: 'Mon Espace',
         greeting_male: 'Bonjour', greeting_female: 'Bonjour', greeting_neutral: 'Bienvenue',
-        role_member: 'Membre', role_admin: 'Administrateur',
+        role_member: 'Membre', role_admin: 'Administrateur', role_gabbai: 'Gabbaï',
         profile_completion: 'Complétion du profil',
         complete_profile: 'Complétez votre profil',
         complete_sub: 'Plus de détails nous aident à personnaliser votre expérience',
@@ -97,9 +125,23 @@ const tr: Record<string, Record<string, string>> = {
         backoffice_sub: 'Gérer les produits, utilisateurs, promotions et enquêtes',
         logout: 'Se déconnecter',
         orders_title: 'Suivi des commandes',
+        orders_personal_title: 'Commandes personnelles',
+        orders_gabbai_title: 'Commandes en tant que gabbaï',
         no_orders: 'Aucune commande.',
         order_items_done: 'terminés',
         order_savings: 'Économisé',
+        gabbai_section_title: 'Inscription en tant que gabbaï',
+        gabbai_register_cta: "S'inscrire comme gabbaï",
+        gabbai_register_sub: 'Un gabbaï de synagogue peut commander des articles de kiddouch et de synagogue au nom de sa communauté. Remplissez les détails pour commencer.',
+        gabbai_community_name: 'Nom de la communauté',
+        gabbai_synagogue_address: 'Adresse de la synagogue',
+        gabbai_contact_name: 'Contact supplémentaire (nom, optionnel)',
+        gabbai_contact_phone: 'Contact supplémentaire (téléphone, optionnel)',
+        gabbai_submit: 'Enregistrer',
+        gabbai_cancel: 'Annuler',
+        gabbai_registered_status: 'Inscrit comme gabbaï ✓',
+        gabbai_edit: 'Modifier les détails',
+        gabbai_error: "Échec de l'enregistrement des détails",
         activity_title: "Historique d'activité",
         no_activity: 'Aucune activité.',
         lead_appointment: 'Rendez-vous', lead_contact: 'Contact', lead_other: 'Demande', lead_card_order: 'Commande de carte',
@@ -111,7 +153,7 @@ const tr: Record<string, Record<string, string>> = {
     yi: {
         title: 'מיין פּרופֿיל',
         greeting_male: 'ברוך הבא', greeting_female: 'ברוכה הבאה', greeting_neutral: 'ברוכים הבאים',
-        role_member: 'קלוב מיטגליד', role_admin: 'סיסטעם פאַרוואַלטער',
+        role_member: 'קלוב מיטגליד', role_admin: 'סיסטעם פאַרוואַלטער', role_gabbai: 'גבאי',
         profile_completion: 'פּרופֿיל פֿאַרענדיקונג',
         complete_profile: 'פֿאַרענדיקט דעם פּרופֿיל',
         complete_sub: 'מער פּרטים העלפֿן צוצופּאַסן דיין דערפֿאַרונג',
@@ -126,9 +168,23 @@ const tr: Record<string, Record<string, string>> = {
         backoffice_sub: 'פאַרוואַלטן פּראָדוקטן, באניצערס, מבצעים',
         logout: 'אויסלאָגן',
         orders_title: 'מעקב הזמנות',
+        orders_personal_title: 'פּערזענלעכע הזמנות',
+        orders_gabbai_title: 'הזמנות אלס גבאי',
         no_orders: 'קיין הזמנות נאָך ניט.',
         order_items_done: 'פֿאַרטיק',
         order_savings: 'געשפּאָרט',
+        gabbai_section_title: 'רעגיסטראציע אלס גבאי',
+        gabbai_register_cta: 'רעגיסטרירן זיך אלס גבאי',
+        gabbai_register_sub: 'א שיל גבאי קען באשטעלן קידוש זאכן און שיל צרכים אין נאמען פון דער קהילה. פֿילט אויס די פרטים צו אנהייבן.',
+        gabbai_community_name: 'נאמען פון דער קהילה',
+        gabbai_synagogue_address: 'אדרעס פון דער שיל',
+        gabbai_contact_name: 'נאך א קאנטאקט (נאמען, אויסוואל)',
+        gabbai_contact_phone: 'נאך א קאנטאקט (טעלעפֿאָן, אויסוואל)',
+        gabbai_submit: 'אָפּשפּאַרן',
+        gabbai_cancel: 'אָפּזאָגן',
+        gabbai_registered_status: 'רעגיסטרירט אלס גבאי ✓',
+        gabbai_edit: 'ענדערן פרטים',
+        gabbai_error: 'טעות ביי אָפּשפּאַרן',
         activity_title: 'פּעולה היסטאָריע',
         no_activity: 'קיין פּעולות נאָך ניט.',
         lead_appointment: 'פּגישה', lead_contact: 'פּנייה', lead_other: 'בקשה', lead_card_order: 'הזמנת כרטיס',
@@ -309,6 +365,10 @@ export default function ProfileClient() {
     const [cardOrderState, setCardOrderState] = useState<'idle' | 'submitting' | 'error'>('idle');
     const [cardOrderError, setCardOrderError] = useState('');
     const [cardOrderLeadOverride, setCardOrderLeadOverride] = useState<ActivityLead | null>(null);
+    const [showGabbaiForm, setShowGabbaiForm] = useState(false);
+    const [gabbaiForm, setGabbaiForm] = useState<GabbaiRegistrationPayload>({ community_name: '', synagogue_address: '', contact_name: '', contact_phone: '' });
+    const [gabbaiState, setGabbaiState] = useState<'idle' | 'submitting' | 'error'>('idle');
+    const [gabbaiError, setGabbaiError] = useState('');
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.location.hash) return;
@@ -346,6 +406,16 @@ export default function ProfileClient() {
     useEffect(() => {
         if (!user) return;
         Promise.resolve().then(() => setCardOrderForm((f) => ({ ...f, full_name: f.full_name || `${user.first_name} ${user.last_name}`.trim(), phone: f.phone || user.phone || '' })));
+    }, [user]);
+
+    useEffect(() => {
+        if (!user || user.role !== 'gabbai') return;
+        Promise.resolve().then(() => setGabbaiForm({
+            community_name: user.gabbai_community_name || '',
+            synagogue_address: user.gabbai_synagogue_address || '',
+            contact_name: user.gabbai_contact_name || '',
+            contact_phone: user.gabbai_contact_phone || '',
+        }));
     }, [user]);
 
     useEffect(() => {
@@ -425,6 +495,22 @@ export default function ProfileClient() {
         }
     };
 
+    const handleSubmitGabbai = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token) return;
+        setGabbaiState('submitting');
+        setGabbaiError('');
+        try {
+            await registerGabbai(token, gabbaiForm);
+            await login(token);
+            setShowGabbaiForm(false);
+            setGabbaiState('idle');
+        } catch (err) {
+            setGabbaiError(getErrorMessage(err, t.gabbai_error));
+            setGabbaiState('error');
+        }
+    };
+
     const handlePasswordChange = async () => {
         if (!token) return;
         setPwError('');
@@ -458,6 +544,65 @@ export default function ProfileClient() {
 
     const marketplaceActivity = activity.filter((item) => item.lead_type !== 'card_order');
     const cardOrderLead = cardOrderLeadOverride || activity.find((item) => item.lead_type === 'card_order') || null;
+
+    // Orders are split by the "hat" they were placed under (see Vertical.requires_gabbai) — an
+    // order placed as a gabbai never shows among personal orders and vice versa. Only rendered as
+    // two groups once there's at least one gabbai order to show; otherwise the flat list below is
+    // unchanged from before this feature existed.
+    const gabbaiOrders = myOrders.filter((o) => o.orderer_role === 'gabbai');
+    const personalOrders = myOrders.filter((o) => o.orderer_role !== 'gabbai');
+
+    const renderOrderCard = (order: MyOrder) => {
+        const doneCount = order.items.filter((i) => i.status === 'closed').length;
+        return (
+            <div key={order.id} className="bg-[#111a2f] rounded-xl px-4 py-3">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className="text-sm font-black text-[#d4af37]" dir="ltr">{order.order_number}</span>
+                    <span className="text-xs text-[#f0e6d3]/40">
+                        {new Date(order.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                    </span>
+                </div>
+                {order.orderer_role === 'gabbai' && order.gabbai_community_name_snapshot && (
+                    <p className="text-xs text-[#d4af37]/60 mb-1.5 flex items-center gap-1"><Users size={11} /> {order.gabbai_community_name_snapshot}</p>
+                )}
+                {order.items.length > 1 && (
+                    <p className="text-xs text-[#f0e6d3]/40 mb-2">
+                        {doneCount} / {order.items.length} {t.order_items_done}
+                    </p>
+                )}
+                <div className="space-y-1.5">
+                    {order.items.map((item) => {
+                        const hasSavings = item.unit_price_snapshot != null && item.list_price_snapshot != null && item.unit_price_snapshot < item.list_price_snapshot;
+                        return (
+                        <div key={item.id} className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                                <p className="text-sm text-[#f0e6d3] truncate">
+                                    {item.product_title_he || leadTypeLabel(item.lead_type)}
+                                    {item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : ''}
+                                </p>
+                                <p className="text-xs text-[#f0e6d3]/40">
+                                    {leadTypeLabel(item.lead_type)}
+                                    {item.unit_price_snapshot != null && ` · ₪${item.unit_price_snapshot.toLocaleString()}`}
+                                </p>
+                                {hasSavings && (
+                                    <p className="text-[11px] text-green-400/80">
+                                        {t.order_savings} ₪{Math.round(((item.list_price_snapshot ?? 0) - (item.unit_price_snapshot ?? 0)) * (item.quantity ?? 1)).toLocaleString()}
+                                    </p>
+                                )}
+                            </div>
+                            <span className={`text-xs font-bold shrink-0 ${statusColor(item.status)}`}>
+                                {statusLabel(item.status)}
+                            </span>
+                        </div>
+                        );
+                    })}
+                </div>
+                {order.custom_items_note && (
+                    <p className="text-xs text-[#d4af37]/70 bg-[#0e1628] rounded-lg px-3 py-2 mt-2">{order.custom_items_note}</p>
+                )}
+            </div>
+        );
+    };
 
     const grouped = marketplaceActivity.reduce((acc: Record<string, ActivityLead[]>, item) => {
         const v = item.product_vertical || 'other';
@@ -593,9 +738,9 @@ export default function ProfileClient() {
                                 {greeting}{user?.first_name ? `, ${user.first_name}` : ''}
                             </h1>
                             <span className={`inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-bold ${
-                                user?.role === 'admin' ? 'bg-[#d4af37]/20 text-[#d4af37]' : 'bg-[#0e1628] text-[#f0e6d3]/50'
+                                user?.role === 'admin' || user?.role === 'gabbai' ? 'bg-[#d4af37]/20 text-[#d4af37]' : 'bg-[#0e1628] text-[#f0e6d3]/50'
                             }`}>
-                                {user?.role === 'admin' ? t.role_admin : t.role_member}
+                                {user?.role === 'admin' ? t.role_admin : user?.role === 'gabbai' ? t.role_gabbai : t.role_member}
                             </span>
                         </div>
                     </div>
@@ -842,6 +987,86 @@ export default function ProfileClient() {
                     </div>
                 </div>
 
+                {/* ── Gabbai registration ── */}
+                <div id="gabbai-registration" className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5 scroll-mt-24">
+                    <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
+                        <Users size={14} className="text-[#d4af37]" />
+                        {t.gabbai_section_title}
+                    </h2>
+                    {user?.role === 'gabbai' && !showGabbaiForm ? (
+                        <div className="flex items-start gap-3 bg-[#111a2f] rounded-xl px-4 py-3">
+                            <CheckCircle2 size={18} className="text-green-400 shrink-0 mt-0.5" />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-[#f0e6d3]">{t.gabbai_registered_status}</p>
+                                {user.gabbai_community_name && <p className="text-xs text-[#f0e6d3]/50 mt-0.5">{user.gabbai_community_name}</p>}
+                                {user.gabbai_synagogue_address && <p className="text-xs text-[#f0e6d3]/40">{user.gabbai_synagogue_address}</p>}
+                            </div>
+                            <button onClick={() => setShowGabbaiForm(true)} className="flex items-center gap-1.5 text-xs font-bold text-[#d4af37]/70 hover:text-[#d4af37] transition-colors shrink-0">
+                                <Pencil size={13} /> {t.gabbai_edit}
+                            </button>
+                        </div>
+                    ) : showGabbaiForm ? (
+                        <form onSubmit={handleSubmitGabbai} className="space-y-3">
+                            {gabbaiError && <p className="text-red-400 text-xs">{gabbaiError}</p>}
+                            <input
+                                required
+                                value={gabbaiForm.community_name}
+                                onChange={(e) => setGabbaiForm({ ...gabbaiForm, community_name: e.target.value })}
+                                placeholder={t.gabbai_community_name}
+                                className="input-field !py-2.5 !text-sm"
+                            />
+                            <input
+                                required
+                                value={gabbaiForm.synagogue_address}
+                                onChange={(e) => setGabbaiForm({ ...gabbaiForm, synagogue_address: e.target.value })}
+                                placeholder={t.gabbai_synagogue_address}
+                                className="input-field !py-2.5 !text-sm"
+                            />
+                            <input
+                                value={gabbaiForm.contact_name || ''}
+                                onChange={(e) => setGabbaiForm({ ...gabbaiForm, contact_name: e.target.value })}
+                                placeholder={t.gabbai_contact_name}
+                                className="input-field !py-2.5 !text-sm"
+                            />
+                            <input
+                                value={gabbaiForm.contact_phone || ''}
+                                onChange={(e) => setGabbaiForm({ ...gabbaiForm, contact_phone: e.target.value })}
+                                placeholder={t.gabbai_contact_phone}
+                                className="input-field !py-2.5 !text-sm"
+                                dir="ltr"
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    type="submit"
+                                    disabled={gabbaiState === 'submitting'}
+                                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm bg-[#d4af37] text-[#080d1f] hover:bg-[#c9a227] disabled:opacity-60 transition-all"
+                                >
+                                    {gabbaiState === 'submitting' ? <Loader2 className="animate-spin" size={15} /> : <Send size={15} />}
+                                    {t.gabbai_submit}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowGabbaiForm(false)}
+                                    className="px-4 py-2.5 rounded-xl font-bold text-sm text-[#f0e6d3]/50 hover:text-[#f0e6d3] transition-all"
+                                >
+                                    {t.gabbai_cancel}
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        <div>
+                            <p className="text-xs text-[#f0e6d3]/50 mb-3">{t.gabbai_register_sub}</p>
+                            <button
+                                onClick={() => setShowGabbaiForm(true)}
+                                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm border border-[#d4af37]/30 text-[#d4af37] hover:bg-[#d4af37]/10 transition-all"
+                            >
+                                <Users size={16} />
+                                {t.gabbai_register_cta}
+                            </button>
+                        </div>
+                    )}
+                </div>
+
                 {/* ── Order Tracking (CustomerOrder-backed) ── */}
                 <div id="my-orders" className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5 scroll-mt-24">
                     <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
@@ -850,54 +1075,25 @@ export default function ProfileClient() {
                     </h2>
                     {myOrders.length === 0 ? (
                         <p className="text-[#f0e6d3]/40 text-sm">{t.no_orders}</p>
-                    ) : (
-                        <div className="space-y-4">
-                            {myOrders.map((order) => {
-                                const doneCount = order.items.filter((i) => i.status === 'closed').length;
-                                return (
-                                    <div key={order.id} className="bg-[#111a2f] rounded-xl px-4 py-3">
-                                        <div className="flex items-center justify-between gap-3 mb-2">
-                                            <span className="text-sm font-black text-[#d4af37]" dir="ltr">{order.order_number}</span>
-                                            <span className="text-xs text-[#f0e6d3]/40">
-                                                {new Date(order.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                                            </span>
-                                        </div>
-                                        {order.items.length > 1 && (
-                                            <p className="text-xs text-[#f0e6d3]/40 mb-2">
-                                                {doneCount} / {order.items.length} {t.order_items_done}
-                                            </p>
-                                        )}
-                                        <div className="space-y-1.5">
-                                            {order.items.map((item) => {
-                                                const hasSavings = item.unit_price_snapshot != null && item.list_price_snapshot != null && item.unit_price_snapshot < item.list_price_snapshot;
-                                                return (
-                                                <div key={item.id} className="flex items-center justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <p className="text-sm text-[#f0e6d3] truncate">
-                                                            {item.product_title_he || leadTypeLabel(item.lead_type)}
-                                                            {item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : ''}
-                                                        </p>
-                                                        <p className="text-xs text-[#f0e6d3]/40">
-                                                            {leadTypeLabel(item.lead_type)}
-                                                            {item.unit_price_snapshot != null && ` · ₪${item.unit_price_snapshot.toLocaleString()}`}
-                                                        </p>
-                                                        {hasSavings && (
-                                                            <p className="text-[11px] text-green-400/80">
-                                                                {t.order_savings} ₪{Math.round(((item.list_price_snapshot ?? 0) - (item.unit_price_snapshot ?? 0)) * (item.quantity ?? 1)).toLocaleString()}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                    <span className={`text-xs font-bold shrink-0 ${statusColor(item.status)}`}>
-                                                        {statusLabel(item.status)}
-                                                    </span>
-                                                </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                    ) : gabbaiOrders.length > 0 ? (
+                        <div className="space-y-6">
+                            <div>
+                                <p className="text-xs font-bold text-[#f0e6d3]/50 uppercase tracking-wider mb-2">{t.orders_personal_title}</p>
+                                {personalOrders.length === 0 ? (
+                                    <p className="text-[#f0e6d3]/30 text-xs">{t.no_orders}</p>
+                                ) : (
+                                    <div className="space-y-4">{personalOrders.map(renderOrderCard)}</div>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-xs font-bold text-[#d4af37]/70 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                    <Users size={12} /> {t.orders_gabbai_title}
+                                </p>
+                                <div className="space-y-4">{gabbaiOrders.map(renderOrderCard)}</div>
+                            </div>
                         </div>
+                    ) : (
+                        <div className="space-y-4">{myOrders.map(renderOrderCard)}</div>
                     )}
                 </div>
 

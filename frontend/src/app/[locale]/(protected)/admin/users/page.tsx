@@ -6,7 +6,9 @@ import { adminListUsers, adminCreateUser, adminUpdateUser, adminSetUserRole, adm
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { isAccountLocked } from '@/lib/useCountdown';
 import { LockedBadge, UnlockButton } from '@/components/admin/LockoutControls';
-import { Plus, Loader2, X, ShieldCheck, ShieldOff, Trash2, CheckCircle2, AlertCircle, Search, Pencil } from 'lucide-react';
+import { Plus, Loader2, X, Trash2, CheckCircle2, AlertCircle, Search, Pencil } from 'lucide-react';
+
+const ROLE_LABEL: Record<string, string> = { member: 'חבר', gabbai: 'גבאי', admin: 'מנהל' };
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -29,7 +31,6 @@ export default function AdminUsersPage() {
     const [showForm, setShowForm] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', password: '' });
-    const [confirmRoleId, setConfirmRoleId] = useState<number | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -57,20 +58,19 @@ export default function AdminUsersPage() {
     const counts = useMemo(() => ({
         total: users.length,
         admin: users.filter((u) => u.role === 'admin').length,
-        member: users.filter((u) => u.role === 'member').length,
+        gabbai: users.filter((u) => u.role === 'gabbai').length,
+        member: users.filter((u) => u.role !== 'admin' && u.role !== 'gabbai').length,
     }), [users]);
 
-    const toggleRole = async (u: User) => {
-        if (!token) return;
-        const nextRole = u.role === 'admin' ? 'member' : 'admin';
+    const handleRoleChange = async (u: User, nextRole: string) => {
+        if (!token || nextRole === (u.role || 'member')) return;
         try {
             await adminSetUserRole(token, u.id, nextRole);
-            showToast(nextRole === 'admin' ? `${u.first_name} הפך למנהל ✓` : `הרשאת מנהל הוסרה מ-${u.first_name}`);
+            showToast(`התפקיד של ${u.first_name} עודכן ל"${ROLE_LABEL[nextRole]}" ✓`);
             load();
         } catch {
-            showToast('שגיאה בשינוי הרשאה', 'error');
+            showToast('שגיאה בשינוי תפקיד', 'error');
         }
-        setConfirmRoleId(null);
     };
 
     const handleUnlock = async (u: User) => {
@@ -148,6 +148,10 @@ export default function AdminUsersPage() {
                             <div className="text-xs text-[#f0e6d3]/40">מנהלים</div>
                         </div>
                         <div className="text-center">
+                            <div className="text-2xl font-black text-[#d4af37]">{counts.gabbai}</div>
+                            <div className="text-xs text-[#f0e6d3]/40">גבאים</div>
+                        </div>
+                        <div className="text-center">
                             <div className="text-2xl font-black text-[#f0e6d3]">{counts.member}</div>
                             <div className="text-xs text-[#f0e6d3]/40">חברים</div>
                         </div>
@@ -172,6 +176,7 @@ export default function AdminUsersPage() {
                 <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
                     <option value="">כל התפקידים</option>
                     <option value="member">חברים בלבד</option>
+                    <option value="gabbai">גבאים בלבד</option>
                     <option value="admin">מנהלים בלבד</option>
                 </select>
             </div>
@@ -196,13 +201,22 @@ export default function AdminUsersPage() {
                             )}
                             {filtered.map((u) => (
                                 <tr key={u.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/40 transition-colors">
-                                    <td className="p-4 font-semibold">{u.first_name} {u.last_name}</td>
+                                    <td className="p-4 font-semibold">
+                                        {u.first_name} {u.last_name}
+                                        {u.role === 'gabbai' && u.gabbai_community_name && (
+                                            <div className="text-xs font-normal text-[#f0e6d3]/40 mt-0.5">קהילה: {u.gabbai_community_name}</div>
+                                        )}
+                                    </td>
                                     <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{u.email}</td>
                                     <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{u.phone || '—'}</td>
                                     <td className="p-4">
                                         <div className="flex items-center gap-2">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${u.role === 'admin' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]/60'}`}>
-                                                {u.role === 'admin' ? 'מנהל' : 'חבר'}
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                                u.role === 'admin' ? 'bg-[#d4af37] text-[#080d1f]' :
+                                                u.role === 'gabbai' ? 'bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40' :
+                                                'bg-[#111a2f] text-[#f0e6d3]/60'
+                                            }`}>
+                                                {ROLE_LABEL[u.role || 'member']}
                                             </span>
                                             {isAccountLocked(u.locked_until) && <LockedBadge />}
                                         </div>
@@ -217,19 +231,17 @@ export default function AdminUsersPage() {
                                             {isAccountLocked(u.locked_until) && (
                                                 <UnlockButton onClick={() => handleUnlock(u)} />
                                             )}
-                                            {/* Role toggle */}
-                                            {confirmRoleId === u.id ? (
-                                                <div className="flex items-center gap-2 text-xs">
-                                                    <span className="text-[#f0e6d3]/60">{u.role === 'admin' ? 'להסיר הרשאה?' : 'להפוך למנהל?'}</span>
-                                                    <button onClick={() => toggleRole(u)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
-                                                    <button onClick={() => setConfirmRoleId(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
-                                                </div>
-                                            ) : (
-                                                <button onClick={() => setConfirmRoleId(u.id)} className="flex items-center gap-1 text-xs font-bold text-[#d4af37]/60 hover:text-[#d4af37] transition-colors" title={u.role === 'admin' ? 'הסר הרשאת מנהל' : 'הפוך למנהל'}>
-                                                    {u.role === 'admin' ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
-                                                    {u.role === 'admin' ? 'הסר הרשאה' : 'הפוך למנהל'}
-                                                </button>
-                                            )}
+                                            {/* Role select */}
+                                            <select
+                                                value={u.role || 'member'}
+                                                onChange={(e) => handleRoleChange(u, e.target.value)}
+                                                className="bg-[#111a2f] border border-[#d4af37]/20 rounded-lg px-2 py-1 text-xs font-bold text-[#f0e6d3]"
+                                                title="שינוי תפקיד"
+                                            >
+                                                <option value="member">חבר</option>
+                                                <option value="gabbai">גבאי</option>
+                                                <option value="admin">מנהל</option>
+                                            </select>
                                             {/* Delete — only for members */}
                                             {u.role !== 'admin' && (
                                                 deletingId === u.id ? (

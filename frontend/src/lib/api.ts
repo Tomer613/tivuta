@@ -570,6 +570,8 @@ export interface Vertical {
     subtitle_yi?: string | null;
     icon: string;
     supports_appointments: boolean;
+    requires_gabbai: boolean;
+    allows_custom_items_note: boolean;
     attribute_fields: VerticalAttributeField[];
     display_order: number;
     is_active: boolean;
@@ -578,9 +580,9 @@ export interface Vertical {
 // Used only if the backend is briefly unreachable during a static build — keeps the 3 worlds
 // that exist today from vanishing out of the build entirely.
 const FALLBACK_VERTICALS: Vertical[] = [
-    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, attribute_fields: [], display_order: 0, is_active: true },
-    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, attribute_fields: [], display_order: 1, is_active: true },
-    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, attribute_fields: [], display_order: 2, is_active: true },
+    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, requires_gabbai: false, allows_custom_items_note: false, attribute_fields: [], display_order: 0, is_active: true },
+    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, attribute_fields: [], display_order: 1, is_active: true },
+    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, attribute_fields: [], display_order: 2, is_active: true },
 ];
 
 export async function getVerticals(): Promise<Vertical[]> {
@@ -830,7 +832,7 @@ export interface CartCheckoutLead {
     quantity_discount_percent_snapshot?: number | null;
 }
 
-export async function cartCheckout(token: string, payload: { items: { product_id: number; quantity: number }[]; locale?: string }): Promise<CartCheckoutLead[]> {
+export async function cartCheckout(token: string, payload: { items: { product_id: number; quantity: number }[]; locale?: string; custom_items_note?: string }): Promise<CartCheckoutLead[]> {
     const res = await fetch(`${BASE_URL}/leads/cart-checkout`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
@@ -962,6 +964,26 @@ export async function updateUserProfile(token: string, payload: { phone?: string
         body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Failed to update profile');
+    return res.json();
+}
+
+export interface GabbaiRegistrationPayload {
+    community_name: string;
+    synagogue_address: string;
+    contact_name?: string;
+    contact_phone?: string;
+}
+
+export async function registerGabbai(token: string, payload: GabbaiRegistrationPayload) {
+    const res = await fetch(`${BASE_URL}/users/me/register-gabbai`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to register as gabbai');
+    }
     return res.json();
 }
 
@@ -1103,6 +1125,12 @@ export interface CustomerOrder {
     user_email?: string | null;
     user_phone?: string | null;
     notes?: string | null;
+    orderer_role?: string | null;
+    gabbai_community_name_snapshot?: string | null;
+    gabbai_synagogue_address_snapshot?: string | null;
+    gabbai_contact_name_snapshot?: string | null;
+    gabbai_contact_phone_snapshot?: string | null;
+    custom_items_note?: string | null;
     created_at: string;
     items: CustomerOrderLine[];
 }
@@ -1653,6 +1681,10 @@ export interface MyOrderLine {
 export interface MyOrder {
     id: number;
     order_number: string;
+    orderer_role?: string | null;
+    gabbai_community_name_snapshot?: string | null;
+    gabbai_synagogue_address_snapshot?: string | null;
+    custom_items_note?: string | null;
     created_at: string;
     items: MyOrderLine[];
 }

@@ -77,6 +77,10 @@ class UserRead(UserBase):
     customer_number: Optional[str] = None
     points_balance: int = 0
     locked_until: Optional[datetime] = None
+    gabbai_community_name: Optional[str] = None
+    gabbai_synagogue_address: Optional[str] = None
+    gabbai_contact_name: Optional[str] = None
+    gabbai_contact_phone: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -139,13 +143,22 @@ class UserProfileUpdate(BaseModel):
     membership_tracks: Optional[List[str]] = None
 
 class UserRoleUpdate(BaseModel):
-    role: str  # "member" | "admin"
+    role: str  # "member" | "admin" | "gabbai"
 
 class UserAdminUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+
+
+class GabbaiRegistrationUpdate(BaseModel):
+    """Self-service gabbai registration/edit — POST /users/me/register-gabbai.
+    Also used to edit the details later, once already registered."""
+    community_name: str = Field(min_length=1)
+    synagogue_address: str = Field(min_length=1)
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
 
 # Auth Schemas
 class Token(BaseModel):
@@ -402,6 +415,8 @@ class VerticalBase(BaseModel):
     subtitle_yi: Optional[str] = None
     icon: str = "Store"
     supports_appointments: bool = False
+    requires_gabbai: bool = False
+    allows_custom_items_note: bool = False
     attribute_fields: List[VerticalAttributeField] = []
     display_order: int = 0
     is_active: bool = True
@@ -442,6 +457,8 @@ class VerticalUpdate(BaseModel):
     subtitle_yi: Optional[str] = None
     icon: Optional[str] = None
     supports_appointments: Optional[bool] = None
+    requires_gabbai: Optional[bool] = None
+    allows_custom_items_note: Optional[bool] = None
     attribute_fields: Optional[List[VerticalAttributeField]] = None
     display_order: Optional[int] = None
     is_active: Optional[bool] = None
@@ -625,6 +642,7 @@ class CartCheckoutItem(BaseModel):
 class CartCheckoutCreate(BaseModel):
     items: List[CartCheckoutItem] = Field(..., min_length=1, max_length=50)
     locale: Optional[str] = None
+    custom_items_note: Optional[str] = Field(None, max_length=2000)
 
 class LeadRead(BaseModel):
     id: int
@@ -719,6 +737,12 @@ class CustomerOrderRead(BaseModel):
     user_email: Optional[str] = None
     user_phone: Optional[str] = None
     notes: Optional[str] = None
+    orderer_role: Optional[str] = None
+    gabbai_community_name_snapshot: Optional[str] = None
+    gabbai_synagogue_address_snapshot: Optional[str] = None
+    gabbai_contact_name_snapshot: Optional[str] = None
+    gabbai_contact_phone_snapshot: Optional[str] = None
+    custom_items_note: Optional[str] = None
     created_at: datetime
     items: List[CustomerOrderLineRead]
 
@@ -821,6 +845,10 @@ class MyOrderLineRead(BaseModel):
 class MyOrderRead(BaseModel):
     id: int
     order_number: str
+    orderer_role: Optional[str] = None
+    gabbai_community_name_snapshot: Optional[str] = None
+    gabbai_synagogue_address_snapshot: Optional[str] = None
+    custom_items_note: Optional[str] = None
     created_at: datetime
     items: List[MyOrderLineRead]
 

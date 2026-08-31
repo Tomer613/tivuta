@@ -115,6 +115,47 @@ def _confirmation_body(locale: str, product_title: str, scheduled_at):
     return template.get(locale, template["he"]).format(title=product_title)
 
 
+def _resolve_orderer_context(db: Session, user: models.User, products: List[models.Product]) -> tuple[str, dict]:
+    """Determines which "hat" (member vs gabbai) an order should be filed under, based on the
+    vertical(s) of the products involved — see Vertical.requires_gabbai. Shared by create_lead
+    (appointments) and cart_checkout so both order-creation paths agree on the same logic instead
+    of drifting.
+
+    Raises 400 if the products span both a gabbai-required vertical and an ordinary one (checkout
+    must be split into two orders), or if a gabbai-required vertical is being ordered by a user
+    who hasn't completed gabbai registration yet.
+
+    Returns (orderer_role, snapshot_fields) — snapshot_fields is a dict of CustomerOrder kwargs,
+    empty for a plain "member" order, or the 4 gabbai_*_snapshot fields (copied from the user's
+    *current* profile at this exact moment, never re-derived later) for a "gabbai" order.
+    """
+    vertical_slugs = {p.vertical for p in products}
+    verticals = db.query(models.Vertical).filter(models.Vertical.slug.in_(vertical_slugs)).all()
+    requires_gabbai_flags = {v.requires_gabbai for v in verticals}
+    if len(verticals) < len(vertical_slugs):
+        # A product whose vertical slug has no matching Vertical row (shouldn't normally happen)
+        # is treated as not requiring gabbai — same permissive default as the column itself.
+        requires_gabbai_flags.add(False)
+
+    if True in requires_gabbai_flags and False in requires_gabbai_flags:
+        raise HTTPException(
+            status_code=400,
+            detail="לא ניתן להזמין פריטי קידושים יחד עם פריטים מעולם אחר באותה הזמנה — יש להזמין בנפרד",
+        )
+
+    if True in requires_gabbai_flags:
+        if user.role != "gabbai":
+            raise HTTPException(status_code=400, detail="יש להשלים רישום כגבאי באזור האישי לפני הזמנה מעולם זה")
+        return "gabbai", {
+            "gabbai_community_name_snapshot": user.gabbai_community_name,
+            "gabbai_synagogue_address_snapshot": user.gabbai_synagogue_address,
+            "gabbai_contact_name_snapshot": user.gabbai_contact_name,
+            "gabbai_contact_phone_snapshot": user.gabbai_contact_phone,
+        }
+
+    return "member", {}
+
+
 @router.post("/leads", response_model=schemas.LeadRead)
 def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """Creates an appointment lead. Plain product-interest requests (no scheduled_at) are no
@@ -132,7 +173,8 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=400, detail="Use /leads/cart-checkout for product interest requests")
     lead_type = "appointment"
 
-    order = models.CustomerOrder(user_id=current_user.id)
+    orderer_role, gabbai_snapshot = _resolve_orderer_context(db, current_user, [product])
+    order = models.CustomerOrder(user_id=current_user.id, orderer_role=orderer_role, **gabbai_snapshot)
     db.add(order)
     db.flush()
 
@@ -187,16 +229,25 @@ def _cart_confirmation_body(locale: str, items: list, order_number: str) -> str:
     return template.format(order_number=order_number, count=len(items), rows=rows)
 
 
-def _cart_admin_notification_body(user: models.User, items: list, order_number: str) -> str:
+def _cart_admin_notification_body(user: models.User, items: list, order_number: str, order: "models.CustomerOrder") -> str:
     rows = "".join(f"<li>{title} × {qty}</li>" for title, qty in items)
+    gabbai_lines = ""
+    if order.orderer_role == "gabbai":
+        gabbai_lines = f"""
+      <p><strong>תפקיד מזמין:</strong> גבאי</p>
+      <p><strong>קהילה:</strong> {order.gabbai_community_name_snapshot or '—'}</p>
+      <p><strong>כתובת בית הכנסת:</strong> {order.gabbai_synagogue_address_snapshot or '—'}</p>"""
+    note_line = f"<p><strong>בקשות/מוצרים נוספים:</strong> {order.custom_items_note}</p>" if order.custom_items_note else ""
     return f"""
     <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
       <h2 style="color:#b8860b;">בקשת קשר מרוכזת מהסל — הזמנה {order_number} ({len(items)} מוצרים) 🛒</h2>
       <ul>{rows}</ul>
+      {note_line}
       <hr/>
       <p><strong>שם:</strong> {user.first_name} {user.last_name}</p>
       <p><strong>מייל:</strong> <a href="mailto:{user.email}">{user.email}</a></p>
       <p><strong>טלפון:</strong> {user.phone or '—'}</p>
+      {gabbai_lines}
     </div>"""
 
 
@@ -237,7 +288,14 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
         if bundle_id is not None:
             bundle_aggregates[bundle_id] = bundle_aggregates.get(bundle_id, 0) + quantity
 
-    order = models.CustomerOrder(user_id=current_user.id)
+    orderer_role, gabbai_snapshot = _resolve_orderer_context(db, current_user, products)
+    custom_items_note = (payload.custom_items_note or "").strip() or None
+    order = models.CustomerOrder(
+        user_id=current_user.id,
+        orderer_role=orderer_role,
+        custom_items_note=custom_items_note,
+        **gabbai_snapshot,
+    )
     db.add(order)
     db.flush()
 
@@ -285,7 +343,7 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
         email_sender.send(
             to=ADMIN_NOTIFICATION_EMAIL,
             subject=f"בקשת קשר מהסל — הזמנה {order.order_number} ({len(email_items)} מוצרים) — {current_user.first_name} {current_user.last_name}",
-            html_body=_cart_admin_notification_body(current_user, email_items, order.order_number),
+            html_body=_cart_admin_notification_body(current_user, email_items, order.order_number, order),
             locale="he",
         )
     except Exception:
@@ -333,6 +391,10 @@ def my_orders(db: Session = Depends(get_db), current_user: models.User = Depends
         schemas.MyOrderRead(
             id=order.id,
             order_number=order.order_number,
+            orderer_role=order.orderer_role,
+            gabbai_community_name_snapshot=order.gabbai_community_name_snapshot,
+            gabbai_synagogue_address_snapshot=order.gabbai_synagogue_address_snapshot,
+            custom_items_note=order.custom_items_note,
             created_at=order.created_at,
             items=[_my_order_line_from_lead(lead) for lead in order.leads],
         )
@@ -578,6 +640,12 @@ def admin_list_orders(db: Session = Depends(get_db)):
             user_email=user.email if user else None,
             user_phone=user.phone if user else None,
             notes=order.notes,
+            orderer_role=order.orderer_role,
+            gabbai_community_name_snapshot=order.gabbai_community_name_snapshot,
+            gabbai_synagogue_address_snapshot=order.gabbai_synagogue_address_snapshot,
+            gabbai_contact_name_snapshot=order.gabbai_contact_name_snapshot,
+            gabbai_contact_phone_snapshot=order.gabbai_contact_phone_snapshot,
+            custom_items_note=order.custom_items_note,
             created_at=order.created_at,
             items=[_order_line_from_lead(lead) for lead in order.leads],
         ))

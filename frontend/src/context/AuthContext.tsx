@@ -12,7 +12,7 @@ export interface User {
     first_name: string;
     last_name: string;
     phone?: string;
-    role?: 'member' | 'admin';
+    role?: 'member' | 'admin' | 'gabbai';
     gender?: 'male' | 'female' | null;
     city?: string | null;
     birth_year?: number | null;
@@ -24,6 +24,10 @@ export interface User {
     customer_number?: string | null;
     points_balance?: number;
     locked_until?: string | null;
+    gabbai_community_name?: string | null;
+    gabbai_synagogue_address?: string | null;
+    gabbai_contact_name?: string | null;
+    gabbai_contact_phone?: string | null;
 }
 
 interface AuthContextType {

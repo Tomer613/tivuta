@@ -45,13 +45,18 @@ interface T {
     savings: string;
     qty_discount_active: (percent: number) => string;
     qty_discount_more_needed: (count: number) => string;
+    mixed_cart_blocked: string;
+    gabbai_required: string;
+    complete_gabbai_registration: string;
+    custom_note_label: string;
+    custom_note_placeholder: string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', before_discount: 'לפני הנחה', savings: 'חיסכון', qty_discount_active: (p) => `✓ מבצע כמות הופעל (${p}% הנחה)`, qty_discount_more_needed: (n) => `עוד ${n} יח' ותקבלו הנחת כמות` },
-    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', before_discount: 'Before discount', savings: 'Savings', qty_discount_active: (p) => `✓ Quantity discount applied (${p}% off)`, qty_discount_more_needed: (n) => `${n} more unit(s) for a quantity discount` },
-    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', before_discount: 'Avant remise', savings: 'Économie', qty_discount_active: (p) => `✓ Remise quantité appliquée (${p}%)`, qty_discount_more_needed: (n) => `Encore ${n} unité(s) pour une remise quantité` },
-    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', before_discount: 'פאר הנחה', savings: 'שפּאָרן', qty_discount_active: (p) => `✓ מבצע כמות אקטיוו (${p}% הנחה)`, qty_discount_more_needed: (n) => `נאך ${n} יח' פאר א הנחת כמות` },
+    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', before_discount: 'לפני הנחה', savings: 'חיסכון', qty_discount_active: (p) => `✓ מבצע כמות הופעל (${p}% הנחה)`, qty_discount_more_needed: (n) => `עוד ${n} יח' ותקבלו הנחת כמות`, mixed_cart_blocked: 'לא ניתן להזמין פריטי קידושים יחד עם פריטים מעולם אחר באותה הזמנה — יש להסיר חלק מהפריטים ולהזמין בנפרד.', gabbai_required: 'הזמנה מעולם זה מיועדת לגבאים בלבד.', complete_gabbai_registration: 'להשלמת רישום כגבאי', custom_note_label: 'מוצרים/בקשות נוספים (אופציונלי)', custom_note_placeholder: 'יש לנו צורך גם ב...' },
+    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', before_discount: 'Before discount', savings: 'Savings', qty_discount_active: (p) => `✓ Quantity discount applied (${p}% off)`, qty_discount_more_needed: (n) => `${n} more unit(s) for a quantity discount`, mixed_cart_blocked: 'Kiddush items cannot be ordered together with items from another world — remove some items and order separately.', gabbai_required: 'Ordering from this world is for registered gabbaim only.', complete_gabbai_registration: 'Complete gabbai registration', custom_note_label: 'Additional items/requests (optional)', custom_note_placeholder: 'We also need...' },
+    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', before_discount: 'Avant remise', savings: 'Économie', qty_discount_active: (p) => `✓ Remise quantité appliquée (${p}%)`, qty_discount_more_needed: (n) => `Encore ${n} unité(s) pour une remise quantité`, mixed_cart_blocked: "Les articles de kiddouch ne peuvent pas être commandés avec des articles d'un autre monde — retirez certains articles et commandez séparément.", gabbai_required: 'La commande dans ce monde est réservée aux gabbaïm inscrits.', complete_gabbai_registration: "Compléter l'inscription en tant que gabbaï", custom_note_label: 'Articles/demandes supplémentaires (optionnel)', custom_note_placeholder: 'Nous avons aussi besoin de...' },
+    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', before_discount: 'פאר הנחה', savings: 'שפּאָרן', qty_discount_active: (p) => `✓ מבצע כמות אקטיוו (${p}% הנחה)`, qty_discount_more_needed: (n) => `נאך ${n} יח' פאר א הנחת כמות`, mixed_cart_blocked: 'מ\'קען נישט באשטעלן קידוש זאכן צוזאמען מיט זאכן פון אן אנדער וועלט — מוז אנטפערנען עטלעכע זאכן און באשטעלן באזונדער.', gabbai_required: 'באשטעלונג פון דער וועלט איז נאר פאר רעגיסטרירטע גבאים.', complete_gabbai_registration: 'פֿאַרענדיקן רעגיסטראציע אלס גבאי', custom_note_label: 'נאך זאכן/פארלאנגען (אויסוואל)', custom_note_placeholder: 'מיר דארפן אויך...' },
 };
 
 export default function CartPage() {
@@ -59,14 +64,25 @@ export default function CartPage() {
     const locale = (params?.locale as string) || 'he';
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const t = translations[locale] || translations.he;
-    const { token } = useAuth();
+    const { token, user } = useAuth();
     const verticals = useVerticals();
     const VERTICAL_LABEL: Record<string, string> = Object.fromEntries(verticals.map((v) => [v.slug, v.label_he]));
+    const verticalsBySlug = Object.fromEntries(verticals.map((v) => [v.slug, v]));
     const { items, totalCount, removeFromCart, updateQuantity, clearCart } = useCart();
     const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [orderNumber, setOrderNumber] = useState<string | null>(null);
     const [savedSummary, setSavedSummary] = useState<{ original: number; paid: number } | null>(null);
+    const [customNote, setCustomNote] = useState('');
+
+    // See Vertical.requires_gabbai / allows_custom_items_note — a cart mixing a gabbai-required
+    // world (e.g. kiddush) with an ordinary one can't be checked out as one order (mirrors the
+    // backend's own _resolve_orderer_context guard in POST /leads/cart-checkout).
+    const hasGabbaiRequiredItem = items.some((i) => verticalsBySlug[i.vertical]?.requires_gabbai);
+    const hasOrdinaryItem = items.some((i) => !verticalsBySlug[i.vertical]?.requires_gabbai);
+    const mixedCartBlocked = hasGabbaiRequiredItem && hasOrdinaryItem;
+    const needsGabbaiRegistration = hasGabbaiRequiredItem && user?.role !== 'gabbai';
+    const allowsCustomNote = items.some((i) => verticalsBySlug[i.vertical]?.allows_custom_items_note);
 
     // Pre-checkout preview only — the server independently recomputes and stores the
     // authoritative snapshot at checkout time (see services/pricing.py); this is display only.
@@ -86,13 +102,14 @@ export default function CartPage() {
     const hasOnRequestItem = items.some((i) => !i.price);
 
     const handleCheckout = async () => {
-        if (!token || items.length === 0 || status === 'submitting') return;
+        if (!token || items.length === 0 || status === 'submitting' || mixedCartBlocked || needsGabbaiRegistration) return;
         setStatus('submitting');
         setErrorMessage(null);
         try {
             const leads = await cartCheckout(token, {
                 items: items.map((i) => ({ product_id: i.id, quantity: i.quantity })),
                 locale,
+                custom_items_note: allowsCustomNote && customNote.trim() ? customNote.trim() : undefined,
             });
             const orderId = leads?.[0]?.customer_order_id;
             setOrderNumber(orderId ? `ORD-${String(orderId).padStart(6, '0')}` : null);
@@ -241,7 +258,41 @@ export default function CartPage() {
                                 <p className="text-red-400 text-sm mb-3 text-center">{errorMessage || t.error}</p>
                             )}
 
-                            {token ? (
+                            {mixedCartBlocked && (
+                                <p className="text-red-400 text-sm mb-3 text-center">{t.mixed_cart_blocked}</p>
+                            )}
+
+                            {!mixedCartBlocked && allowsCustomNote && (
+                                <div className="mb-4">
+                                    <label className="text-xs text-[#f0e6d3]/50 mb-1 block">{t.custom_note_label}</label>
+                                    <textarea
+                                        value={customNote}
+                                        onChange={(e) => setCustomNote(e.target.value)}
+                                        placeholder={t.custom_note_placeholder}
+                                        rows={2}
+                                        className="w-full bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-3 text-sm text-[#f0e6d3] resize-none"
+                                    />
+                                </div>
+                            )}
+
+                            {mixedCartBlocked ? null : !token ? (
+                                <Link
+                                    href={`/${locale}/login?redirect=/${locale}/cart`}
+                                    className="btn-primary w-full flex items-center justify-center gap-2"
+                                >
+                                    {t.login_to_checkout}
+                                </Link>
+                            ) : needsGabbaiRegistration ? (
+                                <div className="text-center">
+                                    <p className="text-[#f0e6d3]/60 text-sm mb-3">{t.gabbai_required}</p>
+                                    <Link
+                                        href={`/${locale}/profile#gabbai-registration`}
+                                        className="btn-primary w-full flex items-center justify-center gap-2"
+                                    >
+                                        {t.complete_gabbai_registration}
+                                    </Link>
+                                </div>
+                            ) : (
                                 <button
                                     onClick={handleCheckout}
                                     disabled={status === 'submitting'}
@@ -250,13 +301,6 @@ export default function CartPage() {
                                     {status === 'submitting' ? <Loader2 className="animate-spin" size={18} /> : <MessageCircle size={18} />}
                                     {status === 'submitting' ? t.submitting : t.checkout}
                                 </button>
-                            ) : (
-                                <Link
-                                    href={`/${locale}/login?redirect=/${locale}/cart`}
-                                    className="btn-primary w-full flex items-center justify-center gap-2"
-                                >
-                                    {t.login_to_checkout}
-                                </Link>
                             )}
                         </div>
                     </>
