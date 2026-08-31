@@ -116,6 +116,28 @@ def test_checkout_from_gabbai_vertical_tags_order_and_snapshots(client, db_sessi
     assert order_after["gabbai_community_name_snapshot"] == "בית הכנסת הגדול"
 
 
+def test_custom_items_note_dropped_when_vertical_does_not_allow_it(client, db_session, make_user):
+    _make_vertical(db_session, "diamonds", requires_gabbai=False, allows_custom_items_note=False)
+    product = _make_product(db_session, "diamonds")
+    make_user(email="notenote@example.com", password="testpass123")
+    headers = _login(client, "notenote@example.com")
+
+    resp = client.post(
+        "/leads/cart-checkout",
+        json={
+            "items": [{"product_id": product.id, "quantity": 1}],
+            "custom_items_note": "should not be stored",
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    order_id = resp.json()[0]["customer_order_id"]
+
+    my_orders = client.get("/users/me/orders", headers=headers).json()
+    order = next(o for o in my_orders if o["id"] == order_id)
+    assert order["custom_items_note"] is None
+
+
 def test_mixed_gabbai_and_ordinary_vertical_checkout_blocked(client, db_session, make_user):
     _make_vertical(db_session, "kiddush", requires_gabbai=True)
     _make_vertical(db_session, "diamonds", requires_gabbai=False)

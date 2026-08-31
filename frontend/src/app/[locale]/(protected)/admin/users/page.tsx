@@ -32,6 +32,7 @@ export default function AdminUsersPage() {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [form, setForm] = useState({ first_name: '', last_name: '', email: '', phone: '', password: '' });
     const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [pendingRoleChange, setPendingRoleChange] = useState<{ userId: number; nextRole: string } | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
@@ -62,14 +63,27 @@ export default function AdminUsersPage() {
         member: users.filter((u) => u.role !== 'admin' && u.role !== 'gabbai').length,
     }), [users]);
 
-    const handleRoleChange = async (u: User, nextRole: string) => {
-        if (!token || nextRole === (u.role || 'member')) return;
+    const applyRoleChange = async (u: User, nextRole: string) => {
+        if (!token) return;
         try {
             await adminSetUserRole(token, u.id, nextRole);
             showToast(`התפקיד של ${u.first_name} עודכן ל"${ROLE_LABEL[nextRole]}" ✓`);
             load();
         } catch {
             showToast('שגיאה בשינוי תפקיד', 'error');
+        }
+        setPendingRoleChange(null);
+    };
+
+    // A change into or out of "admin" grants/revokes real backend access — worth an explicit
+    // confirm step (a misclick on the select is otherwise a one-action privilege change with no
+    // undo). member <-> gabbai is lower-stakes and applies immediately, same as before.
+    const handleRoleChange = (u: User, nextRole: string) => {
+        if (!token || nextRole === (u.role || 'member')) return;
+        if (nextRole === 'admin' || u.role === 'admin') {
+            setPendingRoleChange({ userId: u.id, nextRole });
+        } else {
+            applyRoleChange(u, nextRole);
         }
     };
 
@@ -231,17 +245,25 @@ export default function AdminUsersPage() {
                                             {isAccountLocked(u.locked_until) && (
                                                 <UnlockButton onClick={() => handleUnlock(u)} />
                                             )}
-                                            {/* Role select */}
-                                            <select
-                                                value={u.role || 'member'}
-                                                onChange={(e) => handleRoleChange(u, e.target.value)}
-                                                className="bg-[#111a2f] border border-[#d4af37]/20 rounded-lg px-2 py-1 text-xs font-bold text-[#f0e6d3]"
-                                                title="שינוי תפקיד"
-                                            >
-                                                <option value="member">חבר</option>
-                                                <option value="gabbai">גבאי</option>
-                                                <option value="admin">מנהל</option>
-                                            </select>
+                                            {/* Role select — a pending admin transition shows a confirm step instead */}
+                                            {pendingRoleChange?.userId === u.id ? (
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className="text-[#f0e6d3]/60">לשנות ל&quot;{ROLE_LABEL[pendingRoleChange.nextRole]}&quot;?</span>
+                                                    <button onClick={() => applyRoleChange(u, pendingRoleChange.nextRole)} className="text-[#d4af37] font-bold hover:text-[#f0c94a]">כן</button>
+                                                    <button onClick={() => setPendingRoleChange(null)} className="text-[#f0e6d3]/40 hover:text-[#f0e6d3]">לא</button>
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    value={u.role || 'member'}
+                                                    onChange={(e) => handleRoleChange(u, e.target.value)}
+                                                    className="bg-[#111a2f] border border-[#d4af37]/20 rounded-lg px-2 py-1 text-xs font-bold text-[#f0e6d3]"
+                                                    title="שינוי תפקיד"
+                                                >
+                                                    <option value="member">חבר</option>
+                                                    <option value="gabbai">גבאי</option>
+                                                    <option value="admin">מנהל</option>
+                                                </select>
+                                            )}
                                             {/* Delete — only for members */}
                                             {u.role !== 'admin' && (
                                                 deletingId === u.id ? (

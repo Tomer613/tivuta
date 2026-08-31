@@ -115,7 +115,7 @@ def _confirmation_body(locale: str, product_title: str, scheduled_at):
     return template.get(locale, template["he"]).format(title=product_title)
 
 
-def _resolve_orderer_context(db: Session, user: models.User, products: List[models.Product]) -> tuple[str, dict]:
+def _resolve_orderer_context(db: Session, user: models.User, products: List[models.Product]) -> tuple[str, dict, bool]:
     """Determines which "hat" (member vs gabbai) an order should be filed under, based on the
     vertical(s) of the products involved — see Vertical.requires_gabbai. Shared by create_lead
     (appointments) and cart_checkout so both order-creation paths agree on the same logic instead
@@ -125,13 +125,18 @@ def _resolve_orderer_context(db: Session, user: models.User, products: List[mode
     must be split into two orders), or if a gabbai-required vertical is being ordered by a user
     who hasn't completed gabbai registration yet.
 
-    Returns (orderer_role, snapshot_fields) — snapshot_fields is a dict of CustomerOrder kwargs,
-    empty for a plain "member" order, or the 4 gabbai_*_snapshot fields (copied from the user's
-    *current* profile at this exact moment, never re-derived later) for a "gabbai" order.
+    Returns (orderer_role, snapshot_fields, allows_custom_note):
+    - snapshot_fields is a dict of CustomerOrder kwargs, empty for a plain "member" order, or the
+      4 gabbai_*_snapshot fields (copied from the user's *current* profile at this exact moment,
+      never re-derived later) for a "gabbai" order.
+    - allows_custom_note is True iff at least one product's vertical has
+      Vertical.allows_custom_items_note=True — callers must not persist a client-supplied
+      custom_items_note unless this is True (see Lead/CustomerOrder model docstring).
     """
     vertical_slugs = {p.vertical for p in products}
     verticals = db.query(models.Vertical).filter(models.Vertical.slug.in_(vertical_slugs)).all()
     requires_gabbai_flags = {v.requires_gabbai for v in verticals}
+    allows_custom_note = any(v.allows_custom_items_note for v in verticals)
     if len(verticals) < len(vertical_slugs):
         # A product whose vertical slug has no matching Vertical row (shouldn't normally happen)
         # is treated as not requiring gabbai — same permissive default as the column itself.
@@ -151,9 +156,9 @@ def _resolve_orderer_context(db: Session, user: models.User, products: List[mode
             "gabbai_synagogue_address_snapshot": user.gabbai_synagogue_address,
             "gabbai_contact_name_snapshot": user.gabbai_contact_name,
             "gabbai_contact_phone_snapshot": user.gabbai_contact_phone,
-        }
+        }, allows_custom_note
 
-    return "member", {}
+    return "member", {}, allows_custom_note
 
 
 @router.post("/leads", response_model=schemas.LeadRead)
@@ -173,7 +178,7 @@ def create_lead(payload: schemas.LeadCreate, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=400, detail="Use /leads/cart-checkout for product interest requests")
     lead_type = "appointment"
 
-    orderer_role, gabbai_snapshot = _resolve_orderer_context(db, current_user, [product])
+    orderer_role, gabbai_snapshot, _ = _resolve_orderer_context(db, current_user, [product])
     order = models.CustomerOrder(user_id=current_user.id, orderer_role=orderer_role, **gabbai_snapshot)
     db.add(order)
     db.flush()
@@ -233,11 +238,15 @@ def _cart_admin_notification_body(user: models.User, items: list, order_number: 
     rows = "".join(f"<li>{title} × {qty}</li>" for title, qty in items)
     gabbai_lines = ""
     if order.orderer_role == "gabbai":
+        # community/address are free text the user self-entered via /users/me/register-gabbai —
+        # escaped before landing in this raw HTML email string, same reasoning as the custom note.
+        community = html_escape(order.gabbai_community_name_snapshot) if order.gabbai_community_name_snapshot else "—"
+        address = html_escape(order.gabbai_synagogue_address_snapshot) if order.gabbai_synagogue_address_snapshot else "—"
         gabbai_lines = f"""
       <p><strong>תפקיד מזמין:</strong> גבאי</p>
-      <p><strong>קהילה:</strong> {order.gabbai_community_name_snapshot or '—'}</p>
-      <p><strong>כתובת בית הכנסת:</strong> {order.gabbai_synagogue_address_snapshot or '—'}</p>"""
-    note_line = f"<p><strong>בקשות/מוצרים נוספים:</strong> {order.custom_items_note}</p>" if order.custom_items_note else ""
+      <p><strong>קהילה:</strong> {community}</p>
+      <p><strong>כתובת בית הכנסת:</strong> {address}</p>"""
+    note_line = f"<p><strong>בקשות/מוצרים נוספים:</strong> {html_escape(order.custom_items_note)}</p>" if order.custom_items_note else ""
     return f"""
     <div dir="rtl" style="font-family:Arial,sans-serif;color:#111;">
       <h2 style="color:#b8860b;">בקשת קשר מרוכזת מהסל — הזמנה {order_number} ({len(items)} מוצרים) 🛒</h2>
@@ -288,8 +297,13 @@ def cart_checkout(payload: schemas.CartCheckoutCreate, db: Session = Depends(get
         if bundle_id is not None:
             bundle_aggregates[bundle_id] = bundle_aggregates.get(bundle_id, 0) + quantity
 
-    orderer_role, gabbai_snapshot = _resolve_orderer_context(db, current_user, products)
+    orderer_role, gabbai_snapshot, allows_custom_note = _resolve_orderer_context(db, current_user, products)
+    # A client-supplied note is only ever persisted when at least one product's vertical actually
+    # opted into it (Vertical.allows_custom_items_note) — dropped silently otherwise rather than
+    # rejecting the whole checkout over an extraneous field.
     custom_items_note = (payload.custom_items_note or "").strip() or None
+    if not allows_custom_note:
+        custom_items_note = None
     order = models.CustomerOrder(
         user_id=current_user.id,
         orderer_role=orderer_role,

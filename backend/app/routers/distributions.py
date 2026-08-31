@@ -254,8 +254,9 @@ def _send_distribution(distribution_id: int) -> None:
             # built fresh inside the loop for each actual send.
             _build_distribution_email(distribution, "he", "")
 
-            # Only send to member users; apply segmentation filters
-            user_query = db.query(models.User).filter(models.User.role == "member")
+            # Only send to non-admin users (a gabbai is still a member with an extra hat, same
+            # reasoning as admin_member_count/admin_stats in users.py); apply segmentation filters
+            user_query = db.query(models.User).filter(models.User.role != "admin")
             if distribution.filter_city:
                 user_query = user_query.filter(models.User.city == distribution.filter_city)
             users = user_query.all()
@@ -538,8 +539,8 @@ def admin_preview_distribution(
     locale = schemas.normalize_locale(locale)
     subject, html = _build_distribution_email(distribution, locale, current_user.first_name)
 
-    # Count target audience
-    user_query = db.query(models.User).filter(models.User.role == "member")
+    # Count target audience (same non-admin filter as the real send, see _send_distribution)
+    user_query = db.query(models.User).filter(models.User.role != "admin")
     if distribution.filter_city:
         user_query = user_query.filter(models.User.city == distribution.filter_city)
     users = user_query.all()
@@ -561,7 +562,7 @@ def admin_send_test_distribution(
     send would use - a side-channel verification action, not a real send. Deliberately never
     touches status/sent_at/DistributionSendLog, since a test send must never look like (or count
     toward) a real campaign send. This is how an admin can actually check their own system, since
-    real campaign sends only ever go to role == "member" users - admins are never recipients."""
+    real campaign sends only ever go to non-admin users - admins are never recipients."""
     distribution = (
         db.query(models.Distribution)
         .options(
