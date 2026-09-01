@@ -110,13 +110,13 @@ def test_garbage_payload_locale_never_persists_to_lead_or_notification(client, d
     monkeypatch.setattr("app.routers.leads.get_email_sender", lambda: fake_sender)
 
     resp = client.post(
-        "/leads",
-        json={"product_id": product.id, "scheduled_at": "2026-09-01T10:00:00", "locale": "xyz123"},
+        "/leads/cart-checkout",
+        json={"items": [{"product_id": product.id, "quantity": 1}], "locale": "xyz123"},
         headers=member_headers,
     )
     assert resp.status_code == 200
-    lead_id = resp.json()["id"]
-    order_id = resp.json()["customer_order_id"]
+    lead_id = resp.json()[0]["id"]
+    order_id = resp.json()[0]["customer_order_id"]
 
     lead_row = db_session.query(models.Lead).filter(models.Lead.id == lead_id).first()
     assert lead_row.locale == "he"  # clamped, not "xyz123"
@@ -159,12 +159,12 @@ def test_finalize_order_email_and_notification_use_preferred_language(client, db
     monkeypatch.setattr("app.routers.leads.get_email_sender", lambda: fake_sender)
 
     create_resp = client.post(
-        "/leads",
-        json={"product_id": product.id, "scheduled_at": "2026-09-01T10:00:00"},
+        "/leads/cart-checkout",
+        json={"items": [{"product_id": product.id, "quantity": 1}]},
         headers=member_headers,
     )
-    lead_id = create_resp.json()["id"]
-    order_id = create_resp.json()["customer_order_id"]
+    lead_id = create_resp.json()[0]["id"]
+    order_id = create_resp.json()[0]["customer_order_id"]
     client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
     fake_sender.sent.clear()  # only care about the finalize email below
 
@@ -238,10 +238,10 @@ def test_finalize_order_supports_french_and_yiddish_natively(client, db_session,
     monkeypatch.setattr("app.routers.leads.get_email_sender", lambda: fake_sender)
 
     create_resp = client.post(
-        "/leads", json={"product_id": product.id, "scheduled_at": "2026-09-01T10:00:00"}, headers=member_headers,
+        "/leads/cart-checkout", json={"items": [{"product_id": product.id, "quantity": 1}]}, headers=member_headers,
     )
-    lead_id = create_resp.json()["id"]
-    order_id = create_resp.json()["customer_order_id"]
+    lead_id = create_resp.json()[0]["id"]
+    order_id = create_resp.json()[0]["customer_order_id"]
     client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
     fake_sender.sent.clear()
 

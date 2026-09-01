@@ -755,6 +755,15 @@ def admin_finalize_order(order_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status not in ("new", "awaiting_customer"):
         raise HTTPException(status_code=400, detail="Order already confirmed or cancelled")
+    # This whole mechanism (confirmation link, 24h deadline, auto-cancel) is about confirming a
+    # *price* before payment — it was never meant for appointment/card_order orders, which have
+    # nothing to "confirm" price-wise and already have their own separate flows (appointment
+    # reminders, manual card fulfillment). In practice every order is homogeneous in lead_type
+    # (cart_checkout only ever creates contact_request leads; create_lead/create_card_order each
+    # create a single-lead order of their own type) — so this check is really "is this a product
+    # order at all," not a per-line filter.
+    if not any(lead.lead_type == "contact_request" for lead in order.leads):
+        raise HTTPException(status_code=400, detail="הזמנה מסוג זה אינה דורשת אישור סופי מהלקוח")
     user = order.user
     if not user:
         raise HTTPException(status_code=404, detail="Order has no associated user")
@@ -850,7 +859,7 @@ def admin_assign_lead(lead_id: int, payload: schemas.LeadAssignUpdate, db: Sessi
 
 @router.patch("/admin/leads/bulk", dependencies=[Depends(get_current_admin)])
 def admin_bulk_action(payload: schemas.LeadBulkAction, db: Session = Depends(get_db)):
-    leads = db.query(models.Lead).filter(models.Lead.id.in_(payload.lead_ids)).all()
+    leads = db.query(models.Lead).options(selectinload(models.Lead.customer_order)).filter(models.Lead.id.in_(payload.lead_ids)).all()
     if not leads:
         raise HTTPException(status_code=404, detail="No leads found")
     ts = datetime.utcnow().isoformat()
@@ -861,6 +870,12 @@ def admin_bulk_action(payload: schemas.LeadBulkAction, db: Session = Depends(get
             valid = {"new", "confirmed", "contacted", "closed", "cancelled"}
             if payload.value not in valid:
                 raise HTTPException(status_code=400, detail=f"Invalid status: {payload.value}")
+            # Same guard as the single-item endpoint: a lead whose order was already cancelled
+            # (and therefore already restocked) must not be reactivated here — skip it rather
+            # than fail the whole batch, so an unrelated cancelled lead in the selection doesn't
+            # block updating the rest.
+            if lead.customer_order and lead.customer_order.status == "cancelled":
+                continue
             old = lead.status
             lead.status = payload.value
             history.append({"ts": ts, "action": "bulk_status_change", "from_val": old, "to_val": payload.value})
@@ -1043,9 +1058,15 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
     valid = {"new", "confirmed", "contacted", "closed"}
     if status not in valid:
         raise HTTPException(status_code=400, detail=f"Status must be one of {valid}")
-    lead = db.query(models.Lead).filter(models.Lead.id == lead_id).first()
+    lead = db.query(models.Lead).options(selectinload(models.Lead.customer_order)).filter(models.Lead.id == lead_id).first()
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
+    # A lead whose order was cancelled (order-level cancel already restocked it and marked it
+    # "cancelled") must not be individually reactivated from here — that would silently
+    # double-decrement stock (reserve_or_release_stock_for_lead has no notion of order status).
+    # The order itself would need to be un-cancelled first, which isn't a supported operation.
+    if lead.customer_order and lead.customer_order.status == "cancelled":
+        raise HTTPException(status_code=400, detail="לא ניתן לשנות סטטוס של פריט שההזמנה שלו בוטלה")
     old_status = lead.status
     lead.status = status
     history = list(lead.history or [])

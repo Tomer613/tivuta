@@ -194,6 +194,14 @@ def admin_create_products_batch(products_in: List[schemas.ProductCreate], db: Se
     db.commit()
     for p in new_products:
         db.refresh(p)
+        # Same "initial_stock" ledger entry admin_create_product writes — a batch-created product
+        # with a starting stock_quantity must be just as audited as one created individually.
+        if p.stock_quantity is not None:
+            db.add(models.InventoryLedgerEntry(
+                product_id=p.id, delta=p.stock_quantity, reason="initial_stock",
+                balance_after=p.stock_quantity,
+            ))
+    db.commit()
     return new_products
 
 

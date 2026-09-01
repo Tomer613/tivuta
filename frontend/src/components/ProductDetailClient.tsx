@@ -11,7 +11,7 @@ import {
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { requireLogin } from '@/lib/requireLogin';
 import { shareProductOnWhatsApp } from '@/lib/share';
-import { Product, PromotionBrief, promotionLabel, QuantityDiscountNote } from '@/components/ProductTile';
+import { Product, PromotionBrief, promotionLabel, QuantityDiscountNote, LOW_STOCK_THRESHOLD } from '@/components/ProductTile';
 import ProductActionButtons from '@/components/ProductActionButtons';
 import { useAttrLabels } from '@/lib/useVerticals';
 import { useCountdown } from '@/lib/useCountdown';
@@ -461,7 +461,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
                             {product.quantity_discount && product.quantity_discount.tiers.length > 0 && (
                                 <QuantityDiscountNote tiers={product.quantity_discount.tiers} locale={locale} />
                             )}
-                            {product.stock_quantity != null && product.stock_quantity < 10 && (
+                            {product.stock_quantity != null && product.stock_quantity < LOW_STOCK_THRESHOLD && (
                                 <p className={`text-sm font-bold mt-1 ${product.stock_quantity <= 0 ? 'text-red-400' : 'text-orange-400'}`}>
                                     {product.stock_quantity <= 0 ? t.out_of_stock : `${t.low_stock_prefix} ${product.stock_quantity} ${t.low_stock_suffix}`}
                                 </p>

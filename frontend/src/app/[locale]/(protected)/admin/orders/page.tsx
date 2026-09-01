@@ -26,6 +26,12 @@ const STATUSES = [
     { value: 'contacted', label: 'טופלה',   color: 'bg-[#d4af37]/20 text-[#d4af37]' },
     { value: 'closed',    label: 'סגורה',   color: 'bg-[#111a2f] text-[#f0e6d3]/30' },
 ];
+// "cancelled" is deliberately NOT a selectable option in the per-item <select> below (the backend
+// only allows reaching it via order-level cancellation or the bulk action) — it's here purely so
+// statusInfo() resolves the right label/color wherever an already-cancelled line item is *displayed*
+// (Kanban, history), instead of silently falling back to STATUSES[0] ("new").
+const CANCELLED_STATUS = { value: 'cancelled', label: 'בוטלה', color: 'bg-red-500/10 text-red-400' };
+const ALL_STATUSES = [...STATUSES, CANCELLED_STATUS];
 
 // Order-level status — deliberately different wording from line-item STATUSES above (a line item
 // can say "מאושרת" while the order overall is still "בבדיקה"). Drives the dashboard's stat cards
@@ -314,7 +320,7 @@ export default function AdminOrdersPage() {
         }
     };
 
-    const statusInfo = (val: string) => STATUSES.find((s) => s.value === val) ?? STATUSES[0];
+    const statusInfo = (val: string) => ALL_STATUSES.find((s) => s.value === val) ?? STATUSES[0];
     const orderStatusInfo = (val: string) => ORDER_STATUSES.find((s) => s.value === val) ?? ORDER_STATUSES[0];
 
     // "סיימתי, שלח ללקוח" — sends the one consolidated summary email (see backend
@@ -410,7 +416,7 @@ export default function AdminOrdersPage() {
             l.vendor_name_he ?? '',
             TYPE_LABEL[l.lead_type] ?? l.lead_type,
             l.quantity ?? '',
-            STATUSES.find((s) => s.value === l.status)?.label ?? l.status,
+            ALL_STATUSES.find((s) => s.value === l.status)?.label ?? l.status,
             new Date(l.created_at).toLocaleDateString('he-IL'),
         ]));
         const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -596,7 +602,10 @@ export default function AdminOrdersPage() {
                                                 </p>
                                             )}
                                             <div className="flex items-center gap-2">
-                                                {(order.status === 'new' || order.status === 'awaiting_customer') && (
+                                                {/* Only orders with at least one priced product line have anything to
+                                                    "confirm" — appointment/card_order orders have their own separate
+                                                    flows and are rejected by the backend if attempted here. */}
+                                                {(order.status === 'new' || order.status === 'awaiting_customer') && order.items.some((i) => i.lead_type === 'contact_request') && (
                                                     <button
                                                         onClick={() => handleFinalizeOrder(order)}
                                                         disabled={finalizingOrderId === order.id}
@@ -738,9 +747,13 @@ export default function AdminOrdersPage() {
                                                                             {adminUsers.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>)}
                                                                         </select>
 
-                                                                        {/* Status */}
+                                                                        {/* Status — a cancelled line item (its order was cancelled) is no longer
+                                                                            editable here, matching the backend's guard against reactivating a
+                                                                            lead whose stock reservation was already released. */}
                                                                         {updatingLineId === line.id ? (
                                                                             <Loader2 size={16} className="animate-spin text-[#d4af37]" />
+                                                                        ) : line.status === 'cancelled' ? (
+                                                                            <span className={`rounded-xl px-3 py-1.5 text-xs font-bold ${si.color}`}>{si.label}</span>
                                                                         ) : (
                                                                             <select
                                                                                 value={line.status}

@@ -27,6 +27,7 @@ interface T {
     payment_placeholder: string;
     community: string;
     custom_note: string;
+    item_cancelled: string;
 }
 
 const translations: Record<string, T> = {
@@ -38,7 +39,7 @@ const translations: Record<string, T> = {
         already_confirmed: 'ההזמנה כבר אושרה', confirmed_message: 'תודה! ההזמנה שלך אושרה סופית.',
         cancelled_title: 'ההזמנה בוטלה', cancelled_message: 'הזמנה זו בוטלה ואינה זמינה יותר לאישור.',
         payment_title: 'תשלום', payment_placeholder: 'אפשרות התשלום המקוונת תתווסף בקרוב. הצוות שלנו יצור איתך קשר להשלמת התשלום.',
-        community: 'קהילה', custom_note: 'בקשות/מוצרים נוספים',
+        community: 'קהילה', custom_note: 'בקשות/מוצרים נוספים', item_cancelled: 'בוטל',
     },
     en: {
         title: 'Order Confirmation', loading: 'Loading...', not_found: 'This confirmation link was not found or is invalid',
@@ -48,7 +49,7 @@ const translations: Record<string, T> = {
         already_confirmed: 'Order already confirmed', confirmed_message: 'Thank you! Your order has been confirmed.',
         cancelled_title: 'Order cancelled', cancelled_message: 'This order was cancelled and is no longer available for confirmation.',
         payment_title: 'Payment', payment_placeholder: 'Online payment will be added soon. Our team will contact you to complete payment.',
-        community: 'Community', custom_note: 'Additional items/requests',
+        community: 'Community', custom_note: 'Additional items/requests', item_cancelled: 'Cancelled',
     },
     fr: {
         title: 'Confirmation de commande', loading: 'Chargement...', not_found: "Ce lien de confirmation est introuvable ou invalide",
@@ -58,7 +59,7 @@ const translations: Record<string, T> = {
         already_confirmed: 'Commande déjà confirmée', confirmed_message: 'Merci ! Votre commande a été confirmée.',
         cancelled_title: 'Commande annulée', cancelled_message: "Cette commande a été annulée et n'est plus disponible pour confirmation.",
         payment_title: 'Paiement', payment_placeholder: "Le paiement en ligne sera bientôt disponible. Notre équipe vous contactera pour finaliser le paiement.",
-        community: 'Communauté', custom_note: 'Articles/demandes supplémentaires',
+        community: 'Communauté', custom_note: 'Articles/demandes supplémentaires', item_cancelled: 'Annulé',
     },
     yi: {
         title: 'באשטעטיקן בעשטעלונג', loading: 'לאדט...', not_found: 'דער לינק איז נישט געפונען אדער נישט גילטיק',
@@ -68,7 +69,7 @@ const translations: Record<string, T> = {
         already_confirmed: 'שוין באשטעטיגט', confirmed_message: 'א דאנק! אײַער בעשטעלונג איז באשטעטיגט געוואָרן.',
         cancelled_title: 'בעשטעלונג אָפּגעזאָגט', cancelled_message: 'די בעשטעלונג איז אָפּגעזאָגט געוואָרן און איז מער נישט צוגענגלעך.',
         payment_title: 'צאלונג', payment_placeholder: 'אָנליין צאלונג וועט באלד צוגעלייגט ווערן. אונדזער צוות וועט זיך מיט אײַך פארבינדן.',
-        community: 'קהילה', custom_note: 'נאך זאכן/פארלאנגען',
+        community: 'קהילה', custom_note: 'נאך זאכן/פארלאנגען', item_cancelled: 'אָפּגעזאָגט',
     },
 };
 
@@ -189,20 +190,24 @@ export default function OrderConfirmClient() {
                             </tr>
                         </thead>
                         <tbody>
-                            {data.items.map((item) => (
-                                <tr key={item.id} className="border-t border-[#d4af37]/10">
+                            {data.items.map((item) => {
+                                const cancelled = item.status === 'cancelled';
+                                return (
+                                <tr key={item.id} className={`border-t border-[#d4af37]/10 ${cancelled ? 'opacity-50' : ''}`}>
                                     <td className="p-3">
-                                        <p className="text-[#f0e6d3] font-semibold">{item.product_title_he || '—'}</p>
+                                        <p className={`text-[#f0e6d3] font-semibold ${cancelled ? 'line-through' : ''}`}>{item.product_title_he || '—'}</p>
+                                        {cancelled && <p className="text-xs text-red-400 mt-0.5">{t.item_cancelled}</p>}
                                         {item.notes && (
                                             <p className="text-xs text-[#d4af37]/70 mt-0.5">{t.notes_from_admin}: {item.notes}</p>
                                         )}
                                     </td>
                                     <td className="p-3 text-center text-[#f0e6d3]/70">{item.quantity ?? 1}</td>
-                                    <td className="p-3 text-end text-[#f0e6d3] font-bold" dir="ltr">
+                                    <td className={`p-3 text-end font-bold ${cancelled ? 'text-[#f0e6d3]/40 line-through' : 'text-[#f0e6d3]'}`} dir="ltr">
                                         {item.unit_price_snapshot != null ? `₪${(item.unit_price_snapshot * (item.quantity ?? 1)).toLocaleString()}` : '—'}
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                     <div className="flex items-center justify-between px-4 py-3 border-t border-[#d4af37]/20 bg-[#111a2f]">

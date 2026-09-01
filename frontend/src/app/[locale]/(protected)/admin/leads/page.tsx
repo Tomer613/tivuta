@@ -47,6 +47,9 @@ const STATUSES = [
     { value: 'contacted', label: 'טופלה',   color: 'bg-[#d4af37]/20 text-[#d4af37]' },
     { value: 'closed',    label: 'סגורה',   color: 'bg-[#111a2f] text-[#f0e6d3]/30' },
 ];
+// Not a selectable option (reachable only via the bulk action) — included so statusInfo() shows
+// the right label/color for an already-cancelled lead instead of falling back to STATUSES[0].
+const ALL_STATUSES = [...STATUSES, { value: 'cancelled', label: 'בוטלה', color: 'bg-red-500/10 text-red-400' }];
 
 const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'פנייה', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס', general_inquiry: 'פנייה כללית', survey_followup: 'מעקב סקר' };
 
@@ -239,7 +242,7 @@ export default function AdminLeadsPage() {
             l.product_title_he ?? (l.subject ? (l.message ? `${l.subject} — ${l.message}` : l.subject) : ''),
             (l.product_vertical ? VERTICAL_LABEL[l.product_vertical] : null) ?? l.product_vertical ?? '',
             TYPE_LABEL[l.lead_type] ?? l.lead_type,
-            STATUSES.find((s) => s.value === l.status)?.label ?? l.status,
+            ALL_STATUSES.find((s) => s.value === l.status)?.label ?? l.status,
             l.scheduled_at ? new Date(l.scheduled_at).toLocaleDateString('he-IL') : '',
             new Date(l.created_at).toLocaleDateString('he-IL'),
         ]);
@@ -271,7 +274,7 @@ export default function AdminLeadsPage() {
         }
     };
 
-    const statusInfo = (val: string) => STATUSES.find((s) => s.value === val) ?? STATUSES[0];
+    const statusInfo = (val: string) => ALL_STATUSES.find((s) => s.value === val) ?? STATUSES[0];
 
     const handleBulkAction = async () => {
         if (!token || !bulkAction || selectedIds.size === 0) return;

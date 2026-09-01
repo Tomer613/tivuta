@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminAdjustProductStock, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, adminListProductCategories, adminBulkAssignCategory, adminListQuantityDiscounts, adminBulkAssignQuantityDiscount, productImageUrl, Vendor, Vertical, ProductCategory, QuantityDiscountBundle } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { useBulkSelection } from '@/lib/useBulkSelection';
-import { Product } from '@/components/ProductTile';
+import { Product, LOW_STOCK_THRESHOLD } from '@/components/ProductTile';
 import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3, ExternalLink, CheckSquare, Square, Minus, Package } from 'lucide-react';
 
 const LANGS = [
@@ -713,7 +713,7 @@ export default function AdminProductsPage() {
                                                     >
                                                         <Minus size={11} />
                                                     </button>
-                                                    <span className={`text-sm font-bold w-6 text-center ${p.stock_quantity < 10 ? 'text-orange-400' : 'text-[#f0e6d3]'}`}>
+                                                    <span className={`text-sm font-bold w-6 text-center ${p.stock_quantity < LOW_STOCK_THRESHOLD ? 'text-orange-400' : 'text-[#f0e6d3]'}`}>
                                                         {stockAdjustingId === p.id ? <Loader2 size={11} className="animate-spin mx-auto" /> : p.stock_quantity}
                                                     </span>
                                                     <button

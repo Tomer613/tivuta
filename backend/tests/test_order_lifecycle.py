@@ -421,6 +421,136 @@ def test_contact_us_with_order_id_links_to_order_and_hides_from_general_leads(cl
     assert order["inquiries"][0]["subject"] == "שאלה על ההזמנה"
 
 
+# ── Post-review fixes ────────────────────────────────────────────────────────────
+
+def test_reactivating_lead_after_order_cancel_is_blocked(client, db_session, make_user):
+    """Regression: un-cancelling a lead whose order was already cancelled (and therefore
+    already restocked) must not be allowed — it would silently double-decrement stock."""
+    _make_vertical(db_session)
+    product = _make_product(db_session, stock_quantity=10)
+    make_user(email="lifecycle19@example.com", password="testpass123")
+    member_headers = _login(client, "lifecycle19@example.com")
+    admin_headers = _make_admin_headers(client, make_user, "lifecycle19admin@example.com")
+
+    lead_id, order_id = _checkout(client, member_headers, product.id, quantity=2)
+    client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
+    client.post(f"/admin/orders/{order_id}/cancel", headers=admin_headers)
+    db_session.refresh(product)
+    assert product.stock_quantity == 10  # restocked by cancel
+
+    # Single-item endpoint rejects moving the now-cancelled lead back to confirmed.
+    resp = client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
+    assert resp.status_code == 400
+    db_session.refresh(product)
+    assert product.stock_quantity == 10  # unchanged — no double-decrement
+
+    # Bulk endpoint silently skips it (not counted as updated) instead of double-decrementing.
+    resp2 = client.patch("/admin/leads/bulk", json={"lead_ids": [lead_id], "action": "set_status", "value": "confirmed"}, headers=admin_headers)
+    assert resp2.status_code == 200
+    assert resp2.json()["updated"] == 0
+    db_session.refresh(product)
+    assert product.stock_quantity == 10
+
+
+def test_reminder_not_marked_sent_when_email_fails(client, db_session, make_user, monkeypatch):
+    """Regression: a swallowed email-send failure must not permanently exclude the order from
+    future reminder attempts."""
+    monkeypatch.setenv("CRON_SECRET", "test-secret-fail")
+    _make_vertical(db_session)
+    product = _make_product(db_session)
+    make_user(email="lifecycle20@example.com", password="testpass123")
+    member_headers = _login(client, "lifecycle20@example.com")
+    admin_headers = _make_admin_headers(client, make_user, "lifecycle20admin@example.com")
+
+    _, order_id = _checkout(client, member_headers, product.id)
+    client.post(f"/admin/orders/{order_id}/finalize", headers=admin_headers)
+    order = db_session.query(models.CustomerOrder).filter(models.CustomerOrder.id == order_id).first()
+    order.confirmation_deadline = datetime.utcnow() + timedelta(hours=1)
+    db_session.commit()
+
+    class _FailingSender:
+        def send(self, **kwargs):
+            raise RuntimeError("simulated provider outage")
+
+    monkeypatch.setattr("app.routers.order_confirm.get_email_sender", lambda: _FailingSender())
+    resp = client.post("/api/orders/send-confirmation-reminders", headers={"Authorization": "Bearer test-secret-fail"})
+    assert resp.status_code == 200
+    assert resp.json()["reminders_sent"] == 0
+
+    db_session.refresh(order)
+    assert order.reminder_sent_at is None  # not marked sent — eligible for retry next run
+
+
+def test_order_confirm_excludes_cancelled_item_from_total_and_shows_status(client, db_session, make_user):
+    _make_vertical(db_session)
+    p1 = _make_product(db_session, price=100.0, title="מוצר א")
+    p2 = _make_product(db_session, price=200.0, title="מוצר ב")
+    make_user(email="lifecycle21@example.com", password="testpass123")
+    member_headers = _login(client, "lifecycle21@example.com")
+    admin_headers = _make_admin_headers(client, make_user, "lifecycle21admin@example.com")
+
+    resp = client.post(
+        "/leads/cart-checkout",
+        json={"items": [{"product_id": p1.id, "quantity": 1}, {"product_id": p2.id, "quantity": 1}]},
+        headers=member_headers,
+    )
+    leads = resp.json()
+    order_id = leads[0]["customer_order_id"]
+    cancelled_lead_id = leads[0]["id"]
+
+    # Admin bulk-cancels just one line item (not the whole order).
+    client.patch("/admin/leads/bulk", json={"lead_ids": [cancelled_lead_id], "action": "set_status", "value": "cancelled"}, headers=admin_headers)
+    client.post(f"/admin/orders/{order_id}/finalize", headers=admin_headers)
+
+    order = db_session.query(models.CustomerOrder).filter(models.CustomerOrder.id == order_id).first()
+    confirm_resp = client.get(f"/order-confirm/{order.confirmation_token}")
+    assert confirm_resp.status_code == 200
+    data = confirm_resp.json()
+    assert data["total"] == 200.0  # only the non-cancelled item counts
+    statuses = {item["id"]: item["status"] for item in data["items"]}
+    assert statuses[cancelled_lead_id] == "cancelled"
+
+
+def test_finalize_rejected_for_appointment_only_order(client, db_session, make_user):
+    _make_vertical(db_session)
+    product = models.Product(vertical="diamonds", title_he="טבעת", description_he="תיאור", price=1000.0)
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+    v = db_session.query(models.Vertical).filter(models.Vertical.slug == "diamonds").first()
+    v.supports_appointments = True
+    db_session.commit()
+
+    make_user(email="lifecycle22@example.com", password="testpass123")
+    member_headers = _login(client, "lifecycle22@example.com")
+    admin_headers = _make_admin_headers(client, make_user, "lifecycle22admin@example.com")
+
+    resp = client.post(
+        "/leads", json={"product_id": product.id, "scheduled_at": "2026-09-01T10:00:00"}, headers=member_headers,
+    )
+    order_id = resp.json()["customer_order_id"]
+
+    finalize_resp = client.post(f"/admin/orders/{order_id}/finalize", headers=admin_headers)
+    assert finalize_resp.status_code == 400
+
+
+def test_batch_create_with_stock_quantity_writes_ledger_entry(client, db_session, make_user):
+    _make_vertical(db_session)
+    admin_headers = _make_admin_headers(client, make_user, "lifecycle23admin@example.com")
+
+    resp = client.post(
+        "/admin/products/batch",
+        json=[{"vertical": "diamonds", "title_he": "מוצר מקבץ", "description_he": "תיאור", "price": 50.0, "stock_quantity": 7}],
+        headers=admin_headers,
+    )
+    assert resp.status_code == 200
+    product_id = resp.json()[0]["id"]
+    entry = db_session.query(models.InventoryLedgerEntry).filter(models.InventoryLedgerEntry.product_id == product_id).first()
+    assert entry is not None
+    assert entry.delta == 7
+    assert entry.reason == "initial_stock"
+
+
 def test_contact_us_with_someone_elses_order_id_rejected(client, db_session, make_user):
     _make_vertical(db_session)
     product = _make_product(db_session)

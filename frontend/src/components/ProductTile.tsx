@@ -8,6 +8,10 @@ import { shareProductOnWhatsApp } from '@/lib/share';
 import ProductActionButtons from '@/components/ProductActionButtons';
 import { useCountdown } from '@/lib/useCountdown';
 
+// Shared with ProductDetailClient.tsx and admin/products/page.tsx — the single place the
+// low-stock cutoff is defined, so all three "running low" displays can never drift out of sync.
+export const LOW_STOCK_THRESHOLD = 10;
+
 export interface PromotionBrief {
     id: number;
     name_he: string;
@@ -259,7 +263,7 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                         {product.quantity_discount && product.quantity_discount.tiers.length > 0 && (
                             <QuantityDiscountNote tiers={product.quantity_discount.tiers} locale={locale} />
                         )}
-                        {product.stock_quantity != null && product.stock_quantity < 10 && (
+                        {product.stock_quantity != null && product.stock_quantity < LOW_STOCK_THRESHOLD && (
                             <span className={`text-xs font-bold mt-1 ${product.stock_quantity <= 0 ? 'text-red-400' : 'text-orange-400'}`}>
                                 {product.stock_quantity <= 0 ? t.out_of_stock : t.low_stock(product.stock_quantity)}
                             </span>

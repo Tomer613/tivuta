@@ -46,7 +46,10 @@ def _build_order_confirm_read(order: models.CustomerOrder) -> schemas.OrderConfi
             notes=lead.notes,
             status=lead.status,
         ))
-        if lead.unit_price_snapshot is not None:
+        # A cancelled line item (e.g. the admin cancelled just this one, not the whole order)
+        # stays visible in the list — the customer should see why the count/total changed — but
+        # never counts toward what they're being asked to confirm/pay.
+        if lead.unit_price_snapshot is not None and lead.status != "cancelled":
             total += lead.unit_price_snapshot * (lead.quantity or 1)
     return schemas.OrderConfirmRead(
         order_number=order.order_number,
@@ -134,9 +137,12 @@ def send_confirmation_reminders(request: Request, db: Session = Depends(get_db))
         try:
             get_email_sender().send(to=user.email, subject=subject, html_body=body, locale=locale)
             sent += 1
+            # Only mark as sent on success — a swallowed send failure must not permanently
+            # exclude this order from future runs of this same query (reminder_sent_at.is_(None)),
+            # or the customer never gets a reminder before the order auto-cancels at its deadline.
+            order.reminder_sent_at = now
         except Exception:
             pass
-        order.reminder_sent_at = now
     db.commit()
     return {"reminders_sent": sent, "ids": [o.id for o in due]}
 
