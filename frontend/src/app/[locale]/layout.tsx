@@ -29,23 +29,23 @@ const SITE_URL = 'https://www.tivuta.co.il';
 
 const LOCALE_META: Record<Locale, { title: string; description: string; ogLocale: string }> = {
     he: {
-        title: 'טיוטה — יהלומים, רכבים, ביטוח ועוד עולמות קנייה לחברי הקהילה',
-        description: 'טיוטה הוא מרקטפלייס רב-עולמות לחברי הקהילה החרדית: יהלומים, רכבים, ביטוח ועוד, עם הטבות בלעדיות ומועדון נאמנות.',
+        title: 'טיבותא — מחברים קהילות לכוח קנייה',
+        description: 'טיבותא הוא מועדון קנייה קהילתי שמחבר בין חברי הקהילה לכוח קנייה משותף, עם הטבות בלעדיות ומועדון נאמנות.',
         ogLocale: 'he_IL',
     },
     en: {
-        title: 'Tivuta — Diamonds, Cars, Insurance & More for Our Community',
-        description: 'Tivuta is a curated multi-vertical marketplace for the community: diamonds, cars, insurance and more, with exclusive member benefits and a loyalty program.',
+        title: 'Tivuta — Connecting Communities to Buying Power',
+        description: 'Tivuta is a community buying club that connects members to shared purchasing power, with exclusive benefits and a loyalty program.',
         ogLocale: 'en_US',
     },
     fr: {
-        title: 'Tivuta — Diamants, Voitures, Assurance et Plus pour Notre Communauté',
-        description: 'Tivuta est une marketplace multi-univers pour la communauté : diamants, voitures, assurance et plus, avec des avantages exclusifs et un programme de fidélité.',
+        title: "Tivuta — Unir les communautés autour du pouvoir d'achat",
+        description: "Tivuta est un club d'achat communautaire qui relie ses membres à un pouvoir d'achat commun, avec des avantages exclusifs et un programme de fidélité.",
         ogLocale: 'fr_FR',
     },
     yi: {
-        title: 'טיוטה — דימענטן, אויטאס, אינשורענס און מער פאר אונדזער קהילה',
-        description: 'טיוטה איז א מולטי-וועלט מארקעטפלעיס פאר דער קהילה: דימענטן, אויטאס, אינשורענס און מער, מיט עקסקלוסיווע מיטגלידער בענעפיטן.',
+        title: 'טיבותא — פאראייניקט קהילות פאר א געמיינזאמען קויף-כח',
+        description: 'טיבותא איז א קהילה קויף-קלוב וואס פאראייניקט מיטגלידער פאר א געמיינזאמען קויף-כח, מיט עקסקלוסיווע בענעפיטן און א לויאלטי פראגראם.',
         ogLocale: 'yi',
     },
 };
