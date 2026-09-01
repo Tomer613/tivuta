@@ -427,6 +427,7 @@ class VerticalBase(BaseModel):
     requires_gabbai: bool = False
     allows_custom_items_note: bool = False
     hide_prices: bool = False
+    enables_shopping_list: bool = False
     default_sort: str = "popularity"
     attribute_fields: List[VerticalAttributeField] = []
     display_order: int = 0
@@ -478,6 +479,7 @@ class VerticalUpdate(BaseModel):
     requires_gabbai: Optional[bool] = None
     allows_custom_items_note: Optional[bool] = None
     hide_prices: Optional[bool] = None
+    enables_shopping_list: Optional[bool] = None
     default_sort: Optional[str] = None
     attribute_fields: Optional[List[VerticalAttributeField]] = None
     display_order: Optional[int] = None
@@ -903,6 +905,51 @@ class MyOrderRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Purchase History Schemas — derived from the user's own past contact_request leads
+# (services/purchase_history.py). Backs the cart page's "bought before" strip, the world listing's
+# "my taste" sort, and the shopping list's auto-seed — one shared shape for all three.
+class PurchaseHistoryItem(BaseModel):
+    product_id: int
+    product_title_he: str
+    product_title_en: Optional[str] = None
+    product_title_fr: Optional[str] = None
+    product_title_yi: Optional[str] = None
+    product_vertical: str
+    product_image_url: Optional[str] = None
+    product_price: Optional[float] = None
+    product_sale_price: float = 0.0
+    last_quantity: int
+    times_purchased: int
+    last_purchased_at: datetime
+
+
+# Shopping List Schemas — a user's own saved, editable per-vertical list (models.ShoppingListItem).
+# See Vertical.enables_shopping_list. No "checked" field anywhere here — which rows are selected to
+# add to the cart on a given visit is transient frontend state, never persisted.
+class ShoppingListItemCreate(BaseModel):
+    product_id: int
+    quantity: int = Field(1, ge=1, le=99)
+
+
+class ShoppingListItemUpdate(BaseModel):
+    quantity: int = Field(..., ge=1, le=99)
+
+
+class ShoppingListItemRead(BaseModel):
+    id: int
+    product_id: int
+    product_title_he: str
+    product_title_en: Optional[str] = None
+    product_title_fr: Optional[str] = None
+    product_title_yi: Optional[str] = None
+    product_image_url: Optional[str] = None
+    product_price: Optional[float] = None
+    product_sale_price: float = 0.0
+    product_is_active: bool
+    quantity: int
+    created_at: datetime
 
 
 # Public order-confirmation page (GET/POST /order-confirm/{token}) — deliberately its own, leaner

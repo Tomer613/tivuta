@@ -124,12 +124,12 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 
 | Table | Purpose |
 |---|---|
-| `users` | Auth accounts; `role`: `member` \| `admin`; `failed_login_attempts`/`locked_until` drive per-account login lockout (see "Per-Account Login Lockout" below) |
+| `users` | Auth accounts; `role`: `member` \| `admin` \| `gabbai` (a member can self-register as a synagogue gabbai to order on behalf of their community — see "Gabbai Role & Order-Hat Snapshots" below); `failed_login_attempts`/`locked_until` drive per-account login lockout (see "Per-Account Login Lockout" below) |
 | `categories` | Top-level benefits categories (slug-based routing) |
 | `sub_categories` | Nested under categories |
 | `items` | Legacy benefits catalog (linked to sub_categories) |
 | `orders` | Legacy user transaction history for dashboard (`GET /orders/me`) — **unrelated to and predates** the `customer_orders` table below; do not confuse the two |
-| `verticals` | Admin-managed "worlds" (diamonds/cars/insurance by default); `Product.vertical`/`Vendor.vertical` store its `slug` |
+| `verticals` | Admin-managed "worlds" (diamonds/cars/insurance by default); `Product.vertical`/`Vendor.vertical` store its `slug`; per-world capability flags include `requires_gabbai`, `allows_custom_items_note`, `hide_prices`, `enables_shopping_list` (see "Purchase History, Recommendations & Shopping List" below) |
 | `products` | Multi-vertical catalog; has `attributes JSON` for vertical-specific fields (schema defined per-vertical in `verticals.attribute_fields`) |
 | `promotions` | Promotion definitions: type, channel, config JSON, dates |
 | `product_promotions` | Junction table linking products ↔ promotions (many-to-many) |
@@ -141,6 +141,7 @@ All tables live in SQLite (dev) / PostgreSQL via Supabase (prod).
 | `distributions` | Broadcast campaigns (survey or daily_deal); channels: email, whatsapp |
 | `distribution_send_logs` | Per-user send status for each campaign |
 | `favorites` | User wishlist; `UniqueConstraint(user_id, product_id)`; CASCADE deletes |
+| `shopping_list_items` | User's own saved, editable per-vertical shopping list (e.g. a gabbai's recurring weekly Kiddush order); `UniqueConstraint(user_id, product_id)`; no "checked" column — see "Purchase History, Recommendations & Shopping List" below |
 | `notifications` | In-app notifications per user; `type`: `lead_status` \| `appointment_reminder` \| `system` \| `followup` \| `points_earned`; `is_read`, `link` fields |
 | `reviews` | Product rating (1–5) + comment; `UniqueConstraint(user_id, product_id)` — upsert semantics |
 | `vendors` | Physical store/supplier per vertical; products optionally belong to one via `Product.vendor_id`; also carries loyalty-program fields (see below); `vendor_code` is a computed property (`{id:03d}`), not a column; `specialty`/`contact_phone`/`contact_email` are separate from `login_email` (portal auth); `failed_login_attempts`/`locked_until` mirror the same lockout fields on `users` |
@@ -2909,6 +2910,125 @@ email silently inheriting the first option's *product* photo.
 
 ---
 
+## Documentation gap found: Gabbai Role & Order-Hat Snapshots (pre-existing feature, undocumented until now)
+
+While researching the session below, found that a full **gabbai role** feature already shipped
+(migration `f3a91c8b4d02_add_gabbai_role_and_order_hat_snapshots.py`, committed and on `main`) with
+**no `CLAUDE.md` entry at all** — this file's `users` table row and every mention of `User.role`
+still said only `member`/`admin` until this session's edit above. Documenting what already exists,
+not something built in this session:
+
+- **`User.role`** can be `"member"` \| `"admin"` \| `"gabbai"`. A gabbai is a self-service-promoted
+  member (`POST /users/me/register-gabbai`, upserts `gabbai_community_name`/
+  `gabbai_synagogue_address`/`gabbai_contact_name`/`gabbai_contact_phone` and flips
+  `role: "member" -> "gabbai"` on first call) who can order on behalf of their synagogue/community —
+  there is no separate `Community`/`Organization` table, just four free-text fields on `User`.
+  Admins can also set the role directly via `PATCH /admin/users/{id}/role`.
+- **`Vertical.requires_gabbai`** marks a world (e.g. a `kiddush` world, referenced in the cart page's
+  error copy but not currently seeded — an admin creates it via `POST /admin/verticals` like any
+  other world) as gabbai-only: checking out from it 400s for a plain member, and routes them to
+  `/profile#gabbai-registration`. A cart mixing a `requires_gabbai` item with an ordinary one is
+  blocked (400) — must be checked out as two separate orders.
+- **`CustomerOrder.orderer_role`** (`"member"` \| `"gabbai"`) plus four `gabbai_*_snapshot` columns
+  are computed **once at checkout time** by `leads.py`'s `_resolve_orderer_context()` (shared by
+  `create_lead` and `cart_checkout`) and never re-derived from the live `User` row afterward — a
+  gabbai editing their community details later doesn't rewrite an already-placed order's snapshot.
+- **Profile page order history is already split by "hat"**: `ProfileClient.tsx` filters `myOrders`
+  into `personalOrders`/`gabbaiOrders` by `orderer_role`, rendering two labeled groups only once the
+  user has at least one gabbai order — a plain member with no gabbai orders sees a single flat list,
+  no filter control at all. This already satisfies "order history, filterable by role when there's
+  more than one" with zero additional work.
+
+---
+
+## Purchase History, Recommendations & Shopping List (session 2026-09-01)
+
+Three related asks: (1) confirm order history is trackable/filterable by "hat" (member vs. gabbai)
+— already built, see the documentation-gap section directly above; (2) use a member's purchase
+history to recommend products back to them, in the right places; (3) a "shopping list" feature —
+today relevant only to the Kiddush world, where a gabbai re-orders roughly the same weekly package —
+seeded from past purchases, editable, funneling into the existing cart at checkout.
+
+- **New shared service, `backend/app/services/purchase_history.py`**'s
+  `get_user_purchase_history(db, user_id, vertical=None)` is the single source of truth for "what
+  has this user bought before" — feeds the cart page's recommendation strip, the world listing's
+  "my taste" sort, and the shopping list's auto-seed, so all three agree on what counts as a past
+  purchase. A "purchase" is a `contact_request` `Lead` whose parent `CustomerOrder.status !=
+  "cancelled"`, only counting still-`is_active` products. Same "load everything, bucket in code"
+  convention as other stats-shaped endpoints (e.g. `GET /admin/leads/stats`), appropriate here given
+  the per-user dataset size. New **`GET /users/me/purchase-history?vertical=`**
+  (`routers/leads.py`) wraps it for the frontend.
+- **`GET /products` itself needed zero changes** — it has no auth dependency at all today, and
+  adding a personal sort mode there would have meant bolting a new required-auth branch onto a
+  public, unauthenticated endpoint. Both new recommendation surfaces are pure frontend consumers of
+  the purchase-history endpoint instead:
+  - **Cart page "bought before" strip** (`cart/page.tsx`) — up to 4 previously-purchased products
+    not already in the cart, each with a one-click "+ הוסף" that calls the existing
+    `CartContext.addToCart()` directly. Hidden entirely when there's nothing to recommend, same
+    "invisible until relevant" principle as the category filter/promotion badge.
+  - **"My taste" sort** (`FilterSortSidebar.tsx`'s new `'my_history'` `SortOption`,
+    `VerticalListingClient.tsx`) — a purely client-side re-sort of the already-fetched product list
+    (rank by `times_purchased` desc, then `last_purchased_at` desc), exactly like the existing
+    price-range/attribute/category filters. The sort chip itself only renders once the caller
+    confirms the user actually has purchase history for that world
+    (`hasPurchaseHistory` prop) — another instance of the same "invisible until relevant" rule.
+    When this sort is selected, the *server-side* request still asks for a real backend sort
+    (`popularity`) — `'my_history'` never reaches `GET /products`'s `sort` query param.
+- **Shopping list is a generic, per-world admin-toggleable capability**, not hardcoded to Kiddush —
+  a deliberate choice (confirmed with the user) mirroring the existing `requires_gabbai`/
+  `allows_custom_items_note`/`hide_prices` per-`Vertical` flags exactly, so any future world can opt
+  in with one admin checkbox and zero new code:
+  - **`Vertical.enables_shopping_list`** (new column) — admin checkbox in `admin/verticals/page.tsx`
+    identical in shape to the `requires_gabbai` one. Ships turned off everywhere; an admin flips it
+    on for Kiddush once that world exists.
+  - **New table `shopping_list_items`** (model `ShoppingListItem`) — `user_id`/`product_id`
+    (`UniqueConstraint`, same idempotent-membership shape as `Favorite`), `quantity`. **Deliberately
+    no `checked` column** — which rows are selected to add to the cart on a given visit is
+    transient frontend state (local React state on the shopping-list page, defaulting to
+    all-checked), not a persisted attribute of the saved list. Keeping it out of the DB avoids a
+    sync/staleness problem for no real benefit.
+  - **`backend/app/routers/shopping_list.py`** (new): `GET /shopping-list?vertical=` auto-seeds the
+    list from `get_user_purchase_history()` the **first time only** (zero existing rows for that
+    vertical) — the "built from his recent purchases" requirement, with zero clicks needed.
+    `POST /shopping-list/refresh?vertical=` is the explicit, opt-in "add more from my history"
+    action for later visits — it only *adds* newly-purchased products not already listed, never
+    touching a user's own edits (removed items, adjusted quantities) to existing rows. Plain
+    `POST/PATCH/DELETE .../items` round out add-others/quantity-edit/remove.
+  - **New page `frontend/src/app/[locale]/(protected)/shopping-list/page.tsx`** +
+    `ShoppingListClient.tsx` (query-scoped, `?vertical=slug`, mirrors `world/page.tsx`'s thin-wrapper
+    pattern) — select-all/deselect-all, per-item `QuantityStepper` + remove, a product search-and-add
+    picker (drawn from the vertical's own `GET /products`, excluding items already listed), and a
+    primary "הוסף לסל" button that pushes every *checked* item into the real `CartContext` at its
+    saved quantity, then navigates to `/cart` — the shopping list never talks to checkout directly,
+    it only ever feeds the one existing cart+checkout path.
+  - **Two entry points**: a "פתח את רשימת הקניות שלי" button in `VerticalListingClient.tsx`'s header
+    (shown only when `verticalMeta.enables_shopping_list`), and a "רשימות קניות" launcher section on
+    the profile page (`ProfileClient.tsx`) — one card per `enables_shopping_list` world showing a
+    live item count with a "פתח" link, not a duplicate inline editor.
+- **Migration** (`a4d8f6c2e910_add_shopping_list.py`) adds `verticals.enables_shopping_list`
+  (`batch_alter_table`) and creates `shopping_list_items` in one migration, same combined shape as
+  `9b1e2c4f6a83_add_product_categories.py`.
+- **Verified end-to-end**: `backend/tests/test_purchase_history.py` (5 tests — excludes cancelled
+  orders, respects the vertical filter, counts repeat purchases and orders by recency, excludes
+  deactivated products) and `backend/tests/test_shopping_list.py` (6 tests — auto-seed on first
+  visit only, empty-with-no-history, add/upsert/update/delete, refresh preserves user edits while
+  adding newly-purchased items, per-vertical scoping, per-user privacy) all pass; full `pytest`
+  suite green with no regressions. `tsc --noEmit`, `npm run lint` (0 errors — the one new warning on
+  `ShoppingListClient.tsx`'s `load` effect dependency matches the same pre-existing, unfixed pattern
+  already present in 9+ other pages), and `npm run build` all clean (`/shopping-list` route
+  confirmed built for all 4 locales). Full Vitest suite still green. Manually exercised every new
+  endpoint end-to-end against a live `uvicorn` process with a minted JWT (checkout → purchase-history
+  reflects it → shopping-list auto-seeds from it → add/update/delete/refresh all behave correctly),
+  then cleaned up all test rows and reverted the test vertical's `enables_shopping_list` flag,
+  confirming the dev DB was left at its documented baseline.
+- **Explicitly out of scope, deferred**: no E2E (Playwright) spec was added for this pass — verified
+  manually against a live server instead, following the same bar as most non-trivial sessions before
+  the E2E suite existed; a bulk "add all of purchase history" one-click alternative to the
+  per-vertical `refresh` action was considered and rejected as unnecessary complexity, since
+  `refresh` is already scoped to the one vertical the user is looking at.
+
+---
+
 ## Key Design Decisions
 
 - **Products vs Items**: `items` table = legacy benefits club catalog. `products` table = new multi-vertical site (diamonds/cars/insurance). They are intentionally separate.
@@ -2952,6 +3072,7 @@ email silently inheriting the first option's *product* photo.
 - **A lookup entity's public-facing filter UI should render conditionally on having any rows, not unconditionally with an empty state**: `FilterSortSidebar`'s category chip block only renders `if (categories.length > 0)` — a world with zero categories shows no filter section at all, rather than an empty "Category: [All]" block. This is what makes a not-yet-configured admin feature genuinely invisible instead of a confusing dead control, and is the same instinct behind promotions only showing a badge `if (promotions.length > 0)` on a product tile.
 - **Two fields that must always agree shouldn't both be stored — store one, derive the other**: `Product.sale_price` is the only persisted pricing field; the admin form's discount-percent input is pure UI convenience, recomputed fresh from `price` on every keystroke rather than chained from the other field's previous derived value. This is what makes a two-way-synced pair of inputs race-free by construction instead of needing reconciliation logic — prefer this shape over a stored, mutually-derived pair whenever one field is always mechanically computable from the other.
 - **An order must snapshot its price at checkout time, not keep re-deriving it from the live row forever**: `Lead.unit_price_snapshot`/`list_price_snapshot`/`quantity_discount_percent_snapshot` are computed once by `services/pricing.py`'s `compute_effective_unit_price()` at `cart_checkout()` time and never touched again — the same principle as `SaleTransaction.commission_rate_percent_snapshot`. A later price edit, a sale ending, or a bundle being deactivated must never silently rewrite what an already-placed order shows; verified live that changing a product's price after checkout left the stored order snapshot untouched. Any future "what did this cost" field on an order-like row should snapshot at write time, not join to a live, mutable source.
+- **A personalized sort/recommendation over a public, unauthenticated listing endpoint belongs on the client, not behind a new auth branch on that endpoint**: `GET /products` has no auth dependency at all, so the "my taste" sort (Purchase History session) is a pure client-side re-sort of the already-fetched array — the same treatment already given to the search/price-range/attribute/category filters — rather than adding a required-auth `sort=my_history` mode to a route every other consumer expects to stay public. The one shared `GET /users/me/purchase-history` endpoint is a separate, authenticated call the frontend makes alongside the public one.
 
 The primary audience uses internet access through community-approved **kosher filters** (e.g. Rimon, Netspark, Genigram). These filters have specific technical characteristics that affect web development decisions.
 

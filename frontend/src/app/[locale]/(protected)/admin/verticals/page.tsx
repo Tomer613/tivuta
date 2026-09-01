@@ -34,6 +34,7 @@ const EMPTY_FORM = {
     requires_gabbai: false,
     allows_custom_items_note: false,
     hide_prices: false,
+    enables_shopping_list: false,
     default_sort: 'popularity',
     display_order: 0,
     is_active: true,
@@ -99,6 +100,7 @@ export default function AdminVerticalsPage() {
             requires_gabbai: v.requires_gabbai,
             allows_custom_items_note: v.allows_custom_items_note,
             hide_prices: v.hide_prices,
+            enables_shopping_list: v.enables_shopping_list,
             default_sort: v.default_sort,
             display_order: v.display_order,
             is_active: v.is_active,
@@ -167,6 +169,7 @@ export default function AdminVerticalsPage() {
                     requires_gabbai: form.requires_gabbai,
                     allows_custom_items_note: form.allows_custom_items_note,
                     hide_prices: form.hide_prices,
+                    enables_shopping_list: form.enables_shopping_list,
                     default_sort: form.default_sort,
                     display_order: form.display_order,
                     is_active: form.is_active,
@@ -183,6 +186,7 @@ export default function AdminVerticalsPage() {
                     requires_gabbai: form.requires_gabbai,
                     allows_custom_items_note: form.allows_custom_items_note,
                     hide_prices: form.hide_prices,
+                    enables_shopping_list: form.enables_shopping_list,
                     default_sort: form.default_sort,
                     display_order: form.display_order,
                     is_active: form.is_active,
@@ -229,6 +233,7 @@ export default function AdminVerticalsPage() {
                                 <th className="p-4 text-start">slug</th>
                                 <th className="p-4 text-start">פגישות</th>
                                 <th className="p-4 text-start">גבאי</th>
+                                <th className="p-4 text-start">רשימת קניות</th>
                                 <th className="p-4 text-start">סדר</th>
                                 <th className="p-4 text-start">סטטוס</th>
                                 <th className="p-4 text-start"></th>
@@ -236,7 +241,7 @@ export default function AdminVerticalsPage() {
                         </thead>
                         <tbody>
                             {verticals.length === 0 && (
-                                <tr><td colSpan={8} className="p-8 text-center text-[#f0e6d3]/40">אין עולמות עדיין</td></tr>
+                                <tr><td colSpan={9} className="p-8 text-center text-[#f0e6d3]/40">אין עולמות עדיין</td></tr>
                             )}
                             {verticals.map((v) => {
                                 const Icon = getVerticalIcon(v.icon);
@@ -251,6 +256,7 @@ export default function AdminVerticalsPage() {
                                         <td className="p-4 text-sm text-[#f0e6d3]/50" dir="ltr">{v.slug}</td>
                                         <td className="p-4 text-sm">{v.supports_appointments ? 'כן' : 'לא'}</td>
                                         <td className="p-4 text-sm">{v.requires_gabbai ? 'כן' : 'לא'}</td>
+                                        <td className="p-4 text-sm">{v.enables_shopping_list ? 'כן' : 'לא'}</td>
                                         <td className="p-4 text-sm">{v.display_order}</td>
                                         <td className="p-4">
                                             <button
@@ -374,6 +380,10 @@ export default function AdminVerticalsPage() {
                             <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
                                 <input type="checkbox" checked={form.hide_prices} onChange={(e) => setForm({ ...form, hide_prices: e.target.checked })} />
                                 הסתר מחירים באתר (עולם בבנייה)
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
+                                <input type="checkbox" checked={form.enables_shopping_list} onChange={(e) => setForm({ ...form, enables_shopping_list: e.target.checked })} />
+                                מאפשר רשימת קניות אישית (כמו קידושים)
                             </label>
                         </div>
 

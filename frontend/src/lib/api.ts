@@ -573,6 +573,7 @@ export interface Vertical {
     requires_gabbai: boolean;
     allows_custom_items_note: boolean;
     hide_prices: boolean;
+    enables_shopping_list: boolean;
     default_sort: string;
     attribute_fields: VerticalAttributeField[];
     display_order: number;
@@ -582,9 +583,9 @@ export interface Vertical {
 // Used only if the backend is briefly unreachable during a static build — keeps the 3 worlds
 // that exist today from vanishing out of the build entirely.
 const FALLBACK_VERTICALS: Vertical[] = [
-    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, default_sort: 'popularity', attribute_fields: [], display_order: 0, is_active: true },
-    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, default_sort: 'popularity', attribute_fields: [], display_order: 1, is_active: true },
-    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, default_sort: 'popularity', attribute_fields: [], display_order: 2, is_active: true },
+    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, enables_shopping_list: false, default_sort: 'popularity', attribute_fields: [], display_order: 0, is_active: true },
+    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, enables_shopping_list: false, default_sort: 'popularity', attribute_fields: [], display_order: 1, is_active: true },
+    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, enables_shopping_list: false, default_sort: 'popularity', attribute_fields: [], display_order: 2, is_active: true },
 ];
 
 export async function getVerticals(): Promise<Vertical[]> {
@@ -1793,6 +1794,87 @@ export async function getMyCustomerOrders(token: string): Promise<MyOrder[]> {
     const res = await fetch(`${BASE_URL}/users/me/orders`, { headers: authHeaders(token) });
     if (!res.ok) return [];
     return res.json();
+}
+
+// ── Purchase history — feeds the cart page's "bought before" strip, the world listing's "my
+// taste" sort, and the shopping list's auto-seed. One shared shape for all three. ─────────────────
+export interface PurchaseHistoryItem {
+    product_id: number;
+    product_title_he: string;
+    product_title_en?: string | null;
+    product_title_fr?: string | null;
+    product_title_yi?: string | null;
+    product_vertical: string;
+    product_image_url?: string | null;
+    product_price?: number | null;
+    product_sale_price: number;
+    last_quantity: number;
+    times_purchased: number;
+    last_purchased_at: string;
+}
+
+export async function getMyPurchaseHistory(token: string, vertical?: string): Promise<PurchaseHistoryItem[]> {
+    const qs = vertical ? `?vertical=${encodeURIComponent(vertical)}` : '';
+    const res = await fetch(`${BASE_URL}/users/me/purchase-history${qs}`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+// ── Shopping list — a user's own saved, editable per-vertical list (e.g. a gabbai's recurring
+// weekly Kiddush order). See Vertical.enables_shopping_list. No "checked" field — which rows are
+// selected to add to the cart is transient frontend state, never persisted. ────────────────────────
+export interface ShoppingListItem {
+    id: number;
+    product_id: number;
+    product_title_he: string;
+    product_title_en?: string | null;
+    product_title_fr?: string | null;
+    product_title_yi?: string | null;
+    product_image_url?: string | null;
+    product_price?: number | null;
+    product_sale_price: number;
+    product_is_active: boolean;
+    quantity: number;
+    created_at: string;
+}
+
+export async function getShoppingList(token: string, vertical: string): Promise<ShoppingListItem[]> {
+    const res = await fetch(`${BASE_URL}/shopping-list?vertical=${encodeURIComponent(vertical)}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load shopping list');
+    return res.json();
+}
+
+export async function refreshShoppingList(token: string, vertical: string): Promise<ShoppingListItem[]> {
+    const res = await fetch(`${BASE_URL}/shopping-list/refresh?vertical=${encodeURIComponent(vertical)}`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to refresh shopping list');
+    return res.json();
+}
+
+export async function addShoppingListItem(token: string, productId: number, quantity: number = 1): Promise<ShoppingListItem> {
+    const res = await fetch(`${BASE_URL}/shopping-list/items`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId, quantity }),
+    });
+    if (!res.ok) throw new Error('Failed to add item');
+    return res.json();
+}
+
+export async function updateShoppingListItem(token: string, itemId: number, quantity: number): Promise<ShoppingListItem> {
+    const res = await fetch(`${BASE_URL}/shopping-list/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity }),
+    });
+    if (!res.ok) throw new Error('Failed to update item');
+    return res.json();
+}
+
+export async function removeShoppingListItem(token: string, itemId: number): Promise<void> {
+    await fetch(`${BASE_URL}/shopping-list/items/${itemId}`, { method: 'DELETE', headers: authHeaders(token) });
 }
 
 // ── Loyalty program: customer card / points history / physical card request ─

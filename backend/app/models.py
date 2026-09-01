@@ -167,6 +167,11 @@ class Vertical(Base):
     # If true, the cart page shows a free-text "additional items/requests" box when the cart
     # contains an item from this vertical; the text is stored on CustomerOrder.custom_items_note.
     allows_custom_items_note = Column(Boolean, default=False, nullable=False)
+    # If true, this vertical's listing page offers a saved, editable per-user "shopping list"
+    # (ShoppingListItem below) seeded from the user's own purchase history — built for the Kiddush
+    # world's weekly gabbai re-order, but a generic per-vertical toggle so any future world can opt
+    # in with zero new code.
+    enables_shopping_list = Column(Boolean, default=False, nullable=False, server_default="false")
     # If true, real prices are never shown to customers anywhere in this vertical's tiles/cart
     # lines (rendered the same way an on-request/null-price product already is) — except the
     # order-confirmation page (order_confirm.py) and every admin view, which always show real
@@ -468,6 +473,26 @@ class Favorite(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+    product = relationship("Product")
+
+
+class ShoppingListItem(Base):
+    """
+    A user's own saved, editable shopping list for one vertical (e.g. a gabbai's recurring weekly
+    Kiddush order) — see Vertical.enables_shopping_list. Deliberately has no "checked" column: which
+    rows are selected to add to the cart on a given visit is transient UI state, not a persisted
+    attribute of the saved list, so there's nothing here that can go stale between sessions.
+    """
+    __tablename__ = "shopping_list_items"
+    __table_args__ = (UniqueConstraint("user_id", "product_id", name="uq_user_product_shopping_list_item"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    quantity = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

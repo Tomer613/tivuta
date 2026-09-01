@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, PackageOpen, GitCompareArrows } from 'lucide-react';
+import { Loader2, PackageOpen, GitCompareArrows, ListChecks } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getProducts, getFavoriteIds, getVerticals, Vertical } from '@/lib/api';
+import { getProducts, getFavoriteIds, getVerticals, getMyPurchaseHistory, PurchaseHistoryItem, Vertical } from '@/lib/api';
 import { useCategories } from '@/lib/useCategories';
 import FilterSortSidebar, { SortOption } from '@/components/FilterSortSidebar';
 import ProductTile, { Product } from '@/components/ProductTile';
@@ -13,15 +14,16 @@ import ComparisonBar from '@/components/ComparisonBar';
 interface T {
     empty: string;
     results: string;
+    shopping_list: string;
 }
 
 // Empty-state/results copy is identical across every world, so it's kept as one shared
 // translation rather than duplicated per-vertical in the database.
 const GENERIC_COPY: Record<string, T> = {
-    he: { empty: 'אין מוצרים להצגה כרגע', results: 'תוצאות' },
-    en: { empty: 'No products to show right now', results: 'results' },
-    fr: { empty: 'Aucun produit pour le moment', results: 'résultats' },
-    yi: { empty: 'נישטא קיין פראדוקטן איצט', results: 'רעזולטאטן' },
+    he: { empty: 'אין מוצרים להצגה כרגע', results: 'תוצאות', shopping_list: 'פתח את רשימת הקניות שלי' },
+    en: { empty: 'No products to show right now', results: 'results', shopping_list: 'Open my shopping list' },
+    fr: { empty: 'Aucun produit pour le moment', results: 'résultats', shopping_list: 'Ouvrir ma liste de courses' },
+    yi: { empty: 'נישטא קיין פראדוקטן איצט', results: 'רעזולטאטן', shopping_list: 'עפֿן מיין קוילע רשימה' },
 };
 
 export default function VerticalListingClient({ vertical }: { vertical: string }) {
@@ -42,6 +44,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     const [category, setCategory] = useState<number | null>(null);
     const [favIds, setFavIds] = useState<Set<number>>(new Set());
     const [compareList, setCompareList] = useState<Product[]>([]);
+    const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
     // Which vertical's metadata (title/attribute fields/default sort) the last completed
     // getVerticals() attempt was for — success or failure. Comparing this directly against the
     // current `vertical` (rather than a plain boolean flag) is what makes the gate self-correct
@@ -102,21 +105,30 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
         return () => { cancelled = true; };
     }, [vertical]);
 
+    // 'my_history' is a purely client-side re-sort (see the `filtered` memo below) — the
+    // server-side request always asks for a real backend sort, falling back to popularity. Kept
+    // out of the effect below and used as its own dependency (instead of raw `sort`) so toggling
+    // between 'popularity' and 'my_history' — which both resolve to the same server request —
+    // doesn't trigger a wasted refetch.
+    const serverSort = sort === 'my_history' ? 'popularity' : sort;
+
     useEffect(() => {
         if (!token || !vertical) { Promise.resolve().then(() => setLoading(false)); return; }
         if (metaLoadedForVertical !== vertical) return;
         Promise.resolve().then(() => setLoading(true));
         Promise.all([
-            getProducts(token, vertical, sort, promotionType),
+            getProducts(token, vertical, serverSort, promotionType),
             getFavoriteIds(token),
+            getMyPurchaseHistory(token, vertical),
         ])
-            .then(([prods, ids]) => {
+            .then(([prods, ids, history]) => {
                 setProducts(prods);
                 setFavIds(new Set(ids));
+                setPurchaseHistory(history);
             })
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
-    }, [token, vertical, sort, promotionType, metaLoadedForVertical]);
+    }, [token, vertical, serverSort, promotionType, metaLoadedForVertical]);
 
     useEffect(() => {
         if (!title) return;
@@ -153,8 +165,23 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
             list = list.filter((p) => p.attributes?.[key] === value);
         }
         if (category != null) list = list.filter((p) => p.category_id === category);
+        if (sort === 'my_history' && purchaseHistory.length > 0) {
+            // Rank by (times_purchased desc, last_purchased_at desc) — a product bought
+            // repeatedly outranks one bought only once more recently.
+            const ranked = [...purchaseHistory].sort((a, b) =>
+                b.times_purchased - a.times_purchased ||
+                new Date(b.last_purchased_at).getTime() - new Date(a.last_purchased_at).getTime()
+            );
+            const historyRank = new Map(ranked.map((h, i) => [h.product_id, i]));
+            // Stable-sort by history rank (0 = most recently/frequently bought); products with no
+            // history keep their existing relative order, pushed after every ranked product.
+            list = [...list]
+                .map((p, i) => ({ p, i, rank: historyRank.get(p.id) ?? Infinity }))
+                .sort((a, b) => a.rank - b.rank || a.i - b.i)
+                .map(({ p }) => p);
+        }
         return list;
-    }, [products, search, priceMin, priceMax, attrFilters, category, locale]);
+    }, [products, search, priceMin, priceMax, attrFilters, category, locale, sort, purchaseHistory]);
 
     const isFiltered = search.trim() || priceMin || priceMax || Object.values(attrFilters).some(Boolean) || category != null;
 
@@ -182,11 +209,22 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
         <>
         <main className={`min-h-screen bg-[#111a2f] ${compareList.length > 0 ? 'pb-32 sm:pb-40' : ''}`}>
             <header className="bg-[#0e1628] border-b border-[#d4af37]/20 px-4 py-8 md:px-8 md:py-16">
-                <div className="max-w-7xl mx-auto text-start">
-                    <h1 className="text-4xl md:text-5xl font-black text-[#f0e6d3] mb-3">{title}</h1>
-                    <p className="text-xl text-[#f0e6d3]/60 font-light">{subtitle}</p>
-                    {isFiltered && !loading && (
-                        <p className="text-sm text-[#d4af37]/70 mt-2 font-semibold">{filtered.length} {t.results}</p>
+                <div className="max-w-7xl mx-auto text-start flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-4xl md:text-5xl font-black text-[#f0e6d3] mb-3">{title}</h1>
+                        <p className="text-xl text-[#f0e6d3]/60 font-light">{subtitle}</p>
+                        {isFiltered && !loading && (
+                            <p className="text-sm text-[#d4af37]/70 mt-2 font-semibold">{filtered.length} {t.results}</p>
+                        )}
+                    </div>
+                    {verticalMeta?.enables_shopping_list && (
+                        <Link
+                            href={`/${locale}/shopping-list?vertical=${vertical}`}
+                            className="btn-secondary flex items-center gap-2 !text-sm shrink-0"
+                        >
+                            <ListChecks size={16} />
+                            {t.shopping_list}
+                        </Link>
                     )}
                 </div>
             </header>
@@ -215,6 +253,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                     categories={categories}
                     category={category}
                     onCategoryChange={setCategory}
+                    hasPurchaseHistory={purchaseHistory.length > 0}
                 />}
 
                 <div className="flex-grow">

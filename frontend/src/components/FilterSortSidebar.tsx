@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Clock, Flame, Tag, Search, SlidersHorizontal, ListFilter } from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Clock, Flame, Heart, Tag, Search, SlidersHorizontal, ListFilter } from 'lucide-react';
 import { VerticalAttributeField, ProductCategory } from '@/lib/api';
 
 interface T {
@@ -10,6 +10,7 @@ interface T {
     price_asc: string;
     price_desc: string;
     newest: string;
+    my_taste: string;
     filter_promo: string;
     filter_category: string;
     all: string;
@@ -21,13 +22,13 @@ interface T {
 }
 
 const translations: Record<string, T> = {
-    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', filter_promo: 'סנן לפי מבצע', filter_category: 'קטגוריה', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'סינון ומיון' },
-    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', filter_promo: 'Filter by promotion', filter_category: 'Category', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Filter & Sort' },
-    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', filter_promo: 'Filtrer par promotion', filter_category: 'Catégorie', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Trier et filtrer' },
-    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', filter_promo: 'פילטרירן', filter_category: 'קאטעגאריע', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'פילטער און סארטירן' },
+    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', my_taste: 'הטעם שלי', filter_promo: 'סנן לפי מבצע', filter_category: 'קטגוריה', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'סינון ומיון' },
+    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', my_taste: 'My Taste', filter_promo: 'Filter by promotion', filter_category: 'Category', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Filter & Sort' },
+    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', my_taste: 'Mes goûts', filter_promo: 'Filtrer par promotion', filter_category: 'Catégorie', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Trier et filtrer' },
+    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', my_taste: 'מיין טעם', filter_promo: 'פילטרירן', filter_category: 'קאטעגאריע', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'פילטער און סארטירן' },
 };
 
-export type SortOption = 'popularity' | 'newest' | 'price_asc' | 'price_desc';
+export type SortOption = 'popularity' | 'newest' | 'price_asc' | 'price_desc' | 'my_history';
 
 const PROMO_FILTERS: { value: string; label_he: string; label_en: string }[] = [
     { value: 'first_n',              label_he: 'ראשונים',       label_en: 'First N'        },
@@ -91,6 +92,7 @@ export default function FilterSortSidebar({
     categories = [],
     category = null,
     onCategoryChange,
+    hasPurchaseHistory = false,
 }: {
     locale: string;
     sort: SortOption;
@@ -109,6 +111,9 @@ export default function FilterSortSidebar({
     categories?: ProductCategory[];
     category?: number | null;
     onCategoryChange?: (id: number | null) => void;
+    // Only render the "my taste" sort chip once the caller confirms the user actually has
+    // purchase history to sort by — same "invisible until relevant" rule as the category filter.
+    hasPurchaseHistory?: boolean;
 }) {
     const [mobileOpen, setMobileOpen] = useState(false);
     const t = translations[locale] || translations.he;
@@ -121,6 +126,7 @@ export default function FilterSortSidebar({
         { id: 'newest',     label: t.newest,     icon: <Clock size={16} /> },
         { id: 'price_asc',  label: t.price_asc,  icon: <ArrowUpNarrowWide size={16} /> },
         { id: 'price_desc', label: t.price_desc, icon: <ArrowDownWideNarrow size={16} /> },
+        ...(hasPurchaseHistory ? [{ id: 'my_history' as SortOption, label: t.my_taste, icon: <Heart size={16} /> }] : []),
     ];
 
     return (

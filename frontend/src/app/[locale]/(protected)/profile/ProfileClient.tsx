@@ -6,13 +6,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
 import {
     updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, updatePreferredLanguage, productImageUrl,
-    getMyPointsHistory, createCardOrder, registerGabbai, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
+    getMyPointsHistory, createCardOrder, registerGabbai, getShoppingList, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
-    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil, MessageCircleQuestion,
+    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil, MessageCircleQuestion, ListChecks,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
@@ -47,6 +47,9 @@ const tr: Record<string, Record<string, string>> = {
         ask_about_order: 'שאל שאלה על ההזמנה',
         order_items_done: 'הושלמו',
         order_savings: 'חסכת',
+        shopping_lists_title: 'רשימות קניות',
+        shopping_list_items_label: 'פריטים',
+        open_shopping_list: 'פתח',
         gabbai_section_title: 'רישום כגבאי',
         gabbai_register_cta: 'הרשמה כגבאי',
         gabbai_register_sub: 'גבאי בית כנסת יכול להזמין קידושים ודברים לבית הכנסת בשם הקהילה. מלא/י את הפרטים כדי להתחיל.',
@@ -92,6 +95,9 @@ const tr: Record<string, Record<string, string>> = {
         ask_about_order: 'Ask about this order',
         order_items_done: 'done',
         order_savings: 'You saved',
+        shopping_lists_title: 'Shopping Lists',
+        shopping_list_items_label: 'items',
+        open_shopping_list: 'Open',
         gabbai_section_title: 'Gabbai registration',
         gabbai_register_cta: 'Register as gabbai',
         gabbai_register_sub: 'A synagogue gabbai can order kiddush items and synagogue supplies on behalf of their community. Fill in the details to get started.',
@@ -137,6 +143,9 @@ const tr: Record<string, Record<string, string>> = {
         ask_about_order: 'Poser une question sur cette commande',
         order_items_done: 'terminés',
         order_savings: 'Économisé',
+        shopping_lists_title: 'Listes de courses',
+        shopping_list_items_label: 'articles',
+        open_shopping_list: 'Ouvrir',
         gabbai_section_title: 'Inscription en tant que gabbaï',
         gabbai_register_cta: "S'inscrire comme gabbaï",
         gabbai_register_sub: 'Un gabbaï de synagogue peut commander des articles de kiddouch et de synagogue au nom de sa communauté. Remplissez les détails pour commencer.',
@@ -182,6 +191,9 @@ const tr: Record<string, Record<string, string>> = {
         ask_about_order: 'שטעלט א פראגע וועגן דער בעשטעלונג',
         order_items_done: 'פֿאַרטיק',
         order_savings: 'געשפּאָרט',
+        shopping_lists_title: 'קוילע רשימות',
+        shopping_list_items_label: 'פריטים',
+        open_shopping_list: 'עפֿן',
         gabbai_section_title: 'רעגיסטראציע אלס גבאי',
         gabbai_register_cta: 'רעגיסטרירן זיך אלס גבאי',
         gabbai_register_sub: 'א שיל גבאי קען באשטעלן קידוש זאכן און שיל צרכים אין נאמען פון דער קהילה. פֿילט אויס די פרטים צו אנהייבן.',
@@ -378,6 +390,7 @@ export default function ProfileClient() {
     const [gabbaiForm, setGabbaiForm] = useState<GabbaiRegistrationPayload>({ community_name: '', synagogue_address: '', contact_name: '', contact_phone: '' });
     const [gabbaiState, setGabbaiState] = useState<'idle' | 'submitting' | 'error'>('idle');
     const [gabbaiError, setGabbaiError] = useState('');
+    const [shoppingListCounts, setShoppingListCounts] = useState<Record<string, number>>({});
 
     useEffect(() => {
         if (typeof window === 'undefined' || !window.location.hash) return;
@@ -411,6 +424,18 @@ export default function ProfileClient() {
             if (raw) Promise.resolve().then(() => setRecentlyViewed(JSON.parse(raw)));
         } catch { /* ignore */ }
     }, [token]);
+
+    // Separate from the effect above since `verticals` (needed to know which worlds have
+    // enables_shopping_list) resolves asynchronously after mount via useVerticals(), not at the
+    // same time as `token`.
+    useEffect(() => {
+        if (!token) return;
+        const shoppingListVerticals = verticals.filter((v) => v.enables_shopping_list);
+        if (shoppingListVerticals.length === 0) return;
+        Promise.all(shoppingListVerticals.map((v) =>
+            getShoppingList(token, v.slug).then((items) => [v.slug, items.length] as const).catch(() => [v.slug, 0] as const)
+        )).then((entries) => setShoppingListCounts(Object.fromEntries(entries)));
+    }, [token, verticals]);
 
     useEffect(() => {
         if (!user) return;
@@ -1120,6 +1145,37 @@ export default function ProfileClient() {
                         <div className="space-y-4">{myOrders.map(renderOrderCard)}</div>
                     )}
                 </div>
+
+                {/* ── Shopping lists launcher — only for verticals with enables_shopping_list ── */}
+                {verticals.filter((v) => v.enables_shopping_list).length > 0 && (
+                    <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">
+                        <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
+                            <ListChecks size={14} className="text-[#d4af37]" />
+                            {t.shopping_lists_title}
+                        </h2>
+                        <div className="space-y-3">
+                            {verticals.filter((v) => v.enables_shopping_list).map((v) => {
+                                const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
+                                const label = v[`label_${localeKey}`] || v.label_he;
+                                const count = shoppingListCounts[v.slug] ?? 0;
+                                return (
+                                    <div key={v.slug} className="flex items-center justify-between bg-[#111a2f] rounded-xl px-4 py-3">
+                                        <div>
+                                            <p className="text-sm font-bold text-[#f0e6d3]">{label}</p>
+                                            <p className="text-xs text-[#f0e6d3]/40">{count} {t.shopping_list_items_label}</p>
+                                        </div>
+                                        <Link
+                                            href={`/${locale}/shopping-list?vertical=${v.slug}`}
+                                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-[#d4af37]/10 text-[#d4af37] hover:bg-[#d4af37]/20 transition-colors"
+                                        >
+                                            {t.open_shopping_list}
+                                        </Link>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Activity history ── */}
                 <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">

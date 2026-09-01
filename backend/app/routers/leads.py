@@ -14,6 +14,7 @@ from ..services import get_email_sender
 from ..services.inventory import reserve_or_release_stock_for_lead
 from ..services.orders import cancel_order
 from ..services.pricing import compute_effective_unit_price
+from ..services.purchase_history import get_user_purchase_history
 
 router = APIRouter(tags=["leads"])
 
@@ -385,6 +386,35 @@ def my_orders(db: Session = Depends(get_db), current_user: models.User = Depends
             items=[_my_order_line_from_lead(lead) for lead in order.leads if lead.lead_type != "general_inquiry"],
         )
         for order in orders
+    ]
+
+
+@router.get("/users/me/purchase-history", response_model=List[schemas.PurchaseHistoryItem])
+def my_purchase_history(
+    vertical: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Feeds the cart page's "bought before" strip and the world listing's "my taste" sort — both
+    are pure frontend/client-side consumers of this one list, no separate backend sort/filter
+    branch needed on GET /products itself (which stays fully public/unauthenticated)."""
+    history = get_user_purchase_history(db, current_user.id, vertical)
+    return [
+        schemas.PurchaseHistoryItem(
+            product_id=entry["product"].id,
+            product_title_he=entry["product"].title_he,
+            product_title_en=entry["product"].title_en,
+            product_title_fr=entry["product"].title_fr,
+            product_title_yi=entry["product"].title_yi,
+            product_vertical=entry["product"].vertical,
+            product_image_url=entry["product"].image_url,
+            product_price=entry["product"].price,
+            product_sale_price=entry["product"].sale_price,
+            last_quantity=entry["last_quantity"],
+            times_purchased=entry["times_purchased"],
+            last_purchased_at=entry["last_purchased_at"],
+        )
+        for entry in history
     ]
 
 
