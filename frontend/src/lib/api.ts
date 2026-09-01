@@ -573,6 +573,7 @@ export interface Vertical {
     requires_gabbai: boolean;
     allows_custom_items_note: boolean;
     hide_prices: boolean;
+    default_sort: string;
     attribute_fields: VerticalAttributeField[];
     display_order: number;
     is_active: boolean;
@@ -581,9 +582,9 @@ export interface Vertical {
 // Used only if the backend is briefly unreachable during a static build — keeps the 3 worlds
 // that exist today from vanishing out of the build entirely.
 const FALLBACK_VERTICALS: Vertical[] = [
-    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, attribute_fields: [], display_order: 0, is_active: true },
-    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, attribute_fields: [], display_order: 1, is_active: true },
-    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, attribute_fields: [], display_order: 2, is_active: true },
+    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, default_sort: 'popularity', attribute_fields: [], display_order: 0, is_active: true },
+    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, default_sort: 'popularity', attribute_fields: [], display_order: 1, is_active: true },
+    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, default_sort: 'popularity', attribute_fields: [], display_order: 2, is_active: true },
 ];
 
 export async function getVerticals(): Promise<Vertical[]> {

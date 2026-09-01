@@ -388,6 +388,10 @@ class ProductAnalyticsRead(BaseModel):
 # icons are statically imported there, so an icon value outside this list would render nothing.
 VALID_VERTICAL_ICONS = ("Gem", "Car", "ShieldCheck", "Home", "Watch", "Briefcase", "Store", "Sparkles", "Heart", "Building2")
 
+# Must match frontend/src/components/FilterSortSidebar.tsx's SortOption union exactly — this is
+# the value GET /products falls back to for this vertical until the customer picks a different one.
+VALID_SORT_OPTIONS = ("popularity", "newest", "price_asc", "price_desc")
+
 
 class VerticalAttributeField(BaseModel):
     key: str
@@ -423,6 +427,7 @@ class VerticalBase(BaseModel):
     requires_gabbai: bool = False
     allows_custom_items_note: bool = False
     hide_prices: bool = False
+    default_sort: str = "popularity"
     attribute_fields: List[VerticalAttributeField] = []
     display_order: int = 0
     is_active: bool = True
@@ -431,6 +436,13 @@ class VerticalBase(BaseModel):
     @classmethod
     def _validate_attribute_fields(cls, v: List[VerticalAttributeField]) -> List[VerticalAttributeField]:
         return _validate_unique_attribute_keys(v)
+
+    @field_validator("default_sort")
+    @classmethod
+    def _validate_default_sort(cls, v: str) -> str:
+        if v not in VALID_SORT_OPTIONS:
+            raise ValueError(f"default_sort must be one of {VALID_SORT_OPTIONS}")
+        return v
 
 
 class VerticalCreate(VerticalBase):
@@ -466,6 +478,7 @@ class VerticalUpdate(BaseModel):
     requires_gabbai: Optional[bool] = None
     allows_custom_items_note: Optional[bool] = None
     hide_prices: Optional[bool] = None
+    default_sort: Optional[str] = None
     attribute_fields: Optional[List[VerticalAttributeField]] = None
     display_order: Optional[int] = None
     is_active: Optional[bool] = None
@@ -475,6 +488,13 @@ class VerticalUpdate(BaseModel):
     def _validate_icon(cls, v: Optional[str]) -> Optional[str]:
         if v is not None and v not in VALID_VERTICAL_ICONS:
             raise ValueError(f"icon must be one of {VALID_VERTICAL_ICONS}")
+        return v
+
+    @field_validator("default_sort")
+    @classmethod
+    def _validate_default_sort(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_SORT_OPTIONS:
+            raise ValueError(f"default_sort must be one of {VALID_SORT_OPTIONS}")
         return v
 
     @field_validator("attribute_fields")

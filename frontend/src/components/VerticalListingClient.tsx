@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, PackageOpen, GitCompareArrows } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -42,6 +42,15 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     const [category, setCategory] = useState<number | null>(null);
     const [favIds, setFavIds] = useState<Set<number>>(new Set());
     const [compareList, setCompareList] = useState<Product[]>([]);
+    // Which vertical's metadata (title/attribute fields/default sort) the last completed
+    // getVerticals() attempt was for — success or failure. Comparing this directly against the
+    // current `vertical` (rather than a plain boolean flag) is what makes the gate self-correct
+    // the instant `vertical` changes, with no separate reset effect needed: on the render right
+    // after switching worlds, this still holds the *previous* vertical's slug, so the mismatch is
+    // immediate and synchronous — a boolean reset via a deferred microtask cannot land before the
+    // product-fetching effect below already ran once in the same pass with stale values.
+    const [metaLoadedForVertical, setMetaLoadedForVertical] = useState<string | null>(null);
+    const sortManuallySetRef = useRef(false);
     const categories = useCategories(vertical);
 
     const t = GENERIC_COPY[locale] || GENERIC_COPY.he;
@@ -57,29 +66,57 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
         if (productId) router.replace(`/${locale}/products?id=${productId}`);
     }, [searchParams, locale, router]);
 
+    // Reset per-vertical UI state whenever the world changes — including whether the visitor
+    // already picked a sort manually, which should only "stick" while browsing this same world.
+    // `sortManuallySetRef` is reset synchronously (it's a ref, not state) so it's guaranteed to be
+    // correct before the metadata effect below's async result ever lands.
+    useEffect(() => {
+        sortManuallySetRef.current = false;
+        Promise.resolve().then(() => {
+            setAttrFilters({});
+            setCategory(null);
+            setLoading(true);
+        });
+    }, [vertical]);
+
+    // Resolve vertical metadata (title/subtitle/attribute fields/default sort) first, and — unless
+    // the visitor already chose a sort manually — seed `sort` from the vertical's configured
+    // default before the product-fetching effect below is allowed to run. Fetching products in
+    // parallel with this (as before) would race the initial "popularity" placeholder against the
+    // real per-vertical default and cause a visible reorder flash on first load.
+    useEffect(() => {
+        if (!vertical) return;
+        let cancelled = false;
+        const forVertical = vertical;
+        getVerticals()
+            .then((verticals) => {
+                if (cancelled) return;
+                const meta = verticals.find((v) => v.slug === vertical) || null;
+                setVerticalMeta(meta);
+                if (meta && !sortManuallySetRef.current) {
+                    setSort(meta.default_sort as SortOption);
+                }
+            })
+            .catch(() => { if (!cancelled) setVerticalMeta(null); })
+            .finally(() => { if (!cancelled) setMetaLoadedForVertical(forVertical); });
+        return () => { cancelled = true; };
+    }, [vertical]);
+
     useEffect(() => {
         if (!token || !vertical) { Promise.resolve().then(() => setLoading(false)); return; }
+        if (metaLoadedForVertical !== vertical) return;
         Promise.resolve().then(() => setLoading(true));
         Promise.all([
             getProducts(token, vertical, sort, promotionType),
             getFavoriteIds(token),
-            getVerticals(),
         ])
-            .then(([prods, ids, verticals]) => {
+            .then(([prods, ids]) => {
                 setProducts(prods);
                 setFavIds(new Set(ids));
-                setVerticalMeta(verticals.find((v) => v.slug === vertical) || null);
             })
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
-    }, [token, vertical, sort, promotionType]);
-
-    useEffect(() => {
-        Promise.resolve().then(() => {
-            setAttrFilters({});
-            setCategory(null);
-        });
-    }, [vertical]);
+    }, [token, vertical, sort, promotionType, metaLoadedForVertical]);
 
     useEffect(() => {
         if (!title) return;
@@ -155,10 +192,15 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
             </header>
 
             <div className="max-w-7xl mx-auto px-4 py-8 md:px-8 md:py-12 flex flex-col lg:flex-row gap-8 lg:gap-12">
-                <FilterSortSidebar
+                {/* Only rendered once metadata for THIS vertical has resolved — otherwise the sort
+                    control would briefly show the initial 'popularity' placeholder selected before
+                    jumping to the vertical's real configured default. Doesn't hide on a later
+                    sort-only refetch (metaLoadedForVertical isn't touched by that), only during the
+                    initial per-vertical resolution window. */}
+                {metaLoadedForVertical === vertical && <FilterSortSidebar
                     locale={locale}
                     sort={sort}
-                    onSortChange={setSort}
+                    onSortChange={(value) => { sortManuallySetRef.current = true; setSort(value); }}
                     promotionType={promotionType}
                     onPromotionTypeChange={setPromotionType}
                     search={search}
@@ -173,7 +215,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                     categories={categories}
                     category={category}
                     onCategoryChange={setCategory}
-                />
+                />}
 
                 <div className="flex-grow">
                     {loading ? (

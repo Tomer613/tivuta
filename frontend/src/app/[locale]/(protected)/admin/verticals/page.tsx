@@ -34,10 +34,18 @@ const EMPTY_FORM = {
     requires_gabbai: false,
     allows_custom_items_note: false,
     hide_prices: false,
+    default_sort: 'popularity',
     display_order: 0,
     is_active: true,
     attribute_fields: [] as FormAttrField[],
 };
+
+const SORT_OPTIONS: { value: string; label: string }[] = [
+    { value: 'popularity', label: 'הכי פופולרי' },
+    { value: 'price_asc', label: 'מחיר: מהזול ליקר' },
+    { value: 'price_desc', label: 'מחיר: מהיקר לזול' },
+    { value: 'newest', label: 'החדש ביותר' },
+];
 
 function Toast({ message, type, onClose }: { message: string; type: 'success' | 'error'; onClose: () => void }) {
     useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, [onClose]);
@@ -91,6 +99,7 @@ export default function AdminVerticalsPage() {
             requires_gabbai: v.requires_gabbai,
             allows_custom_items_note: v.allows_custom_items_note,
             hide_prices: v.hide_prices,
+            default_sort: v.default_sort,
             display_order: v.display_order,
             is_active: v.is_active,
             attribute_fields: (v.attribute_fields || []).map((f) => ({
@@ -158,6 +167,7 @@ export default function AdminVerticalsPage() {
                     requires_gabbai: form.requires_gabbai,
                     allows_custom_items_note: form.allows_custom_items_note,
                     hide_prices: form.hide_prices,
+                    default_sort: form.default_sort,
                     display_order: form.display_order,
                     is_active: form.is_active,
                     attribute_fields,
@@ -173,6 +183,7 @@ export default function AdminVerticalsPage() {
                     requires_gabbai: form.requires_gabbai,
                     allows_custom_items_note: form.allows_custom_items_note,
                     hide_prices: form.hide_prices,
+                    default_sort: form.default_sort,
                     display_order: form.display_order,
                     is_active: form.is_active,
                     attribute_fields,
@@ -364,6 +375,19 @@ export default function AdminVerticalsPage() {
                                 <input type="checkbox" checked={form.hide_prices} onChange={(e) => setForm({ ...form, hide_prices: e.target.checked })} />
                                 הסתר מחירים באתר (עולם בבנייה)
                             </label>
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 block">מיון ברירת מחדל</label>
+                            <select
+                                value={form.default_sort}
+                                onChange={(e) => setForm({ ...form, default_sort: e.target.value })}
+                                className="w-full px-4 py-2 rounded-xl bg-[#0e1628] border border-[#f0e6d3]/20 text-[#f0e6d3] text-sm focus:outline-none focus:border-[#d4af37]/50"
+                            >
+                                {SORT_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div>

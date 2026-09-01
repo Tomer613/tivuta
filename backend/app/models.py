@@ -172,6 +172,10 @@ class Vertical(Base):
     # order-confirmation page (order_confirm.py) and every admin view, which always show real
     # prices regardless of this flag.
     hide_prices = Column(Boolean, default=False, nullable=False)
+    # Which sort order GET /products defaults to for this vertical when the frontend hasn't
+    # applied an explicit user choice yet — one of "popularity"|"newest"|"price_asc"|"price_desc"
+    # (see schemas.VALID_SORT_OPTIONS). "popularity" matches the site-wide default this replaces.
+    default_sort = Column(String(20), default="popularity", nullable=False)
     # [{"key": "carat", "label_he": "קרט", "label_en": "Carat", "type": "number"|"text"|"select", "options": [...]}]
     attribute_fields = Column(JSON, nullable=False, default=list)
     display_order = Column(Integer, nullable=False, default=0)
