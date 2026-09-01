@@ -52,7 +52,7 @@ const T = {
         add_to_cart: 'הוסף לסל', send: 'שלח', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות',
         reviews: 'ביקורות', rate_product: 'דרגו את המוצר', comment_placeholder: 'הערה (אופציונלי)',
         submit_review: 'שלח דירוג', review_thanks: 'תודה על הדירוג!', add_fav: 'הוסף למועדפים', remove_fav: 'הסר מהמועדפים', share: 'שתף בווצאפ',
-        specs: 'מפרט',
+        specs: 'מפרט', low_stock_prefix: 'נותרו', low_stock_suffix: 'במלאי', out_of_stock: 'אזל המלאי',
     },
     en: {
         schedule: 'Schedule Viewing', contact: 'Contact Me', price: 'Price', on_request: 'On request',
@@ -64,7 +64,7 @@ const T = {
         add_to_cart: 'Add to Cart', send: 'Send', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity',
         reviews: 'Reviews', rate_product: 'Rate this product', comment_placeholder: 'Comment (optional)',
         submit_review: 'Submit', review_thanks: 'Thanks for rating!', add_fav: 'Add to favorites', remove_fav: 'Remove from favorites', share: 'Share on WhatsApp',
-        specs: 'Specifications',
+        specs: 'Specifications', low_stock_prefix: 'Only', low_stock_suffix: 'left in stock', out_of_stock: 'Out of stock',
     },
     fr: {
         schedule: 'Planifier', contact: 'Contacter', price: 'Prix', on_request: 'Sur demande',
@@ -76,7 +76,7 @@ const T = {
         add_to_cart: 'Ajouter au panier', send: 'Envoyer', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité',
         reviews: 'Avis', rate_product: 'Évaluez ce produit', comment_placeholder: 'Commentaire (optionnel)',
         submit_review: 'Envoyer', review_thanks: 'Merci pour votre avis!', add_fav: 'Ajouter aux favoris', remove_fav: 'Retirer des favoris', share: 'Partager sur WhatsApp',
-        specs: 'Caractéristiques',
+        specs: 'Caractéristiques', low_stock_prefix: 'Plus que', low_stock_suffix: 'en stock', out_of_stock: 'Rupture de stock',
     },
     yi: {
         schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן', price: 'פרייז', on_request: 'אויף פארלאנג',
@@ -88,7 +88,7 @@ const T = {
         add_to_cart: 'צולייגן אין קארב', send: 'שיקן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות',
         reviews: 'ביקורות', rate_product: 'דרגירט דעם פראדוקט', comment_placeholder: 'הערה (אויף ווילן)',
         submit_review: 'שיקט דירוג', review_thanks: 'א דאנק פארן דירוג!', add_fav: 'צולייגן צו פאוואריטן', remove_fav: 'אראפנעמען פון פאוואריטן', share: 'טיילן אויף וואטסאפ',
-        specs: 'מפרט',
+        specs: 'מפרט', low_stock_prefix: 'נאר', low_stock_suffix: 'געבליבן', out_of_stock: 'אויסגעגאנגען',
     },
 };
 
@@ -443,7 +443,9 @@ export default function ProductDetailClient({ productId }: { productId: number }
 
                         <div>
                             <span className="text-[10px] font-black text-[#f0e6d3]/40 uppercase tracking-widest">{t.price}</span>
-                            {product.sale_price && product.price && product.sale_price > 0 && product.sale_price < product.price ? (
+                            {productVertical?.hide_prices ? (
+                                <p className="text-3xl font-black text-[#d4af37]">{t.on_request}</p>
+                            ) : product.sale_price && product.price && product.sale_price > 0 && product.sale_price < product.price ? (
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-base font-bold text-[#f0e6d3]/40 line-through">₪{product.price.toLocaleString()}</span>
                                     <p className="text-3xl font-black text-[#d4af37]">₪{product.sale_price.toLocaleString()}</p>
@@ -458,6 +460,11 @@ export default function ProductDetailClient({ productId }: { productId: number }
                             )}
                             {product.quantity_discount && product.quantity_discount.tiers.length > 0 && (
                                 <QuantityDiscountNote tiers={product.quantity_discount.tiers} locale={locale} />
+                            )}
+                            {product.stock_quantity != null && product.stock_quantity < 10 && (
+                                <p className={`text-sm font-bold mt-1 ${product.stock_quantity <= 0 ? 'text-red-400' : 'text-orange-400'}`}>
+                                    {product.stock_quantity <= 0 ? t.out_of_stock : `${t.low_stock_prefix} ${product.stock_quantity} ${t.low_stock_suffix}`}
+                                </p>
                             )}
                         </div>
 

@@ -572,6 +572,7 @@ export interface Vertical {
     supports_appointments: boolean;
     requires_gabbai: boolean;
     allows_custom_items_note: boolean;
+    hide_prices: boolean;
     attribute_fields: VerticalAttributeField[];
     display_order: number;
     is_active: boolean;
@@ -580,9 +581,9 @@ export interface Vertical {
 // Used only if the backend is briefly unreachable during a static build — keeps the 3 worlds
 // that exist today from vanishing out of the build entirely.
 const FALLBACK_VERTICALS: Vertical[] = [
-    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, requires_gabbai: false, allows_custom_items_note: false, attribute_fields: [], display_order: 0, is_active: true },
-    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, attribute_fields: [], display_order: 1, is_active: true },
-    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, attribute_fields: [], display_order: 2, is_active: true },
+    { id: 1, slug: 'diamonds', label_he: 'עולם היהלומים', icon: 'Gem', supports_appointments: true, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, attribute_fields: [], display_order: 0, is_active: true },
+    { id: 2, slug: 'cars', label_he: 'עולם הרכב', icon: 'Car', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, attribute_fields: [], display_order: 1, is_active: true },
+    { id: 3, slug: 'insurance', label_he: 'עולם הביטוחים', icon: 'ShieldCheck', supports_appointments: false, requires_gabbai: false, allows_custom_items_note: false, hide_prices: false, attribute_fields: [], display_order: 2, is_active: true },
 ];
 
 export async function getVerticals(): Promise<Vertical[]> {
@@ -1087,6 +1088,19 @@ export async function adminDeleteProduct(token: string, id: number) {
     return res.json();
 }
 
+export async function adminAdjustProductStock(token: string, id: number, delta: number) {
+    const res = await fetch(`${BASE_URL}/admin/products/${id}/stock`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delta }),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to adjust stock');
+    }
+    return res.json();
+}
+
 export async function adminListLeads(token: string) {
     const res = await fetch(`${BASE_URL}/admin/leads`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load leads');
@@ -1117,6 +1131,19 @@ export interface CustomerOrderLine {
     quantity_discount_percent_snapshot?: number | null;
 }
 
+export interface OrderInquiry {
+    id: number;
+    subject?: string | null;
+    message?: string | null;
+    status: string;
+    notes?: string | null;
+    created_at: string;
+}
+
+// "new" (admin reviewing) -> "awaiting_customer" (finalized, email+link sent) ->
+// "customer_confirmed" | "cancelled" — see CLAUDE.md's order-status design notes.
+export type OrderStatus = 'new' | 'awaiting_customer' | 'customer_confirmed' | 'cancelled';
+
 export interface CustomerOrder {
     id: number;
     order_number: string;
@@ -1125,6 +1152,12 @@ export interface CustomerOrder {
     user_email?: string | null;
     user_phone?: string | null;
     notes?: string | null;
+    status: OrderStatus;
+    confirmation_deadline?: string | null;
+    reminder_sent_at?: string | null;
+    confirmed_at?: string | null;
+    cancelled_at?: string | null;
+    history?: { ts: string; action: string; from_val?: string | null; to_val?: string | null; actor?: string | null }[];
     orderer_role?: string | null;
     gabbai_community_name_snapshot?: string | null;
     gabbai_synagogue_address_snapshot?: string | null;
@@ -1133,6 +1166,7 @@ export interface CustomerOrder {
     custom_items_note?: string | null;
     created_at: string;
     items: CustomerOrderLine[];
+    inquiries: OrderInquiry[];
 }
 
 export async function adminListOrders(token: string): Promise<CustomerOrder[]> {
@@ -1148,6 +1182,70 @@ export async function adminUpdateOrderNotes(token: string, orderId: number, note
         body: JSON.stringify({ notes }),
     });
     if (!res.ok) throw new Error('Failed to update order notes');
+    return res.json();
+}
+
+export async function adminFinalizeOrder(token: string, orderId: number): Promise<CustomerOrder> {
+    const res = await fetch(`${BASE_URL}/admin/orders/${orderId}/finalize`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to finalize order');
+    }
+    return res.json();
+}
+
+export async function adminCancelOrder(token: string, orderId: number): Promise<CustomerOrder> {
+    const res = await fetch(`${BASE_URL}/admin/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to cancel order');
+    }
+    return res.json();
+}
+
+// Public order-confirmation page (no auth — the token itself is the access grant)
+export interface OrderConfirmLine {
+    id: number;
+    product_title_he?: string | null;
+    quantity?: number | null;
+    unit_price_snapshot?: number | null;
+    list_price_snapshot?: number | null;
+    notes?: string | null;
+    status: string;
+}
+
+export interface OrderConfirmData {
+    order_number: string;
+    status: OrderStatus;
+    confirmation_deadline?: string | null;
+    confirmed_at?: string | null;
+    custom_items_note?: string | null;
+    gabbai_community_name_snapshot?: string | null;
+    items: OrderConfirmLine[];
+    total: number;
+}
+
+export async function getOrderConfirmation(token: string): Promise<OrderConfirmData> {
+    const res = await fetch(`${BASE_URL}/order-confirm/${token}`);
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Order confirmation link not found');
+    }
+    return res.json();
+}
+
+export async function confirmOrder(token: string): Promise<OrderConfirmData> {
+    const res = await fetch(`${BASE_URL}/order-confirm/${token}/confirm`, { method: 'POST' });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to confirm order');
+    }
     return res.json();
 }
 
@@ -1681,6 +1779,7 @@ export interface MyOrderLine {
 export interface MyOrder {
     id: number;
     order_number: string;
+    status?: OrderStatus;
     orderer_role?: string | null;
     gabbai_community_name_snapshot?: string | null;
     gabbai_synagogue_address_snapshot?: string | null;
@@ -1733,7 +1832,7 @@ export async function createCardOrder(token: string, shippingAddress: ShippingAd
     return res.json();
 }
 
-export async function submitContactUs(token: string, payload: { subject: string; message: string; locale?: string }) {
+export async function submitContactUs(token: string, payload: { subject: string; message: string; locale?: string; order_id?: number }) {
     const res = await fetch(`${BASE_URL}/leads/contact`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },

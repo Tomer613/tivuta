@@ -83,6 +83,9 @@ export default function CartPage() {
     const mixedCartBlocked = hasGabbaiRequiredItem && hasOrdinaryItem;
     const needsGabbaiRegistration = hasGabbaiRequiredItem && user?.role !== 'gabbai';
     const allowsCustomNote = items.some((i) => verticalsBySlug[i.vertical]?.allows_custom_items_note);
+    // Vertical.hide_prices — real prices still checkout/snapshot normally server-side, this only
+    // suppresses the *display* here (same treatment an on-request/null-price item already gets).
+    const isHiddenPrice = (item: CartItem) => !!verticalsBySlug[item.vertical]?.hide_prices;
 
     // Pre-checkout preview only — the server independently recomputes and stores the
     // authoritative snapshot at checkout time (see services/pricing.py); this is display only.
@@ -96,10 +99,10 @@ export default function CartPage() {
             item.quantity_discount_bundle_id != null ? (aggregates[item.quantity_discount_bundle_id] || 0) : 0
         ),
     }));
-    const totalPrice = priced.reduce((sum, { item, eff }) => sum + (eff.unitPrice ?? 0) * item.quantity, 0);
-    const originalTotal = items.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
+    const totalPrice = priced.reduce((sum, { item, eff }) => sum + (isHiddenPrice(item) ? 0 : (eff.unitPrice ?? 0) * item.quantity), 0);
+    const originalTotal = items.reduce((sum, i) => sum + (isHiddenPrice(i) ? 0 : (i.price || 0) * i.quantity), 0);
     const totalSavings = Math.max(0, originalTotal - totalPrice);
-    const hasOnRequestItem = items.some((i) => !i.price);
+    const hasOnRequestItem = items.some((i) => !i.price || isHiddenPrice(i));
 
     const handleCheckout = async () => {
         if (!token || items.length === 0 || status === 'submitting' || mixedCartBlocked || needsGabbaiRegistration) return;
@@ -185,7 +188,9 @@ export default function CartPage() {
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-bold text-[#f0e6d3] truncate">{title}</p>
                                                 <p className="text-xs text-[#f0e6d3]/40">{VERTICAL_LABEL[item.vertical] || item.vertical}</p>
-                                                {hasDiscount ? (
+                                                {isHiddenPrice(item) ? (
+                                                    <p className="text-[#d4af37] font-black mt-1">{t.on_request}</p>
+                                                ) : hasDiscount ? (
                                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                         <span className="text-xs text-[#f0e6d3]/40 line-through">₪{eff.listPrice!.toLocaleString()}</span>
                                                         <span className="text-[#d4af37] font-black">₪{eff.unitPrice!.toLocaleString()}</span>

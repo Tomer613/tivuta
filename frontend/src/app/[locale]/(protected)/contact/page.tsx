@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { MessageSquare, Loader2, CheckCircle2, Send } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -11,6 +11,7 @@ import { getErrorMessage } from '@/lib/getErrorMessage';
 interface T {
     title: string;
     subtitle: string;
+    order_context: (orderId: string) => string;
     subject: string;
     message: string;
     submit: string;
@@ -23,6 +24,7 @@ const translations: Record<string, T> = {
     he: {
         title: 'צור קשר',
         subtitle: 'יש לך שאלה כללית? נשמח לעזור — נציג שלנו יחזור אליך בהקדם.',
+        order_context: (orderId) => `לגבי הזמנה ${orderId}`,
         subject: 'נושא הפנייה',
         message: 'הודעה',
         submit: 'שלח פנייה',
@@ -33,6 +35,7 @@ const translations: Record<string, T> = {
     en: {
         title: 'Contact Us',
         subtitle: "Have a general question? We're happy to help — a representative will get back to you shortly.",
+        order_context: (orderId) => `Regarding order ${orderId}`,
         subject: 'Subject',
         message: 'Message',
         submit: 'Send Message',
@@ -43,6 +46,7 @@ const translations: Record<string, T> = {
     fr: {
         title: 'Nous contacter',
         subtitle: 'Une question générale ? Un représentant vous recontactera sous peu.',
+        order_context: (orderId) => `Concernant la commande ${orderId}`,
         subject: 'Sujet',
         message: 'Message',
         submit: 'Envoyer le message',
@@ -53,6 +57,7 @@ const translations: Record<string, T> = {
     yi: {
         title: 'קאנטאקט אונדז',
         subtitle: 'האָבן א פֿראַגע? מיר וועלן זיך אָנרופֿן באַלד.',
+        order_context: (orderId) => `וועגן דער בעשטעלונג ${orderId}`,
         subject: 'טעמע',
         message: 'מעלדונג',
         submit: 'שיקן מעלדונג',
@@ -62,11 +67,14 @@ const translations: Record<string, T> = {
     },
 };
 
-export default function ContactUsPage() {
+function ContactUsForm() {
     const params = useParams();
     const locale = (params?.locale as string) || 'he';
     const t = translations[locale] || translations.he;
     const { token } = useAuth();
+    const searchParams = useSearchParams();
+    const orderId = searchParams?.get('order') ? Number(searchParams.get('order')) : undefined;
+    const orderDisplayNumber = orderId ? `ORD-${String(orderId).padStart(6, '0')}` : null;
 
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
@@ -80,7 +88,7 @@ export default function ContactUsPage() {
         setIsLoading(true);
         setError(null);
         try {
-            await submitContactUs(token, { subject, message, locale });
+            await submitContactUs(token, { subject, message, locale, order_id: orderId });
             setDone(true);
         } catch (err) {
             setError(getErrorMessage(err, locale === 'he' ? 'שגיאה בשליחת הפנייה' : 'Failed to send your message'));
@@ -98,6 +106,9 @@ export default function ContactUsPage() {
                     </div>
                     <h1 className="text-3xl font-black text-[#f0e6d3] mb-3 text-center">{t.title}</h1>
                     <p className="text-[#f0e6d3]/60 font-medium text-center leading-relaxed">{t.subtitle}</p>
+                    {orderDisplayNumber && (
+                        <p className="text-[#d4af37] font-bold text-sm mt-2" dir="ltr">{t.order_context(orderDisplayNumber)}</p>
+                    )}
                 </div>
 
                 {done ? (
@@ -152,5 +163,17 @@ export default function ContactUsPage() {
                 )}
             </div>
         </main>
+    );
+}
+
+export default function ContactUsPage() {
+    return (
+        <Suspense fallback={
+            <main className="min-h-screen bg-[#111a2f] flex items-center justify-center">
+                <Loader2 className="animate-spin text-[#d4af37]" size={32} />
+            </main>
+        }>
+            <ContactUsForm />
+        </Suspense>
     );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
 import {
@@ -11,7 +12,7 @@ import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
-    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil,
+    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil, MessageCircleQuestion,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
@@ -42,6 +43,8 @@ const tr: Record<string, Record<string, string>> = {
         orders_personal_title: 'הזמנות אישיות',
         orders_gabbai_title: 'הזמנות כגבאי',
         no_orders: 'אין הזמנות עדיין.',
+        order_status_new: 'בבדיקה', order_status_awaiting_customer: 'ממתינה לאישורך', order_status_customer_confirmed: 'אושרה סופית', order_status_cancelled: 'בוטלה',
+        ask_about_order: 'שאל שאלה על ההזמנה',
         order_items_done: 'הושלמו',
         order_savings: 'חסכת',
         gabbai_section_title: 'רישום כגבאי',
@@ -85,6 +88,8 @@ const tr: Record<string, Record<string, string>> = {
         orders_personal_title: 'Personal orders',
         orders_gabbai_title: 'Gabbai orders',
         no_orders: 'No orders yet.',
+        order_status_new: 'In review', order_status_awaiting_customer: 'Awaiting your confirmation', order_status_customer_confirmed: 'Confirmed', order_status_cancelled: 'Cancelled',
+        ask_about_order: 'Ask about this order',
         order_items_done: 'done',
         order_savings: 'You saved',
         gabbai_section_title: 'Gabbai registration',
@@ -128,6 +133,8 @@ const tr: Record<string, Record<string, string>> = {
         orders_personal_title: 'Commandes personnelles',
         orders_gabbai_title: 'Commandes en tant que gabbaï',
         no_orders: 'Aucune commande.',
+        order_status_new: 'En cours de vérification', order_status_awaiting_customer: 'En attente de votre confirmation', order_status_customer_confirmed: 'Confirmée', order_status_cancelled: 'Annulée',
+        ask_about_order: 'Poser une question sur cette commande',
         order_items_done: 'terminés',
         order_savings: 'Économisé',
         gabbai_section_title: 'Inscription en tant que gabbaï',
@@ -171,6 +178,8 @@ const tr: Record<string, Record<string, string>> = {
         orders_personal_title: 'פּערזענלעכע הזמנות',
         orders_gabbai_title: 'הזמנות אלס גבאי',
         no_orders: 'קיין הזמנות נאָך ניט.',
+        order_status_new: 'אין דורכזיכט', order_status_awaiting_customer: 'ווארט אויף אײַער באשטעטיקונג', order_status_customer_confirmed: 'באשטעטיגט', order_status_cancelled: 'אָפּגעזאָגט',
+        ask_about_order: 'שטעלט א פראגע וועגן דער בעשטעלונג',
         order_items_done: 'פֿאַרטיק',
         order_savings: 'געשפּאָרט',
         gabbai_section_title: 'רעגיסטראציע אלס גבאי',
@@ -541,6 +550,10 @@ export default function ProfileClient() {
         ({ new: t.status_new, confirmed: t.status_confirmed, contacted: t.status_contacted, closed: t.status_closed }[s] ?? s);
     const statusColor = (s: string) =>
         ({ new: 'text-[#f0e6d3]/60', confirmed: 'text-green-400', contacted: 'text-blue-400', closed: 'text-[#f0e6d3]/30' }[s] ?? 'text-[#f0e6d3]/60');
+    const orderStatusLabel = (s?: string) =>
+        ({ new: t.order_status_new, awaiting_customer: t.order_status_awaiting_customer, customer_confirmed: t.order_status_customer_confirmed, cancelled: t.order_status_cancelled }[s || 'new'] ?? s);
+    const orderStatusColor = (s?: string) =>
+        ({ new: 'bg-[#111a2f] text-[#f0e6d3]/50', awaiting_customer: 'bg-[#d4af37]/20 text-[#d4af37]', customer_confirmed: 'bg-green-500/20 text-green-400', cancelled: 'bg-[#111a2f] text-[#f0e6d3]/30' }[s || 'new'] ?? 'bg-[#111a2f] text-[#f0e6d3]/50');
 
     const marketplaceActivity = activity.filter((item) => item.lead_type !== 'card_order');
     const cardOrderLead = cardOrderLeadOverride || activity.find((item) => item.lead_type === 'card_order') || null;
@@ -557,7 +570,12 @@ export default function ProfileClient() {
         return (
             <div key={order.id} className="bg-[#111a2f] rounded-xl px-4 py-3">
                 <div className="flex items-center justify-between gap-3 mb-2">
-                    <span className="text-sm font-black text-[#d4af37]" dir="ltr">{order.order_number}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-black text-[#d4af37]" dir="ltr">{order.order_number}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${orderStatusColor(order.status)}`}>
+                            {orderStatusLabel(order.status)}
+                        </span>
+                    </div>
                     <span className="text-xs text-[#f0e6d3]/40">
                         {new Date(order.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                     </span>
@@ -600,6 +618,12 @@ export default function ProfileClient() {
                 {order.custom_items_note && (
                     <p className="text-xs text-[#d4af37]/70 bg-[#0e1628] rounded-lg px-3 py-2 mt-2">{order.custom_items_note}</p>
                 )}
+                <Link
+                    href={`/${locale}/contact?order=${order.id}`}
+                    className="flex items-center gap-1.5 text-xs text-[#d4af37]/60 hover:text-[#d4af37] transition-colors mt-2"
+                >
+                    <MessageCircleQuestion size={12} /> {t.ask_about_order}
+                </Link>
             </div>
         );
     };

@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, adminListProductCategories, adminBulkAssignCategory, adminListQuantityDiscounts, adminBulkAssignQuantityDiscount, productImageUrl, Vendor, Vertical, ProductCategory, QuantityDiscountBundle } from '@/lib/api';
+import { adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct, adminDuplicateProduct, adminAdjustProductStock, adminTranslateProduct, adminGetTranslateStatus, adminUploadImage, adminImportCsv, adminGetProductAnalytics, adminListVendors, adminListVerticals, adminListProductCategories, adminBulkAssignCategory, adminListQuantityDiscounts, adminBulkAssignQuantityDiscount, productImageUrl, Vendor, Vertical, ProductCategory, QuantityDiscountBundle } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { useBulkSelection } from '@/lib/useBulkSelection';
 import { Product } from '@/components/ProductTile';
-import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3, ExternalLink, CheckSquare, Square } from 'lucide-react';
+import { Plus, Trash2, Loader2, ArrowUpDown, X, ImagePlus, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Search, Copy, Languages, Download, Upload, BarChart3, ExternalLink, CheckSquare, Square, Minus, Package } from 'lucide-react';
 
 const LANGS = [
     { key: 'he', label: 'עברית', dir: 'rtl' as const },
@@ -46,6 +46,7 @@ const EMPTY_FORM = {
     vendor_id: '' as string | number,
     category_id: '' as string | number,
     quantity_discount_bundle_id: '' as string | number,
+    stock_quantity: '' as string | number, // '' = not tracked (NULL)
     is_active: true,
 };
 
@@ -72,6 +73,7 @@ export default function AdminProductsPage() {
     const [filterCategory, setFilterCategory] = useState('');
     const [search, setSearch] = useState('');
     const [togglingId, setTogglingId] = useState<number | null>(null);
+    const [stockAdjustingId, setStockAdjustingId] = useState<number | null>(null);
     const [sortKey, setSortKey] = useState<'title_he' | 'price' | 'vertical'>('vertical');
     const [showForm, setShowForm] = useState(false);
     const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -227,6 +229,19 @@ export default function AdminProductsPage() {
         }
     };
 
+    const handleStockAdjust = async (p: Product, delta: number) => {
+        if (!token) return;
+        setStockAdjustingId(p.id);
+        try {
+            const updated = await adminAdjustProductStock(token, p.id, delta);
+            setProducts((prev) => prev.map((x) => x.id === p.id ? { ...x, stock_quantity: updated.stock_quantity } : x));
+        } catch {
+            showToast('שגיאה בעדכון מלאי', 'error');
+        } finally {
+            setStockAdjustingId(null);
+        }
+    };
+
     const handleToggleActive = async (p: Product) => {
         if (!token) return;
         setTogglingId(p.id);
@@ -261,6 +276,7 @@ export default function AdminProductsPage() {
             vendor_id: p.vendor_id ?? '',
             category_id: p.category_id ?? '',
             quantity_discount_bundle_id: p.quantity_discount_bundle_id ?? '',
+            stock_quantity: p.stock_quantity ?? '',
             is_active: p.is_active ?? true,
         });
         setLangTab('he');
@@ -332,6 +348,7 @@ export default function AdminProductsPage() {
             vendor_id: form.vendor_id ? Number(form.vendor_id) : null,
             category_id: form.category_id ? Number(form.category_id) : null,
             quantity_discount_bundle_id: form.quantity_discount_bundle_id ? Number(form.quantity_discount_bundle_id) : null,
+            stock_quantity: form.stock_quantity !== '' ? Number(form.stock_quantity) : null,
             // Preserves the product's current hidden/visible state on edit — a hardcoded `true`
             // here used to silently re-publish a hidden product on any unrelated edit (e.g. fixing
             // a typo). New products (no editProduct) still default to active via EMPTY_FORM.
@@ -631,13 +648,14 @@ export default function AdminProductsPage() {
                                 <th className="p-4 text-start">קטגוריה</th>
                                 <th className="p-4 text-start">שפות</th>
                                 <th className="p-4 text-start">מחיר</th>
+                                <th className="p-4 text-start">מלאי</th>
                                 <th className="p-4 text-start">סטטוס</th>
                                 <th className="p-4 text-start"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {filtered.length === 0 && (
-                                <tr><td colSpan={9} className="p-8 text-center text-[#f0e6d3]/40">אין מוצרים עדיין</td></tr>
+                                <tr><td colSpan={10} className="p-8 text-center text-[#f0e6d3]/40">אין מוצרים עדיין</td></tr>
                             )}
                             {filtered.map((p) => {
                                 const translatedCount = [p.title_en, p.title_fr, p.title_yi].filter(Boolean).length;
@@ -680,6 +698,33 @@ export default function AdminProductsPage() {
                                                 </div>
                                             ) : (
                                                 p.price ? `₪${Number(p.price).toLocaleString()}` : '-'
+                                            )}
+                                        </td>
+                                        <td className="p-4">
+                                            {p.stock_quantity == null ? (
+                                                <span className="text-xs text-[#f0e6d3]/25">לא במעקב</span>
+                                            ) : (
+                                                <div className="flex items-center gap-1.5">
+                                                    <button
+                                                        onClick={() => handleStockAdjust(p, -1)}
+                                                        disabled={stockAdjustingId === p.id}
+                                                        className="w-5 h-5 flex items-center justify-center rounded-full bg-[#111a2f] text-[#f0e6d3]/60 hover:text-[#d4af37] transition-colors disabled:opacity-40"
+                                                        aria-label="הפחת מלאי"
+                                                    >
+                                                        <Minus size={11} />
+                                                    </button>
+                                                    <span className={`text-sm font-bold w-6 text-center ${p.stock_quantity < 10 ? 'text-orange-400' : 'text-[#f0e6d3]'}`}>
+                                                        {stockAdjustingId === p.id ? <Loader2 size={11} className="animate-spin mx-auto" /> : p.stock_quantity}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleStockAdjust(p, 1)}
+                                                        disabled={stockAdjustingId === p.id}
+                                                        className="w-5 h-5 flex items-center justify-center rounded-full bg-[#111a2f] text-[#f0e6d3]/60 hover:text-[#d4af37] transition-colors disabled:opacity-40"
+                                                        aria-label="הוסף מלאי"
+                                                    >
+                                                        <Plus size={11} />
+                                                    </button>
+                                                </div>
                                             )}
                                         </td>
                                         <td className="p-4">
@@ -888,6 +933,21 @@ export default function AdminProductsPage() {
                         {!form.price && form.sale_price && (
                             <p className="text-[11px] text-red-400/70">יש להזין מחיר רגיל לפני הגדרת מחיר מבצע</p>
                         )}
+
+                        {/* Stock quantity — blank means "not tracked" (unlimited, no low-stock badge) */}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-1 flex items-center gap-1.5">
+                                <Package size={12} /> כמות במלאי (השאר ריק אם לא רלוונטי למעקב מלאי)
+                            </label>
+                            <input
+                                type="number"
+                                min={0}
+                                placeholder="לא במעקב"
+                                value={form.stock_quantity}
+                                onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
+                                className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
+                            />
+                        </div>
 
                         {/* Vertical-specific attributes */}
                         {verticalAttrs.length > 0 && (

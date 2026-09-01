@@ -18,3 +18,13 @@ jobs:
         run: |
           curl -s -X POST "https://tivuta.onrender.com/api/distributions/timeout-stuck-sends" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Send confirmation reminders for orders nearing their 24h deadline
+        run: |
+          curl -s -X POST "https://tivuta.onrender.com/api/orders/send-confirmation-reminders" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+      - name: Auto-cancel and restock orders whose confirmation deadline has passed
+        run: |
+          curl -s -X POST "https://tivuta.onrender.com/api/orders/auto-cancel-expired" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

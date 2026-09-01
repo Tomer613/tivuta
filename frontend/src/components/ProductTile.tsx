@@ -44,6 +44,7 @@ export interface Product {
     quantity_discount_bundle_id?: number | null;
     quantity_discount?: QuantityDiscountBrief | null;
     is_active?: boolean;
+    stock_quantity?: number | null;
 }
 
 export function promotionLabel(promo: PromotionBrief): string {
@@ -69,13 +70,15 @@ interface T {
     send: string;
     dec_qty: string;
     inc_qty: string;
+    low_stock: (n: number) => string;
+    out_of_stock: string;
 }
 
 const translations: Record<string, T> = {
-    he: { schedule: 'קביעת פגישה', contact: 'יצירת קשר', requested: 'הפנייה נשלחה, ניצור איתך קשר בקרוב', scheduled: 'הפגישה נקבעה! אישור נשלח למייל', price_label: 'מחיר', on_request: 'לפי בקשה', add_to_cart: 'הוסף לסל', send: 'שלח', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות' },
-    en: { schedule: 'Schedule Viewing', contact: 'Contact Me', requested: 'Request sent, we will reach out shortly', scheduled: 'Appointment booked! Confirmation sent to your email', price_label: 'Price', on_request: 'On request', add_to_cart: 'Add to Cart', send: 'Send', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity' },
-    fr: { schedule: 'Planifier une visite', contact: 'Me contacter', requested: 'Demande envoyée, nous vous contacterons bientôt', scheduled: 'Rendez-vous confirmé ! Email envoyé', price_label: 'Prix', on_request: 'Sur demande', add_to_cart: 'Ajouter au panier', send: 'Envoyer', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité' },
-    yi: { schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן מיר', requested: 'געשיקט, מיר וועלן זיך פארבינדן', scheduled: 'באגעגעניש איז באשטעטיגט!', price_label: 'פרייז', on_request: 'אויף פארלאנג', add_to_cart: 'צולייגן אין קארב', send: 'שיקן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות' },
+    he: { schedule: 'קביעת פגישה', contact: 'יצירת קשר', requested: 'הפנייה נשלחה, ניצור איתך קשר בקרוב', scheduled: 'הפגישה נקבעה! אישור נשלח למייל', price_label: 'מחיר', on_request: 'לפי בקשה', add_to_cart: 'הוסף לסל', send: 'שלח', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', low_stock: (n) => `נותרו ${n} במלאי`, out_of_stock: 'אזל המלאי' },
+    en: { schedule: 'Schedule Viewing', contact: 'Contact Me', requested: 'Request sent, we will reach out shortly', scheduled: 'Appointment booked! Confirmation sent to your email', price_label: 'Price', on_request: 'On request', add_to_cart: 'Add to Cart', send: 'Send', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', low_stock: (n) => `Only ${n} left in stock`, out_of_stock: 'Out of stock' },
+    fr: { schedule: 'Planifier une visite', contact: 'Me contacter', requested: 'Demande envoyée, nous vous contacterons bientôt', scheduled: 'Rendez-vous confirmé ! Email envoyé', price_label: 'Prix', on_request: 'Sur demande', add_to_cart: 'Ajouter au panier', send: 'Envoyer', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', low_stock: (n) => `Plus que ${n} en stock`, out_of_stock: 'Rupture de stock' },
+    yi: { schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן מיר', requested: 'געשיקט, מיר וועלן זיך פארבינדן', scheduled: 'באגעגעניש איז באשטעטיגט!', price_label: 'פרייז', on_request: 'אויף פארלאנג', add_to_cart: 'צולייגן אין קארב', send: 'שיקן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', low_stock: (n) => `נאר ${n} געבליבן`, out_of_stock: 'אויסגעגאנגען' },
 };
 
 function FlashCountdown({ endDate, locale }: { endDate: string; locale: string }) {
@@ -121,7 +124,7 @@ const DETAIL_LABELS: Record<string, { details: string }> = {
     yi: { details: 'מער פרטים' },
 };
 
-export default function ProductTile({ product, locale, actionType, token, isFav = false }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string; isFav?: boolean }) {
+export default function ProductTile({ product, locale, actionType, token, isFav = false, hidePrices = false }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string; isFav?: boolean; hidePrices?: boolean }) {
     const [fav, setFav] = useState(isFav);
     const [favLoading, setFavLoading] = useState(false);
     const t = translations[locale] || translations.he;
@@ -238,7 +241,9 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                 <div className="mt-auto flex flex-col gap-4 w-full pt-4 border-t border-[#d4af37]/20">
                     <div className="flex flex-col items-start">
                         <span className="text-[10px] font-black text-[#f0e6d3]/40 uppercase tracking-widest">{t.price_label}</span>
-                        {product.sale_price && product.price && product.sale_price > 0 && product.sale_price < product.price ? (
+                        {hidePrices ? (
+                            <span className="text-2xl font-black text-[#d4af37]">{t.on_request}</span>
+                        ) : product.sale_price && product.price && product.sale_price > 0 && product.sale_price < product.price ? (
                             <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-sm font-bold text-[#f0e6d3]/40 line-through">₪{product.price.toLocaleString()}</span>
                                 <span className="text-2xl font-black text-[#d4af37]">₪{product.sale_price.toLocaleString()}</span>
@@ -253,6 +258,11 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                         )}
                         {product.quantity_discount && product.quantity_discount.tiers.length > 0 && (
                             <QuantityDiscountNote tiers={product.quantity_discount.tiers} locale={locale} />
+                        )}
+                        {product.stock_quantity != null && product.stock_quantity < 10 && (
+                            <span className={`text-xs font-bold mt-1 ${product.stock_quantity <= 0 ? 'text-red-400' : 'text-orange-400'}`}>
+                                {product.stock_quantity <= 0 ? t.out_of_stock : t.low_stock(product.stock_quantity)}
+                            </span>
                         )}
                     </div>
 

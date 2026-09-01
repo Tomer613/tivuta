@@ -282,6 +282,7 @@ class ProductBase(BaseModel):
     vendor_id: Optional[int] = None
     category_id: Optional[int] = None
     quantity_discount_bundle_id: Optional[int] = None
+    stock_quantity: Optional[int] = None
 
 class ProductCreate(ProductBase):
     pass
@@ -304,6 +305,10 @@ class ProductUpdate(BaseModel):
     vendor_id: Optional[int] = None
     category_id: Optional[int] = None
     quantity_discount_bundle_id: Optional[int] = None
+    stock_quantity: Optional[int] = None
+
+class ProductStockAdjust(BaseModel):
+    delta: int
 
 class ProductBulkCategoryAssign(BaseModel):
     product_ids: List[int]
@@ -417,6 +422,7 @@ class VerticalBase(BaseModel):
     supports_appointments: bool = False
     requires_gabbai: bool = False
     allows_custom_items_note: bool = False
+    hide_prices: bool = False
     attribute_fields: List[VerticalAttributeField] = []
     display_order: int = 0
     is_active: bool = True
@@ -459,6 +465,7 @@ class VerticalUpdate(BaseModel):
     supports_appointments: Optional[bool] = None
     requires_gabbai: Optional[bool] = None
     allows_custom_items_note: Optional[bool] = None
+    hide_prices: Optional[bool] = None
     attribute_fields: Optional[List[VerticalAttributeField]] = None
     display_order: Optional[int] = None
     is_active: Optional[bool] = None
@@ -634,6 +641,7 @@ class ContactUsCreate(BaseModel):
     subject: str = Field(..., max_length=200)
     message: str = Field(..., min_length=1, max_length=5000)
     locale: Optional[str] = None
+    order_id: Optional[int] = None  # links this inquiry to one of the customer's own existing orders
 
 class CartCheckoutItem(BaseModel):
     product_id: int
@@ -729,6 +737,19 @@ class CustomerOrderLineRead(BaseModel):
         from_attributes = True
 
 
+class OrderInquiryRead(BaseModel):
+    """A general_inquiry Lead the customer explicitly linked to this order (see ContactUsCreate.order_id)."""
+    id: int
+    subject: Optional[str] = None
+    message: Optional[str] = None
+    status: str
+    notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class CustomerOrderRead(BaseModel):
     id: int
     order_number: str
@@ -737,6 +758,12 @@ class CustomerOrderRead(BaseModel):
     user_email: Optional[str] = None
     user_phone: Optional[str] = None
     notes: Optional[str] = None
+    status: str = "new"
+    confirmation_deadline: Optional[datetime] = None
+    reminder_sent_at: Optional[datetime] = None
+    confirmed_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+    history: Optional[List[dict]] = []
     orderer_role: Optional[str] = None
     gabbai_community_name_snapshot: Optional[str] = None
     gabbai_synagogue_address_snapshot: Optional[str] = None
@@ -745,6 +772,7 @@ class CustomerOrderRead(BaseModel):
     custom_items_note: Optional[str] = None
     created_at: datetime
     items: List[CustomerOrderLineRead]
+    inquiries: List[OrderInquiryRead] = []
 
     class Config:
         from_attributes = True
@@ -845,6 +873,7 @@ class MyOrderLineRead(BaseModel):
 class MyOrderRead(BaseModel):
     id: int
     order_number: str
+    status: str = "new"
     orderer_role: Optional[str] = None
     gabbai_community_name_snapshot: Optional[str] = None
     gabbai_synagogue_address_snapshot: Optional[str] = None
@@ -854,6 +883,34 @@ class MyOrderRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Public order-confirmation page (GET/POST /order-confirm/{token}) — deliberately its own, leaner
+# schema: no user_id/email/phone (the token itself is the access grant, no login involved), and
+# prices are ALWAYS included here regardless of Vertical.hide_prices (see admin/order_confirm.py).
+class OrderConfirmLineRead(BaseModel):
+    id: int
+    product_title_he: Optional[str] = None
+    quantity: Optional[int] = None
+    unit_price_snapshot: Optional[float] = None
+    list_price_snapshot: Optional[float] = None
+    notes: Optional[str] = None
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class OrderConfirmRead(BaseModel):
+    order_number: str
+    status: str
+    confirmation_deadline: Optional[datetime] = None
+    confirmed_at: Optional[datetime] = None
+    custom_items_note: Optional[str] = None
+    gabbai_community_name_snapshot: Optional[str] = None
+    items: List[OrderConfirmLineRead]
+    total: float
+
 
 # Survey Schemas
 class SurveyOptionCreate(BaseModel):

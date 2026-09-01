@@ -116,6 +116,7 @@ def test_garbage_payload_locale_never_persists_to_lead_or_notification(client, d
     )
     assert resp.status_code == 200
     lead_id = resp.json()["id"]
+    order_id = resp.json()["customer_order_id"]
 
     lead_row = db_session.query(models.Lead).filter(models.Lead.id == lead_id).first()
     assert lead_row.locale == "he"  # clamped, not "xyz123"
@@ -123,16 +124,26 @@ def test_garbage_payload_locale_never_persists_to_lead_or_notification(client, d
     status_resp = client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
     assert status_resp.status_code == 200
 
+    # The garbage payload locale never reaches the user record itself (no preferred_language was
+    # ever set), so the finalize email/notification — which resolve locale from user.preferred_language,
+    # not from the original lead-creation payload — must still land on the "he" fallback too.
+    finalize_resp = client.post(f"/admin/orders/{order_id}/finalize", headers=admin_headers)
+    assert finalize_resp.status_code == 200
+
     notif = (
         db_session.query(models.Notification)
-        .filter(models.Notification.type == "lead_status")
+        .filter(models.Notification.type == "system")
         .order_by(models.Notification.id.desc())
         .first()
     )
     assert notif.locale == "he"
 
 
-def test_status_change_email_and_notification_use_preferred_language(client, db_session, make_user, monkeypatch):
+def test_finalize_order_email_and_notification_use_preferred_language(client, db_session, make_user, monkeypatch):
+    """Regression coverage for where this locale-correctness concern actually lives now: a single
+    line-item status change (PATCH /admin/leads/{id}/status) no longer emails or notifies the
+    customer at all (see test_order_lifecycle.py's dedicated test for that removal) — the
+    consolidated summary email only goes out once, from POST /admin/orders/{id}/finalize."""
     db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True, supports_appointments=True))
     db_session.commit()
     product = models.Product(vertical="diamonds", title_he="טבעת", description_he="תיאור", price=1000.0)
@@ -153,24 +164,25 @@ def test_status_change_email_and_notification_use_preferred_language(client, db_
         headers=member_headers,
     )
     lead_id = create_resp.json()["id"]
-    fake_sender.sent.clear()  # only care about the status-change email below
+    order_id = create_resp.json()["customer_order_id"]
+    client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
+    fake_sender.sent.clear()  # only care about the finalize email below
 
-    status_resp = client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
-    assert status_resp.status_code == 200
+    finalize_resp = client.post(f"/admin/orders/{order_id}/finalize", headers=admin_headers)
+    assert finalize_resp.status_code == 200
 
     assert len(fake_sender.sent) == 1
     assert fake_sender.sent[0]["locale"] == "en"
-    assert "confirmed" in fake_sender.sent[0]["subject"].lower()
+    assert "confirm" in fake_sender.sent[0]["subject"].lower()
 
     notif = (
         db_session.query(models.Notification)
-        .filter(models.Notification.type == "lead_status")
+        .filter(models.Notification.type == "system")
         .order_by(models.Notification.id.desc())
         .first()
     )
     assert notif is not None
     assert notif.locale == "en"
-    assert "confirmed" in notif.title.lower()
 
 
 def test_forgot_password_uses_preferred_language(client, make_user, monkeypatch):
@@ -210,7 +222,7 @@ def test_forgot_password_supports_french_and_yiddish_natively(client, make_user,
     assert "לאיפוס הסיסמה" not in yi_mail["html_body"]  # not the Hebrew body either
 
 
-def test_status_change_supports_french_and_yiddish_natively(client, db_session, make_user, monkeypatch):
+def test_finalize_order_supports_french_and_yiddish_natively(client, db_session, make_user, monkeypatch):
     db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True, supports_appointments=True))
     db_session.commit()
     product = models.Product(vertical="diamonds", title_he="טבעת", description_he="תיאור", price=1000.0)
@@ -229,22 +241,15 @@ def test_status_change_supports_french_and_yiddish_natively(client, db_session, 
         "/leads", json={"product_id": product.id, "scheduled_at": "2026-09-01T10:00:00"}, headers=member_headers,
     )
     lead_id = create_resp.json()["id"]
+    order_id = create_resp.json()["customer_order_id"]
+    client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
     fake_sender.sent.clear()
 
-    status_resp = client.patch(f"/admin/leads/{lead_id}/status?status=confirmed", headers=admin_headers)
-    assert status_resp.status_code == 200
+    finalize_resp = client.post(f"/admin/orders/{order_id}/finalize", headers=admin_headers)
+    assert finalize_resp.status_code == 200
 
     assert fake_sender.sent[0]["locale"] == "fr"
-    assert "confirmée" in fake_sender.sent[0]["html_body"].lower()
-
-    notif = (
-        db_session.query(models.Notification)
-        .filter(models.Notification.type == "lead_status")
-        .order_by(models.Notification.id.desc())
-        .first()
-    )
-    assert notif.locale == "fr"
-    assert "confirmée" in notif.title.lower()
+    assert "confirmer" in fake_sender.sent[0]["html_body"].lower()
 
 
 def test_appointment_reminder_supports_french_and_yiddish_natively(client, db_session, make_user, monkeypatch):

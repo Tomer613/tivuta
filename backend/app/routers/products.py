@@ -11,6 +11,7 @@ from .. import models, schemas
 from ..security import get_current_admin, get_current_user, get_db
 from ..services import get_image_storage
 from ..services.image_storage import generate_image_filename
+from ..services.inventory import adjust_stock, set_stock_quantity
 from .product_categories import validate_category
 from .quantity_discounts import validate_quantity_discount_bundle
 from .verticals import validate_vertical_slug
@@ -173,6 +174,12 @@ def admin_create_product(product_in: schemas.ProductCreate, db: Session = Depend
     db.add(new_product)
     db.commit()
     db.refresh(new_product)
+    if new_product.stock_quantity is not None:
+        db.add(models.InventoryLedgerEntry(
+            product_id=new_product.id, delta=new_product.stock_quantity, reason="initial_stock",
+            balance_after=new_product.stock_quantity,
+        ))
+        db.commit()
     return new_product
 
 
@@ -216,8 +223,37 @@ def admin_update_product(product_id: int, product_in: schemas.ProductUpdate, db:
         effective_price = update_data.get("price", product.price)
         effective_sale_price = update_data.get("sale_price", product.sale_price)
         _validate_sale_price(effective_price, effective_sale_price)
+    # stock_quantity always goes through the ledger (see services/inventory.py), never a bare
+    # setattr, so a direct edit via this form is audited the same as the quick +/- stepper.
+    new_stock_quantity = update_data.pop("stock_quantity", "__unset__")
     for key, value in update_data.items():
         setattr(product, key, value)
+    if new_stock_quantity != "__unset__":
+        set_stock_quantity(db, product, new_stock_quantity)
+    db.commit()
+    db.refresh(product)
+    return _product_read(product)
+
+
+@router.patch("/admin/products/{product_id}/stock", response_model=schemas.ProductRead, dependencies=[Depends(get_current_admin)])
+def admin_adjust_product_stock(
+    product_id: int,
+    payload: schemas.ProductStockAdjust,
+    db: Session = Depends(get_db),
+    current_admin: models.User = Depends(get_current_admin),
+):
+    """The quick +/- stepper on the admin products table. If the product wasn't tracking stock
+    yet (stock_quantity is NULL), a positive delta here starts tracking it from 0 rather than
+    silently no-opping (see adjust_stock's own NULL no-op guard, which assumes an already-tracked
+    product) — treated as the admin's chosen starting point."""
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    actor = f"{current_admin.first_name} {current_admin.last_name}".strip()
+    if product.stock_quantity is None:
+        set_stock_quantity(db, product, max(0, payload.delta), actor=actor)
+    else:
+        adjust_stock(db, product, payload.delta, "admin_adjustment", actor=actor)
     db.commit()
     db.refresh(product)
     return _product_read(product)
@@ -402,7 +438,7 @@ def admin_delete_product(product_id: int, db: Session = Depends(get_db)):
     """Permanently deletes the product when nothing historical references it (a real DELETE, not
     the is_active=False hide — that remains a separate action, PUT .../admin/products/{id} with
     {is_active: false}, wired to the products table's status-pill toggle). Blocked (409) whenever
-    a Lead/PromotionEntry/SurveyOption/Distribution/SaleTransaction row points at
+    a Lead/PromotionEntry/SurveyOption/Distribution/SaleTransaction/InventoryLedgerEntry row points at
     this product — exactly the set of FKs that have no `ondelete=` and would make Postgres reject
     the delete outright in production anyway, so this check just surfaces that as a clear message
     instead of a raw IntegrityError. Favorite rows are cleaned up explicitly (no ORM relationship
@@ -413,7 +449,7 @@ def admin_delete_product(product_id: int, db: Session = Depends(get_db)):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    blockers = [models.Lead, models.PromotionEntry, models.SurveyOption, models.Distribution, models.SaleTransaction]
+    blockers = [models.Lead, models.PromotionEntry, models.SurveyOption, models.Distribution, models.SaleTransaction, models.InventoryLedgerEntry]
     for model in blockers:
         if db.query(model.id).filter(model.product_id == product_id).first():
             raise HTTPException(

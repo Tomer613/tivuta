@@ -33,6 +33,7 @@ const EMPTY_FORM = {
     supports_appointments: false,
     requires_gabbai: false,
     allows_custom_items_note: false,
+    hide_prices: false,
     display_order: 0,
     is_active: true,
     attribute_fields: [] as FormAttrField[],
@@ -89,6 +90,7 @@ export default function AdminVerticalsPage() {
             supports_appointments: v.supports_appointments,
             requires_gabbai: v.requires_gabbai,
             allows_custom_items_note: v.allows_custom_items_note,
+            hide_prices: v.hide_prices,
             display_order: v.display_order,
             is_active: v.is_active,
             attribute_fields: (v.attribute_fields || []).map((f) => ({
@@ -155,6 +157,7 @@ export default function AdminVerticalsPage() {
                     supports_appointments: form.supports_appointments,
                     requires_gabbai: form.requires_gabbai,
                     allows_custom_items_note: form.allows_custom_items_note,
+                    hide_prices: form.hide_prices,
                     display_order: form.display_order,
                     is_active: form.is_active,
                     attribute_fields,
@@ -169,6 +172,7 @@ export default function AdminVerticalsPage() {
                     supports_appointments: form.supports_appointments,
                     requires_gabbai: form.requires_gabbai,
                     allows_custom_items_note: form.allows_custom_items_note,
+                    hide_prices: form.hide_prices,
                     display_order: form.display_order,
                     is_active: form.is_active,
                     attribute_fields,
@@ -355,6 +359,10 @@ export default function AdminVerticalsPage() {
                             <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
                                 <input type="checkbox" checked={form.allows_custom_items_note} onChange={(e) => setForm({ ...form, allows_custom_items_note: e.target.checked })} />
                                 מאפשר הערת פריטים נוספים בעגלה
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-[#f0e6d3]/70">
+                                <input type="checkbox" checked={form.hide_prices} onChange={(e) => setForm({ ...form, hide_prices: e.target.checked })} />
+                                הסתר מחירים באתר (עולם בבנייה)
                             </label>
                         </div>
 

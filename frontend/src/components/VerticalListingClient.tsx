@@ -184,7 +184,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                             {filtered.map((p) => (
                                 <div key={p.id} className="relative">
-                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} />
+                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} hidePrices={verticalMeta?.hide_prices} />
                                     {/* Compare checkbox */}
                                     <button
                                         type="button"

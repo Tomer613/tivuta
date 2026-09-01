@@ -167,6 +167,11 @@ class Vertical(Base):
     # If true, the cart page shows a free-text "additional items/requests" box when the cart
     # contains an item from this vertical; the text is stored on CustomerOrder.custom_items_note.
     allows_custom_items_note = Column(Boolean, default=False, nullable=False)
+    # If true, real prices are never shown to customers anywhere in this vertical's tiles/cart
+    # lines (rendered the same way an on-request/null-price product already is) — except the
+    # order-confirmation page (order_confirm.py) and every admin view, which always show real
+    # prices regardless of this flag.
+    hide_prices = Column(Boolean, default=False, nullable=False)
     # [{"key": "carat", "label_he": "קרט", "label_en": "Carat", "type": "number"|"text"|"select", "options": [...]}]
     attribute_fields = Column(JSON, nullable=False, default=list)
     display_order = Column(Integer, nullable=False, default=0)
@@ -316,6 +321,11 @@ class Product(Base):
     vendor_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True)
     quantity_discount_bundle_id = Column(Integer, ForeignKey("quantity_discount_bundles.id"), nullable=True)
+    # NULL = stock not tracked for this product (unlimited, no low-stock badge, no reservation on
+    # confirm) — the default, appropriate for non-physical-inventory verticals. A real integer
+    # opts the product into tracking; see services/inventory.py for the only place this is ever
+    # mutated (always alongside an InventoryLedgerEntry row, never a bare assignment).
+    stock_quantity = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     promotions = relationship("Promotion", secondary=product_promotions_table, back_populates="products")
@@ -370,7 +380,19 @@ class CustomerOrder(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     notes = Column(Text, nullable=True)
-    history = Column(JSON, nullable=True, default=list)
+    history = Column(JSON, nullable=True, default=list)  # audit trail [{ts, action, from_val, to_val}]
+    # Order-level status — separate from each line item's own Lead.status (deliberately different
+    # words to avoid confusion: "confirmed" already means something at the line-item level).
+    # "new" (admin still reviewing) -> "awaiting_customer" (admin clicked "finalize", one
+    # consolidated email + confirmation link sent, confirmation_deadline ticking) ->
+    # "customer_confirmed" (customer clicked the link in time) | "cancelled" (admin manually, or
+    # auto-cancelled once confirmation_deadline passes with no response).
+    status = Column(String(20), nullable=False, default="new")
+    confirmation_token = Column(String(64), unique=True, nullable=True, index=True)
+    confirmation_deadline = Column(DateTime, nullable=True)
+    reminder_sent_at = Column(DateTime, nullable=True)
+    confirmed_at = Column(DateTime, nullable=True)
+    cancelled_at = Column(DateTime, nullable=True)
     # "Hat" snapshot, computed once at order-creation time (never re-derived from the live User
     # row afterward) — see User.gabbai_* fields. NULL/"member" for an ordinary order; "gabbai" plus
     # the 4 snapshot fields below when the order was placed from a vertical with
@@ -664,6 +686,26 @@ class PointsLedgerEntry(Base):
 
     user = relationship("User", foreign_keys=[user_id])
     sale_transaction = relationship("SaleTransaction")
+
+
+class InventoryLedgerEntry(Base):
+    """Append-only per-product stock history — every mutation of Product.stock_quantity is
+    written here alongside the atomic counter update (see services/inventory.py's adjust_stock,
+    the only place either is ever touched), same "counter + audit trail" shape as
+    PointsLedgerEntry above."""
+    __tablename__ = "inventory_ledger_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    delta = Column(Integer, nullable=False)  # positive = restock/adjustment up, negative = reserved/adjustment down
+    reason = Column(String(30), nullable=False)  # admin_adjustment | order_reserved | order_restocked | initial_stock
+    reference_order_id = Column(Integer, ForeignKey("customer_orders.id"), nullable=True)
+    balance_after = Column(Integer, nullable=False)
+    actor = Column(String(100), nullable=True)  # admin's name/email, or "system" for a cron-driven restock
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    product = relationship("Product")
+    reference_order = relationship("CustomerOrder")
 
 
 class CommissionSettlementPeriod(Base):

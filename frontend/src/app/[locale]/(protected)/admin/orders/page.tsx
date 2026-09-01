@@ -6,7 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import {
     adminListOrders, adminUpdateOrderNotes, adminUpdateLeadStatus, adminUpdateLeadNotes,
     adminAssignLead, adminSendAppointmentReminder, adminGetAdminUsers, adminBulkLeadAction,
-    vendorCode, CustomerOrder, CustomerOrderLine,
+    adminFinalizeOrder, adminCancelOrder,
+    vendorCode, CustomerOrder, CustomerOrderLine, OrderStatus, OrderInquiry,
 } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
@@ -16,7 +17,7 @@ import CalendarView from '@/components/admin/CalendarView';
 import {
     Loader2, CheckCircle2, AlertCircle, Phone, Mail, CalendarDays, Download, ExternalLink,
     MessageSquare, Check, X, LayoutList, CalendarRange, Bell,
-    History, Kanban, Store, Square, CheckSquare, MapPin, Users, NotebookPen,
+    History, Kanban, Store, Square, CheckSquare, MapPin, Users, NotebookPen, Send, Ban, MessageCircleQuestion,
 } from 'lucide-react';
 
 const STATUSES = [
@@ -24,6 +25,16 @@ const STATUSES = [
     { value: 'confirmed', label: 'מאושרת',  color: 'bg-green-500/20 text-green-400' },
     { value: 'contacted', label: 'טופלה',   color: 'bg-[#d4af37]/20 text-[#d4af37]' },
     { value: 'closed',    label: 'סגורה',   color: 'bg-[#111a2f] text-[#f0e6d3]/30' },
+];
+
+// Order-level status — deliberately different wording from line-item STATUSES above (a line item
+// can say "מאושרת" while the order overall is still "בבדיקה"). Drives the dashboard's stat cards
+// per the explicit correction: those counts must reflect the order, not its individual items.
+const ORDER_STATUSES: { value: OrderStatus; label: string; color: string }[] = [
+    { value: 'new',                 label: 'בבדיקה',              color: 'bg-blue-500/20 text-blue-400' },
+    { value: 'awaiting_customer',   label: 'ממתינה לאישור הלקוח', color: 'bg-[#d4af37]/20 text-[#d4af37]' },
+    { value: 'customer_confirmed',  label: 'אושרה סופית',         color: 'bg-green-500/20 text-green-400' },
+    { value: 'cancelled',           label: 'בוטלה',                color: 'bg-[#111a2f] text-[#f0e6d3]/30' },
 ];
 
 const TYPE_LABEL: Record<string, string> = { appointment: 'פגישה', contact_request: 'הזמנת מוצר', club_signup: 'הצטרפות', card_order: 'הזמנת כרטיס' };
@@ -164,6 +175,9 @@ export default function AdminOrdersPage() {
     const [bulkAction, setBulkAction] = useState('');
     const [bulkValue, setBulkValue] = useState('');
     const [bulkLoading, setBulkLoading] = useState(false);
+    const [finalizingOrderId, setFinalizingOrderId] = useState<number | null>(null);
+    const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
+    const [updatingInquiryId, setUpdatingInquiryId] = useState<number | null>(null);
     const verticals = useVerticals();
     const VERTICAL_LABEL: Record<string, string> = Object.fromEntries(verticals.map((v) => [v.slug, v.label_he]));
     // Cleared whenever the active filters change, so a bulk action can never silently act on
@@ -212,11 +226,14 @@ export default function AdminOrdersPage() {
     const flatLines: FlatLine[] = useMemo(() => toFlatLines(orders), [orders]);
     const filteredFlatLines: FlatLine[] = useMemo(() => toFlatLines(filteredOrders), [filteredOrders]);
 
-    const counts = useMemo(() => {
-        const c: Record<string, number> = { new: 0, confirmed: 0, contacted: 0, closed: 0 };
-        flatLines.forEach((l) => { if (c[l.status] !== undefined) c[l.status]++; });
+    // Counts the ORDER's own status (not each line item's status) — the top-of-page cards must
+    // answer "how many orders are in each stage," which is a different question than "how many
+    // line items have this status" (the old, incorrect behavior this replaces).
+    const orderCounts = useMemo(() => {
+        const c: Record<string, number> = { new: 0, awaiting_customer: 0, customer_confirmed: 0, cancelled: 0 };
+        orders.forEach((o) => { if (c[o.status] !== undefined) c[o.status]++; });
         return c;
-    }, [flatLines]);
+    }, [orders]);
 
     const updateLineInState = (lineId: number, patch: Partial<CustomerOrderLine>) => {
         setOrders((prev) => prev.map((o) => ({
@@ -298,6 +315,60 @@ export default function AdminOrdersPage() {
     };
 
     const statusInfo = (val: string) => STATUSES.find((s) => s.value === val) ?? STATUSES[0];
+    const orderStatusInfo = (val: string) => ORDER_STATUSES.find((s) => s.value === val) ?? ORDER_STATUSES[0];
+
+    // "סיימתי, שלח ללקוח" — sends the one consolidated summary email (see backend
+    // admin_finalize_order) instead of the old per-item-status emails. Re-clicking while still
+    // awaiting_customer resends a fresh email and resets the 24h deadline, the supported way to
+    // fix a mistake after the fact.
+    const handleFinalizeOrder = async (order: CustomerOrder) => {
+        if (!token) return;
+        setFinalizingOrderId(order.id);
+        try {
+            const updated = await adminFinalizeOrder(token, order.id);
+            setOrders((prev) => prev.map((o) => o.id === order.id ? updated : o));
+            showToast('נשלח מייל מרוכז ללקוח ✓');
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'שגיאה בשליחה', 'error');
+        } finally {
+            setFinalizingOrderId(null);
+        }
+    };
+
+    const handleCancelOrder = async (order: CustomerOrder) => {
+        if (!token) return;
+        if (!window.confirm(`לבטל את הזמנה ${order.order_number}? המלאי שכבר שוריין עבור פריטים מאושרים יוחזר.`)) return;
+        setCancellingOrderId(order.id);
+        try {
+            const updated = await adminCancelOrder(token, order.id);
+            setOrders((prev) => prev.map((o) => o.id === order.id ? updated : o));
+            showToast('ההזמנה בוטלה ✓');
+        } catch (err) {
+            showToast(err instanceof Error ? err.message : 'שגיאה בביטול', 'error');
+        } finally {
+            setCancellingOrderId(null);
+        }
+    };
+
+    const updateInquiryInState = (orderId: number, inquiryId: number, patch: Partial<OrderInquiry>) => {
+        setOrders((prev) => prev.map((o) => o.id !== orderId ? o : {
+            ...o,
+            inquiries: o.inquiries.map((i) => i.id === inquiryId ? { ...i, ...patch } : i),
+        }));
+    };
+
+    const handleInquiryStatusChange = async (orderId: number, inquiry: OrderInquiry, newStatus: string) => {
+        if (!token || inquiry.status === newStatus) return;
+        setUpdatingInquiryId(inquiry.id);
+        try {
+            await adminUpdateLeadStatus(token, inquiry.id, newStatus);
+            updateInquiryInState(orderId, inquiry.id, { status: newStatus });
+        } catch {
+            showToast('שגיאה בעדכון סטטוס הפנייה', 'error');
+        } finally {
+            setUpdatingInquiryId(null);
+        }
+    };
 
     const handleBulkAction = async () => {
         if (!token || !bulkAction || selectedIds.size === 0) return;
@@ -379,9 +450,9 @@ export default function AdminOrdersPage() {
                     </button>
                 )}
                 <div className="flex gap-4 flex-wrap">
-                    {STATUSES.map((s) => (
+                    {ORDER_STATUSES.map((s) => (
                         <div key={s.value} className="text-center">
-                            <div className="text-2xl font-black text-[#f0e6d3]">{counts[s.value]}</div>
+                            <div className="text-2xl font-black text-[#f0e6d3]">{orderCounts[s.value]}</div>
                             <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.color}`}>{s.label}</div>
                         </div>
                     ))}
@@ -445,6 +516,9 @@ export default function AdminOrdersPage() {
                                     <div>
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="text-lg font-black text-[#d4af37]">{order.order_number}</span>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${orderStatusInfo(order.status).color}`}>
+                                                {orderStatusInfo(order.status).label}
+                                            </span>
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                                 order.orderer_role === 'gabbai' ? 'bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40' : 'bg-[#111a2f] text-[#f0e6d3]/50'
                                             }`}>
@@ -512,6 +586,39 @@ export default function AdminOrdersPage() {
                                                 </span>
                                             </button>
                                         )}
+
+                                        {/* Order-level lifecycle actions */}
+                                        <div className="flex flex-col items-end gap-1.5 mt-3">
+                                            {order.status === 'awaiting_customer' && order.confirmation_deadline && (
+                                                <p className="text-[10px] text-[#f0e6d3]/40 text-end">
+                                                    ממתין ללקוח עד {new Date(order.confirmation_deadline).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                    {order.reminder_sent_at && ' · תזכורת נשלחה'}
+                                                </p>
+                                            )}
+                                            <div className="flex items-center gap-2">
+                                                {(order.status === 'new' || order.status === 'awaiting_customer') && (
+                                                    <button
+                                                        onClick={() => handleFinalizeOrder(order)}
+                                                        disabled={finalizingOrderId === order.id}
+                                                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-[#d4af37]/15 text-[#d4af37] hover:bg-[#d4af37]/25 transition-colors disabled:opacity-50"
+                                                        title="שלח מייל מרוכז ללקוח עם סטטוס וההערות של כל פריט, וקישור לאישור סופי"
+                                                    >
+                                                        {finalizingOrderId === order.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                                                        {order.status === 'awaiting_customer' ? 'שלח שוב' : 'סיימתי, שלח ללקוח'}
+                                                    </button>
+                                                )}
+                                                {order.status !== 'customer_confirmed' && order.status !== 'cancelled' && (
+                                                    <button
+                                                        onClick={() => handleCancelOrder(order)}
+                                                        disabled={cancellingOrderId === order.id}
+                                                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                                    >
+                                                        {cancellingOrderId === order.id ? <Loader2 size={13} className="animate-spin" /> : <Ban size={13} />}
+                                                        בטל הזמנה
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -682,6 +789,38 @@ export default function AdminOrdersPage() {
                                       );
                                     })}
                                 </div>
+
+                                {/* Order-linked customer inquiries — see POST /leads/contact's order_id */}
+                                {order.inquiries.length > 0 && (
+                                    <div className="p-5 pt-0 space-y-2">
+                                        <div className="flex items-center gap-2 text-xs font-black text-[#f0e6d3]/50 uppercase tracking-wider mb-2">
+                                            <MessageCircleQuestion size={14} className="text-[#d4af37]" />
+                                            פניות לקוח על הזמנה זו
+                                        </div>
+                                        {order.inquiries.map((inquiry) => (
+                                            <div key={inquiry.id} className="bg-[#111a2f] rounded-xl px-4 py-3 flex flex-wrap items-start gap-3">
+                                                <div className="min-w-[160px] flex-1">
+                                                    <p className="text-sm font-semibold text-[#f0e6d3]">{inquiry.subject || '—'}</p>
+                                                    <p className="text-xs text-[#f0e6d3]/50 mt-0.5">{inquiry.message}</p>
+                                                    <p className="text-[10px] text-[#f0e6d3]/25 mt-1">
+                                                        {new Date(inquiry.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                                {updatingInquiryId === inquiry.id ? (
+                                                    <Loader2 size={16} className="animate-spin text-[#d4af37]" />
+                                                ) : (
+                                                    <select
+                                                        value={inquiry.status}
+                                                        onChange={(e) => handleInquiryStatusChange(order.id, inquiry, e.target.value)}
+                                                        className={`rounded-xl px-3 py-1.5 text-xs font-bold border-0 cursor-pointer ${statusInfo(inquiry.status).color}`}
+                                                    >
+                                                        {STATUSES.map((s) => <option key={s.value} value={s.value} className="bg-[#0e1628] text-[#f0e6d3]">{s.label}</option>)}
+                                                    </select>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
