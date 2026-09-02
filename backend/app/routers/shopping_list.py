@@ -217,7 +217,19 @@ def add_shopping_list_item(
         return _item_read(existing)
     item = models.ShoppingListItem(user_id=current_user.id, product_id=payload.product_id, quantity=payload.quantity)
     db.add(item)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # A concurrent add of the same product (e.g. a double-submit) can race past the `existing`
+        # check above and both try to insert — same shape as the replace_shopping_list race. Fall
+        # back to the row the other request just created instead of a raw 500.
+        db.rollback()
+        winner = (
+            db.query(models.ShoppingListItem)
+            .filter(models.ShoppingListItem.user_id == current_user.id, models.ShoppingListItem.product_id == payload.product_id)
+            .first()
+        )
+        return _item_read(winner)
     db.refresh(item)
     return _item_read(item)
 

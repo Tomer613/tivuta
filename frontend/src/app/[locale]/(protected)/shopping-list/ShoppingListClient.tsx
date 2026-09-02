@@ -12,7 +12,7 @@ import QuantityStepper from '@/components/QuantityStepper';
 import { computeEffectiveUnitPrice } from '@/lib/pricing';
 import {
     getShoppingList, refreshShoppingList, addShoppingListItem, updateShoppingListItem, removeShoppingListItem,
-    getProducts, productImageUrl, ShoppingListItem,
+    getProducts, getMyPurchaseHistory, productImageUrl, ShoppingListItem, PurchaseHistoryItem,
 } from '@/lib/api';
 import { Product } from '@/components/ProductTile';
 
@@ -33,13 +33,14 @@ interface T {
     back_to_world: string;
     loading_error: string;
     estimated_total: string;
+    last_ordered: (date: string) => string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'רשימת הקניות שלי', empty: 'רשימת הקניות ריקה — הוסף מוצרים למטה.', select_all: 'סמן הכל', deselect_all: 'בטל הכל', refresh_from_history: 'הוסף פריטים נוספים מההיסטוריה', add_product: 'הוסף מוצר', search_placeholder: 'חיפוש מוצר...', add_to_cart: 'הוסף לסל', no_selection: 'לא נבחרו פריטים', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', remove: 'הסר', on_request: 'לפי בקשה', back_to_world: 'חזרה לעולם', loading_error: 'שגיאה בטעינת הרשימה', estimated_total: 'סה"כ משוער' },
-    en: { title: 'My Shopping List', empty: 'Your shopping list is empty — add products below.', select_all: 'Select all', deselect_all: 'Deselect all', refresh_from_history: 'Add more items from my history', add_product: 'Add product', search_placeholder: 'Search product...', add_to_cart: 'Add to cart', no_selection: 'No items selected', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', remove: 'Remove', on_request: 'On request', back_to_world: 'Back to world', loading_error: 'Failed to load list', estimated_total: 'Estimated total' },
-    fr: { title: 'Ma liste de courses', empty: 'Votre liste de courses est vide — ajoutez des produits ci-dessous.', select_all: 'Tout sélectionner', deselect_all: 'Tout désélectionner', refresh_from_history: 'Ajouter plus d’articles depuis mon historique', add_product: 'Ajouter un produit', search_placeholder: 'Rechercher un produit...', add_to_cart: 'Ajouter au panier', no_selection: 'Aucun article sélectionné', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', remove: 'Retirer', on_request: 'Sur demande', back_to_world: 'Retour au monde', loading_error: 'Échec du chargement de la liste', estimated_total: 'Total estimé' },
-    yi: { title: 'מיין קוילע רשימה', empty: 'דיין קוילע רשימה איז ליידיג — לייג צו פראדוקטן אונטן.', select_all: 'סמן אלץ', deselect_all: 'אויסמעקן אלץ', refresh_from_history: 'לייג צו נאך פריטים פון היסטאריע', add_product: 'לייג צו פראדוקט', search_placeholder: 'זוכן פראדוקט...', add_to_cart: 'לייג צו קארב', no_selection: 'קיין פריטים אויסגעקליבן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', remove: 'אנטפערנען', on_request: 'אויף פארלאנג', back_to_world: 'צוריק צו וועלט', loading_error: 'טעות לאדן רשימה', estimated_total: 'געשאצטע סך הכל' },
+    he: { title: 'רשימת הקניות שלי', empty: 'רשימת הקניות ריקה — הוסף מוצרים למטה.', select_all: 'סמן הכל', deselect_all: 'בטל הכל', refresh_from_history: 'הוסף פריטים נוספים מההיסטוריה', add_product: 'הוסף מוצר', search_placeholder: 'חיפוש מוצר...', add_to_cart: 'הוסף לסל', no_selection: 'לא נבחרו פריטים', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', remove: 'הסר', on_request: 'לפי בקשה', back_to_world: 'חזרה לעולם', loading_error: 'שגיאה בטעינת הרשימה', estimated_total: 'סה"כ משוער', last_ordered: (d) => `הוזמן לאחרונה ב-${d}` },
+    en: { title: 'My Shopping List', empty: 'Your shopping list is empty — add products below.', select_all: 'Select all', deselect_all: 'Deselect all', refresh_from_history: 'Add more items from my history', add_product: 'Add product', search_placeholder: 'Search product...', add_to_cart: 'Add to cart', no_selection: 'No items selected', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', remove: 'Remove', on_request: 'On request', back_to_world: 'Back to world', loading_error: 'Failed to load list', estimated_total: 'Estimated total', last_ordered: (d) => `Last ordered on ${d}` },
+    fr: { title: 'Ma liste de courses', empty: 'Votre liste de courses est vide — ajoutez des produits ci-dessous.', select_all: 'Tout sélectionner', deselect_all: 'Tout désélectionner', refresh_from_history: 'Ajouter plus d’articles depuis mon historique', add_product: 'Ajouter un produit', search_placeholder: 'Rechercher un produit...', add_to_cart: 'Ajouter au panier', no_selection: 'Aucun article sélectionné', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', remove: 'Retirer', on_request: 'Sur demande', back_to_world: 'Retour au monde', loading_error: 'Échec du chargement de la liste', estimated_total: 'Total estimé', last_ordered: (d) => `Dernière commande le ${d}` },
+    yi: { title: 'מיין קוילע רשימה', empty: 'דיין קוילע רשימה איז ליידיג — לייג צו פראדוקטן אונטן.', select_all: 'סמן אלץ', deselect_all: 'אויסמעקן אלץ', refresh_from_history: 'לייג צו נאך פריטים פון היסטאריע', add_product: 'לייג צו פראדוקט', search_placeholder: 'זוכן פראדוקט...', add_to_cart: 'לייג צו קארב', no_selection: 'קיין פריטים אויסגעקליבן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', remove: 'אנטפערנען', on_request: 'אויף פארלאנג', back_to_world: 'צוריק צו וועלט', loading_error: 'טעות לאדן רשימה', estimated_total: 'געשאצטע סך הכל', last_ordered: (d) => `לעצט באשטעלט דעם ${d}` },
 };
 
 export default function ShoppingListClient() {
@@ -63,6 +64,7 @@ export default function ShoppingListClient() {
     const [error, setError] = useState<string | null>(null);
     const [addQuery, setAddQuery] = useState('');
     const [candidates, setCandidates] = useState<Product[]>([]);
+    const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
 
     const load = () => {
         if (!token || !vertical) return;
@@ -82,6 +84,16 @@ export default function ShoppingListClient() {
         if (!token || !vertical) return;
         getProducts(token, vertical).then(setCandidates).catch(() => setCandidates([]));
     }, [token, vertical]);
+
+    // Last-ordered date per item — a quick sanity-check while reviewing the list ("did I already
+    // reorder this recently?"), sourced from the same shared purchase-history endpoint the cart
+    // strip and "my taste" sort already use.
+    useEffect(() => {
+        if (!token || !vertical) return;
+        getMyPurchaseHistory(token, vertical).then(setPurchaseHistory).catch(() => setPurchaseHistory([]));
+    }, [token, vertical]);
+
+    const lastPurchasedByProduct = new Map(purchaseHistory.map((h) => [h.product_id, h.last_purchased_at]));
 
     const listedProductIds = useMemo(() => new Set(items.map((i) => i.product_id)), [items]);
     const filteredCandidates = useMemo(() => {
@@ -280,6 +292,11 @@ export default function ShoppingListClient() {
                                                         ? t.on_request
                                                         : `₪${item.product_price.toLocaleString()}`}
                                                 </p>
+                                                {lastPurchasedByProduct.has(item.product_id) && (
+                                                    <p className="text-[10px] text-[#f0e6d3]/40">
+                                                        {t.last_ordered(new Date(lastPurchasedByProduct.get(item.product_id)!).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }))}
+                                                    </p>
+                                                )}
                                             </div>
                                             <QuantityStepper
                                                 qty={item.quantity}
