@@ -1844,12 +1844,34 @@ export async function getShoppingList(token: string, vertical: string): Promise<
     return res.json();
 }
 
+// Bare id list, mirrors getFavoriteIds() exactly — for cheaply marking "on my list" badges on
+// product tiles. Returns [] rather than throwing on failure, same tolerant-GET convention as
+// getFavoriteIds/getMyOrders, since a badge silently not showing is a fine degradation.
+export async function getShoppingListIds(token: string, vertical: string): Promise<number[]> {
+    const res = await fetch(`${BASE_URL}/shopping-list/ids?vertical=${encodeURIComponent(vertical)}`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
 export async function refreshShoppingList(token: string, vertical: string): Promise<ShoppingListItem[]> {
     const res = await fetch(`${BASE_URL}/shopping-list/refresh?vertical=${encodeURIComponent(vertical)}`, {
         method: 'POST',
         headers: authHeaders(token),
     });
     if (!res.ok) throw new Error('Failed to refresh shopping list');
+    return res.json();
+}
+
+// Wholesale replace — "save current cart as my shopping list" (cart/page.tsx).
+export async function replaceShoppingList(
+    token: string, vertical: string, items: { product_id: number; quantity: number }[]
+): Promise<ShoppingListItem[]> {
+    const res = await fetch(`${BASE_URL}/shopping-list?vertical=${encodeURIComponent(vertical)}`, {
+        method: 'PUT',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+    });
+    if (!res.ok) throw new Error('Failed to save shopping list');
     return res.json();
 }
 

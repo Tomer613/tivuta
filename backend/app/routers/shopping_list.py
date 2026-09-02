@@ -80,6 +80,66 @@ def get_shopping_list(
     return [_item_read(i) for i in items]
 
 
+@router.get("/shopping-list/ids")
+def get_shopping_list_ids(
+    vertical: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Lightweight companion to GET /shopping-list — mirrors GET /favorites/ids exactly (bare id
+    list, no nested product objects), for cheaply marking "already on my list" badges on product
+    tiles while browsing a world. Deliberately does NOT auto-seed like the full GET does — this is
+    a frequent, passive read called on every listing-page load, not a "the user is opening their
+    list" moment, so it should never have the side effect of creating rows."""
+    _validate_shopping_list_vertical(db, vertical)
+    rows = (
+        db.query(models.ShoppingListItem.product_id)
+        .join(models.Product, models.ShoppingListItem.product_id == models.Product.id)
+        .filter(models.ShoppingListItem.user_id == current_user.id, models.Product.vertical == vertical)
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
+@router.put("/shopping-list", response_model=List[schemas.ShoppingListItemRead])
+def replace_shopping_list(
+    vertical: str,
+    payload: schemas.ShoppingListReplaceRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Wholesale replace — the cart page's "save current cart as my shopping list" action. Unlike
+    every other endpoint here (which only ever adds/edits one row at a time), this discards the
+    user's existing list for this vertical and rebuilds it from the given items, so "what's in my
+    cart right now" can become "my new normal" in one step instead of manually re-adding each item."""
+    _validate_shopping_list_vertical(db, vertical)
+    merged_quantities: dict[int, int] = {}
+    for item in payload.items:
+        merged_quantities[item.product_id] = merged_quantities.get(item.product_id, 0) + item.quantity
+
+    if merged_quantities:
+        products = db.query(models.Product).filter(models.Product.id.in_(merged_quantities.keys())).all()
+        products_by_id = {p.id: p for p in products}
+        bad_ids = [
+            pid for pid in merged_quantities
+            if pid not in products_by_id or products_by_id[pid].vertical != vertical or not products_by_id[pid].is_active
+        ]
+        if bad_ids:
+            raise HTTPException(status_code=400, detail=f"Invalid product(s) for this world: {bad_ids}")
+
+    db.query(models.ShoppingListItem).filter(
+        models.ShoppingListItem.user_id == current_user.id,
+        models.ShoppingListItem.product_id.in_(
+            db.query(models.Product.id).filter(models.Product.vertical == vertical)
+        ),
+    ).delete(synchronize_session=False)
+    for product_id, quantity in merged_quantities.items():
+        db.add(models.ShoppingListItem(user_id=current_user.id, product_id=product_id, quantity=min(quantity, 99)))
+    db.commit()
+    items = _list_query(db, current_user.id, vertical).order_by(models.ShoppingListItem.created_at.asc()).all()
+    return [_item_read(i) for i in items]
+
+
 @router.post("/shopping-list/refresh", response_model=List[schemas.ShoppingListItemRead])
 def refresh_shopping_list(
     vertical: str,

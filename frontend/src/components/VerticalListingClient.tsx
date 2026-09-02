@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Loader2, PackageOpen, GitCompareArrows, ListChecks } from 'lucide-react';
+import { Loader2, PackageOpen, GitCompareArrows, ListChecks, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getProducts, getFavoriteIds, getVerticals, getMyPurchaseHistory, PurchaseHistoryItem, Vertical } from '@/lib/api';
+import { getProducts, getFavoriteIds, getShoppingListIds, getVerticals, getMyPurchaseHistory, PurchaseHistoryItem, Vertical } from '@/lib/api';
 import { useCategories } from '@/lib/useCategories';
+import { useCart } from '@/context/CartContext';
 import FilterSortSidebar, { SortOption } from '@/components/FilterSortSidebar';
 import ProductTile, { Product } from '@/components/ProductTile';
 import ComparisonBar from '@/components/ComparisonBar';
@@ -15,15 +16,16 @@ interface T {
     empty: string;
     results: string;
     shopping_list: string;
+    quick_reorder: string;
 }
 
 // Empty-state/results copy is identical across every world, so it's kept as one shared
 // translation rather than duplicated per-vertical in the database.
 const GENERIC_COPY: Record<string, T> = {
-    he: { empty: 'אין מוצרים להצגה כרגע', results: 'תוצאות', shopping_list: 'פתח את רשימת הקניות שלי' },
-    en: { empty: 'No products to show right now', results: 'results', shopping_list: 'Open my shopping list' },
-    fr: { empty: 'Aucun produit pour le moment', results: 'résultats', shopping_list: 'Ouvrir ma liste de courses' },
-    yi: { empty: 'נישטא קיין פראדוקטן איצט', results: 'רעזולטאטן', shopping_list: 'עפֿן מיין קוילע רשימה' },
+    he: { empty: 'אין מוצרים להצגה כרגע', results: 'תוצאות', shopping_list: 'פתח את רשימת הקניות שלי', quick_reorder: 'הזמן שוב את הרגילים שלי' },
+    en: { empty: 'No products to show right now', results: 'results', shopping_list: 'Open my shopping list', quick_reorder: 'Reorder my usual' },
+    fr: { empty: 'Aucun produit pour le moment', results: 'résultats', shopping_list: 'Ouvrir ma liste de courses', quick_reorder: 'Recommander mes habitudes' },
+    yi: { empty: 'נישטא קיין פראדוקטן איצט', results: 'רעזולטאטן', shopping_list: 'עפֿן מיין קוילע רשימה', quick_reorder: 'באשטעלן נאכאמאל מיינע געוויינטלעכע' },
 };
 
 export default function VerticalListingClient({ vertical }: { vertical: string }) {
@@ -32,6 +34,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     const router = useRouter();
     const locale = (params?.locale as string) || 'he';
     const { token, isLoading: authLoading } = useAuth();
+    const { addToCart } = useCart();
     const [products, setProducts] = useState<Product[]>([]);
     const [verticalMeta, setVerticalMeta] = useState<Vertical | null>(null);
     const [loading, setLoading] = useState(true);
@@ -45,6 +48,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     const [favIds, setFavIds] = useState<Set<number>>(new Set());
     const [compareList, setCompareList] = useState<Product[]>([]);
     const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
+    const [shoppingListIds, setShoppingListIds] = useState<Set<number>>(new Set());
     // Which vertical's metadata (title/attribute fields/default sort) the last completed
     // getVerticals() attempt was for — success or failure. Comparing this directly against the
     // current `vertical` (rather than a plain boolean flag) is what makes the gate self-correct
@@ -111,6 +115,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     // between 'popularity' and 'my_history' — which both resolve to the same server request —
     // doesn't trigger a wasted refetch.
     const serverSort = sort === 'my_history' ? 'popularity' : sort;
+    const enablesShoppingList = !!verticalMeta?.enables_shopping_list;
 
     useEffect(() => {
         if (!token || !vertical) { Promise.resolve().then(() => setLoading(false)); return; }
@@ -120,15 +125,17 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
             getProducts(token, vertical, serverSort, promotionType),
             getFavoriteIds(token),
             getMyPurchaseHistory(token, vertical),
+            enablesShoppingList ? getShoppingListIds(token, vertical) : Promise.resolve([]),
         ])
-            .then(([prods, ids, history]) => {
+            .then(([prods, ids, history, listIds]) => {
                 setProducts(prods);
                 setFavIds(new Set(ids));
                 setPurchaseHistory(history);
+                setShoppingListIds(new Set(listIds));
             })
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
-    }, [token, vertical, serverSort, promotionType, metaLoadedForVertical]);
+    }, [token, vertical, serverSort, promotionType, metaLoadedForVertical, enablesShoppingList]);
 
     useEffect(() => {
         if (!title) return;
@@ -146,6 +153,31 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
     };
 
     const inCompare = (id: number) => compareList.some((p) => p.id === id);
+
+    // "Quick reorder my usual" — a lower-friction alternative to opening the shopping list page:
+    // bulk-adds this vertical's whole purchase-history basket (already fetched alongside the
+    // product list, no extra request) straight to the cart at each item's last-purchased
+    // quantity, then jumps to /cart. Only offered on enables_shopping_list worlds (see
+    // Vertical.enables_shopping_list) — a one-off diamonds/cars purchase isn't something anyone
+    // wants to "reorder," but a synagogue's recurring weekly Kiddush order is exactly this.
+    const handleQuickReorder = () => {
+        for (const entry of purchaseHistory) {
+            addToCart({
+                id: entry.product_id,
+                vertical: entry.product_vertical,
+                title_he: entry.product_title_he,
+                title_en: entry.product_title_en,
+                title_fr: entry.product_title_fr,
+                title_yi: entry.product_title_yi,
+                image_url: entry.product_image_url,
+                price: entry.product_price,
+                sale_price: entry.product_sale_price,
+                quantity_discount_bundle_id: null,
+                quantity_discount_tiers: null,
+            }, entry.last_quantity);
+        }
+        router.push(`/${locale}/cart`);
+    };
 
     const filtered = useMemo(() => {
         let list = products;
@@ -218,13 +250,25 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                         )}
                     </div>
                     {verticalMeta?.enables_shopping_list && (
-                        <Link
-                            href={`/${locale}/shopping-list?vertical=${vertical}`}
-                            className="btn-secondary flex items-center gap-2 !text-sm shrink-0"
-                        >
-                            <ListChecks size={16} />
-                            {t.shopping_list}
-                        </Link>
+                        <div className="flex flex-wrap gap-2 shrink-0">
+                            {purchaseHistory.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleQuickReorder}
+                                    className="btn-primary flex items-center gap-2 !text-sm"
+                                >
+                                    <RotateCcw size={16} />
+                                    {t.quick_reorder}
+                                </button>
+                            )}
+                            <Link
+                                href={`/${locale}/shopping-list?vertical=${vertical}`}
+                                className="btn-secondary flex items-center gap-2 !text-sm"
+                            >
+                                <ListChecks size={16} />
+                                {t.shopping_list}
+                            </Link>
+                        </div>
                     )}
                 </div>
             </header>
@@ -265,7 +309,7 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                             {filtered.map((p) => (
                                 <div key={p.id} className="relative">
-                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} hidePrices={verticalMeta?.hide_prices} />
+                                    <ProductTile product={p} locale={locale} actionType={actionType} token={token} isFav={favIds.has(p.id)} hidePrices={verticalMeta?.hide_prices} onShoppingList={shoppingListIds.has(p.id)} />
                                     {/* Compare checkbox */}
                                     <button
                                         type="button"

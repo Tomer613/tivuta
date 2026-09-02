@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Info, Heart, Share2, Star, Clock, Tag } from 'lucide-react';
+import { Info, Heart, Share2, Star, Clock, Tag, ListChecks } from 'lucide-react';
 import { addFavorite, removeFavorite, productImageUrl, Vendor, QuantityDiscountBrief } from '@/lib/api';
 import { shareProductOnWhatsApp } from '@/lib/share';
 import ProductActionButtons from '@/components/ProductActionButtons';
@@ -128,7 +128,14 @@ const DETAIL_LABELS: Record<string, { details: string }> = {
     yi: { details: 'מער פרטים' },
 };
 
-export default function ProductTile({ product, locale, actionType, token, isFav = false, hidePrices = false }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string; isFav?: boolean; hidePrices?: boolean }) {
+const ON_LIST_LABELS: Record<string, string> = {
+    he: 'ברשימת הקניות שלי',
+    en: 'On my shopping list',
+    fr: 'Sur ma liste de courses',
+    yi: 'אויף מיין קוילע רשימה',
+};
+
+export default function ProductTile({ product, locale, actionType, token, isFav = false, hidePrices = false, onShoppingList = false }: { product: Product; locale: string; actionType: 'appointment' | 'contact'; token: string; isFav?: boolean; hidePrices?: boolean; onShoppingList?: boolean }) {
     const [fav, setFav] = useState(isFav);
     const [favLoading, setFavLoading] = useState(false);
     const t = translations[locale] || translations.he;
@@ -215,6 +222,14 @@ export default function ProductTile({ product, locale, actionType, token, isFav 
                         <Share2 size={14} />
                     </button>
                 </div>
+                {onShoppingList && (
+                    <div
+                        className="absolute bottom-2 right-2 flex items-center gap-1 bg-[#080d1f]/85 backdrop-blur-sm text-[#d4af37] text-[10px] font-bold px-2 py-1 rounded-full shadow-md"
+                        title={ON_LIST_LABELS[locale] || ON_LIST_LABELS.he}
+                    >
+                        <ListChecks size={11} />
+                    </div>
+                )}
             </div>
 
             <div className="p-4 sm:p-6 flex flex-col flex-grow items-start text-start">

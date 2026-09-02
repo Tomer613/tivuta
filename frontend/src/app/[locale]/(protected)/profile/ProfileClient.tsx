@@ -6,19 +6,20 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
 import {
     updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, updatePreferredLanguage, productImageUrl,
-    getMyPointsHistory, createCardOrder, registerGabbai, getShoppingList, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
+    getMyPointsHistory, createCardOrder, registerGabbai, getShoppingList, getProducts, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
-    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil, MessageCircleQuestion, ListChecks,
+    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil, MessageCircleQuestion, ListChecks, RotateCcw,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
 import { useOutsideClick } from '@/lib/useOutsideClick';
 import { swapLocaleInPath, markManualLocaleOverride } from '@/lib/localePreference';
+import { useCart } from '@/context/CartContext';
 
 // ─── Translations ─────────────────────────────────────────────────────────────
 const tr: Record<string, Record<string, string>> = {
@@ -45,6 +46,7 @@ const tr: Record<string, Record<string, string>> = {
         no_orders: 'אין הזמנות עדיין.',
         order_status_new: 'בבדיקה', order_status_awaiting_customer: 'ממתינה לאישורך', order_status_customer_confirmed: 'אושרה סופית', order_status_cancelled: 'בוטלה',
         ask_about_order: 'שאל שאלה על ההזמנה',
+        reorder: 'הזמן שוב', reordering: 'מוסיף לסל...', reorder_unavailable: 'הפריטים בהזמנה זו כבר לא זמינים',
         order_items_done: 'הושלמו',
         order_savings: 'חסכת',
         shopping_lists_title: 'רשימות קניות',
@@ -93,6 +95,7 @@ const tr: Record<string, Record<string, string>> = {
         no_orders: 'No orders yet.',
         order_status_new: 'In review', order_status_awaiting_customer: 'Awaiting your confirmation', order_status_customer_confirmed: 'Confirmed', order_status_cancelled: 'Cancelled',
         ask_about_order: 'Ask about this order',
+        reorder: 'Order again', reordering: 'Adding to cart...', reorder_unavailable: 'The items in this order are no longer available',
         order_items_done: 'done',
         order_savings: 'You saved',
         shopping_lists_title: 'Shopping Lists',
@@ -141,6 +144,7 @@ const tr: Record<string, Record<string, string>> = {
         no_orders: 'Aucune commande.',
         order_status_new: 'En cours de vérification', order_status_awaiting_customer: 'En attente de votre confirmation', order_status_customer_confirmed: 'Confirmée', order_status_cancelled: 'Annulée',
         ask_about_order: 'Poser une question sur cette commande',
+        reorder: 'Commander à nouveau', reordering: 'Ajout au panier...', reorder_unavailable: "Les articles de cette commande ne sont plus disponibles",
         order_items_done: 'terminés',
         order_savings: 'Économisé',
         shopping_lists_title: 'Listes de courses',
@@ -189,6 +193,7 @@ const tr: Record<string, Record<string, string>> = {
         no_orders: 'קיין הזמנות נאָך ניט.',
         order_status_new: 'אין דורכזיכט', order_status_awaiting_customer: 'ווארט אויף אײַער באשטעטיקונג', order_status_customer_confirmed: 'באשטעטיגט', order_status_cancelled: 'אָפּגעזאָגט',
         ask_about_order: 'שטעלט א פראגע וועגן דער בעשטעלונג',
+        reorder: 'באשטעלן נאכאמאל', reordering: 'לייגט צו קארב...', reorder_unavailable: 'די פריטים אין דער הזמנה זענען שוין נישט פאראן',
         order_items_done: 'פֿאַרטיק',
         order_savings: 'געשפּאָרט',
         shopping_lists_title: 'קוילע רשימות',
@@ -348,6 +353,9 @@ export default function ProfileClient() {
     const t = tr[locale] || tr.he;
     const { user, token, logout, login } = useAuth();
     const verticals = useVerticals();
+    const { addToCart } = useCart();
+    const [reorderingId, setReorderingId] = useState<number | null>(null);
+    const [reorderError, setReorderError] = useState<{ orderId: number; message: string } | null>(null);
 
     const [form, setForm] = useState({
         phone: '', gender: '', city: '', birth_year: '',
@@ -590,8 +598,58 @@ export default function ProfileClient() {
     const gabbaiOrders = myOrders.filter((o) => o.orderer_role === 'gabbai');
     const personalOrders = myOrders.filter((o) => o.orderer_role !== 'gabbai');
 
+    // "Reorder" pulls CURRENT product data (price/sale price/etc.), not the order's old price
+    // snapshot — a reorder should reflect what the item costs today, exactly like adding it fresh
+    // from the world listing would. Only contact_request lines are reorderable (an order is
+    // homogeneous in lead_type — see leads.py — so appointment/card_order orders never show this
+    // button at all); a product that's since been deleted/deactivated is silently skipped rather
+    // than blocking the rest of the order from being re-added.
+    const handleReorder = async (order: MyOrder) => {
+        if (!token) return;
+        const reorderableItems = order.items.filter((i) => i.lead_type === 'contact_request' && i.product_id != null);
+        if (reorderableItems.length === 0) return;
+        setReorderingId(order.id);
+        setReorderError((prev) => (prev?.orderId === order.id ? null : prev));
+        try {
+            const verticalSlugs = Array.from(new Set(reorderableItems.map((i) => i.product_vertical).filter(Boolean))) as string[];
+            const productLists = await Promise.all(verticalSlugs.map((v) => getProducts(token, v)));
+            const productsById = new Map(productLists.flat().map((p) => [p.id, p]));
+
+            let addedCount = 0;
+            for (const item of reorderableItems) {
+                const product = productsById.get(item.product_id!);
+                if (!product) continue;
+                addToCart({
+                    id: product.id,
+                    vertical: product.vertical,
+                    title_he: product.title_he,
+                    title_en: product.title_en,
+                    title_fr: product.title_fr,
+                    title_yi: product.title_yi,
+                    image_url: product.image_url,
+                    price: product.price,
+                    sale_price: product.sale_price,
+                    quantity_discount_bundle_id: product.quantity_discount_bundle_id,
+                    quantity_discount_tiers: product.quantity_discount?.tiers ?? null,
+                }, item.quantity ?? 1);
+                addedCount++;
+            }
+
+            if (addedCount === 0) {
+                setReorderError({ orderId: order.id, message: t.reorder_unavailable });
+                setReorderingId(null);
+                return;
+            }
+            router.push(`/${locale}/cart`);
+        } catch {
+            setReorderError({ orderId: order.id, message: t.reorder_unavailable });
+            setReorderingId(null);
+        }
+    };
+
     const renderOrderCard = (order: MyOrder) => {
         const doneCount = order.items.filter((i) => i.status === 'closed').length;
+        const canReorder = order.items.some((i) => i.lead_type === 'contact_request' && i.product_id != null);
         return (
             <div key={order.id} className="bg-[#111a2f] rounded-xl px-4 py-3">
                 <div className="flex items-center justify-between gap-3 mb-2">
@@ -643,12 +701,28 @@ export default function ProfileClient() {
                 {order.custom_items_note && (
                     <p className="text-xs text-[#d4af37]/70 bg-[#0e1628] rounded-lg px-3 py-2 mt-2">{order.custom_items_note}</p>
                 )}
-                <Link
-                    href={`/${locale}/contact?order=${order.id}`}
-                    className="flex items-center gap-1.5 text-xs text-[#d4af37]/60 hover:text-[#d4af37] transition-colors mt-2"
-                >
-                    <MessageCircleQuestion size={12} /> {t.ask_about_order}
-                </Link>
+                <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 mt-2">
+                    {canReorder && (
+                        <button
+                            type="button"
+                            onClick={() => handleReorder(order)}
+                            disabled={reorderingId === order.id}
+                            className="flex items-center gap-1.5 text-xs font-bold text-[#d4af37]/80 hover:text-[#d4af37] transition-colors disabled:opacity-60"
+                        >
+                            {reorderingId === order.id ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+                            {reorderingId === order.id ? t.reordering : t.reorder}
+                        </button>
+                    )}
+                    <Link
+                        href={`/${locale}/contact?order=${order.id}`}
+                        className="flex items-center gap-1.5 text-xs text-[#d4af37]/60 hover:text-[#d4af37] transition-colors"
+                    >
+                        <MessageCircleQuestion size={12} /> {t.ask_about_order}
+                    </Link>
+                </div>
+                {reorderError?.orderId === order.id && (
+                    <p className="text-[11px] text-red-400/80 mt-1.5">{reorderError.message}</p>
+                )}
             </div>
         );
     };

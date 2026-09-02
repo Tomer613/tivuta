@@ -79,6 +79,96 @@ def test_shopping_list_add_update_and_delete_item(client, db_session, make_user)
     assert empty_resp == []
 
 
+def test_shopping_list_ids_endpoint_does_not_auto_seed(client, db_session, make_user):
+    """GET /shopping-list/ids is a passive, frequent read (called on every listing-page load to
+    drive "on my list" badges) — unlike the full GET, it must never auto-seed from purchase
+    history, or just browsing a world would silently start populating a list the user never
+    opened."""
+    _make_vertical(db_session, "kiddush")
+    product = _make_product(db_session, "kiddush")
+    make_user(email="idsnoseed@example.com", password="testpass123")
+    headers = _login(client, "idsnoseed@example.com")
+
+    client.post("/leads/cart-checkout", json={"items": [{"product_id": product.id, "quantity": 1}]}, headers=headers)
+
+    ids_resp = client.get("/shopping-list/ids?vertical=kiddush", headers=headers)
+    assert ids_resp.status_code == 200
+    assert ids_resp.json() == []  # purchase history exists, but /ids never seeded from it
+
+    # Explicitly adding an item does show up in /ids.
+    client.post("/shopping-list/items", json={"product_id": product.id, "quantity": 1}, headers=headers)
+    assert client.get("/shopping-list/ids?vertical=kiddush", headers=headers).json() == [product.id]
+
+
+def test_shopping_list_replace_overwrites_existing_list(client, db_session, make_user):
+    """PUT /shopping-list is the cart page's "save current cart as my shopping list" action —
+    wholesale replace, unlike every other endpoint which only ever touches one row."""
+    _make_vertical(db_session, "kiddush")
+    old_product = _make_product(db_session, "kiddush", title="ישן")
+    new_a = _make_product(db_session, "kiddush", title="חדש א")
+    new_b = _make_product(db_session, "kiddush", title="חדש ב")
+    make_user(email="replacelist@example.com", password="testpass123")
+    headers = _login(client, "replacelist@example.com")
+
+    client.post("/shopping-list/items", json={"product_id": old_product.id, "quantity": 3}, headers=headers)
+
+    resp = client.put(
+        "/shopping-list?vertical=kiddush",
+        json={"items": [{"product_id": new_a.id, "quantity": 2}, {"product_id": new_b.id, "quantity": 5}]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    items = resp.json()
+    by_product = {i["product_id"]: i["quantity"] for i in items}
+    assert by_product == {new_a.id: 2, new_b.id: 5}
+    assert old_product.id not in by_product  # the old item was discarded, not merged
+
+
+def test_shopping_list_replace_with_empty_items_clears_the_list(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush")
+    product = _make_product(db_session, "kiddush")
+    make_user(email="clearlist@example.com", password="testpass123")
+    headers = _login(client, "clearlist@example.com")
+
+    client.post("/shopping-list/items", json={"product_id": product.id, "quantity": 1}, headers=headers)
+    resp = client.put("/shopping-list?vertical=kiddush", json={"items": []}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_shopping_list_replace_rejects_product_from_another_vertical(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush")
+    _make_vertical(db_session, "diamonds")
+    diamond_product = _make_product(db_session, "diamonds")
+    make_user(email="crossreplace@example.com", password="testpass123")
+    headers = _login(client, "crossreplace@example.com")
+
+    resp = client.put(
+        "/shopping-list?vertical=kiddush",
+        json={"items": [{"product_id": diamond_product.id, "quantity": 1}]},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+    # Nothing was written — the reject-the-whole-request behavior leaves the list untouched.
+    assert client.get("/shopping-list?vertical=kiddush", headers=headers).json() == []
+
+
+def test_shopping_list_replace_only_touches_the_target_verticals_items(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush")
+    _make_vertical(db_session, "diamonds")
+    kiddush_product = _make_product(db_session, "kiddush")
+    diamond_product = _make_product(db_session, "diamonds")
+    make_user(email="isolatedreplace@example.com", password="testpass123")
+    headers = _login(client, "isolatedreplace@example.com")
+
+    client.post("/shopping-list/items", json={"product_id": diamond_product.id, "quantity": 1}, headers=headers)
+    client.put("/shopping-list?vertical=kiddush", json={"items": [{"product_id": kiddush_product.id, "quantity": 1}]}, headers=headers)
+
+    # Replacing the kiddush list must not have touched the pre-existing diamonds item.
+    diamonds_list = client.get("/shopping-list?vertical=diamonds", headers=headers).json()
+    assert [i["product_id"] for i in diamonds_list] == [diamond_product.id]
+
+
 def test_shopping_list_refresh_adds_missing_without_touching_existing_edits(client, db_session, make_user):
     _make_vertical(db_session, "kiddush")
     product_a = _make_product(db_session, "kiddush", title="יין")

@@ -937,6 +937,12 @@ class ShoppingListItemUpdate(BaseModel):
     quantity: int = Field(..., ge=1, le=99)
 
 
+class ShoppingListReplaceRequest(BaseModel):
+    """PUT /shopping-list — wholesale replace, used by the cart page's "save current cart as my
+    shopping list" action. An empty `items` list is valid and simply clears the list."""
+    items: List[ShoppingListItemCreate] = Field(default_factory=list, max_length=100)
+
+
 class ShoppingListItemRead(BaseModel):
     id: int
     product_id: int

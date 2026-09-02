@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Trash2, ShoppingCart, MessageCircle, CheckCircle2, Loader2, Tag, History, Plus } from 'lucide-react';
+import { Trash2, ShoppingCart, MessageCircle, CheckCircle2, Loader2, Tag, History, Plus, ListChecks } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart, CartItem } from '@/context/CartContext';
-import { cartCheckout, productImageUrl, getMyPurchaseHistory, PurchaseHistoryItem } from '@/lib/api';
+import { cartCheckout, productImageUrl, getMyPurchaseHistory, replaceShoppingList, PurchaseHistoryItem } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
 import { computeEffectiveUnitPrice } from '@/lib/pricing';
 import QuantityStepper from '@/components/QuantityStepper';
@@ -52,13 +52,17 @@ interface T {
     custom_note_placeholder: string;
     bought_before_title: string;
     add_short: string;
+    save_as_shopping_list: (world: string) => string;
+    save_as_shopping_list_saving: string;
+    save_as_shopping_list_saved: string;
+    save_as_shopping_list_error: string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', before_discount: 'לפני הנחה', savings: 'חיסכון', qty_discount_active: (p) => `✓ מבצע כמות הופעל (${p}% הנחה)`, qty_discount_more_needed: (n) => `עוד ${n} יח' ותקבלו הנחת כמות`, mixed_cart_blocked: 'לא ניתן להזמין פריטי קידושים יחד עם פריטים מעולם אחר באותה הזמנה — יש להסיר חלק מהפריטים ולהזמין בנפרד.', gabbai_required: 'הזמנה מעולם זה מיועדת לגבאים בלבד.', complete_gabbai_registration: 'להשלמת רישום כגבאי', custom_note_label: 'מוצרים/בקשות נוספים (אופציונלי)', custom_note_placeholder: 'יש לנו צורך גם ב...', bought_before_title: 'קנית בעבר, אולי תרצה גם:', add_short: 'הוסף' },
-    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', before_discount: 'Before discount', savings: 'Savings', qty_discount_active: (p) => `✓ Quantity discount applied (${p}% off)`, qty_discount_more_needed: (n) => `${n} more unit(s) for a quantity discount`, mixed_cart_blocked: 'Kiddush items cannot be ordered together with items from another world — remove some items and order separately.', gabbai_required: 'Ordering from this world is for registered gabbaim only.', complete_gabbai_registration: 'Complete gabbai registration', custom_note_label: 'Additional items/requests (optional)', custom_note_placeholder: 'We also need...', bought_before_title: 'You bought these before — maybe again?', add_short: 'Add' },
-    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', before_discount: 'Avant remise', savings: 'Économie', qty_discount_active: (p) => `✓ Remise quantité appliquée (${p}%)`, qty_discount_more_needed: (n) => `Encore ${n} unité(s) pour une remise quantité`, mixed_cart_blocked: "Les articles de kiddouch ne peuvent pas être commandés avec des articles d'un autre monde — retirez certains articles et commandez séparément.", gabbai_required: 'La commande dans ce monde est réservée aux gabbaïm inscrits.', complete_gabbai_registration: "Compléter l'inscription en tant que gabbaï", custom_note_label: 'Articles/demandes supplémentaires (optionnel)', custom_note_placeholder: 'Nous avons aussi besoin de...', bought_before_title: 'Vous avez déjà acheté ceci — à nouveau ?', add_short: 'Ajouter' },
-    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', before_discount: 'פאר הנחה', savings: 'שפּאָרן', qty_discount_active: (p) => `✓ מבצע כמות אקטיוו (${p}% הנחה)`, qty_discount_more_needed: (n) => `נאך ${n} יח' פאר א הנחת כמות`, mixed_cart_blocked: 'מ\'קען נישט באשטעלן קידוש זאכן צוזאמען מיט זאכן פון אן אנדער וועלט — מוז אנטפערנען עטלעכע זאכן און באשטעלן באזונדער.', gabbai_required: 'באשטעלונג פון דער וועלט איז נאר פאר רעגיסטרירטע גבאים.', complete_gabbai_registration: 'פֿאַרענדיקן רעגיסטראציע אלס גבאי', custom_note_label: 'נאך זאכן/פארלאנגען (אויסוואל)', custom_note_placeholder: 'מיר דארפן אויך...', bought_before_title: 'איר האט דאס שוין געקויפט - אפשר נאך אמאל?', add_short: 'צוגעבן' },
+    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', before_discount: 'לפני הנחה', savings: 'חיסכון', qty_discount_active: (p) => `✓ מבצע כמות הופעל (${p}% הנחה)`, qty_discount_more_needed: (n) => `עוד ${n} יח' ותקבלו הנחת כמות`, mixed_cart_blocked: 'לא ניתן להזמין פריטי קידושים יחד עם פריטים מעולם אחר באותה הזמנה — יש להסיר חלק מהפריטים ולהזמין בנפרד.', gabbai_required: 'הזמנה מעולם זה מיועדת לגבאים בלבד.', complete_gabbai_registration: 'להשלמת רישום כגבאי', custom_note_label: 'מוצרים/בקשות נוספים (אופציונלי)', custom_note_placeholder: 'יש לנו צורך גם ב...', bought_before_title: 'קנית בעבר, אולי תרצה גם:', add_short: 'הוסף', save_as_shopping_list: (w) => `שמור כרשימת הקניות שלי ל${w}`, save_as_shopping_list_saving: 'שומר...', save_as_shopping_list_saved: '✓ נשמר', save_as_shopping_list_error: 'שגיאה בשמירה' },
+    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', before_discount: 'Before discount', savings: 'Savings', qty_discount_active: (p) => `✓ Quantity discount applied (${p}% off)`, qty_discount_more_needed: (n) => `${n} more unit(s) for a quantity discount`, mixed_cart_blocked: 'Kiddush items cannot be ordered together with items from another world — remove some items and order separately.', gabbai_required: 'Ordering from this world is for registered gabbaim only.', complete_gabbai_registration: 'Complete gabbai registration', custom_note_label: 'Additional items/requests (optional)', custom_note_placeholder: 'We also need...', bought_before_title: 'You bought these before — maybe again?', add_short: 'Add', save_as_shopping_list: (w) => `Save as my ${w} shopping list`, save_as_shopping_list_saving: 'Saving...', save_as_shopping_list_saved: '✓ Saved', save_as_shopping_list_error: 'Failed to save' },
+    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', before_discount: 'Avant remise', savings: 'Économie', qty_discount_active: (p) => `✓ Remise quantité appliquée (${p}%)`, qty_discount_more_needed: (n) => `Encore ${n} unité(s) pour une remise quantité`, mixed_cart_blocked: "Les articles de kiddouch ne peuvent pas être commandés avec des articles d'un autre monde — retirez certains articles et commandez séparément.", gabbai_required: 'La commande dans ce monde est réservée aux gabbaïm inscrits.', complete_gabbai_registration: "Compléter l'inscription en tant que gabbaï", custom_note_label: 'Articles/demandes supplémentaires (optionnel)', custom_note_placeholder: 'Nous avons aussi besoin de...', bought_before_title: 'Vous avez déjà acheté ceci — à nouveau ?', add_short: 'Ajouter', save_as_shopping_list: (w) => `Enregistrer comme ma liste de courses ${w}`, save_as_shopping_list_saving: 'Enregistrement...', save_as_shopping_list_saved: '✓ Enregistré', save_as_shopping_list_error: "Échec de l'enregistrement" },
+    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', before_discount: 'פאר הנחה', savings: 'שפּאָרן', qty_discount_active: (p) => `✓ מבצע כמות אקטיוו (${p}% הנחה)`, qty_discount_more_needed: (n) => `נאך ${n} יח' פאר א הנחת כמות`, mixed_cart_blocked: 'מ\'קען נישט באשטעלן קידוש זאכן צוזאמען מיט זאכן פון אן אנדער וועלט — מוז אנטפערנען עטלעכע זאכן און באשטעלן באזונדער.', gabbai_required: 'באשטעלונג פון דער וועלט איז נאר פאר רעגיסטרירטע גבאים.', complete_gabbai_registration: 'פֿאַרענדיקן רעגיסטראציע אלס גבאי', custom_note_label: 'נאך זאכן/פארלאנגען (אויסוואל)', custom_note_placeholder: 'מיר דארפן אויך...', bought_before_title: 'איר האט דאס שוין געקויפט - אפשר נאך אמאל?', add_short: 'צוגעבן', save_as_shopping_list: (w) => `אפּשפּאַרן אלס מיין ${w} קוילע רשימה`, save_as_shopping_list_saving: 'שפּאַרט...', save_as_shopping_list_saved: '✓ אפּגעשפּאַרט', save_as_shopping_list_error: 'טעות ביים שפּאַרן' },
 };
 
 export default function CartPage() {
@@ -77,6 +81,8 @@ export default function CartPage() {
     const [savedSummary, setSavedSummary] = useState<{ original: number; paid: number } | null>(null);
     const [customNote, setCustomNote] = useState('');
     const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
+    const [savingListVertical, setSavingListVertical] = useState<string | null>(null);
+    const [listSaveResult, setListSaveResult] = useState<{ vertical: string; ok: boolean } | null>(null);
 
     // "Bought before" strip — a lightweight cross-sell, not part of the checkout flow itself.
     // Fetched once per visit; only ever shown for a logged-in user.
@@ -115,6 +121,29 @@ export default function CartPage() {
     // Vertical.hide_prices — real prices still checkout/snapshot normally server-side, this only
     // suppresses the *display* here (same treatment an on-request/null-price item already gets).
     const isHiddenPrice = (item: CartItem) => !!verticalsBySlug[item.vertical]?.hide_prices;
+
+    // "Save current cart as my shopping list" — one distinct vertical at a time (a shopping list
+    // is per-vertical, see Vertical.enables_shopping_list), so a mixed-vertical cart shows one
+    // button per eligible world rather than one that tries to save everything at once.
+    const shoppingListVerticalsInCart = Array.from(new Set(items.map((i) => i.vertical)))
+        .filter((v) => verticalsBySlug[v]?.enables_shopping_list);
+
+    const handleSaveAsShoppingList = async (vertical: string) => {
+        if (!token) return;
+        setSavingListVertical(vertical);
+        setListSaveResult(null);
+        try {
+            const verticalItems = items
+                .filter((i) => i.vertical === vertical)
+                .map((i) => ({ product_id: i.id, quantity: i.quantity }));
+            await replaceShoppingList(token, vertical, verticalItems);
+            setListSaveResult({ vertical, ok: true });
+        } catch {
+            setListSaveResult({ vertical, ok: false });
+        } finally {
+            setSavingListVertical(null);
+        }
+    };
 
     // Pre-checkout preview only — the server independently recomputes and stores the
     // authoritative snapshot at checkout time (see services/pricing.py); this is display only.
@@ -302,6 +331,34 @@ export default function CartPage() {
                                 );
                             })}
                         </div>
+
+                        {shoppingListVerticalsInCart.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-8">
+                                {shoppingListVerticalsInCart.map((v) => {
+                                    const worldLabel = VERTICAL_LABEL[v] || v;
+                                    const saving = savingListVertical === v;
+                                    const result = listSaveResult?.vertical === v ? listSaveResult : null;
+                                    return (
+                                        <button
+                                            key={v}
+                                            type="button"
+                                            onClick={() => handleSaveAsShoppingList(v)}
+                                            disabled={saving}
+                                            className="flex items-center gap-1.5 text-xs font-bold text-[#d4af37]/80 border border-[#d4af37]/30 rounded-xl px-3 py-2 hover:bg-[#d4af37]/10 transition-colors disabled:opacity-60"
+                                        >
+                                            {saving ? <Loader2 size={13} className="animate-spin" /> : <ListChecks size={13} />}
+                                            {saving
+                                                ? t.save_as_shopping_list_saving
+                                                : result?.ok
+                                                    ? t.save_as_shopping_list_saved
+                                                    : result && !result.ok
+                                                        ? t.save_as_shopping_list_error
+                                                        : t.save_as_shopping_list(worldLabel)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         <div className="border-t border-[#d4af37]/20 pt-6">
                             {totalSavings > 0 && (
