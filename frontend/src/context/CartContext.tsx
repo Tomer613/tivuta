@@ -55,7 +55,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setItems((prev) => {
             const existing = prev.find((i) => i.id === product.id);
             if (existing) {
-                return prev.map((i) => i.id === product.id ? { ...i, quantity: Math.min(99, i.quantity + quantity) } : i);
+                // Refresh every field from the incoming snapshot, not just the quantity — a
+                // caller re-adding a product already in the cart (e.g. reordering a past order,
+                // or clicking "add" again after the price/sale/bundle changed) expects the cart
+                // to reflect the CURRENT product data, not silently keep whatever was cached from
+                // the first time it was added.
+                return prev.map((i) => i.id === product.id ? { ...i, ...product, quantity: Math.min(99, i.quantity + quantity) } : i);
             }
             return [...prev, { ...product, quantity: Math.min(99, quantity) }];
         });

@@ -73,6 +73,7 @@ def _validate_sale_price(price: Optional[float], sale_price: Optional[float]) ->
 @router.get("/products", response_model=List[schemas.ProductRead])
 def list_products(
     vertical: Optional[str] = None,
+    ids: Optional[str] = None,  # comma-separated product ids — for resolving a specific handful
     sort: Optional[str] = None,  # 'popularity' | 'price_asc' | 'price_desc' | 'newest'
     promotion_type: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -85,6 +86,12 @@ def list_products(
     )
     if vertical:
         query = query.filter(models.Product.vertical == vertical)
+    if ids:
+        try:
+            id_list = [int(x) for x in ids.split(",") if x.strip()]
+        except ValueError:
+            raise HTTPException(status_code=400, detail="ids must be a comma-separated list of integers")
+        query = query.filter(models.Product.id.in_(id_list))
     if promotion_type:
         promo_product_ids = (
             db.query(models.product_promotions_table.c.product_id)

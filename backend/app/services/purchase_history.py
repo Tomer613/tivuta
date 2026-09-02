@@ -33,7 +33,11 @@ def get_user_purchase_history(
             models.Lead.status != "cancelled",
             models.CustomerOrder.status != "cancelled",
         )
-        .options(selectinload(models.Lead.product))
+        .options(
+            selectinload(models.Lead.product)
+            .selectinload(models.Product.quantity_discount_bundle)
+            .selectinload(models.QuantityDiscountBundle.tiers)
+        )
     )
     if vertical:
         query = query.join(models.Product, models.Lead.product_id == models.Product.id).filter(

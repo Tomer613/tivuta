@@ -9,6 +9,7 @@ import { useCart } from '@/context/CartContext';
 import { useVerticals } from '@/lib/useVerticals';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import QuantityStepper from '@/components/QuantityStepper';
+import { computeEffectiveUnitPrice } from '@/lib/pricing';
 import {
     getShoppingList, refreshShoppingList, addShoppingListItem, updateShoppingListItem, removeShoppingListItem,
     getProducts, productImageUrl, ShoppingListItem,
@@ -31,13 +32,14 @@ interface T {
     on_request: string;
     back_to_world: string;
     loading_error: string;
+    estimated_total: string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'רשימת הקניות שלי', empty: 'רשימת הקניות ריקה — הוסף מוצרים למטה.', select_all: 'סמן הכל', deselect_all: 'בטל הכל', refresh_from_history: 'הוסף פריטים נוספים מההיסטוריה', add_product: 'הוסף מוצר', search_placeholder: 'חיפוש מוצר...', add_to_cart: 'הוסף לסל', no_selection: 'לא נבחרו פריטים', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', remove: 'הסר', on_request: 'לפי בקשה', back_to_world: 'חזרה לעולם', loading_error: 'שגיאה בטעינת הרשימה' },
-    en: { title: 'My Shopping List', empty: 'Your shopping list is empty — add products below.', select_all: 'Select all', deselect_all: 'Deselect all', refresh_from_history: 'Add more items from my history', add_product: 'Add product', search_placeholder: 'Search product...', add_to_cart: 'Add to cart', no_selection: 'No items selected', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', remove: 'Remove', on_request: 'On request', back_to_world: 'Back to world', loading_error: 'Failed to load list' },
-    fr: { title: 'Ma liste de courses', empty: 'Votre liste de courses est vide — ajoutez des produits ci-dessous.', select_all: 'Tout sélectionner', deselect_all: 'Tout désélectionner', refresh_from_history: 'Ajouter plus d’articles depuis mon historique', add_product: 'Ajouter un produit', search_placeholder: 'Rechercher un produit...', add_to_cart: 'Ajouter au panier', no_selection: 'Aucun article sélectionné', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', remove: 'Retirer', on_request: 'Sur demande', back_to_world: 'Retour au monde', loading_error: 'Échec du chargement de la liste' },
-    yi: { title: 'מיין קוילע רשימה', empty: 'דיין קוילע רשימה איז ליידיג — לייג צו פראדוקטן אונטן.', select_all: 'סמן אלץ', deselect_all: 'אויסמעקן אלץ', refresh_from_history: 'לייג צו נאך פריטים פון היסטאריע', add_product: 'לייג צו פראדוקט', search_placeholder: 'זוכן פראדוקט...', add_to_cart: 'לייג צו קארב', no_selection: 'קיין פריטים אויסגעקליבן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', remove: 'אנטפערנען', on_request: 'אויף פארלאנג', back_to_world: 'צוריק צו וועלט', loading_error: 'טעות לאדן רשימה' },
+    he: { title: 'רשימת הקניות שלי', empty: 'רשימת הקניות ריקה — הוסף מוצרים למטה.', select_all: 'סמן הכל', deselect_all: 'בטל הכל', refresh_from_history: 'הוסף פריטים נוספים מההיסטוריה', add_product: 'הוסף מוצר', search_placeholder: 'חיפוש מוצר...', add_to_cart: 'הוסף לסל', no_selection: 'לא נבחרו פריטים', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', remove: 'הסר', on_request: 'לפי בקשה', back_to_world: 'חזרה לעולם', loading_error: 'שגיאה בטעינת הרשימה', estimated_total: 'סה"כ משוער' },
+    en: { title: 'My Shopping List', empty: 'Your shopping list is empty — add products below.', select_all: 'Select all', deselect_all: 'Deselect all', refresh_from_history: 'Add more items from my history', add_product: 'Add product', search_placeholder: 'Search product...', add_to_cart: 'Add to cart', no_selection: 'No items selected', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', remove: 'Remove', on_request: 'On request', back_to_world: 'Back to world', loading_error: 'Failed to load list', estimated_total: 'Estimated total' },
+    fr: { title: 'Ma liste de courses', empty: 'Votre liste de courses est vide — ajoutez des produits ci-dessous.', select_all: 'Tout sélectionner', deselect_all: 'Tout désélectionner', refresh_from_history: 'Ajouter plus d’articles depuis mon historique', add_product: 'Ajouter un produit', search_placeholder: 'Rechercher un produit...', add_to_cart: 'Ajouter au panier', no_selection: 'Aucun article sélectionné', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', remove: 'Retirer', on_request: 'Sur demande', back_to_world: 'Retour au monde', loading_error: 'Échec du chargement de la liste', estimated_total: 'Total estimé' },
+    yi: { title: 'מיין קוילע רשימה', empty: 'דיין קוילע רשימה איז ליידיג — לייג צו פראדוקטן אונטן.', select_all: 'סמן אלץ', deselect_all: 'אויסמעקן אלץ', refresh_from_history: 'לייג צו נאך פריטים פון היסטאריע', add_product: 'לייג צו פראדוקט', search_placeholder: 'זוכן פראדוקט...', add_to_cart: 'לייג צו קארב', no_selection: 'קיין פריטים אויסגעקליבן', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', remove: 'אנטפערנען', on_request: 'אויף פארלאנג', back_to_world: 'צוריק צו וועלט', loading_error: 'טעות לאדן רשימה', estimated_total: 'געשאצטע סך הכל' },
 };
 
 export default function ShoppingListClient() {
@@ -159,8 +161,8 @@ export default function ShoppingListClient() {
                 image_url: item.product_image_url,
                 price: item.product_price,
                 sale_price: item.product_sale_price,
-                quantity_discount_bundle_id: null,
-                quantity_discount_tiers: null,
+                quantity_discount_bundle_id: item.quantity_discount_bundle_id ?? null,
+                quantity_discount_tiers: item.quantity_discount_tiers ?? null,
             }, item.quantity);
         }
         router.push(`/${locale}/cart`);
@@ -168,6 +170,23 @@ export default function ShoppingListClient() {
 
     const allChecked = items.length > 0 && checkedIds.size === items.length;
     const selectedCount = checkedIds.size;
+
+    // Estimated total for the checked items — exactly what "הוסף לסל" is about to add, computed
+    // with the same sale-price/quantity-discount formula as the cart page (lib/pricing.ts), so the
+    // number shown here doesn't drift from what the cart itself would show a moment later.
+    const checkedItems = items.filter((i) => checkedIds.has(i.id));
+    const bundleAggregates: Record<number, number> = {};
+    for (const item of checkedItems) {
+        if (item.quantity_discount_bundle_id != null) {
+            bundleAggregates[item.quantity_discount_bundle_id] = (bundleAggregates[item.quantity_discount_bundle_id] || 0) + item.quantity;
+        }
+    }
+    const estimatedTotal = checkedItems.reduce((sum, item) => {
+        const bundleQty = item.quantity_discount_bundle_id != null ? (bundleAggregates[item.quantity_discount_bundle_id] || 0) : 0;
+        const eff = computeEffectiveUnitPrice(item.product_price, item.product_sale_price, item.quantity_discount_tiers, bundleQty);
+        return sum + (eff.unitPrice ?? 0) * item.quantity;
+    }, 0);
+    const hasOnRequestItem = checkedItems.some((i) => !i.product_price);
 
     if (!vertical) {
         return (
@@ -321,6 +340,15 @@ export default function ShoppingListClient() {
                                 </div>
                             )}
                         </div>
+
+                        {selectedCount > 0 && !verticalMeta?.hide_prices && (
+                            <div className="flex items-center justify-between mb-3 text-sm">
+                                <span className="text-[#f0e6d3]/50">{t.estimated_total}</span>
+                                <span className="text-[#d4af37] font-black">
+                                    {estimatedTotal > 0 ? `₪${Math.round(estimatedTotal).toLocaleString()}${hasOnRequestItem ? '+' : ''}` : t.on_request}
+                                </span>
+                            </div>
+                        )}
 
                         <button
                             type="button"

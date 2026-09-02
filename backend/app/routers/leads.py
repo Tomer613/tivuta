@@ -395,27 +395,41 @@ def my_purchase_history(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    """Feeds the cart page's "bought before" strip and the world listing's "my taste" sort — both
-    are pure frontend/client-side consumers of this one list, no separate backend sort/filter
-    branch needed on GET /products itself (which stays fully public/unauthenticated)."""
+    """Feeds the cart page's "bought before" strip, the world listing's "my taste" sort and
+    "reorder my usual" action — all pure frontend/client-side consumers of this one list, no
+    separate backend sort/filter branch needed on GET /products itself (which stays fully
+    public/unauthenticated)."""
     history = get_user_purchase_history(db, current_user.id, vertical)
-    return [
-        schemas.PurchaseHistoryItem(
-            product_id=entry["product"].id,
-            product_title_he=entry["product"].title_he,
-            product_title_en=entry["product"].title_en,
-            product_title_fr=entry["product"].title_fr,
-            product_title_yi=entry["product"].title_yi,
-            product_vertical=entry["product"].vertical,
-            product_image_url=entry["product"].image_url,
-            product_price=entry["product"].price,
-            product_sale_price=entry["product"].sale_price,
-            last_quantity=entry["last_quantity"],
-            times_purchased=entry["times_purchased"],
-            last_purchased_at=entry["last_purchased_at"],
+    result = []
+    for entry in history:
+        product = entry["product"]
+        # Same "active bundle only" rule as _active_quantity_discount() in routers/products.py —
+        # a reorder/recommendation must never resurrect a since-deactivated bundle's discount.
+        bundle = product.quantity_discount_bundle
+        has_active_bundle = bundle is not None and bundle.is_active
+        tiers = (
+            [schemas.QuantityDiscountTierBase(min_quantity=t.min_quantity, discount_percent=t.discount_percent) for t in bundle.tiers]
+            if has_active_bundle else None
         )
-        for entry in history
-    ]
+        result.append(
+            schemas.PurchaseHistoryItem(
+                product_id=product.id,
+                product_title_he=product.title_he,
+                product_title_en=product.title_en,
+                product_title_fr=product.title_fr,
+                product_title_yi=product.title_yi,
+                product_vertical=product.vertical,
+                product_image_url=product.image_url,
+                product_price=product.price,
+                product_sale_price=product.sale_price,
+                quantity_discount_bundle_id=bundle.id if has_active_bundle else None,
+                quantity_discount_tiers=tiers,
+                last_quantity=entry["last_quantity"],
+                times_purchased=entry["times_purchased"],
+                last_purchased_at=entry["last_purchased_at"],
+            )
+        )
+    return result
 
 
 @router.post("/leads/card-order", response_model=schemas.LeadRead)

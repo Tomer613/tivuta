@@ -172,8 +172,8 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                 image_url: entry.product_image_url,
                 price: entry.product_price,
                 sale_price: entry.product_sale_price,
-                quantity_discount_bundle_id: null,
-                quantity_discount_tiers: null,
+                quantity_discount_bundle_id: entry.quantity_discount_bundle_id ?? null,
+                quantity_discount_tiers: entry.quantity_discount_tiers ?? null,
             }, entry.last_quantity);
         }
         router.push(`/${locale}/cart`);

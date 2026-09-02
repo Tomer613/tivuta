@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
@@ -25,6 +26,14 @@ def _validate_shopping_list_vertical(db: Session, vertical: str) -> models.Verti
 
 def _item_read(item: models.ShoppingListItem) -> schemas.ShoppingListItemRead:
     product = item.product
+    # Same "active bundle only" rule as _active_quantity_discount() in routers/products.py — a
+    # deactivated bundle's discount must never resurface here.
+    bundle = product.quantity_discount_bundle
+    has_active_bundle = bundle is not None and bundle.is_active
+    tiers = (
+        [schemas.QuantityDiscountTierBase(min_quantity=t.min_quantity, discount_percent=t.discount_percent) for t in bundle.tiers]
+        if has_active_bundle else None
+    )
     return schemas.ShoppingListItemRead(
         id=item.id,
         product_id=item.product_id,
@@ -35,6 +44,8 @@ def _item_read(item: models.ShoppingListItem) -> schemas.ShoppingListItemRead:
         product_image_url=product.image_url,
         product_price=product.price,
         product_sale_price=product.sale_price,
+        quantity_discount_bundle_id=bundle.id if has_active_bundle else None,
+        quantity_discount_tiers=tiers,
         product_is_active=product.is_active,
         quantity=item.quantity,
         created_at=item.created_at,
@@ -46,7 +57,11 @@ def _list_query(db: Session, user_id: int, vertical: str):
         db.query(models.ShoppingListItem)
         .join(models.Product, models.ShoppingListItem.product_id == models.Product.id)
         .filter(models.ShoppingListItem.user_id == user_id, models.Product.vertical == vertical)
-        .options(selectinload(models.ShoppingListItem.product))
+        .options(
+            selectinload(models.ShoppingListItem.product)
+            .selectinload(models.Product.quantity_discount_bundle)
+            .selectinload(models.QuantityDiscountBundle.tiers)
+        )
     )
 
 
@@ -135,7 +150,15 @@ def replace_shopping_list(
     ).delete(synchronize_session=False)
     for product_id, quantity in merged_quantities.items():
         db.add(models.ShoppingListItem(user_id=current_user.id, product_id=product_id, quantity=min(quantity, 99)))
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two concurrent replace requests for the same user/vertical (e.g. the cart page open in
+        # two tabs) can race their delete+insert sequences into the uq_user_product_shopping_list_item
+        # constraint. Both requests wanted "replace with my current cart" — there's no correct
+        # ordering to enforce, so just roll back this one and return whatever the other request's
+        # write left in place, rather than surfacing an unhandled 500.
+        db.rollback()
     items = _list_query(db, current_user.id, vertical).order_by(models.ShoppingListItem.created_at.asc()).all()
     return [_item_read(i) for i in items]
 

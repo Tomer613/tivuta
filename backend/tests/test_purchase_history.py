@@ -121,6 +121,48 @@ def test_purchase_history_excludes_individually_cancelled_line_item(client, db_s
     assert cancelled_item.id not in product_ids
 
 
+def test_purchase_history_includes_active_quantity_discount_bundle(client, db_session, make_user):
+    """PurchaseHistoryItem must carry the product's live quantity-discount bundle — this is what
+    lets "reorder"/"quick reorder my usual" show the same discount a fresh add-to-cart would,
+    instead of silently reordering at full price."""
+    _make_vertical(db_session, "diamonds")
+    product = _make_product(db_session, "diamonds", title="עם מבצע")
+    bundle = models.QuantityDiscountBundle(name_he="מבצע", is_active=True)
+    db_session.add(bundle)
+    db_session.commit()
+    db_session.refresh(bundle)
+    db_session.add(models.QuantityDiscountTier(bundle_id=bundle.id, min_quantity=3, discount_percent=10))
+    product.quantity_discount_bundle_id = bundle.id
+    db_session.commit()
+
+    make_user(email="bundlehistory@example.com", password="testpass123")
+    headers = _login(client, "bundlehistory@example.com")
+    client.post("/leads/cart-checkout", json={"items": [{"product_id": product.id, "quantity": 1}]}, headers=headers)
+
+    history = client.get("/users/me/purchase-history?vertical=diamonds", headers=headers).json()
+    assert history[0]["quantity_discount_bundle_id"] == bundle.id
+    assert history[0]["quantity_discount_tiers"] == [{"min_quantity": 3, "discount_percent": 10}]
+
+
+def test_purchase_history_omits_deactivated_quantity_discount_bundle(client, db_session, make_user):
+    _make_vertical(db_session, "diamonds")
+    product = _make_product(db_session, "diamonds")
+    bundle = models.QuantityDiscountBundle(name_he="מבצע ישן", is_active=False)
+    db_session.add(bundle)
+    db_session.commit()
+    db_session.refresh(bundle)
+    product.quantity_discount_bundle_id = bundle.id
+    db_session.commit()
+
+    make_user(email="deadbundlehistory@example.com", password="testpass123")
+    headers = _login(client, "deadbundlehistory@example.com")
+    client.post("/leads/cart-checkout", json={"items": [{"product_id": product.id, "quantity": 1}]}, headers=headers)
+
+    history = client.get("/users/me/purchase-history?vertical=diamonds", headers=headers).json()
+    assert history[0]["quantity_discount_bundle_id"] is None
+    assert history[0]["quantity_discount_tiers"] is None
+
+
 def test_purchase_history_excludes_inactive_products(client, db_session, make_user):
     _make_vertical(db_session, "diamonds")
     product = _make_product(db_session, "diamonds")

@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
 import {
     updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, updatePreferredLanguage, productImageUrl,
-    getMyPointsHistory, createCardOrder, registerGabbai, getShoppingList, getProducts, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
+    getMyPointsHistory, createCardOrder, registerGabbai, getShoppingList, getProductsByIds, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
@@ -611,9 +611,9 @@ export default function ProfileClient() {
         setReorderingId(order.id);
         setReorderError((prev) => (prev?.orderId === order.id ? null : prev));
         try {
-            const verticalSlugs = Array.from(new Set(reorderableItems.map((i) => i.product_vertical).filter(Boolean))) as string[];
-            const productLists = await Promise.all(verticalSlugs.map((v) => getProducts(token, v)));
-            const productsById = new Map(productLists.flat().map((p) => [p.id, p]));
+            const productIds = Array.from(new Set(reorderableItems.map((i) => i.product_id!)));
+            const products = await getProductsByIds(token, productIds);
+            const productsById = new Map(products.map((p) => [p.id, p]));
 
             let addedCount = 0;
             for (const item of reorderableItems) {

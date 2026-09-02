@@ -3,6 +3,10 @@
  * Hardened for static build export (GitHub Actions compatible).
  */
 
+// Type-only import — erased at compile time, so this never creates a real runtime circular
+// dependency with ProductTile.tsx (which imports several runtime values from this file).
+import type { Product } from '@/components/ProductTile';
+
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 const STATIC_BASE = process.env.NEXT_PUBLIC_BASE_PATH || "";
@@ -523,6 +527,16 @@ export async function getProducts(token: MaybeToken, vertical: string, sort?: st
     if (sort) params.set('sort', sort);
     if (promotionType) params.set('promotion_type', promotionType);
     const res = await fetch(`${BASE_URL}/products?${params.toString()}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load products');
+    return res.json();
+}
+
+// Resolves a specific handful of product ids (e.g. re-ordering a past order's line items) without
+// fetching an entire vertical's catalog just to look a few of them up — no `vertical` filter, so
+// it works across an order that spans more than one world.
+export async function getProductsByIds(token: MaybeToken, ids: number[]): Promise<Product[]> {
+    if (ids.length === 0) return [];
+    const res = await fetch(`${BASE_URL}/products?ids=${ids.join(',')}`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load products');
     return res.json();
 }
@@ -1808,6 +1822,8 @@ export interface PurchaseHistoryItem {
     product_image_url?: string | null;
     product_price?: number | null;
     product_sale_price: number;
+    quantity_discount_bundle_id?: number | null;
+    quantity_discount_tiers?: { min_quantity: number; discount_percent: number }[] | null;
     last_quantity: number;
     times_purchased: number;
     last_purchased_at: string;
@@ -1833,6 +1849,8 @@ export interface ShoppingListItem {
     product_image_url?: string | null;
     product_price?: number | null;
     product_sale_price: number;
+    quantity_discount_bundle_id?: number | null;
+    quantity_discount_tiers?: { min_quantity: number; discount_percent: number }[] | null;
     product_is_active: boolean;
     quantity: number;
     created_at: string;

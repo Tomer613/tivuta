@@ -920,6 +920,8 @@ class PurchaseHistoryItem(BaseModel):
     product_image_url: Optional[str] = None
     product_price: Optional[float] = None
     product_sale_price: float = 0.0
+    quantity_discount_bundle_id: Optional[int] = None
+    quantity_discount_tiers: Optional[List[QuantityDiscountTierBase]] = None
     last_quantity: int
     times_purchased: int
     last_purchased_at: datetime
@@ -953,6 +955,8 @@ class ShoppingListItemRead(BaseModel):
     product_image_url: Optional[str] = None
     product_price: Optional[float] = None
     product_sale_price: float = 0.0
+    quantity_discount_bundle_id: Optional[int] = None
+    quantity_discount_tiers: Optional[List[QuantityDiscountTierBase]] = None
     product_is_active: bool
     quantity: int
     created_at: datetime

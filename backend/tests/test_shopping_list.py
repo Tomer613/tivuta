@@ -210,6 +210,28 @@ def test_shopping_list_scoped_by_vertical(client, db_session, make_user):
     assert [i["product_id"] for i in diamonds_list] == [diamond_product.id]
 
 
+def test_shopping_list_item_includes_active_quantity_discount_bundle(client, db_session, make_user):
+    """ShoppingListItemRead must carry the product's live bundle info — otherwise the shopping
+    list page's "add to cart" and running-total both silently miss an active discount."""
+    _make_vertical(db_session, "kiddush")
+    product = _make_product(db_session, "kiddush")
+    bundle = models.QuantityDiscountBundle(name_he="מבצע", is_active=True)
+    db_session.add(bundle)
+    db_session.commit()
+    db_session.refresh(bundle)
+    db_session.add(models.QuantityDiscountTier(bundle_id=bundle.id, min_quantity=2, discount_percent=20))
+    product.quantity_discount_bundle_id = bundle.id
+    db_session.commit()
+
+    make_user(email="listbundle@example.com", password="testpass123")
+    headers = _login(client, "listbundle@example.com")
+    client.post("/shopping-list/items", json={"product_id": product.id, "quantity": 2}, headers=headers)
+
+    items = client.get("/shopping-list?vertical=kiddush", headers=headers).json()
+    assert items[0]["quantity_discount_bundle_id"] == bundle.id
+    assert items[0]["quantity_discount_tiers"] == [{"min_quantity": 2, "discount_percent": 20}]
+
+
 def test_shopping_list_blocked_when_vertical_does_not_enable_it(client, db_session, make_user):
     _make_vertical(db_session, "diamonds", enables_shopping_list=False)
     product = _make_product(db_session, "diamonds")
