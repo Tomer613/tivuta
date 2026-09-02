@@ -619,9 +619,11 @@ export default function ProfileClient() {
         }
         return ids;
     };
-    const sameAsLastIds = gabbaiOrders.length > 0
-        ? new Set([...buildSameAsLastIds(personalOrders), ...buildSameAsLastIds(gabbaiOrders)])
-        : buildSameAsLastIds(myOrders);
+    // No need to branch on whether there are any gabbai orders: when there are none, personalOrders
+    // already equals myOrders by construction (every order satisfies orderer_role !== 'gabbai'),
+    // and buildSameAsLastIds(gabbaiOrders) is a no-op over an empty array — so this union is always
+    // correct, not just in the "split into two groups" case.
+    const sameAsLastIds = new Set([...buildSameAsLastIds(personalOrders), ...buildSameAsLastIds(gabbaiOrders)]);
 
     // "Reorder" pulls CURRENT product data (price/sale price/etc.), not the order's old price
     // snapshot — a reorder should reflect what the item costs today, exactly like adding it fresh

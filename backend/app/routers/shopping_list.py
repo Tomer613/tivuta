@@ -1,14 +1,20 @@
+import os
+from html import escape as html_escape
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
-from ..security import get_current_user, get_db
+from ..security import get_current_admin, get_current_user, get_db, verify_cron_secret
+from ..services import get_email_sender
 from ..services.purchase_history import get_user_purchase_history
+from .products import resolve_active_quantity_discount_fields
 
 router = APIRouter(tags=["shopping_list"])
+
+APP_BASE_URL = os.environ.get("APP_BASE_URL", "http://localhost:3000")
 
 
 def _validate_shopping_list_vertical(db: Session, vertical: str) -> models.Vertical:
@@ -26,14 +32,7 @@ def _validate_shopping_list_vertical(db: Session, vertical: str) -> models.Verti
 
 def _item_read(item: models.ShoppingListItem) -> schemas.ShoppingListItemRead:
     product = item.product
-    # Same "active bundle only" rule as _active_quantity_discount() in routers/products.py — a
-    # deactivated bundle's discount must never resurface here.
-    bundle = product.quantity_discount_bundle
-    has_active_bundle = bundle is not None and bundle.is_active
-    tiers = (
-        [schemas.QuantityDiscountTierBase(min_quantity=t.min_quantity, discount_percent=t.discount_percent) for t in bundle.tiers]
-        if has_active_bundle else None
-    )
+    bundle_id, tiers = resolve_active_quantity_discount_fields(product)
     return schemas.ShoppingListItemRead(
         id=item.id,
         product_id=item.product_id,
@@ -44,7 +43,7 @@ def _item_read(item: models.ShoppingListItem) -> schemas.ShoppingListItemRead:
         product_image_url=product.image_url,
         product_price=product.price,
         product_sale_price=product.sale_price,
-        quantity_discount_bundle_id=bundle.id if has_active_bundle else None,
+        quantity_discount_bundle_id=bundle_id,
         quantity_discount_tiers=tiers,
         product_is_active=product.is_active,
         quantity=item.quantity,
@@ -153,12 +152,23 @@ def replace_shopping_list(
     try:
         db.commit()
     except IntegrityError:
-        # Two concurrent replace requests for the same user/vertical (e.g. the cart page open in
-        # two tabs) can race their delete+insert sequences into the uq_user_product_shopping_list_item
-        # constraint. Both requests wanted "replace with my current cart" — there's no correct
-        # ordering to enforce, so just roll back this one and return whatever the other request's
-        # write left in place, rather than surfacing an unhandled 500.
+        # Two DIFFERENT causes land here, and only one of them is safe to silently swallow:
+        # (a) two concurrent replace requests for the same user/vertical (e.g. the cart page open
+        #     in two tabs) racing their delete+insert sequences into the unique constraint — both
+        #     requests wanted "replace with my current cart," so there's no correct ordering to
+        #     enforce and returning whatever the other one left in place is a fine resolution;
+        # (b) a genuine failure — a product referenced in `payload.items` was hard-deleted between
+        #     the validation query above and this commit, tripping the product_id FK constraint —
+        #     where the whole transaction rolled back to the PRE-request state, and silently
+        #     returning 200 would tell the caller "saved" when nothing they asked for was saved.
+        # Distinguish them by re-checking the requested products still exist post-rollback.
         db.rollback()
+        still_valid_ids = {
+            pid for (pid,) in db.query(models.Product.id).filter(models.Product.id.in_(merged_quantities.keys())).all()
+        }
+        missing = [pid for pid in merged_quantities if pid not in still_valid_ids]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"Product(s) no longer available: {missing}")
     items = _list_query(db, current_user.id, vertical).order_by(models.ShoppingListItem.created_at.asc()).all()
     return [_item_read(i) for i in items]
 
@@ -235,6 +245,13 @@ def add_shopping_list_item(
             # Nothing was left behind by "the other request" to fall back to, so this really is a
             # 404, not a race to recover from.
             raise HTTPException(status_code=404, detail="Product not found")
+        # This endpoint's own contract is "upsert — updates the quantity of one already on the
+        # list" — losing the insert race doesn't change what THIS request actually asked for, so
+        # apply its quantity to the winning row rather than silently discarding it in favor of
+        # whatever the other request happened to submit.
+        winner.quantity = payload.quantity
+        db.commit()
+        db.refresh(winner)
         return _item_read(winner)
     db.refresh(item)
     return _item_read(item)
@@ -274,3 +291,107 @@ def remove_shopping_list_item(
     if item:
         db.delete(item)
         db.commit()
+
+
+_REMINDER_SUBJECT = {
+    "he": "זמן להזמין קידוש? 🥂",
+    "en": "Time to order Kiddush? 🥂",
+    "fr": "L'heure de commander le kiddouch ? 🥂",
+    "yi": "צייט צו באשטעלן קידוש? 🥂",
+}
+_REMINDER_BODY = {
+    "he": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><h2 style="color:#b8860b;">תזכורת שבועית — <span dir="ltr">TIVUTA</span></h2><p>שלום {name},</p><p>יש לך {count} פריטים ברשימת הקניות שלך ל{world}. זה הזמן לבדוק ולהזמין לשבת הקרובה.</p><p><a href="{link}" style="color:#b8860b;">פתח את רשימת הקניות שלי</a></p></div>',
+    "en": '<p>Hi {name}, you have {count} items on your {world} shopping list. Now\'s a good time to review and order for this week.</p><p><a href="{link}">Open my shopping list</a></p>',
+    "fr": '<p>Bonjour {name}, vous avez {count} articles dans votre liste de courses {world}. C\'est le bon moment pour vérifier et commander pour cette semaine.</p><p><a href="{link}">Ouvrir ma liste de courses</a></p>',
+    "yi": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>שלום {name},</p><p>איר האט {count} פריטים אויף אייער {world} קוילע רשימה. איצט איז א גוטע צייט צו קוקן דורך און באשטעלן פאר די וואך.</p><p><a href="{link}" style="color:#b8860b;">עפֿן מיין קוילע רשימה</a></p></div>',
+}
+_REMINDER_NOTIF_TITLE = {
+    "he": "זמן להזמין קידוש?",
+    "en": "Time to order Kiddush?",
+    "fr": "L'heure de commander le kiddouch ?",
+    "yi": "צייט צו באשטעלן קידוש?",
+}
+_REMINDER_NOTIF_MESSAGE = {
+    "he": "יש לך {count} פריטים ברשימת הקניות שלך ל{world}",
+    "en": "You have {count} items on your {world} shopping list",
+    "fr": "Vous avez {count} articles dans votre liste {world}",
+    "yi": "איר האט {count} פריטים אויף אייער {world} רשימה",
+}
+
+
+def _send_weekly_shopping_list_reminders(db: Session) -> int:
+    """Sends one reminder (email + in-app notification) per (user, world) that currently has a
+    non-empty shopping list in an enables_shopping_list world — the "subscription-style weekly
+    order" nudge: a gabbai's saved list sits there passively otherwise, with nothing prompting
+    them to actually revisit and check out before Shabbat. Shared by the admin manual-trigger and
+    the weekly cron entry points below so the two can't drift. No de-duplication/throttling beyond
+    the weekly cron cadence itself — same "an admin can re-trigger and re-send" trade-off already
+    accepted by the existing send_followup_reminders endpoint."""
+    rows = (
+        db.query(models.ShoppingListItem.user_id, models.Product.vertical, models.Vertical.label_he)
+        .join(models.Product, models.ShoppingListItem.product_id == models.Product.id)
+        .join(models.Vertical, models.Vertical.slug == models.Product.vertical)
+        .filter(models.Vertical.enables_shopping_list == True)
+        .group_by(models.ShoppingListItem.user_id, models.Product.vertical, models.Vertical.label_he)
+        .all()
+    )
+    if not rows:
+        return 0
+
+    user_ids = {r[0] for r in rows}
+    users_by_id = {u.id: u for u in db.query(models.User).filter(models.User.id.in_(user_ids)).all()}
+    email_sender = get_email_sender()
+    sent = 0
+    for user_id, vertical_slug, vertical_label in rows:
+        user = users_by_id.get(user_id)
+        if not user:
+            continue
+        locale = user.preferred_language or "he"
+        count = (
+            db.query(models.ShoppingListItem)
+            .join(models.Product, models.ShoppingListItem.product_id == models.Product.id)
+            .filter(models.ShoppingListItem.user_id == user_id, models.Product.vertical == vertical_slug)
+            .count()
+        )
+        link = f"{APP_BASE_URL}/{locale}/shopping-list?vertical={vertical_slug}"
+        safe_name = html_escape(user.first_name)
+        safe_world = html_escape(vertical_label)
+        try:
+            email_sender.send(
+                to=user.email,
+                subject=_REMINDER_SUBJECT.get(locale, _REMINDER_SUBJECT["he"]),
+                html_body=_REMINDER_BODY.get(locale, _REMINDER_BODY["he"]).format(
+                    name=safe_name, count=count, world=safe_world, link=link
+                ),
+                locale=locale,
+            )
+        except Exception:
+            pass
+        db.add(models.Notification(
+            user_id=user_id,
+            type="shopping_list_reminder",
+            title=_REMINDER_NOTIF_TITLE.get(locale, _REMINDER_NOTIF_TITLE["he"]),
+            message=_REMINDER_NOTIF_MESSAGE.get(locale, _REMINDER_NOTIF_MESSAGE["he"]).format(count=count, world=safe_world),
+            locale=locale,
+            link=f"/shopping-list?vertical={vertical_slug}",
+        ))
+        sent += 1
+    db.commit()
+    return sent
+
+
+@router.post("/admin/shopping-list/send-weekly-reminders", dependencies=[Depends(get_current_admin)])
+def admin_send_weekly_shopping_list_reminders(db: Session = Depends(get_db)):
+    """Manual "send reminders now" trigger — same effect as the weekly cron, for an admin who
+    wants to nudge everyone without waiting for the scheduled run."""
+    sent = _send_weekly_shopping_list_reminders(db)
+    return {"sent": sent}
+
+
+@router.post("/api/shopping-list/send-weekly-reminders")
+def cron_send_weekly_shopping_list_reminders(request: Request, db: Session = Depends(get_db)):
+    """Cron endpoint — called by GitHub Actions weekly. Same Authorization: Bearer <CRON_SECRET>
+    check as every other cron-triggered endpoint (no admin JWT exists in a cron context)."""
+    verify_cron_secret(request)
+    sent = _send_weekly_shopping_list_reminders(db)
+    return {"sent": sent}

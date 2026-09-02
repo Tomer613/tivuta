@@ -1,7 +1,7 @@
 import csv
 import io
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import func, or_
@@ -33,6 +33,20 @@ def _active_quantity_discount(product: models.Product) -> Optional[schemas.Quant
     if bundle is None or not bundle.is_active:
         return None
     return schemas.QuantityDiscountBrief.model_validate(bundle)
+
+
+def resolve_active_quantity_discount_fields(
+    product: models.Product,
+) -> Tuple[Optional[int], Optional[List[schemas.QuantityDiscountTierBase]]]:
+    """Same "active bundle only" eligibility rule as _active_quantity_discount() above, just
+    returning the leaner (bundle_id, tiers) shape CartItem-derived schemas need (PurchaseHistoryItem,
+    ShoppingListItemRead) instead of the full QuantityDiscountBrief. Shared here — not reimplemented
+    per caller — so a future change to bundle eligibility can't drift between the three call sites."""
+    bundle = product.quantity_discount_bundle
+    if bundle is None or not bundle.is_active:
+        return None, None
+    tiers = [schemas.QuantityDiscountTierBase(min_quantity=t.min_quantity, discount_percent=t.discount_percent) for t in bundle.tiers]
+    return bundle.id, tiers
 
 
 def _product_read(product: models.Product) -> schemas.ProductRead:

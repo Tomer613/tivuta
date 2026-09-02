@@ -1,0 +1,16 @@
+name: Weekly Shopping List Reminders
+
+on:
+  schedule:
+    # Wednesday ~09:00 Israel time (UTC+2/+3) — gives a gabbai a few days' notice before Shabbat
+    # without it being so early in the week that this week's order isn't finalized yet.
+    - cron: '0 7 * * 3'
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call FastAPI backend to send weekly shopping-list reminders
+        run: |
+          curl -s -X POST "https://tivuta.onrender.com/api/shopping-list/send-weekly-reminders" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

@@ -51,7 +51,7 @@ export default function ShoppingListClient() {
     const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
     const t = translations[locale] || translations.he;
     const { token } = useAuth();
-    const { addToCart } = useCart();
+    const { items: cartItems, addToCart } = useCart();
     const verticals = useVerticals();
     const vertical = searchParams?.get('vertical') || '';
     const verticalMeta = verticals.find((v) => v.slug === vertical) || null;
@@ -189,9 +189,18 @@ export default function ShoppingListClient() {
 
     // Estimated total for the checked items — exactly what "הוסף לסל" is about to add, computed
     // with the same sale-price/quantity-discount formula as the cart page (lib/pricing.ts), so the
-    // number shown here doesn't drift from what the cart itself would show a moment later.
+    // number shown here doesn't drift from what the cart itself would show a moment later. Bundle
+    // aggregates are seeded from the REAL cart's existing quantities first (addToCart merges into
+    // it, it doesn't replace it) — otherwise a bundle tier the user is about to cross by combining
+    // "already in cart" + "about to add" would be invisible here, showing a lower estimate than
+    // what the cart will actually apply a moment later.
     const checkedItems = items.filter((i) => checkedIds.has(i.id));
     const bundleAggregates: Record<number, number> = {};
+    for (const cartItem of cartItems) {
+        if (cartItem.quantity_discount_bundle_id != null) {
+            bundleAggregates[cartItem.quantity_discount_bundle_id] = (bundleAggregates[cartItem.quantity_discount_bundle_id] || 0) + cartItem.quantity;
+        }
+    }
     for (const item of checkedItems) {
         if (item.quantity_discount_bundle_id != null) {
             bundleAggregates[item.quantity_discount_bundle_id] = (bundleAggregates[item.quantity_discount_bundle_id] || 0) + item.quantity;

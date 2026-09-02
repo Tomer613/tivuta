@@ -15,6 +15,7 @@ from ..services.inventory import reserve_or_release_stock_for_lead
 from ..services.orders import cancel_order
 from ..services.pricing import compute_effective_unit_price
 from ..services.purchase_history import get_user_purchase_history
+from .products import resolve_active_quantity_discount_fields
 
 router = APIRouter(tags=["leads"])
 
@@ -403,14 +404,7 @@ def my_purchase_history(
     result = []
     for entry in history:
         product = entry["product"]
-        # Same "active bundle only" rule as _active_quantity_discount() in routers/products.py —
-        # a reorder/recommendation must never resurrect a since-deactivated bundle's discount.
-        bundle = product.quantity_discount_bundle
-        has_active_bundle = bundle is not None and bundle.is_active
-        tiers = (
-            [schemas.QuantityDiscountTierBase(min_quantity=t.min_quantity, discount_percent=t.discount_percent) for t in bundle.tiers]
-            if has_active_bundle else None
-        )
+        bundle_id, tiers = resolve_active_quantity_discount_fields(product)
         result.append(
             schemas.PurchaseHistoryItem(
                 product_id=product.id,
@@ -422,7 +416,7 @@ def my_purchase_history(
                 product_image_url=product.image_url,
                 product_price=product.price,
                 product_sale_price=product.sale_price,
-                quantity_discount_bundle_id=bundle.id if has_active_bundle else None,
+                quantity_discount_bundle_id=bundle_id,
                 quantity_discount_tiers=tiers,
                 last_quantity=entry["last_quantity"],
                 times_purchased=entry["times_purchased"],

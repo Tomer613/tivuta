@@ -1647,6 +1647,17 @@ export async function adminSendFollowupReminders(token: string, staleDays = 3) {
     return res.json();
 }
 
+// Weekly "your shopping list is waiting" nudge — same manual-trigger-mirrors-the-cron shape as
+// adminSendFollowupReminders above.
+export async function adminSendShoppingListReminders(token: string): Promise<{ sent: number }> {
+    const res = await fetch(`${BASE_URL}/admin/shopping-list/send-weekly-reminders`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to send reminders');
+    return res.json();
+}
+
 export async function adminSendAppointmentReminder(token: string, leadId: number) {
     const res = await fetch(`${BASE_URL}/admin/leads/${leadId}/send-appointment-reminder`, {
         method: 'POST',

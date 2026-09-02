@@ -504,7 +504,7 @@ class Notification(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    type = Column(String(50), nullable=False)  # lead_status | appointment_reminder | system | followup
+    type = Column(String(50), nullable=False)  # lead_status | appointment_reminder | system | followup | points_earned | shopping_list_reminder
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=True)
     locale = Column(String(5), nullable=False, default="he")  # language the title/message text is actually written in

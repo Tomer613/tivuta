@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp, Bell, CheckCircle2 } from 'lucide-react';
+import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp, Bell, CheckCircle2, ShoppingCart } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { adminGetStats, adminGetLeadStats, adminGetConversionStats, adminSendFollowupReminders } from '@/lib/api';
+import { adminGetStats, adminGetLeadStats, adminGetConversionStats, adminSendFollowupReminders, adminSendShoppingListReminders } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
 
@@ -114,6 +114,10 @@ export default function AdminDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [sendingFollowup, setSendingFollowup] = useState(false);
     const [followupResult, setFollowupResult] = useState<{ sent: number; total_stale: number } | null>(null);
+    const [sendingShoppingListReminders, setSendingShoppingListReminders] = useState(false);
+    const [shoppingListReminderResult, setShoppingListReminderResult] = useState<{ sent: number } | null>(null);
+    const verticals = useVerticals();
+    const hasShoppingListWorld = verticals.some((v) => v.enables_shopping_list);
 
     useEffect(() => {
         if (!token) return;
@@ -141,6 +145,19 @@ export default function AdminDashboardPage() {
         }
     };
 
+    const handleShoppingListReminders = async () => {
+        if (!token) return;
+        setSendingShoppingListReminders(true);
+        try {
+            const result = await adminSendShoppingListReminders(token);
+            setShoppingListReminderResult(result);
+        } catch {
+            setShoppingListReminderResult(null);
+        } finally {
+            setSendingShoppingListReminders(false);
+        }
+    };
+
     return (
         <div>
             <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
@@ -160,6 +177,19 @@ export default function AdminDashboardPage() {
                         ? <span className="flex items-center gap-1 text-green-400"><CheckCircle2 size={11} /> {followupResult.sent} תזכורות נשלחו</span>
                         : 'שלח תזכורות follow-up'}
                 </button>
+                {hasShoppingListWorld && (
+                    <button
+                        onClick={handleShoppingListReminders}
+                        disabled={sendingShoppingListReminders || loading}
+                        className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/20 text-[#f0e6d3]/60 hover:text-[#d4af37] hover:border-[#d4af37]/40 rounded-xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-40 shrink-0"
+                        title="שלח תזכורת שבועית לכל מי שיש לו רשימת קניות פעילה"
+                    >
+                        {sendingShoppingListReminders ? <Loader2 size={13} className="animate-spin" /> : <ShoppingCart size={13} />}
+                        {shoppingListReminderResult
+                            ? <span className="flex items-center gap-1 text-green-400"><CheckCircle2 size={11} /> {shoppingListReminderResult.sent} תזכורות נשלחו</span>
+                            : 'שלח תזכורות רשימת קניות'}
+                    </button>
+                )}
             </div>
             <p className="text-[#f0e6d3]/40 text-sm mb-10">סקירת מצב כללית — לחץ על כרטיס לניהול</p>
 

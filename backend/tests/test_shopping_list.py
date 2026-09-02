@@ -273,3 +273,69 @@ def test_shopping_list_items_are_private_per_user(client, db_session, make_user)
     assert client.delete(f"/shopping-list/items/{item_id}", headers=other_headers).status_code == 204  # no-op, nothing owned
     # The owner's item survives the other user's no-op delete attempt.
     assert len(client.get("/shopping-list?vertical=kiddush", headers=owner_headers).json()) == 1
+
+
+def _make_admin_headers(client, make_user, email="slistadmin@example.com"):
+    make_user(email=email, password="adminpass123", role="admin")
+    login = client.post("/auth/login", data={"username": email, "password": "adminpass123"})
+    token = login.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_admin_send_weekly_reminders_sends_to_users_with_lists(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush")
+    product = _make_product(db_session, "kiddush")
+    member = make_user(email="reminderme@example.com", password="testpass123")
+    member_headers = _login(client, "reminderme@example.com")
+    admin_headers = _make_admin_headers(client, make_user)
+
+    client.post("/shopping-list/items", json={"product_id": product.id, "quantity": 2}, headers=member_headers)
+
+    resp = client.post("/admin/shopping-list/send-weekly-reminders", headers=admin_headers)
+    assert resp.status_code == 200
+    assert resp.json() == {"sent": 1}
+
+    notif = (
+        db_session.query(models.Notification)
+        .filter(models.Notification.user_id == member.id, models.Notification.type == "shopping_list_reminder")
+        .first()
+    )
+    assert notif is not None
+    assert notif.link == "/shopping-list?vertical=kiddush"
+
+
+def test_admin_send_weekly_reminders_skips_users_with_no_list_items(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush")
+    make_user(email="noreminder@example.com", password="testpass123")
+    admin_headers = _make_admin_headers(client, make_user)
+
+    resp = client.post("/admin/shopping-list/send-weekly-reminders", headers=admin_headers)
+    assert resp.status_code == 200
+    assert resp.json() == {"sent": 0}
+
+
+def test_admin_send_weekly_reminders_requires_admin(client, db_session, make_user):
+    make_user(email="notadmin2@example.com", password="testpass123")
+    headers = _login(client, "notadmin2@example.com")
+    resp = client.post("/admin/shopping-list/send-weekly-reminders", headers=headers)
+    assert resp.status_code == 403
+
+
+def test_cron_shopping_list_reminders_requires_cron_secret(client, db_session, monkeypatch):
+    monkeypatch.setenv("CRON_SECRET", "test-secret-456")
+
+    resp = client.post("/api/shopping-list/send-weekly-reminders")
+    assert resp.status_code == 401
+
+    resp = client.post(
+        "/api/shopping-list/send-weekly-reminders",
+        headers={"Authorization": "Bearer wrong-secret"},
+    )
+    assert resp.status_code == 401
+
+    resp = client.post(
+        "/api/shopping-list/send-weekly-reminders",
+        headers={"Authorization": "Bearer test-secret-456"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"sent": 0}

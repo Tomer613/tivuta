@@ -67,6 +67,7 @@ export default function NotificationBell({ token }: { token: string }) {
         appointment_reminder: '📅',
         system: '🔔',
         followup: '⏰',
+        shopping_list_reminder: '🛒',
     };
 
     return (

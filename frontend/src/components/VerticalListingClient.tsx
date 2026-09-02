@@ -125,17 +125,26 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
             getProducts(token, vertical, serverSort, promotionType),
             getFavoriteIds(token),
             getMyPurchaseHistory(token, vertical),
-            enablesShoppingList ? getShoppingListIds(token, vertical) : Promise.resolve([]),
         ])
-            .then(([prods, ids, history, listIds]) => {
+            .then(([prods, ids, history]) => {
                 setProducts(prods);
                 setFavIds(new Set(ids));
                 setPurchaseHistory(history);
-                setShoppingListIds(new Set(listIds));
             })
             .catch(() => setProducts([]))
             .finally(() => setLoading(false));
-    }, [token, vertical, serverSort, promotionType, metaLoadedForVertical, enablesShoppingList]);
+    }, [token, vertical, serverSort, promotionType, metaLoadedForVertical]);
+
+    // Kept out of the effect above — shopping-list membership never changes with sort/promotion
+    // filters, so it shouldn't be refetched (or have its own slowness/failure block the product
+    // grid's loading state) every time those change. Still gated on metaLoadedForVertical, since
+    // `enablesShoppingList` reads from `verticalMeta`, which briefly still holds the PREVIOUS
+    // vertical's data in the render right after switching worlds (see that effect's own comment).
+    useEffect(() => {
+        if (!token || !vertical || !enablesShoppingList) { Promise.resolve().then(() => setShoppingListIds(new Set())); return; }
+        if (metaLoadedForVertical !== vertical) return;
+        getShoppingListIds(token, vertical).then((ids) => setShoppingListIds(new Set(ids))).catch(() => setShoppingListIds(new Set()));
+    }, [token, vertical, enablesShoppingList, metaLoadedForVertical]);
 
     useEffect(() => {
         if (!title) return;
