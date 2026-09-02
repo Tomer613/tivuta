@@ -93,7 +93,11 @@ export default function ShoppingListClient() {
         getMyPurchaseHistory(token, vertical).then(setPurchaseHistory).catch(() => setPurchaseHistory([]));
     }, [token, vertical]);
 
-    const lastPurchasedByProduct = new Map(purchaseHistory.map((h) => [h.product_id, h.last_purchased_at]));
+    const lastPurchasedByProduct = useMemo(
+        () => new Map(purchaseHistory.map((h) => [h.product_id, h.last_purchased_at])),
+        [purchaseHistory]
+    );
+    const dateLocale = { he: 'he-IL', en: 'en-US', fr: 'fr-FR', yi: 'he-IL' }[locale] || 'he-IL';
 
     const listedProductIds = useMemo(() => new Set(items.map((i) => i.product_id)), [items]);
     const filteredCandidates = useMemo(() => {
@@ -294,7 +298,7 @@ export default function ShoppingListClient() {
                                                 </p>
                                                 {lastPurchasedByProduct.has(item.product_id) && (
                                                     <p className="text-[10px] text-[#f0e6d3]/40">
-                                                        {t.last_ordered(new Date(lastPurchasedByProduct.get(item.product_id)!).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }))}
+                                                        {t.last_ordered(new Date(lastPurchasedByProduct.get(item.product_id)!).toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit', year: '2-digit' }))}
                                                     </p>
                                                 )}
                                             </div>

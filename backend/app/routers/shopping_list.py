@@ -229,6 +229,12 @@ def add_shopping_list_item(
             .filter(models.ShoppingListItem.user_id == current_user.id, models.ShoppingListItem.product_id == payload.product_id)
             .first()
         )
+        if winner is None:
+            # Not a duplicate-add race after all — the FK constraint on product_id is what
+            # actually fired (e.g. the product was hard-deleted concurrently with this request).
+            # Nothing was left behind by "the other request" to fall back to, so this really is a
+            # 404, not a race to recover from.
+            raise HTTPException(status_code=404, detail="Product not found")
         return _item_read(winner)
     db.refresh(item)
     return _item_read(item)

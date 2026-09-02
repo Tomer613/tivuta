@@ -12,7 +12,7 @@ import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
     LogOut, Mail, Phone, MapPin, Calendar, User2,
     CheckCircle2, CreditCard, Building2, ClipboardList, ChevronDown, KeyRound, Eye, EyeOff, Heart, X, Clock, History, Bell, ShoppingBag,
-    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil, MessageCircleQuestion, ListChecks, RotateCcw,
+    Copy, Gift, Package, Send, Loader2, Languages, Users, Pencil, MessageCircleQuestion, ListChecks, RotateCcw, Repeat,
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
@@ -46,7 +46,7 @@ const tr: Record<string, Record<string, string>> = {
         no_orders: 'אין הזמנות עדיין.',
         order_status_new: 'בבדיקה', order_status_awaiting_customer: 'ממתינה לאישורך', order_status_customer_confirmed: 'אושרה סופית', order_status_cancelled: 'בוטלה',
         ask_about_order: 'שאל שאלה על ההזמנה',
-        reorder: 'הזמן שוב', reordering: 'מוסיף לסל...', reorder_unavailable: 'הפריטים בהזמנה זו כבר לא זמינים',
+        reorder: 'הזמן שוב', reordering: 'מוסיף לסל...', reorder_unavailable: 'הפריטים בהזמנה זו כבר לא זמינים', same_as_last: 'זהה להזמנה הקודמת',
         order_items_done: 'הושלמו',
         order_savings: 'חסכת',
         shopping_lists_title: 'רשימות קניות',
@@ -95,7 +95,7 @@ const tr: Record<string, Record<string, string>> = {
         no_orders: 'No orders yet.',
         order_status_new: 'In review', order_status_awaiting_customer: 'Awaiting your confirmation', order_status_customer_confirmed: 'Confirmed', order_status_cancelled: 'Cancelled',
         ask_about_order: 'Ask about this order',
-        reorder: 'Order again', reordering: 'Adding to cart...', reorder_unavailable: 'The items in this order are no longer available',
+        reorder: 'Order again', reordering: 'Adding to cart...', reorder_unavailable: 'The items in this order are no longer available', same_as_last: 'Same as last order',
         order_items_done: 'done',
         order_savings: 'You saved',
         shopping_lists_title: 'Shopping Lists',
@@ -144,7 +144,7 @@ const tr: Record<string, Record<string, string>> = {
         no_orders: 'Aucune commande.',
         order_status_new: 'En cours de vérification', order_status_awaiting_customer: 'En attente de votre confirmation', order_status_customer_confirmed: 'Confirmée', order_status_cancelled: 'Annulée',
         ask_about_order: 'Poser une question sur cette commande',
-        reorder: 'Commander à nouveau', reordering: 'Ajout au panier...', reorder_unavailable: "Les articles de cette commande ne sont plus disponibles",
+        reorder: 'Commander à nouveau', reordering: 'Ajout au panier...', reorder_unavailable: "Les articles de cette commande ne sont plus disponibles", same_as_last: 'Identique à la commande précédente',
         order_items_done: 'terminés',
         order_savings: 'Économisé',
         shopping_lists_title: 'Listes de courses',
@@ -193,7 +193,7 @@ const tr: Record<string, Record<string, string>> = {
         no_orders: 'קיין הזמנות נאָך ניט.',
         order_status_new: 'אין דורכזיכט', order_status_awaiting_customer: 'ווארט אויף אײַער באשטעטיקונג', order_status_customer_confirmed: 'באשטעטיגט', order_status_cancelled: 'אָפּגעזאָגט',
         ask_about_order: 'שטעלט א פראגע וועגן דער בעשטעלונג',
-        reorder: 'באשטעלן נאכאמאל', reordering: 'לייגט צו קארב...', reorder_unavailable: 'די פריטים אין דער הזמנה זענען שוין נישט פאראן',
+        reorder: 'באשטעלן נאכאמאל', reordering: 'לייגט צו קארב...', reorder_unavailable: 'די פריטים אין דער הזמנה זענען שוין נישט פאראן', same_as_last: 'זעלביקע ווי די פֿריערדיקע הזמנה',
         order_items_done: 'פֿאַרטיק',
         order_savings: 'געשפּאָרט',
         shopping_lists_title: 'קוילע רשימות',
@@ -598,6 +598,31 @@ export default function ProfileClient() {
     const gabbaiOrders = myOrders.filter((o) => o.orderer_role === 'gabbai');
     const personalOrders = myOrders.filter((o) => o.orderer_role !== 'gabbai');
 
+    // "Same as last time" — a quick sanity-check badge for a gabbai confirming this week's order
+    // matches last week's exactly. Compared within whichever "hat" grouping the card actually
+    // renders in (see the split just above) — a personal order is never compared against a
+    // gabbai one, even if they happen to share the same items. Orders are already newest-first
+    // (see GET /users/me/orders), so an order's "previous" one is simply the next array entry.
+    const orderProductSignature = (order: MyOrder): string | null => {
+        const productItems = order.items.filter((i) => i.lead_type === 'contact_request' && i.product_id != null);
+        if (productItems.length === 0) return null;
+        const pairs = productItems
+            .map((i) => [i.product_id as number, i.quantity ?? 1] as [number, number])
+            .sort((a, b) => a[0] - b[0]);
+        return JSON.stringify(pairs);
+    };
+    const buildSameAsLastIds = (orders: MyOrder[]): Set<number> => {
+        const ids = new Set<number>();
+        for (let i = 0; i < orders.length - 1; i++) {
+            const current = orderProductSignature(orders[i]);
+            if (current !== null && current === orderProductSignature(orders[i + 1])) ids.add(orders[i].id);
+        }
+        return ids;
+    };
+    const sameAsLastIds = gabbaiOrders.length > 0
+        ? new Set([...buildSameAsLastIds(personalOrders), ...buildSameAsLastIds(gabbaiOrders)])
+        : buildSameAsLastIds(myOrders);
+
     // "Reorder" pulls CURRENT product data (price/sale price/etc.), not the order's old price
     // snapshot — a reorder should reflect what the item costs today, exactly like adding it fresh
     // from the world listing would. Only contact_request lines are reorderable (an order is
@@ -658,6 +683,11 @@ export default function ProfileClient() {
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${orderStatusColor(order.status)}`}>
                             {orderStatusLabel(order.status)}
                         </span>
+                        {sameAsLastIds.has(order.id) && (
+                            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#d4af37]/15 text-[#d4af37]">
+                                <Repeat size={10} /> {t.same_as_last}
+                            </span>
+                        )}
                     </div>
                     <span className="text-xs text-[#f0e6d3]/40">
                         {new Date(order.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })}
