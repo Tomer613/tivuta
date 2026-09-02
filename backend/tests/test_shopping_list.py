@@ -406,6 +406,75 @@ def test_list_ownership_enforced_across_all_list_level_operations(client, db_ses
     assert client.get(f"/shopping-lists/{list_id}", headers=owner_headers).status_code == 200
 
 
+def test_create_list_rejects_duplicate_name_in_same_vertical(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush")
+    make_user(email="dupname@example.com", password="testpass123")
+    headers = _login(client, "dupname@example.com")
+    solo = _solo_list(client, headers, "kiddush")  # auto-created, named after the vertical label
+
+    resp = client.post("/shopping-lists?vertical=kiddush", json={"name": solo["name"]}, headers=headers)
+    assert resp.status_code == 400
+
+
+def test_rename_list_rejects_collision_with_another_of_the_users_own_lists(client, db_session, make_user):
+    _make_vertical(db_session, "kiddush")
+    make_user(email="renamecollide@example.com", password="testpass123")
+    headers = _login(client, "renamecollide@example.com")
+    solo_id = _solo_list(client, headers, "kiddush")["id"]
+    other = client.post("/shopping-lists?vertical=kiddush", json={"name": "רשימה אחרת"}, headers=headers).json()
+
+    resp = client.patch(f"/shopping-lists/{solo_id}", json={"name": "רשימה אחרת"}, headers=headers)
+    assert resp.status_code == 400
+    # Nothing was actually renamed.
+    assert client.get(f"/shopping-lists/{other['id']}", headers=headers).json()["name"] == "רשימה אחרת"
+
+
+def test_get_shopping_lists_recovers_from_a_concurrent_auto_seed_race(client, db_session, make_user):
+    """Simulates the real race GET /shopping-lists' auto-seed path can hit: two near-simultaneous
+    first visits both see zero lists and both try to create "the" first list (always named after
+    the vertical's own label). The (user_id, vertical, name) unique constraint lets only one
+    actually land — this asserts the loser's request recovers gracefully (200, the winner's list)
+    instead of a raw 500."""
+    vertical = _make_vertical(db_session, "kiddush")
+    make_user(email="raceuser@example.com", password="testpass123")
+    headers = _login(client, "raceuser@example.com")
+
+    # Pre-create the row a "concurrent" request would have created, with the exact same name the
+    # auto-seed logic would pick — this is what the loser's request finds already committed.
+    winner = models.ShoppingList(user_id=db_session.query(models.User).filter_by(email="raceuser@example.com").first().id,
+                                  vertical="kiddush", name=vertical.label_he)
+    db_session.add(winner)
+    db_session.commit()
+
+    resp = client.get("/shopping-lists?vertical=kiddush", headers=headers)
+    assert resp.status_code == 200
+    lists = resp.json()
+    assert len(lists) == 1  # no duplicate list was created
+    assert lists[0]["id"] == winner.id
+
+
+def test_writes_are_blocked_once_the_vertical_disables_shopping_lists(client, db_session, make_user):
+    """A list created while the world's shopping-list feature was enabled must stop accepting
+    mutations once an admin disables it — not just block creating brand-new lists."""
+    vertical = _make_vertical(db_session, "kiddush")
+    product = _make_product(db_session, "kiddush")
+    make_user(email="disabledmid@example.com", password="testpass123")
+    headers = _login(client, "disabledmid@example.com")
+    list_id = _solo_list(client, headers, "kiddush")["id"]
+
+    vertical.enables_shopping_list = False
+    db_session.commit()
+
+    assert client.post(f"/shopping-lists/{list_id}/items", json={"product_id": product.id, "quantity": 1}, headers=headers).status_code == 400
+    assert client.post(f"/shopping-lists/{list_id}/refresh", headers=headers).status_code == 400
+    assert client.put(f"/shopping-lists/{list_id}", json={"items": []}, headers=headers).status_code == 400
+    assert client.patch(f"/shopping-lists/{list_id}", json={"name": "x"}, headers=headers).status_code == 400
+    # Reading and deleting an already-existing list are deliberately still allowed — only active
+    # use of the (now-disabled) feature is blocked.
+    assert client.get(f"/shopping-lists/{list_id}", headers=headers).status_code == 200
+    assert client.delete(f"/shopping-lists/{list_id}", headers=headers).status_code == 204
+
+
 def _make_admin_headers(client, make_user, email="slistadmin@example.com"):
     make_user(email=email, password="adminpass123", role="admin")
     login = client.post("/auth/login", data={"username": email, "password": "adminpass123"})

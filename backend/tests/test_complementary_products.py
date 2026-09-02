@@ -97,6 +97,32 @@ def test_complementary_products_excludes_inactive_products(client, db_session, m
     assert resp.json() == []
 
 
+def test_complementary_products_same_vertical_match_survives_cross_vertical_ranking(client, db_session, make_user):
+    """Regression: same-vertical restriction must apply BEFORE ranking/limiting, not just as a
+    filter on the final result — otherwise a product whose most frequent co-purchases happen to be
+    in other verticals can crowd a real, lower-frequency same-vertical match out of the ranking
+    entirely, well before it would ever reach the final vertical filter."""
+    db_session.add(models.Vertical(slug="kiddush", label_he="קידושים", is_active=True))
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
+    db_session.commit()
+    wine = _make_product(db_session, "kiddush", title="יין")
+    challah = _make_product(db_session, "kiddush", title="חלה")  # same vertical, bought together once
+    ring = _make_product(db_session, "diamonds", title="טבעת")  # different vertical, bought together twice
+
+    make_user(email="samevert1@example.com", password="testpass123")
+    _checkout(client, _login(client, "samevert1@example.com"), [wine.id, challah.id])
+    for i in range(2):
+        make_user(email=f"crossvert{i}@example.com", password="testpass123")
+        _checkout(client, _login(client, f"crossvert{i}@example.com"), [wine.id, ring.id])
+
+    # limit=1 makes the pre-fix bug deterministic: ranking across all verticals would put the
+    # diamonds ring (2 co-purchases) ahead of challah (1) for the single available slot, so the
+    # real same-vertical match would never surface at all once filtered afterward.
+    resp = client.get(f"/products/{wine.id}/complementary?limit=1")
+    assert resp.status_code == 200
+    assert [p["id"] for p in resp.json()] == [challah.id]
+
+
 def test_complementary_products_404_for_unknown_product(client, db_session):
     resp = client.get("/products/999999/complementary")
     assert resp.status_code == 404

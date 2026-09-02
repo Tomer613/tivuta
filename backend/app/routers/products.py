@@ -169,6 +169,7 @@ def get_complementary_products(product_id: int, limit: int = 6, db: Session = De
     ranked = (
         db.query(models.Lead.product_id, func.count(func.distinct(models.Lead.customer_order_id)))
         .join(models.CustomerOrder, models.Lead.customer_order_id == models.CustomerOrder.id)
+        .join(models.Product, models.Lead.product_id == models.Product.id)
         .filter(
             models.Lead.customer_order_id.in_(orders_with_this_product),
             models.Lead.lead_type == "contact_request",
@@ -176,6 +177,12 @@ def get_complementary_products(product_id: int, limit: int = 6, db: Session = De
             models.CustomerOrder.status != "cancelled",
             models.Lead.product_id != product_id,
             models.Lead.product_id.isnot(None),
+            # Same-vertical restriction must apply BEFORE ranking/limiting, not just on the final
+            # fetch below — otherwise a product whose top co-purchases happen to be in other
+            # verticals could rank same-vertical complementary products past the limit cutoff
+            # entirely, returning an empty/thin list even when real same-vertical matches exist.
+            models.Product.vertical == product.vertical,
+            models.Product.is_active == True,
         )
         .group_by(models.Lead.product_id)
         .order_by(func.count(func.distinct(models.Lead.customer_order_id)).desc())

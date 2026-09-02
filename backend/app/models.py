@@ -484,9 +484,14 @@ class ShoppingList(Base):
     A user's own saved, named shopping list for one vertical (e.g. a gabbai's "רשימת שבת" or
     "רשימת חג" for a recurring Kiddush order) — see Vertical.enables_shopping_list. A user can have
     several lists per vertical (e.g. one per recurring occasion), unlike the earlier single-list
-    model this superseded.
+    model this superseded. The (user_id, vertical, name) uniqueness also closes a real race in
+    GET /shopping-lists' auto-seed-on-first-visit: two concurrent first visits both racing to
+    create "the" first list (always named after the vertical's own label) now collide on this
+    constraint instead of silently creating two duplicate lists — the loser's IntegrityError is
+    caught and it re-reads the winner's list instead.
     """
     __tablename__ = "shopping_lists"
+    __table_args__ = (UniqueConstraint("user_id", "vertical", "name", name="uq_shopping_list_user_vertical_name"),)
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)

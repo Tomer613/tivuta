@@ -5,6 +5,7 @@ Revises: c8f3a9e21b47
 Create Date: 2026-09-02
 
 """
+from datetime import datetime
 from typing import Sequence, Union
 
 from alembic import op
@@ -28,6 +29,7 @@ def upgrade() -> None:
         sa.Column('name', sa.String(100), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.UniqueConstraint('user_id', 'vertical', 'name', name='uq_shopping_list_user_vertical_name'),
     )
     op.create_index(op.f('ix_shopping_lists_vertical'), 'shopping_lists', ['vertical'], unique=False)
 
@@ -101,19 +103,32 @@ def _backfill_shopping_lists() -> None:
     item_rows = bind.execute(sa.select(items.c.id, items.c.user_id, items.c.product_id, items.c.created_at)).fetchall()
     items_by_pair: dict[tuple, list] = {}
     earliest_created_at: dict[tuple, object] = {}
+    orphaned_item_ids: list = []
     for item_id, user_id, product_id, created_at in item_rows:
         vertical = product_vertical.get(product_id)
         if user_id is None or vertical is None:
+            # The referenced product no longer exists (SQLite's declared ondelete="CASCADE" on
+            # this FK is never actually enforced — see admin_delete_product's own real hard-delete
+            # path) — this row is already-dangling, invalid data with nothing to backfill onto.
+            # Dropped here rather than left with a NULL shopping_list_id, which would otherwise
+            # fail the NOT NULL alter_column below and abort the whole migration.
+            orphaned_item_ids.append(item_id)
             continue
         key = (user_id, vertical)
         items_by_pair.setdefault(key, []).append(item_id)
         if key not in earliest_created_at or (created_at is not None and created_at < earliest_created_at[key]):
             earliest_created_at[key] = created_at
+    if orphaned_item_ids:
+        bind.execute(items.delete().where(items.c.id.in_(orphaned_item_ids)))
 
     all_pairs = set(items_by_pair.keys()) | set(custom_names.keys())
     for user_id, vertical in all_pairs:
         name = custom_names.get((user_id, vertical)) or vertical_label.get(vertical) or vertical
-        created_at = earliest_created_at.get((user_id, vertical))
+        # A pair present only via shopping_list_names (a custom name set before any item was ever
+        # added) has no item to derive a timestamp from — fall back to "now" rather than leaving
+        # created_at/updated_at NULL, which ShoppingListSummary's schema (a non-optional datetime)
+        # would otherwise turn into a 500 on every GET /shopping-lists for that user.
+        created_at = earliest_created_at.get((user_id, vertical)) or datetime.utcnow()
         result = bind.execute(
             shopping_lists.insert().values(
                 user_id=user_id, vertical=vertical, name=name, created_at=created_at, updated_at=created_at

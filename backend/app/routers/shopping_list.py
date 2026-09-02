@@ -123,10 +123,23 @@ def get_shopping_lists(
     if not lists:
         lst = models.ShoppingList(user_id=current_user.id, vertical=vertical, name=vert.label_he)
         db.add(lst)
-        db.flush()
-        _seed_items_from_history(db, lst.id, current_user.id, vertical)
-        db.commit()
-        lists = [lst]
+        try:
+            db.flush()
+            _seed_items_from_history(db, lst.id, current_user.id, vertical)
+            db.commit()
+            lists = [lst]
+        except IntegrityError:
+            # Two concurrent first-visits (e.g. two tabs, or a double effect-fire) can both see
+            # zero lists and both reach here — the (user_id, vertical, name) constraint lets only
+            # one actually insert. Not an error from the caller's perspective: just re-read
+            # whatever the winner created instead of a raw 500.
+            db.rollback()
+            lists = (
+                db.query(models.ShoppingList)
+                .filter(models.ShoppingList.user_id == current_user.id, models.ShoppingList.vertical == vertical)
+                .order_by(models.ShoppingList.created_at.asc())
+                .all()
+            )
     return [_list_summary(db, lst) for lst in lists]
 
 
@@ -143,7 +156,11 @@ def create_shopping_list(
         raise HTTPException(status_code=400, detail="Name is required")
     lst = models.ShoppingList(user_id=current_user.id, vertical=vertical, name=name)
     db.add(lst)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A list with this name already exists in this world")
     db.refresh(lst)
     return _list_summary(db, lst)
 
@@ -166,11 +183,16 @@ def rename_shopping_list(
     current_user: models.User = Depends(get_current_user),
 ):
     lst = _get_owned_list(db, list_id, current_user.id)
+    _validate_shopping_list_vertical(db, lst.vertical)
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
     lst.name = name
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="A list with this name already exists in this world")
     db.refresh(lst)
     return _list_summary(db, lst)
 
@@ -220,6 +242,7 @@ def replace_shopping_list(
     every other endpoint here (which only ever adds/edits one row at a time), this discards this
     ONE list's existing items and rebuilds it from the given items."""
     lst = _get_owned_list(db, list_id, current_user.id)
+    _validate_shopping_list_vertical(db, lst.vertical)
     merged_quantities: dict[int, int] = {}
     for item in payload.items:
         merged_quantities[item.product_id] = merged_quantities.get(item.product_id, 0) + item.quantity
@@ -271,6 +294,7 @@ def refresh_shopping_list(
     """Adds any purchase-history products for this world not already on THIS list, without
     touching existing rows/quantities — the explicit "add more from my history" action."""
     lst = _get_owned_list(db, list_id, current_user.id)
+    _validate_shopping_list_vertical(db, lst.vertical)
     existing_product_ids = {
         pid for (pid,) in db.query(models.ShoppingListItem.product_id)
         .filter(models.ShoppingListItem.shopping_list_id == list_id)
@@ -300,6 +324,7 @@ def add_shopping_list_item(
     """Upsert — adds a new item, or updates the quantity of one already on this list. Any active
     product from the same world can be added regardless of purchase history."""
     lst = _get_owned_list(db, list_id, current_user.id)
+    _validate_shopping_list_vertical(db, lst.vertical)
     product = db.query(models.Product).filter(models.Product.id == payload.product_id, models.Product.is_active == True).first()
     if not product or product.vertical != lst.vertical:
         raise HTTPException(status_code=404, detail="Product not found")

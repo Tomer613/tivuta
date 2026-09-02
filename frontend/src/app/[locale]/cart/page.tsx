@@ -156,24 +156,26 @@ export default function CartPage() {
         }
     };
 
-    // Entry point: with 0 or 1 existing lists for this world, behaves exactly as before (one
-    // click + a single overwrite confirm, creating the list first if none exists yet — nothing to
-    // overwrite there, so no confirm needed). With 2+, opens an inline picker instead of guessing
-    // which list to replace.
+    // Entry point: GET /shopping-lists always auto-creates+seeds at least one list server-side
+    // (see shopping_list.py), so a genuinely first-ever save always sees lists.length === 1 —
+    // there is no reachable "0 lists" case here. What actually distinguishes "nothing to lose,
+    // skip the confirm" from "this would overwrite real content" is whether that one list already
+    // has items, not how many lists exist. With 2+ lists, an inline picker opens instead of
+    // guessing which one to replace.
     const handleSaveAsShoppingList = async (vertical: string) => {
         if (!token) return;
         setSavingListVertical(vertical);
         setListSaveResult(null);
         try {
             const lists = await getShoppingLists(token, vertical);
-            if (lists.length === 0) {
-                const worldLabel = VERTICAL_LABEL[vertical] || vertical;
-                const created = await createShoppingList(token, vertical, worldLabel);
-                await saveItemsToList(vertical, created.id);
-            } else if (lists.length === 1) {
-                const worldLabel = VERTICAL_LABEL[vertical] || vertical;
-                if (!window.confirm(t.save_as_shopping_list_confirm(worldLabel))) { setSavingListVertical(null); return; }
-                await saveItemsToList(vertical, lists[0].id);
+            if (lists.length === 1) {
+                if (lists[0].item_count === 0) {
+                    await saveItemsToList(vertical, lists[0].id);
+                } else {
+                    const worldLabel = VERTICAL_LABEL[vertical] || vertical;
+                    if (!window.confirm(t.save_as_shopping_list_confirm(worldLabel))) { setSavingListVertical(null); return; }
+                    await saveItemsToList(vertical, lists[0].id);
+                }
             } else {
                 setSavePickerVertical(vertical);
                 setSavePickerLists(lists);
