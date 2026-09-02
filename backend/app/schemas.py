@@ -386,7 +386,7 @@ class ProductAnalyticsRead(BaseModel):
 # Vertical ("world") Schemas
 # Must match frontend/src/lib/verticalIcons.tsx's VERTICAL_ICON_MAP keys exactly — lucide-react
 # icons are statically imported there, so an icon value outside this list would render nothing.
-VALID_VERTICAL_ICONS = ("Gem", "Car", "ShieldCheck", "Home", "Watch", "Briefcase", "Store", "Sparkles", "Heart", "Building2")
+VALID_VERTICAL_ICONS = ("Gem", "Car", "ShieldCheck", "Home", "Watch", "Briefcase", "Store", "Sparkles", "Heart", "Building2", "UtensilsCrossed")
 
 # Must match frontend/src/components/FilterSortSidebar.tsx's SortOption union exactly — this is
 # the value GET /products falls back to for this vertical until the customer picks a different one.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LogIn, Loader2, ShieldCheck, Eye, EyeOff, Gem, Gift, Percent } from 'lucide-react';
+import { LogIn, Loader2, ShieldCheck, Eye, EyeOff, Gem, UtensilsCrossed, Percent } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useParams, useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
@@ -9,11 +9,11 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import LockoutCountdown from '@/components/LockoutCountdown';
 
-type ValuePropIcon = 'gem' | 'gift' | 'percent';
+type ValuePropIcon = 'utensils' | 'gem' | 'percent';
 
 const VALUE_PROP_ICONS: Record<ValuePropIcon, typeof Gem> = {
+    utensils: UtensilsCrossed,
     gem: Gem,
-    gift: Gift,
     percent: Percent,
 };
 
@@ -36,18 +36,18 @@ interface LoginTranslation {
 const translations: Record<string, LoginTranslation> = {
     he: {
         title: 'ברוכים הבאים ל-TIVUTA',
-        subtitle: 'המחירים המיוחדים של טיבותא — לחברים בלבד',
+        subtitle: 'קייטרינג שבועי לקידושים לבית הכנסת שלכם, ועוד המחירים המיוחדים של טיבותא לחברים',
         formTitle: 'התחברות לחשבון',
         taglines: [
             '🎉 עולם שלם של הטבות מחכה לכם!',
-            '💎 יהלומים, רכב, ביטוח – והכי חשוב: אתם',
-            '✨ מצטרפים? מתחילים לחסוך מהיום הראשון',
+            '🥂 קייטרינג לקידושים כל שבוע — ישירות לבית הכנסת שלכם',
+            '🏛️ בית הכנסת מזמין קידוש? תחסכו בכוח הקנייה של הקהילה',
             '🛍️ המועדון הכי שווה בעיר מחכה לכם',
-            '🎁 הטבות בלעדיות, רק לחברי טיבותא',
+            '📦 מנוי קידוש שבועי בלי כאב ראש — תבחרו פעם, תזמינו כל שבוע',
         ],
         valueProps: [
-            { icon: 'gem', text: 'יהלומים, רכב, ביטוח ועוד עולמות בלעדיים' },
-            { icon: 'gift', text: 'מועדון הטבות עשיר לחברים' },
+            { icon: 'utensils', text: 'קייטרינג שבועי לקידושים לבית הכנסת — מנוי נוח וחוסך זמן' },
+            { icon: 'gem', text: 'יהלומים, רכב, ביטוח ועוד עולמות הטבות בלעדיים' },
             { icon: 'percent', text: 'מחירים מיוחדים שלא תמצאו בשום מקום אחר' },
         ],
         email: 'כתובת אימייל',
@@ -61,18 +61,18 @@ const translations: Record<string, LoginTranslation> = {
     },
     en: {
         title: 'Welcome to TIVUTA',
-        subtitle: "Tivuta's exclusive prices — members only",
+        subtitle: "Weekly Kiddush catering for your synagogue, plus Tivuta's exclusive member prices",
         formTitle: 'Sign in to your account',
         taglines: [
             '🎉 A whole world of perks is waiting for you!',
-            '💎 Diamonds, cars, insurance – and most importantly: you',
-            '✨ Joining? Start saving from day one',
+            '🥂 Weekly Kiddush catering — delivered straight to your synagogue',
+            "🏛️ Ordering Kiddush for shul? Save with your community's buying power",
             '🛍️ The best club in town is waiting for you',
-            '🎁 Exclusive deals, only for Tivuta members',
+            '📦 A weekly Kiddush subscription, hassle-free — pick once, order every week',
         ],
         valueProps: [
+            { icon: 'utensils', text: 'Weekly Kiddush catering for your synagogue — a convenient, time-saving subscription' },
             { icon: 'gem', text: 'Diamonds, cars, insurance & more exclusive worlds' },
-            { icon: 'gift', text: 'A rich benefits club for members' },
             { icon: 'percent', text: "Special prices you won't find anywhere else" },
         ],
         email: 'Email Address',
@@ -86,18 +86,18 @@ const translations: Record<string, LoginTranslation> = {
     },
     fr: {
         title: 'Bienvenue chez TIVUTA',
-        subtitle: 'Les prix exclusifs de Tivuta — réservés aux membres',
+        subtitle: 'Un kiddouch hebdomadaire pour votre synagogue, et les prix exclusifs de Tivuta pour les membres',
         formTitle: 'Connexion à votre compte',
         taglines: [
             '🎉 Tout un monde d’avantages vous attend !',
-            '💎 Diamants, voitures, assurances – et surtout : vous',
-            '✨ Vous nous rejoignez ? Économisez dès le premier jour',
+            '🥂 Kiddouch hebdomadaire — livré directement à votre synagogue',
+            "🏛️ Vous commandez le kiddouch pour la synagogue ? Économisez grâce à la force d'achat de votre communauté",
             '🛍️ Le club le plus avantageux vous attend',
-            '🎁 Offres exclusives, réservées aux membres Tivuta',
+            '📦 Un abonnement kiddouch hebdomadaire sans tracas — choisissez une fois, commandez chaque semaine',
         ],
         valueProps: [
+            { icon: 'utensils', text: 'Kiddouch hebdomadaire pour votre synagogue — un abonnement pratique qui vous fait gagner du temps' },
             { icon: 'gem', text: 'Diamants, voitures, assurances et autres univers exclusifs' },
-            { icon: 'gift', text: 'Un club d’avantages riche pour les membres' },
             { icon: 'percent', text: 'Des prix spéciaux introuvables ailleurs' },
         ],
         email: 'E-mail',
@@ -111,18 +111,18 @@ const translations: Record<string, LoginTranslation> = {
     },
     yi: {
         title: 'ברוכים הבאים TIVUTA',
-        subtitle: 'די ספעציעלע פרייזן פון טיבותא — נאר פאר מיטגלידער',
+        subtitle: 'וועכנטלעכע קידוש קייטערינג פאר אייער שוהל, און אויך די ספעציעלע פרייזן פון טיבותא פאר מיטגלידער',
         formTitle: 'אריינלאגן אין קאנטע',
         taglines: [
             '🎉 א גאנצע וועלט פון הנחות ווארט אויף אייך!',
-            '💎 יהלומים, קארס, ביטוח – און דער עיקר: איר',
-            '✨ שליסט זיך אן? הייבט אן שפארן פון טאג איינס',
+            '🥂 וועכנטלעכע קידוש קייטערינג — גלייך צו אייער שוהל',
+            '🏛️ באשטעלט קידוש פארן שוהל? שפארט מיט דער קויף-כח פון דער קהילה',
             '🛍️ דער בעסטער מועדון אין שטאט ווארט אויף אייך',
-            '🎁 עקסקלוזיווע הנחות, נאר פאר טיבותא מיטגלידער',
+            '📦 א וועכנטלעכע קידוש אבאנעמענט אן קיין צרות — קלייבט איין מאל, באשטעלט יעדע וואך',
         ],
         valueProps: [
+            { icon: 'utensils', text: 'וועכנטלעכע קידוש קייטערינג פאר אייער שוהל — א באקוועם אבאנעמענט וואס שפארט צייט' },
             { icon: 'gem', text: 'יהלומים, קארס, ביטוח און נאך עקסקלוזיווע וועלטן' },
-            { icon: 'gift', text: 'א רייכער מועדון הטבות פאר מיטגלידער' },
             { icon: 'percent', text: 'ספעציעלע פרייזן וואס איר וועט נישט געפינען ערגעץ אנדערש' },
         ],
         email: 'ע-פאסט',
