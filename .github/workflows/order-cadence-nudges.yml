@@ -1,0 +1,16 @@
+name: Order Cadence Nudges
+
+on:
+  schedule:
+    # Daily — unlike the flat weekly shopping-list reminder, each gabbai's own typical reorder
+    # cadence varies, so this needs a more frequent check to catch whoever is actually due today.
+    - cron: '0 6 * * *'
+
+jobs:
+  nudge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call FastAPI backend to send order cadence nudges
+        run: |
+          curl -s -X POST "https://tivuta.onrender.com/api/leads/send-cadence-nudges" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

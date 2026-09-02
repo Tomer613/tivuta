@@ -927,9 +927,10 @@ class PurchaseHistoryItem(BaseModel):
     last_purchased_at: datetime
 
 
-# Shopping List Schemas — a user's own saved, editable per-vertical list (models.ShoppingListItem).
-# See Vertical.enables_shopping_list. No "checked" field anywhere here — which rows are selected to
-# add to the cart on a given visit is transient frontend state, never persisted.
+# Shopping List Schemas — a user's own saved, named, editable list(s) per vertical
+# (models.ShoppingList / models.ShoppingListItem). See Vertical.enables_shopping_list. No "checked"
+# field anywhere here — which rows are selected to add to the cart on a given visit is transient
+# frontend state, never persisted.
 class ShoppingListItemCreate(BaseModel):
     product_id: int
     quantity: int = Field(1, ge=1, le=99)
@@ -945,8 +946,28 @@ class ShoppingListReplaceRequest(BaseModel):
     items: List[ShoppingListItemCreate] = Field(default_factory=list, max_length=100)
 
 
+class ShoppingListSummary(BaseModel):
+    """One row in GET /shopping-lists?vertical= — enough to render a list-picker card without
+    fetching every item."""
+    id: int
+    name: str
+    item_count: int
+    created_at: datetime
+
+
+class ShoppingListCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+
+
+class ShoppingListRename(BaseModel):
+    # Unlike the old ShoppingListNameUpdate, a list must always have a real name now — there's no
+    # "blank clears back to the vertical label" fallback, since the list's identity IS its name.
+    name: str = Field(..., min_length=1, max_length=100)
+
+
 class ShoppingListItemRead(BaseModel):
     id: int
+    shopping_list_id: int
     product_id: int
     product_title_he: str
     product_title_en: Optional[str] = None
@@ -960,6 +981,15 @@ class ShoppingListItemRead(BaseModel):
     product_is_active: bool
     quantity: int
     created_at: datetime
+
+
+class ShoppingListDetail(BaseModel):
+    """GET /shopping-lists/{id} — collapses what used to be two separate calls (name + items) into
+    one: everything ShoppingListClient needs to render a single list."""
+    id: int
+    name: str
+    vertical: str
+    items: List[ShoppingListItemRead]
 
 
 # Public order-confirmation page (GET/POST /order-confirm/{token}) — deliberately its own, leaner

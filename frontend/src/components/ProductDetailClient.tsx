@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 import {
     getProduct, getPromotionStatus, enterPromotion, productImageUrl, getVerticals, Vertical,
     getFavoriteIds, addFavorite, removeFavorite, getProductReviews, submitReview, trackProductView,
-    RecentlyViewedProduct,
+    getComplementaryProducts, RecentlyViewedProduct,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { requireLogin } from '@/lib/requireLogin';
@@ -53,6 +54,7 @@ const T = {
         reviews: 'ביקורות', rate_product: 'דרגו את המוצר', comment_placeholder: 'הערה (אופציונלי)',
         submit_review: 'שלח דירוג', review_thanks: 'תודה על הדירוג!', add_fav: 'הוסף למועדפים', remove_fav: 'הסר מהמועדפים', share: 'שתף בווצאפ',
         specs: 'מפרט', low_stock_prefix: 'נותרו', low_stock_suffix: 'במלאי', out_of_stock: 'אזל המלאי',
+        also_bought: 'לקוחות שקנו את זה קנו גם',
     },
     en: {
         schedule: 'Schedule Viewing', contact: 'Contact Me', price: 'Price', on_request: 'On request',
@@ -65,6 +67,7 @@ const T = {
         reviews: 'Reviews', rate_product: 'Rate this product', comment_placeholder: 'Comment (optional)',
         submit_review: 'Submit', review_thanks: 'Thanks for rating!', add_fav: 'Add to favorites', remove_fav: 'Remove from favorites', share: 'Share on WhatsApp',
         specs: 'Specifications', low_stock_prefix: 'Only', low_stock_suffix: 'left in stock', out_of_stock: 'Out of stock',
+        also_bought: 'Customers who bought this also bought',
     },
     fr: {
         schedule: 'Planifier', contact: 'Contacter', price: 'Prix', on_request: 'Sur demande',
@@ -77,6 +80,7 @@ const T = {
         reviews: 'Avis', rate_product: 'Évaluez ce produit', comment_placeholder: 'Commentaire (optionnel)',
         submit_review: 'Envoyer', review_thanks: 'Merci pour votre avis!', add_fav: 'Ajouter aux favoris', remove_fav: 'Retirer des favoris', share: 'Partager sur WhatsApp',
         specs: 'Caractéristiques', low_stock_prefix: 'Plus que', low_stock_suffix: 'en stock', out_of_stock: 'Rupture de stock',
+        also_bought: 'Les clients ayant acheté cet article ont également acheté',
     },
     yi: {
         schedule: 'מאכן א באגעגעניש', contact: 'קאנטאקטירן', price: 'פרייז', on_request: 'אויף פארלאנג',
@@ -89,6 +93,7 @@ const T = {
         reviews: 'ביקורות', rate_product: 'דרגירט דעם פראדוקט', comment_placeholder: 'הערה (אויף ווילן)',
         submit_review: 'שיקט דירוג', review_thanks: 'א דאנק פארן דירוג!', add_fav: 'צולייגן צו פאוואריטן', remove_fav: 'אראפנעמען פון פאוואריטן', share: 'טיילן אויף וואטסאפ',
         specs: 'מפרט', low_stock_prefix: 'נאר', low_stock_suffix: 'געבליבן', out_of_stock: 'אויסגעגאנגען',
+        also_bought: 'קונים וואס האבן געקויפט דאס האבן אויך געקויפט',
     },
 };
 
@@ -243,6 +248,7 @@ export default function ProductDetailClient({ productId }: { productId: number }
     const [myComment, setMyComment] = useState('');
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
     const [reviewDone, setReviewDone] = useState(false);
+    const [complementary, setComplementary] = useState<Product[]>([]);
     const ATTR_LABELS = useAttrLabels();
     const productVertical = verticals.find((v) => v.slug === product?.vertical);
 
@@ -295,6 +301,14 @@ export default function ProductDetailClient({ productId }: { productId: number }
             localStorage.setItem(key, JSON.stringify(updated));
         } catch { /* ignore */ }
     }, [product]);
+
+    // Kept separate from the effect above (view-tracking/recently-viewed) so a token becoming
+    // available shortly after mount only refetches this, not re-fires trackProductView and
+    // double-increments the view count.
+    useEffect(() => {
+        if (!product) return;
+        getComplementaryProducts(token, product.id).then(setComplementary).catch(() => setComplementary([]));
+    }, [product, token]);
 
     useEffect(() => {
         if (!product) return;
@@ -504,6 +518,37 @@ export default function ProductDetailClient({ productId }: { productId: number }
                                 locale={locale}
                             />
                         ))}
+                    </div>
+                )}
+
+                {/* Complementary products — cross-customer "bought together" signal, not the
+                    viewer's own history (see cart page's separate "bought before" strip for that). */}
+                {complementary.length > 0 && (
+                    <div className="mt-10 pt-8 border-t border-[#d4af37]/15">
+                        <h4 className="text-sm font-black text-[#f0e6d3]/50 uppercase tracking-widest mb-4">
+                            {t.also_bought}
+                        </h4>
+                        <div className="flex gap-3 overflow-x-auto pb-1">
+                            {complementary.map((p) => {
+                                const title = p[`title_${locale}`] || p.title_he;
+                                return (
+                                    <Link
+                                        key={p.id}
+                                        href={`/${locale}/products?id=${p.id}`}
+                                        className="shrink-0 w-32 bg-[#0e1628] border border-[#d4af37]/20 rounded-xl p-2.5 hover:border-[#d4af37]/50 transition-colors"
+                                    >
+                                        <div className="w-full h-20 rounded-lg overflow-hidden bg-[#111a2f] mb-2">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={productImageUrl(p.image_url)} alt={title || ''} className="w-full h-full object-cover" />
+                                        </div>
+                                        <p className="text-xs font-bold text-[#f0e6d3] truncate">{title}</p>
+                                        {!productVertical?.hide_prices && p.price != null && (
+                                            <p className="text-[#d4af37] text-xs font-black">₪{p.price.toLocaleString()}</p>
+                                        )}
+                                    </Link>
+                                );
+                            })}
+                        </div>
                     </div>
                 )}
 

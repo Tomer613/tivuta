@@ -68,6 +68,7 @@ export default function NotificationBell({ token }: { token: string }) {
         system: '🔔',
         followup: '⏰',
         shopping_list_reminder: '🛒',
+        order_cadence_nudge: '🔁',
     };
 
     return (

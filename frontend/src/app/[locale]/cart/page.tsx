@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { Trash2, ShoppingCart, MessageCircle, CheckCircle2, Loader2, Tag, History, Plus, ListChecks } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCart, CartItem } from '@/context/CartContext';
-import { cartCheckout, productImageUrl, getMyPurchaseHistory, replaceShoppingList, PurchaseHistoryItem } from '@/lib/api';
+import { cartCheckout, productImageUrl, getMyPurchaseHistory, getShoppingLists, createShoppingList, replaceShoppingList, PurchaseHistoryItem, ShoppingListSummary } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
 import { computeEffectiveUnitPrice } from '@/lib/pricing';
 import QuantityStepper from '@/components/QuantityStepper';
@@ -57,13 +57,18 @@ interface T {
     save_as_shopping_list_saving: string;
     save_as_shopping_list_saved: string;
     save_as_shopping_list_error: string;
+    save_choose_list: string;
+    save_new_list_option: string;
+    save_new_list_placeholder: string;
+    save_confirm: string;
+    cancel: string;
 }
 
 const translations: Record<string, T> = {
-    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', before_discount: 'לפני הנחה', savings: 'חיסכון', qty_discount_active: (p) => `✓ מבצע כמות הופעל (${p}% הנחה)`, qty_discount_more_needed: (n) => `עוד ${n} יח' ותקבלו הנחת כמות`, mixed_cart_blocked: 'לא ניתן להזמין פריטי קידושים יחד עם פריטים מעולם אחר באותה הזמנה — יש להסיר חלק מהפריטים ולהזמין בנפרד.', gabbai_required: 'הזמנה מעולם זה מיועדת לגבאים בלבד.', complete_gabbai_registration: 'להשלמת רישום כגבאי', custom_note_label: 'מוצרים/בקשות נוספים (אופציונלי)', custom_note_placeholder: 'יש לנו צורך גם ב...', bought_before_title: 'קנית בעבר, אולי תרצה גם:', add_short: 'הוסף', save_as_shopping_list: (w) => `שמור כרשימת הקניות שלי ל${w}`, save_as_shopping_list_confirm: (w) => `פעולה זו תחליף את רשימת הקניות הקיימת שלך ל${w} בתוכן העגלה הנוכחי. להמשיך?`, save_as_shopping_list_saving: 'שומר...', save_as_shopping_list_saved: '✓ נשמר', save_as_shopping_list_error: 'שגיאה בשמירה' },
-    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', before_discount: 'Before discount', savings: 'Savings', qty_discount_active: (p) => `✓ Quantity discount applied (${p}% off)`, qty_discount_more_needed: (n) => `${n} more unit(s) for a quantity discount`, mixed_cart_blocked: 'Kiddush items cannot be ordered together with items from another world — remove some items and order separately.', gabbai_required: 'Ordering from this world is for registered gabbaim only.', complete_gabbai_registration: 'Complete gabbai registration', custom_note_label: 'Additional items/requests (optional)', custom_note_placeholder: 'We also need...', bought_before_title: 'You bought these before — maybe again?', add_short: 'Add', save_as_shopping_list: (w) => `Save as my ${w} shopping list`, save_as_shopping_list_confirm: (w) => `This will replace your existing ${w} shopping list with the current cart's contents. Continue?`, save_as_shopping_list_saving: 'Saving...', save_as_shopping_list_saved: '✓ Saved', save_as_shopping_list_error: 'Failed to save' },
-    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', before_discount: 'Avant remise', savings: 'Économie', qty_discount_active: (p) => `✓ Remise quantité appliquée (${p}%)`, qty_discount_more_needed: (n) => `Encore ${n} unité(s) pour une remise quantité`, mixed_cart_blocked: "Les articles de kiddouch ne peuvent pas être commandés avec des articles d'un autre monde — retirez certains articles et commandez séparément.", gabbai_required: 'La commande dans ce monde est réservée aux gabbaïm inscrits.', complete_gabbai_registration: "Compléter l'inscription en tant que gabbaï", custom_note_label: 'Articles/demandes supplémentaires (optionnel)', custom_note_placeholder: 'Nous avons aussi besoin de...', bought_before_title: 'Vous avez déjà acheté ceci — à nouveau ?', add_short: 'Ajouter', save_as_shopping_list: (w) => `Enregistrer comme ma liste de courses ${w}`, save_as_shopping_list_confirm: (w) => `Cela remplacera votre liste de courses ${w} existante par le contenu actuel du panier. Continuer ?`, save_as_shopping_list_saving: 'Enregistrement...', save_as_shopping_list_saved: '✓ Enregistré', save_as_shopping_list_error: "Échec de l'enregistrement" },
-    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', before_discount: 'פאר הנחה', savings: 'שפּאָרן', qty_discount_active: (p) => `✓ מבצע כמות אקטיוו (${p}% הנחה)`, qty_discount_more_needed: (n) => `נאך ${n} יח' פאר א הנחת כמות`, mixed_cart_blocked: 'מ\'קען נישט באשטעלן קידוש זאכן צוזאמען מיט זאכן פון אן אנדער וועלט — מוז אנטפערנען עטלעכע זאכן און באשטעלן באזונדער.', gabbai_required: 'באשטעלונג פון דער וועלט איז נאר פאר רעגיסטרירטע גבאים.', complete_gabbai_registration: 'פֿאַרענדיקן רעגיסטראציע אלס גבאי', custom_note_label: 'נאך זאכן/פארלאנגען (אויסוואל)', custom_note_placeholder: 'מיר דארפן אויך...', bought_before_title: 'איר האט דאס שוין געקויפט - אפשר נאך אמאל?', add_short: 'צוגעבן', save_as_shopping_list: (w) => `אפּשפּאַרן אלס מיין ${w} קוילע רשימה`, save_as_shopping_list_confirm: (w) => `דאס וועט פארבייטן דיין איצטיקע ${w} קוילע רשימה מיטן אינהאלט פונעם קארב. ווייטער?`, save_as_shopping_list_saving: 'שפּאַרט...', save_as_shopping_list_saved: '✓ אפּגעשפּאַרט', save_as_shopping_list_error: 'טעות ביים שפּאַרן' },
+    he: { title: 'העגלה שלי', empty: 'העגלה שלך ריקה', browse: 'עיין במוצרים', price_label: 'מחיר', on_request: 'לפי בקשה', total: 'סה"כ', items_count: 'פריטים', checkout: 'צרו איתי קשר', login_to_checkout: 'התחבר כדי לשלוח בקשה', submitting: 'שולח...', done: 'הבקשה נשלחה! ניצור איתך קשר בקרוב', error: 'שגיאה בשליחת הבקשה, נסה שוב', order_number: 'מספר הזמנה', view_orders: 'צפה בהזמנות שלי', dec_qty: 'הפחת כמות', inc_qty: 'הוסף כמות', before_discount: 'לפני הנחה', savings: 'חיסכון', qty_discount_active: (p) => `✓ מבצע כמות הופעל (${p}% הנחה)`, qty_discount_more_needed: (n) => `עוד ${n} יח' ותקבלו הנחת כמות`, mixed_cart_blocked: 'לא ניתן להזמין פריטי קידושים יחד עם פריטים מעולם אחר באותה הזמנה — יש להסיר חלק מהפריטים ולהזמין בנפרד.', gabbai_required: 'הזמנה מעולם זה מיועדת לגבאים בלבד.', complete_gabbai_registration: 'להשלמת רישום כגבאי', custom_note_label: 'מוצרים/בקשות נוספים (אופציונלי)', custom_note_placeholder: 'יש לנו צורך גם ב...', bought_before_title: 'קנית בעבר, אולי תרצה גם:', add_short: 'הוסף', save_as_shopping_list: (w) => `שמור כרשימת הקניות שלי ל${w}`, save_as_shopping_list_confirm: (w) => `פעולה זו תחליף את רשימת הקניות הקיימת שלך ל${w} בתוכן העגלה הנוכחי. להמשיך?`, save_as_shopping_list_saving: 'שומר...', save_as_shopping_list_saved: '✓ נשמר', save_as_shopping_list_error: 'שגיאה בשמירה', save_choose_list: 'שמור לרשימה:', save_new_list_option: '+ שמור כרשימה חדשה', save_new_list_placeholder: 'שם הרשימה החדשה', save_confirm: 'שמור', cancel: 'ביטול' },
+    en: { title: 'My Cart', empty: 'Your cart is empty', browse: 'Browse products', price_label: 'Price', on_request: 'On request', total: 'Total', items_count: 'items', checkout: 'Contact Me', login_to_checkout: 'Log in to check out', submitting: 'Sending...', done: 'Request sent! We will reach out shortly', error: 'Failed to submit, please try again', order_number: 'Order number', view_orders: 'View my orders', dec_qty: 'Decrease quantity', inc_qty: 'Increase quantity', before_discount: 'Before discount', savings: 'Savings', qty_discount_active: (p) => `✓ Quantity discount applied (${p}% off)`, qty_discount_more_needed: (n) => `${n} more unit(s) for a quantity discount`, mixed_cart_blocked: 'Kiddush items cannot be ordered together with items from another world — remove some items and order separately.', gabbai_required: 'Ordering from this world is for registered gabbaim only.', complete_gabbai_registration: 'Complete gabbai registration', custom_note_label: 'Additional items/requests (optional)', custom_note_placeholder: 'We also need...', bought_before_title: 'You bought these before — maybe again?', add_short: 'Add', save_as_shopping_list: (w) => `Save as my ${w} shopping list`, save_as_shopping_list_confirm: (w) => `This will replace your existing ${w} shopping list with the current cart's contents. Continue?`, save_as_shopping_list_saving: 'Saving...', save_as_shopping_list_saved: '✓ Saved', save_as_shopping_list_error: 'Failed to save', save_choose_list: 'Save to list:', save_new_list_option: '+ Save as new list', save_new_list_placeholder: 'New list name', save_confirm: 'Save', cancel: 'Cancel' },
+    fr: { title: 'Mon panier', empty: 'Votre panier est vide', browse: 'Voir les produits', price_label: 'Prix', on_request: 'Sur demande', total: 'Total', items_count: 'articles', checkout: 'Me contacter', login_to_checkout: 'Connectez-vous pour valider', submitting: 'Envoi...', done: 'Demande envoyée ! Nous vous contacterons bientôt', error: "Échec de l'envoi, veuillez réessayer", order_number: 'Numéro de commande', view_orders: 'Voir mes commandes', dec_qty: 'Réduire la quantité', inc_qty: 'Augmenter la quantité', before_discount: 'Avant remise', savings: 'Économie', qty_discount_active: (p) => `✓ Remise quantité appliquée (${p}%)`, qty_discount_more_needed: (n) => `Encore ${n} unité(s) pour une remise quantité`, mixed_cart_blocked: "Les articles de kiddouch ne peuvent pas être commandés avec des articles d'un autre monde — retirez certains articles et commandez séparément.", gabbai_required: 'La commande dans ce monde est réservée aux gabbaïm inscrits.', complete_gabbai_registration: "Compléter l'inscription en tant que gabbaï", custom_note_label: 'Articles/demandes supplémentaires (optionnel)', custom_note_placeholder: 'Nous avons aussi besoin de...', bought_before_title: 'Vous avez déjà acheté ceci — à nouveau ?', add_short: 'Ajouter', save_as_shopping_list: (w) => `Enregistrer comme ma liste de courses ${w}`, save_as_shopping_list_confirm: (w) => `Cela remplacera votre liste de courses ${w} existante par le contenu actuel du panier. Continuer ?`, save_as_shopping_list_saving: 'Enregistrement...', save_as_shopping_list_saved: '✓ Enregistré', save_as_shopping_list_error: "Échec de l'enregistrement", save_choose_list: 'Enregistrer dans :', save_new_list_option: '+ Enregistrer comme nouvelle liste', save_new_list_placeholder: 'Nom de la nouvelle liste', save_confirm: 'Enregistrer', cancel: 'Annuler' },
+    yi: { title: 'מיין קארב', empty: 'דיין קארב איז ליידיג', browse: 'קוק אויף פראדוקטן', price_label: 'פרייז', on_request: 'אויף פארלאנג', total: 'סך הכל', items_count: 'פריטים', checkout: 'קאנטאקטירן מיר', login_to_checkout: 'לאגין צו באשטעטיגן', submitting: 'שיקט...', done: 'געשיקט! מיר וועלן זיך פארבינדן', error: 'טעות, פרובירט נאך אמאל', order_number: 'מספר הזמנה', view_orders: 'זע מיינע הזמנות', dec_qty: 'רעדוצירן כמות', inc_qty: 'פארמערן כמות', before_discount: 'פאר הנחה', savings: 'שפּאָרן', qty_discount_active: (p) => `✓ מבצע כמות אקטיוו (${p}% הנחה)`, qty_discount_more_needed: (n) => `נאך ${n} יח' פאר א הנחת כמות`, mixed_cart_blocked: 'מ\'קען נישט באשטעלן קידוש זאכן צוזאמען מיט זאכן פון אן אנדער וועלט — מוז אנטפערנען עטלעכע זאכן און באשטעלן באזונדער.', gabbai_required: 'באשטעלונג פון דער וועלט איז נאר פאר רעגיסטרירטע גבאים.', complete_gabbai_registration: 'פֿאַרענדיקן רעגיסטראציע אלס גבאי', custom_note_label: 'נאך זאכן/פארלאנגען (אויסוואל)', custom_note_placeholder: 'מיר דארפן אויך...', bought_before_title: 'איר האט דאס שוין געקויפט - אפשר נאך אמאל?', add_short: 'צוגעבן', save_as_shopping_list: (w) => `אפּשפּאַרן אלס מיין ${w} קוילע רשימה`, save_as_shopping_list_confirm: (w) => `דאס וועט פארבייטן דיין איצטיקע ${w} קוילע רשימה מיטן אינהאלט פונעם קארב. ווייטער?`, save_as_shopping_list_saving: 'שפּאַרט...', save_as_shopping_list_saved: '✓ אפּגעשפּאַרט', save_as_shopping_list_error: 'טעות ביים שפּאַרן', save_choose_list: 'אפּשפּאַרן צו רשימה:', save_new_list_option: '+ אפּשפּאַרן אלס נייע רשימה', save_new_list_placeholder: 'נאמען פון נייע רשימה', save_confirm: 'אפּשפּאַרן', cancel: 'אָפּזאָגן' },
 };
 
 export default function CartPage() {
@@ -84,6 +89,12 @@ export default function CartPage() {
     const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
     const [savingListVertical, setSavingListVertical] = useState<string | null>(null);
     const [listSaveResult, setListSaveResult] = useState<{ vertical: string; ok: boolean } | null>(null);
+    // When a world has 2+ existing lists, save-as-shopping-list opens this inline picker instead
+    // of guessing which list to overwrite — see the plan's confirmed UX decision.
+    const [savePickerVertical, setSavePickerVertical] = useState<string | null>(null);
+    const [savePickerLists, setSavePickerLists] = useState<ShoppingListSummary[]>([]);
+    const [saveTargetListId, setSaveTargetListId] = useState<number | 'new'>('new');
+    const [saveNewListName, setSaveNewListName] = useState('');
 
     // "Bought before" strip — a lightweight cross-sell, not part of the checkout flow itself.
     // Fetched once per visit; only ever shown for a logged-in user.
@@ -129,24 +140,70 @@ export default function CartPage() {
     const shoppingListVerticalsInCart = Array.from(new Set(items.map((i) => i.vertical)))
         .filter((v) => verticalsBySlug[v]?.enables_shopping_list);
 
-    const handleSaveAsShoppingList = async (vertical: string) => {
-        if (!token) return;
-        // This wholesale-replaces whatever the user already saved for this world — confirm first
-        // so a curated list built up over weeks can't be discarded by one accidental click.
-        const worldLabel = VERTICAL_LABEL[vertical] || vertical;
-        if (!window.confirm(t.save_as_shopping_list_confirm(worldLabel))) return;
+    const saveItemsToList = async (vertical: string, listId: number) => {
         setSavingListVertical(vertical);
-        setListSaveResult(null);
         try {
             const verticalItems = items
                 .filter((i) => i.vertical === vertical)
                 .map((i) => ({ product_id: i.id, quantity: i.quantity }));
-            await replaceShoppingList(token, vertical, verticalItems);
+            await replaceShoppingList(token!, listId, verticalItems);
             setListSaveResult({ vertical, ok: true });
+            setSavePickerVertical(null);
         } catch {
             setListSaveResult({ vertical, ok: false });
         } finally {
             setSavingListVertical(null);
+        }
+    };
+
+    // Entry point: with 0 or 1 existing lists for this world, behaves exactly as before (one
+    // click + a single overwrite confirm, creating the list first if none exists yet — nothing to
+    // overwrite there, so no confirm needed). With 2+, opens an inline picker instead of guessing
+    // which list to replace.
+    const handleSaveAsShoppingList = async (vertical: string) => {
+        if (!token) return;
+        setSavingListVertical(vertical);
+        setListSaveResult(null);
+        try {
+            const lists = await getShoppingLists(token, vertical);
+            if (lists.length === 0) {
+                const worldLabel = VERTICAL_LABEL[vertical] || vertical;
+                const created = await createShoppingList(token, vertical, worldLabel);
+                await saveItemsToList(vertical, created.id);
+            } else if (lists.length === 1) {
+                const worldLabel = VERTICAL_LABEL[vertical] || vertical;
+                if (!window.confirm(t.save_as_shopping_list_confirm(worldLabel))) { setSavingListVertical(null); return; }
+                await saveItemsToList(vertical, lists[0].id);
+            } else {
+                setSavePickerVertical(vertical);
+                setSavePickerLists(lists);
+                setSaveTargetListId(lists[0].id);
+                setSaveNewListName('');
+                setSavingListVertical(null);
+            }
+        } catch {
+            setListSaveResult({ vertical, ok: false });
+            setSavingListVertical(null);
+        }
+    };
+
+    const confirmSaveFromPicker = async () => {
+        if (!savePickerVertical || !token) return;
+        const vertical = savePickerVertical;
+        if (saveTargetListId === 'new') {
+            const worldLabel = VERTICAL_LABEL[vertical] || vertical;
+            setSavingListVertical(vertical);
+            try {
+                const created = await createShoppingList(token, vertical, saveNewListName.trim() || worldLabel);
+                await saveItemsToList(vertical, created.id);
+            } catch {
+                setListSaveResult({ vertical, ok: false });
+                setSavingListVertical(null);
+            }
+        } else {
+            const targetList = savePickerLists.find((l) => l.id === saveTargetListId);
+            if (!window.confirm(t.save_as_shopping_list_confirm(targetList?.name || vertical))) return;
+            await saveItemsToList(vertical, saveTargetListId);
         }
     };
 
@@ -343,6 +400,49 @@ export default function CartPage() {
                                     const worldLabel = VERTICAL_LABEL[v] || v;
                                     const saving = savingListVertical === v;
                                     const result = listSaveResult?.vertical === v ? listSaveResult : null;
+                                    if (savePickerVertical === v) {
+                                        return (
+                                            <div key={v} className="w-full flex flex-wrap items-center gap-2 bg-[#0e1628] border border-[#d4af37]/30 rounded-xl px-3 py-2">
+                                                <span className="text-xs text-[#f0e6d3]/60">{t.save_choose_list}</span>
+                                                <select
+                                                    value={saveTargetListId}
+                                                    onChange={(e) => setSaveTargetListId(e.target.value === 'new' ? 'new' : Number(e.target.value))}
+                                                    className="bg-[#111a2f] border border-[#d4af37]/20 rounded-lg px-2 py-1 text-xs text-[#f0e6d3]"
+                                                >
+                                                    {savePickerLists.map((lst) => (
+                                                        <option key={lst.id} value={lst.id}>{lst.name}</option>
+                                                    ))}
+                                                    <option value="new">{t.save_new_list_option}</option>
+                                                </select>
+                                                {saveTargetListId === 'new' && (
+                                                    <input
+                                                        type="text"
+                                                        value={saveNewListName}
+                                                        onChange={(e) => setSaveNewListName(e.target.value)}
+                                                        placeholder={t.save_new_list_placeholder}
+                                                        maxLength={100}
+                                                        className="bg-[#111a2f] border border-[#d4af37]/20 rounded-lg px-2 py-1 text-xs text-[#f0e6d3] flex-1 min-w-[8rem]"
+                                                    />
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={confirmSaveFromPicker}
+                                                    disabled={saving}
+                                                    className="text-xs font-bold text-[#111a2f] bg-[#d4af37] rounded-lg px-3 py-1 hover:bg-[#e8c757] transition-colors disabled:opacity-60"
+                                                >
+                                                    {saving ? <Loader2 size={13} className="animate-spin" /> : t.save_confirm}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setSavePickerVertical(null)}
+                                                    disabled={saving}
+                                                    className="text-xs text-[#f0e6d3]/40 hover:text-red-400"
+                                                >
+                                                    {t.cancel}
+                                                </button>
+                                            </div>
+                                        );
+                                    }
                                     return (
                                         <button
                                             key={v}

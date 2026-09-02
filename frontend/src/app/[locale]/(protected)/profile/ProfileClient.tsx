@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
 import {
     updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, updatePreferredLanguage, productImageUrl,
-    getMyPointsHistory, createCardOrder, registerGabbai, getShoppingList, getProductsByIds, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
+    getMyPointsHistory, createCardOrder, registerGabbai, getShoppingLists, getProductsByIds, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
@@ -440,8 +440,13 @@ export default function ProfileClient() {
         if (!token) return;
         const shoppingListVerticals = verticals.filter((v) => v.enables_shopping_list);
         if (shoppingListVerticals.length === 0) return;
+        // Sums item_count across all of the user's lists for each world — a world can now have
+        // several named lists, so this total (not any single list's count) is what "how many
+        // items do I have saved here" should mean on this summary card.
         Promise.all(shoppingListVerticals.map((v) =>
-            getShoppingList(token, v.slug).then((items) => [v.slug, items.length] as const).catch(() => [v.slug, 0] as const)
+            getShoppingLists(token, v.slug)
+                .then((lists) => [v.slug, lists.reduce((sum, l) => sum + l.item_count, 0)] as const)
+                .catch(() => [v.slug, 0] as const)
         )).then((entries) => setShoppingListCounts(Object.fromEntries(entries)));
     }, [token, verticals]);
 

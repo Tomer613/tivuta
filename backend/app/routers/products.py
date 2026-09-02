@@ -143,6 +143,63 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     return _product_read(product)
 
 
+@router.get("/products/{product_id}/complementary", response_model=List[schemas.ProductRead])
+def get_complementary_products(product_id: int, limit: int = 6, db: Session = Depends(get_db)):
+    """"Customers who bought this also bought..." — cross-customer co-purchase analysis, not the
+    viewer's own history (see services/purchase_history.py for that, personal-only concept).
+    Finds every OTHER product that showed up in the same checkout as this one, across every
+    customer who ever bought it, ranked by how many distinct orders paired them together.
+    Restricted to the same vertical — a diamond and a car coincidentally sharing one customer's
+    unrelated order history is noise, not a genuine "goes well together" signal."""
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    orders_with_this_product = (
+        db.query(models.Lead.customer_order_id)
+        .join(models.CustomerOrder, models.Lead.customer_order_id == models.CustomerOrder.id)
+        .filter(
+            models.Lead.product_id == product_id,
+            models.Lead.lead_type == "contact_request",
+            models.Lead.status != "cancelled",
+            models.CustomerOrder.status != "cancelled",
+            models.Lead.customer_order_id.isnot(None),
+        )
+    )
+    ranked = (
+        db.query(models.Lead.product_id, func.count(func.distinct(models.Lead.customer_order_id)))
+        .join(models.CustomerOrder, models.Lead.customer_order_id == models.CustomerOrder.id)
+        .filter(
+            models.Lead.customer_order_id.in_(orders_with_this_product),
+            models.Lead.lead_type == "contact_request",
+            models.Lead.status != "cancelled",
+            models.CustomerOrder.status != "cancelled",
+            models.Lead.product_id != product_id,
+            models.Lead.product_id.isnot(None),
+        )
+        .group_by(models.Lead.product_id)
+        .order_by(func.count(func.distinct(models.Lead.customer_order_id)).desc())
+        .limit(limit)
+        .all()
+    )
+    if not ranked:
+        return []
+
+    rank_order = {pid: i for i, (pid, _count) in enumerate(ranked)}
+    complementary_products = (
+        db.query(models.Product)
+        .filter(
+            models.Product.id.in_(rank_order.keys()),
+            models.Product.vertical == product.vertical,
+            models.Product.is_active == True,
+        )
+        .options(selectinload(models.Product.promotions), selectinload(models.Product.reviews), selectinload(models.Product.vendor), selectinload(models.Product.category), selectinload(models.Product.quantity_discount_bundle).selectinload(models.QuantityDiscountBundle.tiers))
+        .all()
+    )
+    complementary_products.sort(key=lambda p: rank_order[p.id])
+    return [_product_read(p) for p in complementary_products]
+
+
 @router.post("/products/{product_id}/view")
 def increment_product_view(product_id: int, db: Session = Depends(get_db)):
     db.query(models.Product).filter(models.Product.id == product_id).update(

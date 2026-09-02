@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp, Bell, CheckCircle2, ShoppingCart } from 'lucide-react';
+import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp, Bell, CheckCircle2, ShoppingCart, Repeat } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { adminGetStats, adminGetLeadStats, adminGetConversionStats, adminSendFollowupReminders, adminSendShoppingListReminders } from '@/lib/api';
+import { adminGetStats, adminGetLeadStats, adminGetConversionStats, adminSendFollowupReminders, adminSendShoppingListReminders, adminSendCadenceNudges } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
 import { getVerticalIcon } from '@/lib/verticalIcons';
 
@@ -116,8 +116,11 @@ export default function AdminDashboardPage() {
     const [followupResult, setFollowupResult] = useState<{ sent: number; total_stale: number } | null>(null);
     const [sendingShoppingListReminders, setSendingShoppingListReminders] = useState(false);
     const [shoppingListReminderResult, setShoppingListReminderResult] = useState<{ sent: number } | null>(null);
+    const [sendingCadenceNudges, setSendingCadenceNudges] = useState(false);
+    const [cadenceNudgeResult, setCadenceNudgeResult] = useState<{ sent: number } | null>(null);
     const verticals = useVerticals();
     const hasShoppingListWorld = verticals.some((v) => v.enables_shopping_list);
+    const hasGabbaiWorld = verticals.some((v) => v.requires_gabbai);
 
     useEffect(() => {
         if (!token) return;
@@ -158,6 +161,19 @@ export default function AdminDashboardPage() {
         }
     };
 
+    const handleCadenceNudges = async () => {
+        if (!token) return;
+        setSendingCadenceNudges(true);
+        try {
+            const result = await adminSendCadenceNudges(token);
+            setCadenceNudgeResult(result);
+        } catch {
+            setCadenceNudgeResult(null);
+        } finally {
+            setSendingCadenceNudges(false);
+        }
+    };
+
     return (
         <div>
             <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
@@ -188,6 +204,19 @@ export default function AdminDashboardPage() {
                         {shoppingListReminderResult
                             ? <span className="flex items-center gap-1 text-green-400"><CheckCircle2 size={11} /> {shoppingListReminderResult.sent} תזכורות נשלחו</span>
                             : 'שלח תזכורות רשימת קניות'}
+                    </button>
+                )}
+                {hasGabbaiWorld && (
+                    <button
+                        onClick={handleCadenceNudges}
+                        disabled={sendingCadenceNudges || loading}
+                        className="flex items-center gap-2 bg-[#0e1628] border border-[#d4af37]/20 text-[#f0e6d3]/60 hover:text-[#d4af37] hover:border-[#d4af37]/40 rounded-xl px-4 py-2 text-xs font-bold transition-all disabled:opacity-40 shrink-0"
+                        title="שלח תזכורת אישית למי שבדרך כלל מזמין אבל איחר הפעם"
+                    >
+                        {sendingCadenceNudges ? <Loader2 size={13} className="animate-spin" /> : <Repeat size={13} />}
+                        {cadenceNudgeResult
+                            ? <span className="flex items-center gap-1 text-green-400"><CheckCircle2 size={11} /> {cadenceNudgeResult.sent} תזכורות נשלחו</span>
+                            : 'שלח תזכורות קצב הזמנה'}
                     </button>
                 )}
             </div>

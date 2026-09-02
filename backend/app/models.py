@@ -479,23 +479,42 @@ class Favorite(Base):
     product = relationship("Product")
 
 
-class ShoppingListItem(Base):
+class ShoppingList(Base):
     """
-    A user's own saved, editable shopping list for one vertical (e.g. a gabbai's recurring weekly
-    Kiddush order) — see Vertical.enables_shopping_list. Deliberately has no "checked" column: which
-    rows are selected to add to the cart on a given visit is transient UI state, not a persisted
-    attribute of the saved list, so there's nothing here that can go stale between sessions.
+    A user's own saved, named shopping list for one vertical (e.g. a gabbai's "רשימת שבת" or
+    "רשימת חג" for a recurring Kiddush order) — see Vertical.enables_shopping_list. A user can have
+    several lists per vertical (e.g. one per recurring occasion), unlike the earlier single-list
+    model this superseded.
     """
-    __tablename__ = "shopping_list_items"
-    __table_args__ = (UniqueConstraint("user_id", "product_id", name="uq_user_product_shopping_list_item"),)
+    __tablename__ = "shopping_lists"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    vertical = Column(String(50), nullable=False, index=True)  # matches Vertical.slug
+    name = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User")
+    items = relationship("ShoppingListItem", back_populates="shopping_list", cascade="all, delete-orphan")
+
+
+class ShoppingListItem(Base):
+    """
+    One line item on a ShoppingList. Deliberately has no "checked" column: which rows are selected
+    to add to the cart on a given visit is transient UI state, not a persisted attribute of the
+    saved list, so there's nothing here that can go stale between sessions.
+    """
+    __tablename__ = "shopping_list_items"
+    __table_args__ = (UniqueConstraint("shopping_list_id", "product_id", name="uq_shopping_list_product"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    shopping_list_id = Column(Integer, ForeignKey("shopping_lists.id", ondelete="CASCADE"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     quantity = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    user = relationship("User")
+    shopping_list = relationship("ShoppingList", back_populates="items")
     product = relationship("Product")
 
 
@@ -504,7 +523,7 @@ class Notification(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    type = Column(String(50), nullable=False)  # lead_status | appointment_reminder | system | followup | points_earned | shopping_list_reminder
+    type = Column(String(50), nullable=False)  # lead_status | appointment_reminder | system | followup | points_earned | shopping_list_reminder | order_cadence_nudge
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=True)
     locale = Column(String(5), nullable=False, default="he")  # language the title/message text is actually written in

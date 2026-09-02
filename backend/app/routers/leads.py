@@ -5,17 +5,18 @@ from datetime import datetime, timedelta
 from html import escape as html_escape
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
-from ..security import get_current_admin, get_current_user, get_db
+from ..security import get_current_admin, get_current_user, get_db, verify_cron_secret
 from ..services import get_email_sender
 from ..services.inventory import reserve_or_release_stock_for_lead
 from ..services.orders import cancel_order
 from ..services.pricing import compute_effective_unit_price
 from ..services.purchase_history import get_user_purchase_history
 from .products import resolve_active_quantity_discount_fields
+from .verticals import batch_users_and_verticals, resolve_vertical_label
 
 router = APIRouter(tags=["leads"])
 
@@ -1114,3 +1115,159 @@ def admin_update_lead_status(lead_id: int, status: str, db: Session = Depends(ge
     db.commit()
     db.refresh(lead)
     return lead
+
+
+_CADENCE_NUDGE_SUBJECT = {
+    "he": "זמן להזמין {world}? 🛒",
+    "en": "Time to order {world}? 🛒",
+    "fr": "L'heure de commander {world} ? 🛒",
+    "yi": "צייט צו באשטעלן {world}? 🛒",
+}
+_CADENCE_NUDGE_BODY = {
+    "he": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><h2 style="color:#b8860b;">תזכורת — <span dir="ltr">TIVUTA</span></h2><p>שלום {name},</p><p>בדרך כלל אתם מזמינים {world} כל כ-{gap} ימים, ועברו כבר {days_since} ימים מההזמנה האחרונה שלכם. אולי הגיע הזמן להזמין שוב?</p><p><a href="{link}" style="color:#b8860b;">להזמנה</a></p></div>',
+    "en": "<p>Hi {name}, you usually order {world} about every {gap} days, and it's been {days_since} days since your last order. Maybe it's time to order again?</p><p><a href=\"{link}\">Order now</a></p>",
+    "fr": "<p>Bonjour {name}, vous commandez généralement {world} tous les {gap} jours environ, et cela fait {days_since} jours depuis votre dernière commande. C'est peut-être le moment de commander à nouveau ?</p><p><a href=\"{link}\">Commander</a></p>",
+    "yi": '<div dir="rtl" style="font-family:Arial,sans-serif;color:#111;"><p>שלום {name},</p><p>איר באשטעלט געווענליך {world} יעדע {gap} טעג, און עס זענען שוין אריבער {days_since} טעג פון אייער לעצטער הזמנה. אפשר איז שוין צייט צו באשטעלן נאכאמאל?</p><p><a href="{link}" style="color:#b8860b;">באשטעלן</a></p></div>',
+}
+_CADENCE_NUDGE_NOTIF_TITLE = {
+    "he": "זמן להזמין {world}?",
+    "en": "Time to order {world}?",
+    "fr": "L'heure de commander {world} ?",
+    "yi": "צייט צו באשטעלן {world}?",
+}
+_CADENCE_NUDGE_NOTIF_MESSAGE = {
+    "he": "עברו {days_since} ימים מההזמנה האחרונה שלך",
+    "en": "It's been {days_since} days since your last order",
+    "fr": "Cela fait {days_since} jours depuis votre dernière commande",
+    "yi": "עס זענען אריבער {days_since} טעג פון אייער לעצטער הזמנה",
+}
+MIN_CADENCE_DAYS_FOR_NUDGE = 3  # below this, orders are too frequent for a "cadence" nudge to mean anything
+
+
+def _send_order_cadence_nudges(db: Session) -> int:
+    """The "subscription, without building real recurring billing" nudge: for a gabbai whose past
+    orders (in a requires_gabbai world) fall into a fairly regular rhythm, and who is now overdue
+    relative to their OWN typical rhythm with no new order placed since, send a friendly reminder.
+    Personalized per-user (unlike POST /shopping-list/send-weekly-reminders' flat weekly nudge,
+    which fires for everyone with list items regardless of their actual ordering rhythm) — this is
+    what actually detects "you're late this week," not just "you have a list."
+
+    De-duplicated by checking for an existing order_cadence_nudge notification created since the
+    user's last order in THAT SPECIFIC vertical — safe to run this on a frequent (e.g. daily) cron
+    without re-nudging the same gap over and over, unlike the weekly reminder's own "no dedup"
+    trade-off. Notification has no vertical column, so the dedup check recovers the vertical from
+    the notification's own `link` (always "/world?slug={slug}" for this type) rather than adding
+    a schema column just for this.
+
+    Bucketed by (user, vertical), not just user: requires_gabbai is a free per-vertical admin
+    toggle (see schemas.VerticalUpdate), not limited to a single world — if a gabbai ever orders
+    from two different gabbai-enabled worlds, blending both into one cadence average would corrupt
+    the detected rhythm for both, and attributing the nudge to only the most-recent order's world
+    could reference the wrong one entirely. An order that itself mixes two gabbai-required worlds
+    (allowed by _resolve_orderer_context, which only rejects gabbai+non-gabbai mixes) contributes
+    to EVERY distinct vertical it contains, not just the first product found — otherwise the other
+    vertical's order history would look empty and never accrue a rhythm to become overdue against."""
+    orders = (
+        db.query(models.CustomerOrder)
+        .filter(models.CustomerOrder.orderer_role == "gabbai", models.CustomerOrder.status != "cancelled")
+        .options(selectinload(models.CustomerOrder.leads).selectinload(models.Lead.product), selectinload(models.CustomerOrder.user))
+        .order_by(models.CustomerOrder.created_at)
+        .all()
+    )
+    by_user_vertical: dict[tuple, list] = {}
+    for order in orders:
+        verticals_in_order = {
+            lead.product.vertical for lead in order.leads if lead.lead_type == "contact_request" and lead.product
+        }
+        for vertical_slug in verticals_in_order:
+            by_user_vertical.setdefault((order.user_id, vertical_slug), []).append(order)
+    if not by_user_vertical:
+        return 0
+
+    user_ids = {key[0] for key in by_user_vertical}
+    vertical_slugs = {key[1] for key in by_user_vertical}
+    users_by_id, verticals_by_slug = batch_users_and_verticals(db, user_ids, vertical_slugs)
+    # Batched once upfront (not per-candidate inside the loop) — the latest order_cadence_nudge
+    # notification timestamp per (user, vertical) pair, keyed off the slug embedded in `link`.
+    latest_nudge_at: dict[tuple, datetime] = {}
+    for notif in (
+        db.query(models.Notification)
+        .filter(models.Notification.user_id.in_(user_ids), models.Notification.type == "order_cadence_nudge")
+        .all()
+    ):
+        if not notif.link or "slug=" not in notif.link:
+            continue
+        key = (notif.user_id, notif.link.split("slug=", 1)[1])
+        if key not in latest_nudge_at or notif.created_at > latest_nudge_at[key]:
+            latest_nudge_at[key] = notif.created_at
+
+    now = datetime.utcnow()
+    email_sender = get_email_sender()
+    sent = 0
+    for (user_id, vertical_slug), user_orders in by_user_vertical.items():
+        if len(user_orders) < 2:
+            continue  # no rhythm to detect yet
+        gaps = [
+            (user_orders[i].created_at - user_orders[i - 1].created_at).days
+            for i in range(1, len(user_orders))
+        ]
+        avg_gap = sum(gaps) / len(gaps)
+        if avg_gap < MIN_CADENCE_DAYS_FOR_NUDGE:
+            continue
+        last_order = user_orders[-1]
+        days_since = (now - last_order.created_at).days
+        if days_since < avg_gap:
+            continue  # not due yet
+
+        user = users_by_id.get(user_id)
+        vertical = verticals_by_slug.get(vertical_slug)
+        if not user or not vertical:
+            continue
+        last_nudge = latest_nudge_at.get((user_id, vertical_slug))
+        if last_nudge and last_nudge > last_order.created_at:
+            continue  # already nudged for this specific gap — avoid re-nudging every cron run
+
+        locale = user.preferred_language or "he"
+        safe_name = html_escape(user.first_name)
+        safe_world = html_escape(resolve_vertical_label(vertical, locale))
+        link = f"{APP_BASE_URL}/{locale}/world?slug={vertical.slug}"
+        try:
+            email_sender.send(
+                to=user.email,
+                subject=_CADENCE_NUDGE_SUBJECT.get(locale, _CADENCE_NUDGE_SUBJECT["he"]).format(world=safe_world),
+                html_body=_CADENCE_NUDGE_BODY.get(locale, _CADENCE_NUDGE_BODY["he"]).format(
+                    name=safe_name, world=safe_world, gap=round(avg_gap), days_since=days_since, link=link
+                ),
+                locale=locale,
+            )
+        except Exception:
+            pass
+        db.add(models.Notification(
+            user_id=user_id,
+            type="order_cadence_nudge",
+            title=_CADENCE_NUDGE_NOTIF_TITLE.get(locale, _CADENCE_NUDGE_NOTIF_TITLE["he"]).format(world=safe_world),
+            message=_CADENCE_NUDGE_NOTIF_MESSAGE.get(locale, _CADENCE_NUDGE_NOTIF_MESSAGE["he"]).format(days_since=days_since),
+            locale=locale,
+            link=f"/world?slug={vertical.slug}",
+        ))
+        sent += 1
+    db.commit()
+    return sent
+
+
+@router.post("/admin/leads/send-cadence-nudges", dependencies=[Depends(get_current_admin)])
+def admin_send_order_cadence_nudges(db: Session = Depends(get_db)):
+    """Manual "send nudges now" trigger — same effect as the daily cron, for an admin who wants
+    to check the feature works or nudge everyone without waiting for the scheduled run."""
+    sent = _send_order_cadence_nudges(db)
+    return {"sent": sent}
+
+
+@router.post("/api/leads/send-cadence-nudges")
+def cron_send_order_cadence_nudges(request: Request, db: Session = Depends(get_db)):
+    """Cron endpoint — called by GitHub Actions daily (cadence varies per user, so this needs a
+    more frequent check than the flat weekly shopping-list reminder). Same
+    Authorization: Bearer <CRON_SECRET> check as every other cron-triggered endpoint."""
+    verify_cron_secret(request)
+    sent = _send_order_cadence_nudges(db)
+    return {"sent": sent}

@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional, Set, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -24,6 +24,24 @@ def validate_vertical_slug(db: Session, slug: str) -> None:
     )
     if not exists:
         raise HTTPException(status_code=400, detail=f"Unknown or inactive vertical: {slug}")
+
+
+def resolve_vertical_label(vertical: models.Vertical, locale: str) -> str:
+    """Shared by leads.py and shopping_list.py's reminder emails — the recipient's own preferred
+    language's label, falling back to Hebrew for a locale the vertical has no translation for.
+    Kept in one place so the fallback rule can't drift between the two reminder features."""
+    return getattr(vertical, f"label_{locale}", None) or vertical.label_he
+
+
+def batch_users_and_verticals(
+    db: Session, user_ids: Set[int], vertical_slugs: Set[str]
+) -> Tuple[Dict[int, models.User], Dict[str, models.Vertical]]:
+    """Shared by the two per-(user, vertical) reminder/nudge cron jobs (leads.py's
+    _send_order_cadence_nudges, shopping_list.py's _send_weekly_shopping_list_reminders) — one
+    batched fetch upfront instead of querying User/Vertical inside each candidate's loop iteration."""
+    users_by_id = {u.id: u for u in db.query(models.User).filter(models.User.id.in_(user_ids)).all()}
+    verticals_by_slug = {v.slug: v for v in db.query(models.Vertical).filter(models.Vertical.slug.in_(vertical_slugs)).all()}
+    return users_by_id, verticals_by_slug
 
 
 def _notify_and_redeploy(vertical: models.Vertical, action: str) -> None:

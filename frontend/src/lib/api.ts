@@ -547,6 +547,15 @@ export async function getProduct(token: MaybeToken, id: number) {
     return res.json();
 }
 
+// "Customers who bought this also bought..." — cross-customer co-purchase, not personal history
+// (see getMyPurchaseHistory for that). Tolerant of failure: an empty/missing recommendation strip
+// degrades gracefully, same convention as getFavoriteIds/getMyOrders.
+export async function getComplementaryProducts(token: MaybeToken, productId: number): Promise<Product[]> {
+    const res = await fetch(`${BASE_URL}/products/${productId}/complementary`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
 export async function getAllProductIds(): Promise<{ id: number }[]> {
     try {
         const res = await fetch(`${BASE_URL}/products`, { signal: AbortSignal.timeout(8000), next: { revalidate: 0 } });
@@ -1658,6 +1667,17 @@ export async function adminSendShoppingListReminders(token: string): Promise<{ s
     return res.json();
 }
 
+// Personalized "you're overdue relative to your own usual rhythm" nudge — distinct from the flat
+// weekly shopping-list reminder above.
+export async function adminSendCadenceNudges(token: string): Promise<{ sent: number }> {
+    const res = await fetch(`${BASE_URL}/admin/leads/send-cadence-nudges`, {
+        method: 'POST',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) throw new Error('Failed to send reminders');
+    return res.json();
+}
+
 export async function adminSendAppointmentReminder(token: string, leadId: number) {
     const res = await fetch(`${BASE_URL}/admin/leads/${leadId}/send-appointment-reminder`, {
         method: 'POST',
@@ -1847,11 +1867,13 @@ export async function getMyPurchaseHistory(token: string, vertical?: string): Pr
     return res.json();
 }
 
-// ── Shopping list — a user's own saved, editable per-vertical list (e.g. a gabbai's recurring
-// weekly Kiddush order). See Vertical.enables_shopping_list. No "checked" field — which rows are
-// selected to add to the cart is transient frontend state, never persisted. ────────────────────────
+// ── Shopping lists — a user's own saved, editable, NAMED lists per vertical (e.g. a gabbai's
+// "Shabbat list" and separate "Chag list" for a recurring Kiddush order). A user can have several
+// lists per vertical. See Vertical.enables_shopping_list. No "checked" field on an item — which
+// rows are selected to add to the cart is transient frontend state, never persisted. ───────────
 export interface ShoppingListItem {
     id: number;
+    shopping_list_id: number;
     product_id: number;
     product_title_he: string;
     product_title_en?: string | null;
@@ -1867,23 +1889,71 @@ export interface ShoppingListItem {
     created_at: string;
 }
 
-export async function getShoppingList(token: string, vertical: string): Promise<ShoppingListItem[]> {
-    const res = await fetch(`${BASE_URL}/shopping-list?vertical=${encodeURIComponent(vertical)}`, { headers: authHeaders(token) });
+export interface ShoppingListSummary {
+    id: number;
+    name: string;
+    item_count: number;
+    created_at: string;
+}
+
+export interface ShoppingListDetail {
+    id: number;
+    name: string;
+    vertical: string;
+    items: ShoppingListItem[];
+}
+
+// Auto-creates+seeds the user's first list from purchase history if they have none yet for this
+// vertical — see the backend docstring for why a SECOND list created afterward never auto-seeds.
+export async function getShoppingLists(token: string, vertical: string): Promise<ShoppingListSummary[]> {
+    const res = await fetch(`${BASE_URL}/shopping-lists?vertical=${encodeURIComponent(vertical)}`, { headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to load shopping lists');
+    return res.json();
+}
+
+export async function createShoppingList(token: string, vertical: string, name: string): Promise<ShoppingListSummary> {
+    const res = await fetch(`${BASE_URL}/shopping-lists?vertical=${encodeURIComponent(vertical)}`, {
+        method: 'POST',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('Failed to create shopping list');
+    return res.json();
+}
+
+export async function getShoppingListDetail(token: string, listId: number): Promise<ShoppingListDetail> {
+    const res = await fetch(`${BASE_URL}/shopping-lists/${listId}`, { headers: authHeaders(token) });
     if (!res.ok) throw new Error('Failed to load shopping list');
     return res.json();
 }
 
+export async function renameShoppingList(token: string, listId: number, name: string): Promise<ShoppingListSummary> {
+    const res = await fetch(`${BASE_URL}/shopping-lists/${listId}`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('Failed to rename shopping list');
+    return res.json();
+}
+
+export async function deleteShoppingList(token: string, listId: number): Promise<void> {
+    const res = await fetch(`${BASE_URL}/shopping-lists/${listId}`, { method: 'DELETE', headers: authHeaders(token) });
+    if (!res.ok) throw new Error('Failed to delete shopping list');
+}
+
 // Bare id list, mirrors getFavoriteIds() exactly — for cheaply marking "on my list" badges on
-// product tiles. Returns [] rather than throwing on failure, same tolerant-GET convention as
-// getFavoriteIds/getMyOrders, since a badge silently not showing is a fine degradation.
+// product tiles. Union across ALL of the user's lists for this vertical (a badge doesn't need to
+// know which specific list). Returns [] rather than throwing on failure, same tolerant-GET
+// convention as getFavoriteIds/getMyOrders, since a badge silently not showing is a fine degradation.
 export async function getShoppingListIds(token: string, vertical: string): Promise<number[]> {
     const res = await fetch(`${BASE_URL}/shopping-list/ids?vertical=${encodeURIComponent(vertical)}`, { headers: authHeaders(token) });
     if (!res.ok) return [];
     return res.json();
 }
 
-export async function refreshShoppingList(token: string, vertical: string): Promise<ShoppingListItem[]> {
-    const res = await fetch(`${BASE_URL}/shopping-list/refresh?vertical=${encodeURIComponent(vertical)}`, {
+export async function refreshShoppingList(token: string, listId: number): Promise<ShoppingListDetail> {
+    const res = await fetch(`${BASE_URL}/shopping-lists/${listId}/refresh`, {
         method: 'POST',
         headers: authHeaders(token),
     });
@@ -1893,9 +1963,9 @@ export async function refreshShoppingList(token: string, vertical: string): Prom
 
 // Wholesale replace — "save current cart as my shopping list" (cart/page.tsx).
 export async function replaceShoppingList(
-    token: string, vertical: string, items: { product_id: number; quantity: number }[]
-): Promise<ShoppingListItem[]> {
-    const res = await fetch(`${BASE_URL}/shopping-list?vertical=${encodeURIComponent(vertical)}`, {
+    token: string, listId: number, items: { product_id: number; quantity: number }[]
+): Promise<ShoppingListDetail> {
+    const res = await fetch(`${BASE_URL}/shopping-lists/${listId}`, {
         method: 'PUT',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ items }),
@@ -1904,8 +1974,8 @@ export async function replaceShoppingList(
     return res.json();
 }
 
-export async function addShoppingListItem(token: string, productId: number, quantity: number = 1): Promise<ShoppingListItem> {
-    const res = await fetch(`${BASE_URL}/shopping-list/items`, {
+export async function addShoppingListItem(token: string, listId: number, productId: number, quantity: number = 1): Promise<ShoppingListItem> {
+    const res = await fetch(`${BASE_URL}/shopping-lists/${listId}/items`, {
         method: 'POST',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_id: productId, quantity }),
@@ -1915,7 +1985,7 @@ export async function addShoppingListItem(token: string, productId: number, quan
 }
 
 export async function updateShoppingListItem(token: string, itemId: number, quantity: number): Promise<ShoppingListItem> {
-    const res = await fetch(`${BASE_URL}/shopping-list/items/${itemId}`, {
+    const res = await fetch(`${BASE_URL}/shopping-list-items/${itemId}`, {
         method: 'PATCH',
         headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity }),
@@ -1925,7 +1995,7 @@ export async function updateShoppingListItem(token: string, itemId: number, quan
 }
 
 export async function removeShoppingListItem(token: string, itemId: number): Promise<void> {
-    await fetch(`${BASE_URL}/shopping-list/items/${itemId}`, { method: 'DELETE', headers: authHeaders(token) });
+    await fetch(`${BASE_URL}/shopping-list-items/${itemId}`, { method: 'DELETE', headers: authHeaders(token) });
 }
 
 // ── Loyalty program: customer card / points history / physical card request ─
