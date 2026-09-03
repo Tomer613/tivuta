@@ -51,6 +51,43 @@ def register_gabbai(
     return current_user
 
 
+@router.delete("/users/me/register-gabbai", response_model=schemas.UserRead)
+def deactivate_gabbai(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Self-service "stop being a gabbai" — flips is_gabbai off only. Deliberately does NOT clear
+    gabbai_community_name/synagogue_address/contact_name/contact_phone: nothing reads those fields
+    while is_gabbai=False (the profile page's registered view and the checkout gate both key off
+    is_gabbai, not field presence), so leaving them in place just means re-registering later
+    pre-fills the same details instead of starting blank. Past orders are entirely unaffected —
+    CustomerOrder.orderer_role/gabbai_*_snapshot are captured once at checkout time
+    (_resolve_orderer_context, leads.py) and never re-derived from this live row."""
+    current_user.is_gabbai = False
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.get("/users/me/gabbai-community-suggestions", response_model=List[str])
+def gabbai_community_suggestions(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Suggestions for the gabbai registration form's community-name field — free text stays free
+    text, this only helps two gabbaim spell the same community consistently so an admin's
+    per-community order filter (admin/orders) actually groups them together. Only currently active
+    gabbaim's names are offered — a deactivated user's now-stale name (left in place, see
+    deactivate_gabbai above) is intentionally excluded."""
+    rows = (
+        db.query(models.User.gabbai_community_name)
+        .filter(models.User.is_gabbai == True, models.User.gabbai_community_name.isnot(None))
+        .distinct()
+        .all()
+    )
+    return sorted({r[0] for r in rows if r[0]})
+
+
 @router.get("/users/dashboard", response_model=schemas.DashboardData)
 def get_user_dashboard(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     """

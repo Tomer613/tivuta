@@ -7,8 +7,8 @@ def _login(client, email, password="testpass123"):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _make_vertical(db_session, slug, enables_shopping_list=True):
-    vertical = models.Vertical(slug=slug, label_he=slug, enables_shopping_list=enables_shopping_list)
+def _make_vertical(db_session, slug, enables_shopping_list=True, requires_gabbai=False):
+    vertical = models.Vertical(slug=slug, label_he=slug, enables_shopping_list=enables_shopping_list, requires_gabbai=requires_gabbai)
     db_session.add(vertical)
     db_session.commit()
     db_session.refresh(vertical)
@@ -598,3 +598,32 @@ def test_weekly_reminder_uses_the_real_world_name_and_recipient_locale(client, d
     assert notif.locale == "en"
     assert "Catering" in notif.title  # the real world name, in the recipient's own language
     assert "Kiddush" not in notif.title  # never hardcoded to a specific world
+
+
+def test_weekly_reminder_skips_a_deactivated_gabbais_list_in_a_gabbai_only_world(client, db_session, make_user):
+    """A user who has since turned off is_gabbai can no longer check out from a requires_gabbai
+    world at all — nudging them to "order this week" for a leftover list there would be actively
+    misleading. An active gabbai's list in the same world must still send normally."""
+    _make_vertical(db_session, "kiddush", requires_gabbai=True)
+    product = _make_product(db_session, "kiddush")
+    admin_headers = _make_admin_headers(client, make_user, email="gatedreminderadmin@example.com")
+
+    active = make_user(email="activegabbaireminder@example.com", password="testpass123", is_gabbai=True)
+    active_headers = _login(client, "activegabbaireminder@example.com")
+    active_list_id = _solo_list(client, active_headers, "kiddush")["id"]
+    client.post(f"/shopping-lists/{active_list_id}/items", json={"product_id": product.id, "quantity": 1}, headers=active_headers)
+
+    deactivated = make_user(email="deactivatedgabbaireminder@example.com", password="testpass123", is_gabbai=False)
+    deactivated_headers = _login(client, "deactivatedgabbaireminder@example.com")
+    deactivated_list_id = _solo_list(client, deactivated_headers, "kiddush")["id"]
+    client.post(f"/shopping-lists/{deactivated_list_id}/items", json={"product_id": product.id, "quantity": 1}, headers=deactivated_headers)
+
+    resp = client.post("/admin/shopping-list/send-weekly-reminders", headers=admin_headers)
+    assert resp.json() == {"sent": 1}
+
+    assert db_session.query(models.Notification).filter(
+        models.Notification.user_id == active.id, models.Notification.type == "shopping_list_reminder"
+    ).first() is not None
+    assert db_session.query(models.Notification).filter(
+        models.Notification.user_id == deactivated.id, models.Notification.type == "shopping_list_reminder"
+    ).first() is None

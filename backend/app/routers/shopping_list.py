@@ -12,7 +12,7 @@ from ..security import get_current_admin, get_current_user, get_db, verify_cron_
 from ..services import get_email_sender
 from ..services.purchase_history import get_user_purchase_history
 from .products import resolve_active_quantity_discount_fields
-from .verticals import batch_users_and_verticals, resolve_vertical_label
+from .verticals import batch_users_and_verticals, resolve_vertical_label, user_can_use_gabbai_vertical
 
 router = APIRouter(tags=["shopping_list"])
 
@@ -470,6 +470,11 @@ def _send_weekly_shopping_list_reminders(db: Session) -> int:
         user = users_by_id.get(lst.user_id)
         vertical = verticals_by_slug.get(lst.vertical)
         if not user or not vertical:
+            continue
+        if not user_can_use_gabbai_vertical(vertical, user):
+            # A leftover list in a gabbai-only world for someone who has since deactivated gabbai
+            # status — they can no longer check out from this world at all, so nudging them to
+            # "order this week" would be actively misleading.
             continue
         locale = user.preferred_language or "he"
         count = counts_by_list_id[lst.id]

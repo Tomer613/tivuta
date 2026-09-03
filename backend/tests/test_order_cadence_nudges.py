@@ -210,3 +210,25 @@ def test_cadence_nudge_tracks_every_vertical_within_a_mixed_order(client, db_ses
         n.link for n in db_session.query(models.Notification).filter(models.Notification.type == "order_cadence_nudge").all()
     }
     assert links == {"/world?slug=kiddush", "/world?slug=flowers"}
+
+
+def test_cadence_nudge_skips_a_user_who_has_since_deactivated_gabbai_status(client, db_session, make_user):
+    """A user's past gabbai orders still establish a rhythm in the data, but if they've since
+    turned off is_gabbai, nudging them to place another gabbai order they've opted out of would be
+    wrong — same overdue rhythm as test_cadence_nudge_sent_when_overdue_relative_to_own_rhythm,
+    but no nudge should fire here."""
+    vertical = _make_gabbai_vertical(db_session)
+    product = _make_product(db_session, vertical.slug)
+    user = make_user(email="formergabbai@example.com", password="testpass123", is_gabbai=True)
+    headers = _login(client, "formergabbai@example.com")
+    admin_headers = _make_admin_headers(client, make_user, email="cadenceadmin8@example.com")
+
+    _place_gabbai_order(client, headers, product.id, days_ago=17, db_session=db_session)
+    _place_gabbai_order(client, headers, product.id, days_ago=10, db_session=db_session)
+
+    user.is_gabbai = False
+    db_session.commit()
+
+    resp = client.post("/admin/leads/send-cadence-nudges", headers=admin_headers)
+    assert resp.status_code == 200
+    assert resp.json() == {"sent": 0}

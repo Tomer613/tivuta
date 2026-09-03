@@ -167,6 +167,7 @@ export default function AdminOrdersPage() {
     const [filterStatus, setFilterStatus] = useState('');
     const [filterVertical, setFilterVertical] = useState('');
     const [filterType, setFilterType] = useState('');
+    const [filterCommunity, setFilterCommunity] = useState('');
     const [view, setView] = useState<'table' | 'calendar' | 'kanban'>('table');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [updatingLineId, setUpdatingLineId] = useState<number | null>(null);
@@ -188,7 +189,7 @@ export default function AdminOrdersPage() {
     const VERTICAL_LABEL: Record<string, string> = Object.fromEntries(verticals.map((v) => [v.slug, v.label_he]));
     // Cleared whenever the active filters change, so a bulk action can never silently act on
     // line items that scrolled out of view.
-    const { selectedIds, toggleSelect, toggleSelectAll, clear: clearSelection } = useBulkSelection(`${search}|${filterStatus}|${filterVertical}|${filterType}`);
+    const { selectedIds, toggleSelect, toggleSelectAll, clear: clearSelection } = useBulkSelection(`${search}|${filterStatus}|${filterVertical}|${filterType}|${filterCommunity}`);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -212,19 +213,27 @@ export default function AdminOrdersPage() {
         return counts;
     }, [orders]);
 
+    // Only populated once any gabbai orders exist — the dropdown itself stays hidden otherwise,
+    // matching this codebase's "invisible until relevant" convention for admin-only filters.
+    const communityOptions = useMemo(
+        () => Array.from(new Set(orders.map((o) => o.gabbai_community_name_snapshot).filter((v): v is string => !!v))).sort(),
+        [orders]
+    );
+
     const filteredOrders = useMemo(() => {
         return orders.filter((order) => {
             if (search) {
                 const q = search.toLowerCase();
-                const hay = `${order.user_name} ${order.user_email} ${order.items.map((i) => i.product_title_he).join(' ')}`.toLowerCase();
+                const hay = `${order.user_name} ${order.user_email} ${order.items.map((i) => i.product_title_he).join(' ')} ${order.gabbai_community_name_snapshot ?? ''} ${order.gabbai_synagogue_address_snapshot ?? ''}`.toLowerCase();
                 if (!hay.includes(q)) return false;
             }
             if (filterStatus && !order.items.some((i) => i.status === filterStatus)) return false;
             if (filterVertical && !order.items.some((i) => i.product_vertical === filterVertical)) return false;
             if (filterType && !order.items.some((i) => i.lead_type === filterType)) return false;
+            if (filterCommunity && order.gabbai_community_name_snapshot !== filterCommunity) return false;
             return true;
         });
-    }, [orders, search, filterStatus, filterVertical, filterType]);
+    }, [orders, search, filterStatus, filterVertical, filterType, filterCommunity]);
 
     const toFlatLines = (list: CustomerOrder[]): FlatLine[] => list.flatMap((o) =>
         o.items.map((i) => ({ ...i, order_number: o.order_number, user_name: o.user_name, user_email: o.user_email, user_phone: o.user_phone }))
@@ -482,7 +491,7 @@ export default function AdminOrdersPage() {
             {/* Filters */}
             <div className="flex flex-wrap gap-3 mb-6">
                 <input
-                    placeholder="חיפוש שם / מייל / מוצר..."
+                    placeholder="חיפוש שם / מייל / מוצר / קהילה..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3] w-56"
@@ -499,6 +508,12 @@ export default function AdminOrdersPage() {
                     <option value="">כל הסוגים</option>
                     {Object.entries(TYPE_LABEL).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
                 </select>
+                {communityOptions.length > 0 && (
+                    <select value={filterCommunity} onChange={(e) => setFilterCommunity(e.target.value)} className="bg-[#0e1628] border border-[#d4af37]/20 rounded-xl px-4 py-2 text-sm text-[#f0e6d3]">
+                        <option value="">כל הקהילות</option>
+                        {communityOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                )}
             </div>
 
             {loading ? (

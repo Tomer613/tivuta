@@ -16,7 +16,7 @@ from ..services.orders import cancel_order
 from ..services.pricing import compute_effective_unit_price
 from ..services.purchase_history import get_user_purchase_history
 from .products import resolve_active_quantity_discount_fields
-from .verticals import batch_users_and_verticals, resolve_vertical_label
+from .verticals import batch_users_and_verticals, resolve_vertical_label, user_can_use_gabbai_vertical
 
 router = APIRouter(tags=["leads"])
 
@@ -1205,6 +1205,15 @@ def _send_order_cadence_nudges(db: Session) -> int:
     email_sender = get_email_sender()
     sent = 0
     for (user_id, vertical_slug), user_orders in by_user_vertical.items():
+        user = users_by_id.get(user_id)
+        vertical = verticals_by_slug.get(vertical_slug)
+        if not user or not vertical:
+            continue
+        if not user_can_use_gabbai_vertical(vertical, user):
+            # Deactivated since these past orders were placed — their old ordering rhythm
+            # shouldn't nudge them to place another gabbai order they've opted out of. Checked
+            # before the (cheap, but pointless for a skipped candidate) rhythm arithmetic below.
+            continue
         if len(user_orders) < 2:
             continue  # no rhythm to detect yet
         gaps = [
@@ -1219,10 +1228,6 @@ def _send_order_cadence_nudges(db: Session) -> int:
         if days_since < avg_gap:
             continue  # not due yet
 
-        user = users_by_id.get(user_id)
-        vertical = verticals_by_slug.get(vertical_slug)
-        if not user or not vertical:
-            continue
         last_nudge = latest_nudge_at.get((user_id, vertical_slug))
         if last_nudge and last_nudge > last_order.created_at:
             continue  # already nudged for this specific gap — avoid re-nudging every cron run

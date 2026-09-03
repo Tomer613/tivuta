@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
 import {
     updateUserProfile, getMyActivity, changePassword, getFavorites, removeFavorite, getMyAppointments, getMyOrders, getMyCustomerOrders, updateNotificationPrefs, updatePreferredLanguage, productImageUrl,
-    getMyPointsHistory, createCardOrder, registerGabbai, getShoppingLists, getProductsByIds, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
+    getMyPointsHistory, createCardOrder, registerGabbai, deactivateGabbai, getGabbaiCommunitySuggestions, getShoppingLists, getProductsByIds, PointsLedgerEntry, ShippingAddress, MyOrder, RecentlyViewedProduct, GabbaiRegistrationPayload,
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import {
@@ -64,6 +64,8 @@ const tr: Record<string, Record<string, string>> = {
         gabbai_registered_status: 'רשום/ה כגבאי ✓',
         gabbai_edit: 'עריכת פרטים',
         gabbai_error: 'שגיאה בשמירת הפרטים',
+        gabbai_deactivate_cta: 'ביטול רישום כגבאי',
+        gabbai_deactivate_confirm: 'ההזמנות וההיסטוריה שלך יישמרו — ניתן להירשם מחדש בכל עת. לבטל את הרישום כגבאי?',
         activity_title: 'היסטוריית פעילות',
         no_activity: 'טרם בוצעו פניות.',
         lead_appointment: 'פגישה', lead_contact: 'פנייה', lead_other: 'בקשה', lead_card_order: 'הזמנת כרטיס',
@@ -113,6 +115,8 @@ const tr: Record<string, Record<string, string>> = {
         gabbai_registered_status: 'Registered as gabbai ✓',
         gabbai_edit: 'Edit details',
         gabbai_error: 'Failed to save details',
+        gabbai_deactivate_cta: 'Cancel gabbai registration',
+        gabbai_deactivate_confirm: 'Your orders and history will be kept — you can register again anytime. Cancel your gabbai registration?',
         activity_title: 'Activity history',
         no_activity: 'No activity yet.',
         lead_appointment: 'Appointment', lead_contact: 'Contact', lead_other: 'Request', lead_card_order: 'Card Order',
@@ -162,6 +166,8 @@ const tr: Record<string, Record<string, string>> = {
         gabbai_registered_status: 'Inscrit comme gabbaï ✓',
         gabbai_edit: 'Modifier les détails',
         gabbai_error: "Échec de l'enregistrement des détails",
+        gabbai_deactivate_cta: 'Annuler l\'inscription comme gabbaï',
+        gabbai_deactivate_confirm: 'Vos commandes et votre historique seront conservés — vous pouvez vous réinscrire à tout moment. Annuler votre inscription de gabbaï ?',
         activity_title: "Historique d'activité",
         no_activity: 'Aucune activité.',
         lead_appointment: 'Rendez-vous', lead_contact: 'Contact', lead_other: 'Demande', lead_card_order: 'Commande de carte',
@@ -211,6 +217,8 @@ const tr: Record<string, Record<string, string>> = {
         gabbai_registered_status: 'רעגיסטרירט אלס גבאי ✓',
         gabbai_edit: 'ענדערן פרטים',
         gabbai_error: 'טעות ביי אָפּשפּאַרן',
+        gabbai_deactivate_cta: 'אָפּזאָגן רעגיסטראציע אלס גבאי',
+        gabbai_deactivate_confirm: 'דיינע הזמנות און היסטאריע וועלן בלייבן — איר קענט זיך רעגיסטרירן ווידער יעדערצייט. אָפּזאָגן די רעגיסטראציע אלס גבאי?',
         activity_title: 'פּעולה היסטאָריע',
         no_activity: 'קיין פּעולות נאָך ניט.',
         lead_appointment: 'פּגישה', lead_contact: 'פּנייה', lead_other: 'בקשה', lead_card_order: 'הזמנת כרטיס',
@@ -404,6 +412,8 @@ export default function ProfileClient() {
     const [gabbaiForm, setGabbaiForm] = useState<GabbaiRegistrationPayload>({ community_name: '', synagogue_address: '', contact_name: '', contact_phone: '' });
     const [gabbaiState, setGabbaiState] = useState<'idle' | 'submitting' | 'error'>('idle');
     const [gabbaiError, setGabbaiError] = useState('');
+    const [gabbaiDeactivating, setGabbaiDeactivating] = useState(false);
+    const [gabbaiCommunitySuggestions, setGabbaiCommunitySuggestions] = useState<string[]>([]);
     const [shoppingListCounts, setShoppingListCounts] = useState<Record<string, number>>({});
 
     useEffect(() => {
@@ -460,6 +470,11 @@ export default function ProfileClient() {
         if (!user) return;
         Promise.resolve().then(() => setCardOrderForm((f) => ({ ...f, full_name: f.full_name || `${user.first_name} ${user.last_name}`.trim(), phone: f.phone || user.phone || '' })));
     }, [user]);
+
+    useEffect(() => {
+        if (!token || !showGabbaiForm) return;
+        getGabbaiCommunitySuggestions(token).then(setGabbaiCommunitySuggestions).catch(() => setGabbaiCommunitySuggestions([]));
+    }, [token, showGabbaiForm]);
 
     useEffect(() => {
         if (!user || !user.is_gabbai) return;
@@ -561,6 +576,24 @@ export default function ProfileClient() {
         } catch (err) {
             setGabbaiError(getErrorMessage(err, t.gabbai_error));
             setGabbaiState('error');
+        }
+    };
+
+    const handleDeactivateGabbai = async () => {
+        if (!token) return;
+        if (!window.confirm(t.gabbai_deactivate_confirm)) return;
+        setGabbaiDeactivating(true);
+        setGabbaiError('');
+        try {
+            await deactivateGabbai(token);
+            await login(token);
+        } catch (err) {
+            // Surfaced via the same gabbaiError state handleSubmitGabbai uses, so a failure here
+            // is just as visible as a failed registration — a silent no-op would otherwise leave
+            // the user believing they're deactivated when the server never actually changed it.
+            setGabbaiError(getErrorMessage(err, t.gabbai_error));
+        } finally {
+            setGabbaiDeactivating(false);
         }
     };
 
@@ -1167,27 +1200,43 @@ export default function ProfileClient() {
                         {t.gabbai_section_title}
                     </h2>
                     {user?.is_gabbai && !showGabbaiForm ? (
-                        <div className="flex items-start gap-3 bg-[#111a2f] rounded-xl px-4 py-3">
+                        <div>
+                            {gabbaiError && <p className="text-red-400 text-xs mb-2">{gabbaiError}</p>}
+                            <div className="flex items-start gap-3 bg-[#111a2f] rounded-xl px-4 py-3">
                             <CheckCircle2 size={18} className="text-green-400 shrink-0 mt-0.5" />
                             <div className="min-w-0 flex-1">
                                 <p className="text-sm font-semibold text-[#f0e6d3]">{t.gabbai_registered_status}</p>
                                 {user.gabbai_community_name && <p className="text-xs text-[#f0e6d3]/50 mt-0.5">{user.gabbai_community_name}</p>}
                                 {user.gabbai_synagogue_address && <p className="text-xs text-[#f0e6d3]/40">{user.gabbai_synagogue_address}</p>}
                             </div>
-                            <button onClick={() => setShowGabbaiForm(true)} className="flex items-center gap-1.5 text-xs font-bold text-[#d4af37]/70 hover:text-[#d4af37] transition-colors shrink-0">
-                                <Pencil size={13} /> {t.gabbai_edit}
-                            </button>
+                            <div className="flex flex-col items-end gap-2 shrink-0">
+                                <button onClick={() => { setGabbaiError(''); setShowGabbaiForm(true); }} className="flex items-center gap-1.5 text-xs font-bold text-[#d4af37]/70 hover:text-[#d4af37] transition-colors">
+                                    <Pencil size={13} /> {t.gabbai_edit}
+                                </button>
+                                <button
+                                    onClick={handleDeactivateGabbai}
+                                    disabled={gabbaiDeactivating}
+                                    className="text-[11px] text-[#f0e6d3]/30 hover:text-red-400 transition-colors disabled:opacity-50"
+                                >
+                                    {t.gabbai_deactivate_cta}
+                                </button>
+                            </div>
+                            </div>
                         </div>
                     ) : showGabbaiForm ? (
                         <form onSubmit={handleSubmitGabbai} className="space-y-3">
                             {gabbaiError && <p className="text-red-400 text-xs">{gabbaiError}</p>}
                             <input
                                 required
+                                list="gabbai-community-suggestions"
                                 value={gabbaiForm.community_name}
                                 onChange={(e) => setGabbaiForm({ ...gabbaiForm, community_name: e.target.value })}
                                 placeholder={t.gabbai_community_name}
                                 className="input-field !py-2.5 !text-sm"
                             />
+                            <datalist id="gabbai-community-suggestions">
+                                {gabbaiCommunitySuggestions.map((name) => <option key={name} value={name} />)}
+                            </datalist>
                             <input
                                 required
                                 value={gabbaiForm.synagogue_address}

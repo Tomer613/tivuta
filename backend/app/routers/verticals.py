@@ -44,6 +44,19 @@ def batch_users_and_verticals(
     return users_by_id, verticals_by_slug
 
 
+def user_can_use_gabbai_vertical(vertical: models.Vertical, user: models.User) -> bool:
+    """A user is eligible to actively use a `requires_gabbai` world only while they're currently
+    is_gabbai — a user who has since self-deactivated (see users.py's deactivate_gabbai) must never
+    be treated as eligible just because their past orders/lists were placed while they still were.
+    A non-`requires_gabbai` vertical is always fine regardless of gabbai status. Shared by both
+    reminder/nudge crons (leads.py's _send_order_cadence_nudges, shopping_list.py's
+    _send_weekly_shopping_list_reminders) so the eligibility rule can't drift between them — one of
+    the two call sites only ever sees already-gabbai-only orders in practice, but stating the rule
+    explicitly here means that stays true by construction, not by an unstated assumption at the
+    call site."""
+    return not vertical.requires_gabbai or user.is_gabbai
+
+
 def _notify_and_redeploy(vertical: models.Vertical, action: str) -> None:
     """Fires the GitHub Actions redeploy + an admin confirmation email. Both are best-effort:
     a GitHub API hiccup or email-provider outage should never fail the admin's save."""

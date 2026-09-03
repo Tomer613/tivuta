@@ -1013,6 +1013,28 @@ export async function registerGabbai(token: string, payload: GabbaiRegistrationP
     return res.json();
 }
 
+// Turns is_gabbai off only — the gabbai detail fields are deliberately left alone server-side so
+// re-registering later pre-fills them again (see backend/app/routers/users.py's deactivate_gabbai).
+export async function deactivateGabbai(token: string) {
+    const res = await fetch(`${BASE_URL}/users/me/register-gabbai`, {
+        method: 'DELETE',
+        headers: authHeaders(token),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to deactivate gabbai status');
+    }
+    return res.json();
+}
+
+// Suggestions for the community-name field — still free text, just helps two gabbaim spell the
+// same community consistently. Tolerant-empty-array on failure, same as other passive-read helpers.
+export async function getGabbaiCommunitySuggestions(token: string): Promise<string[]> {
+    const res = await fetch(`${BASE_URL}/users/me/gabbai-community-suggestions`, { headers: authHeaders(token) });
+    if (!res.ok) return [];
+    return res.json();
+}
+
 export async function getMyActivity(token: string) {
     const res = await fetch(`${BASE_URL}/users/me/activity`, { headers: authHeaders(token) });
     if (!res.ok) return [];

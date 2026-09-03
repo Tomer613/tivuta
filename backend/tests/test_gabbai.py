@@ -67,6 +67,97 @@ def test_register_gabbai_sets_flag_and_stores_fields_without_touching_role(clien
     assert data2["gabbai_contact_name"] is None  # not resent, so cleared per the upsert schema
 
 
+def test_deactivate_gabbai_clears_flag_but_preserves_fields_and_past_orders(client, db_session, make_user):
+    """The user's explicit concern: turning off is_gabbai must never touch order history. Verified
+    directly — a past order's snapshot fields are read straight from CustomerOrder, which is
+    captured once at checkout time and never re-derived from the live User row."""
+    _make_vertical(db_session, "kiddush", requires_gabbai=True)
+    product = _make_product(db_session, "kiddush")
+    make_user(email="willdeactivate@example.com", password="testpass123")
+    headers = _login(client, "willdeactivate@example.com")
+
+    client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "קהילת הבדיקה", "synagogue_address": "כתובת הבדיקה"},
+        headers=headers,
+    )
+    checkout = client.post(
+        "/leads/cart-checkout",
+        json={"items": [{"product_id": product.id, "quantity": 1}]},
+        headers=headers,
+    )
+    order_id = checkout.json()[0]["customer_order_id"]
+
+    resp = client.delete("/users/me/register-gabbai", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_gabbai"] is False
+    # Fields are deliberately left in place, not wiped, so re-registering later pre-fills them.
+    assert data["gabbai_community_name"] == "קהילת הבדיקה"
+
+    my_orders = client.get("/users/me/orders", headers=headers).json()
+    order = next(o for o in my_orders if o["id"] == order_id)
+    assert order["orderer_role"] == "gabbai"
+    assert order["gabbai_community_name_snapshot"] == "קהילת הבדיקה"
+
+    # No longer gabbai-eligible — a fresh checkout attempt from the same vertical is rejected.
+    blocked = client.post(
+        "/leads/cart-checkout",
+        json={"items": [{"product_id": product.id, "quantity": 1}]},
+        headers=headers,
+    )
+    assert blocked.status_code == 400
+
+
+def test_reregister_after_deactivating_prefills_the_old_community_name(client, db_session, make_user):
+    make_user(email="reregisterer@example.com", password="testpass123")
+    headers = _login(client, "reregisterer@example.com")
+
+    client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "קהילה ראשונה", "synagogue_address": "כתובת"},
+        headers=headers,
+    )
+    client.delete("/users/me/register-gabbai", headers=headers)
+
+    # Re-registering with the same details "succeeds" trivially, but the real point is that the
+    # field was never cleared in between — confirmed by reading it back before re-posting.
+    me = client.get("/users/me", headers=headers).json()
+    assert me["is_gabbai"] is False
+    assert me["gabbai_community_name"] == "קהילה ראשונה"
+
+    resp = client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "קהילה ראשונה", "synagogue_address": "כתובת"},
+        headers=headers,
+    )
+    assert resp.json()["is_gabbai"] is True
+
+
+def test_gabbai_community_suggestions_only_includes_currently_active_gabbaim(client, db_session, make_user):
+    make_user(email="activegabbai@example.com", password="testpass123")
+    active_headers = _login(client, "activegabbai@example.com")
+    client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "קהילה פעילה", "synagogue_address": "כתובת א"},
+        headers=active_headers,
+    )
+
+    make_user(email="deactivatedgabbai@example.com", password="testpass123")
+    deactivated_headers = _login(client, "deactivatedgabbai@example.com")
+    client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "קהילה לא פעילה", "synagogue_address": "כתובת ב"},
+        headers=deactivated_headers,
+    )
+    client.delete("/users/me/register-gabbai", headers=deactivated_headers)
+
+    resp = client.get("/users/me/gabbai-community-suggestions", headers=active_headers)
+    assert resp.status_code == 200
+    assert "קהילה פעילה" in resp.json()
+    assert "קהילה לא פעילה" not in resp.json()
+
+
 def test_admin_can_register_as_gabbai_too(client, db_session, make_user):
     """Regression test for the reported bug: an admin self-registering as gabbai used to silently
     no-op (role stayed "admin", is_gabbai never existed) because the old logic only promoted role
