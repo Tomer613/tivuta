@@ -103,9 +103,13 @@ class User(Base):
     customer_number = Column(String(24), unique=True, index=True, nullable=True)  # loyalty card serial, e.g. "TVT-XXXXXXXXXX"
     points_balance = Column(Integer, default=0, nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(String(20), default="member", nullable=False)  # "member" | "admin" | "gabbai"
-    # Gabbai (synagogue warden) self-service registration fields — populated once a "member"
-    # completes the gabbai registration form in their profile; role becomes "gabbai" at that point.
+    role = Column(String(20), default="member", nullable=False)  # "member" | "admin"
+    # Gabbai (synagogue warden) status is independent of `role` — an admin can also be a gabbai
+    # (e.g. a shul's owner/admin who is also its gabbai) without losing admin access, which a
+    # single exclusive role value couldn't represent. Set via self-service
+    # POST /users/me/register-gabbai or admin PATCH /admin/users/{id}/gabbai.
+    is_gabbai = Column(Boolean, default=False, nullable=False)
+    # Gabbai (synagogue warden) self-service registration fields — populated once is_gabbai=True.
     gabbai_community_name = Column(String(255), nullable=True)
     gabbai_synagogue_address = Column(String(255), nullable=True)
     gabbai_contact_name = Column(String(150), nullable=True)

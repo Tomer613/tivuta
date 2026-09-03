@@ -12,7 +12,8 @@ export interface User {
     first_name: string;
     last_name: string;
     phone?: string;
-    role?: 'member' | 'admin' | 'gabbai';
+    role?: 'member' | 'admin';
+    is_gabbai?: boolean;
     gender?: 'male' | 'female' | null;
     city?: string | null;
     birth_year?: number | null;

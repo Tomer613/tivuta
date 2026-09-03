@@ -1063,6 +1063,17 @@ export async function adminSetUserRole(token: string, userId: number, role: stri
     return res.json();
 }
 
+// Independent of role — an admin can also be flagged is_gabbai without losing admin access.
+export async function adminSetGabbaiStatus(token: string, userId: number, isGabbai: boolean) {
+    const res = await fetch(`${BASE_URL}/admin/users/${userId}/gabbai`, {
+        method: 'PATCH',
+        headers: { ...authHeaders(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_gabbai: isGabbai }),
+    });
+    if (!res.ok) throw new Error('Failed to set gabbai status');
+    return res.json();
+}
+
 export async function adminUnlockUser(token: string, userId: number) {
     const res = await fetch(`${BASE_URL}/admin/users/${userId}/unlock`, {
         method: 'PATCH',

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth, User } from '@/context/AuthContext';
-import { adminListUsers, adminCreateUser, adminUpdateUser, adminSetUserRole, adminDeleteUser, adminUnlockUser } from '@/lib/api';
+import { adminListUsers, adminCreateUser, adminUpdateUser, adminSetUserRole, adminSetGabbaiStatus, adminDeleteUser, adminUnlockUser } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { isAccountLocked } from '@/lib/useCountdown';
 import { LockedBadge, UnlockButton } from '@/components/admin/LockoutControls';
@@ -47,7 +47,13 @@ export default function AdminUsersPage() {
 
     const filtered = useMemo(() => {
         return users.filter((u) => {
-            if (filterRole && u.role !== filterRole) return false;
+            // "gabbai" is a separate flag now (is_gabbai), not a role value — filtered on its own
+            // rather than falling into the plain role === filterRole check below.
+            if (filterRole === 'gabbai') {
+                if (!u.is_gabbai) return false;
+            } else if (filterRole && u.role !== filterRole) {
+                return false;
+            }
             if (search) {
                 const q = search.toLowerCase();
                 if (!`${u.first_name} ${u.last_name} ${u.email} ${u.phone ?? ''}`.toLowerCase().includes(q)) return false;
@@ -59,8 +65,10 @@ export default function AdminUsersPage() {
     const counts = useMemo(() => ({
         total: users.length,
         admin: users.filter((u) => u.role === 'admin').length,
-        gabbai: users.filter((u) => u.role === 'gabbai').length,
-        member: users.filter((u) => u.role !== 'admin' && u.role !== 'gabbai').length,
+        gabbai: users.filter((u) => u.is_gabbai).length,
+        // "member" here means "not an admin" (a gabbai is still a member with an extra hat),
+        // matching the backend's own admin_member_count/admin_stats convention.
+        member: users.filter((u) => u.role !== 'admin').length,
     }), [users]);
 
     const applyRoleChange = async (u: User, nextRole: string) => {
@@ -77,13 +85,27 @@ export default function AdminUsersPage() {
 
     // A change into or out of "admin" grants/revokes real backend access — worth an explicit
     // confirm step (a misclick on the select is otherwise a one-action privilege change with no
-    // undo). member <-> gabbai is lower-stakes and applies immediately, same as before.
+    // undo).
     const handleRoleChange = (u: User, nextRole: string) => {
         if (!token || nextRole === (u.role || 'member')) return;
         if (nextRole === 'admin' || u.role === 'admin') {
             setPendingRoleChange({ userId: u.id, nextRole });
         } else {
             applyRoleChange(u, nextRole);
+        }
+    };
+
+    // Independent of role — an admin can also be flagged is_gabbai without losing admin access,
+    // so this is a plain toggle with no confirm step (unlike the admin role transition above).
+    const handleGabbaiToggle = async (u: User) => {
+        if (!token) return;
+        const next = !u.is_gabbai;
+        try {
+            await adminSetGabbaiStatus(token, u.id, next);
+            showToast(`סטטוס גבאי של ${u.first_name} ${next ? 'הופעל' : 'בוטל'} ✓`);
+            load();
+        } catch {
+            showToast('שגיאה בשינוי סטטוס גבאי', 'error');
         }
     };
 
@@ -217,21 +239,24 @@ export default function AdminUsersPage() {
                                 <tr key={u.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3] hover:bg-[#111a2f]/40 transition-colors">
                                     <td className="p-4 font-semibold">
                                         {u.first_name} {u.last_name}
-                                        {u.role === 'gabbai' && u.gabbai_community_name && (
+                                        {u.is_gabbai && u.gabbai_community_name && (
                                             <div className="text-xs font-normal text-[#f0e6d3]/40 mt-0.5">קהילה: {u.gabbai_community_name}</div>
                                         )}
                                     </td>
                                     <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{u.email}</td>
                                     <td className="p-4 text-sm text-[#f0e6d3]/70" dir="ltr">{u.phone || '—'}</td>
                                     <td className="p-4">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                                u.role === 'admin' ? 'bg-[#d4af37] text-[#080d1f]' :
-                                                u.role === 'gabbai' ? 'bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40' :
-                                                'bg-[#111a2f] text-[#f0e6d3]/60'
+                                                u.role === 'admin' ? 'bg-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] text-[#f0e6d3]/60'
                                             }`}>
                                                 {ROLE_LABEL[u.role || 'member']}
                                             </span>
+                                            {u.is_gabbai && (
+                                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/40">
+                                                    {ROLE_LABEL.gabbai}
+                                                </span>
+                                            )}
                                             {isAccountLocked(u.locked_until) && <LockedBadge />}
                                         </div>
                                     </td>
@@ -260,10 +285,21 @@ export default function AdminUsersPage() {
                                                     title="שינוי תפקיד"
                                                 >
                                                     <option value="member">חבר</option>
-                                                    <option value="gabbai">גבאי</option>
                                                     <option value="admin">מנהל</option>
                                                 </select>
                                             )}
+                                            {/* Independent of role — any account (admin included) can also be a gabbai */}
+                                            <button
+                                                onClick={() => handleGabbaiToggle(u)}
+                                                className={`px-2 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                                                    u.is_gabbai
+                                                        ? 'bg-[#d4af37]/20 text-[#d4af37] border-[#d4af37]/40'
+                                                        : 'bg-transparent text-[#f0e6d3]/40 border-[#d4af37]/20 hover:text-[#f0e6d3]'
+                                                }`}
+                                                title={u.is_gabbai ? 'בטל סטטוס גבאי' : 'הפוך לגבאי'}
+                                            >
+                                                גבאי{u.is_gabbai ? ' ✓' : ''}
+                                            </button>
                                             {/* Delete — only for members */}
                                             {u.role !== 'admin' && (
                                                 deletingId === u.id ? (

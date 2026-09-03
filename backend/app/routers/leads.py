@@ -123,7 +123,7 @@ def _resolve_orderer_context(db: Session, user: models.User, products: List[mode
         )
 
     if True in requires_gabbai_flags:
-        if user.role != "gabbai":
+        if not user.is_gabbai:
             raise HTTPException(status_code=400, detail="יש להשלים רישום כגבאי באזור האישי לפני הזמנה מעולם זה")
         return "gabbai", {
             "gabbai_community_name_snapshot": user.gabbai_community_name,

@@ -66,6 +66,7 @@ class UserCreate(UserBase):
 class UserRead(UserBase):
     id: int
     role: str = "member"
+    is_gabbai: bool = False
     gender: Optional[str] = None
     city: Optional[str] = None
     birth_year: Optional[int] = None
@@ -143,7 +144,11 @@ class UserProfileUpdate(BaseModel):
     membership_tracks: Optional[List[str]] = None
 
 class UserRoleUpdate(BaseModel):
-    role: str  # "member" | "admin" | "gabbai"
+    role: str  # "member" | "admin"
+
+
+class UserGabbaiStatusUpdate(BaseModel):
+    is_gabbai: bool
 
 class UserAdminUpdate(BaseModel):
     first_name: Optional[str] = None

@@ -128,7 +128,7 @@ export default function CartPage() {
     const hasGabbaiRequiredItem = items.some((i) => verticalsBySlug[i.vertical]?.requires_gabbai);
     const hasOrdinaryItem = items.some((i) => !verticalsBySlug[i.vertical]?.requires_gabbai);
     const mixedCartBlocked = hasGabbaiRequiredItem && hasOrdinaryItem;
-    const needsGabbaiRegistration = hasGabbaiRequiredItem && user?.role !== 'gabbai';
+    const needsGabbaiRegistration = hasGabbaiRequiredItem && !user?.is_gabbai;
     const allowsCustomNote = items.some((i) => verticalsBySlug[i.vertical]?.allows_custom_items_note);
     // Vertical.hide_prices — real prices still checkout/snapshot normally server-side, this only
     // suppresses the *display* here (same treatment an on-request/null-price item already gets).

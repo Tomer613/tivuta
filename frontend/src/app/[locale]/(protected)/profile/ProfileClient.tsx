@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth, User } from '@/context/AuthContext';
@@ -353,6 +353,12 @@ export default function ProfileClient() {
     const t = tr[locale] || tr.he;
     const { user, token, logout, login } = useAuth();
     const verticals = useVerticals();
+    // A gabbai-only world's shopping list is useless to a non-gabbai viewer (checkout would 400
+    // anyway) — filtered out here so its card never shows for someone who can't actually use it.
+    const eligibleShoppingListVerticals = useMemo(
+        () => verticals.filter((v) => v.enables_shopping_list && (!v.requires_gabbai || user?.is_gabbai)),
+        [verticals, user?.is_gabbai]
+    );
     const { addToCart } = useCart();
     const [reorderingId, setReorderingId] = useState<number | null>(null);
     const [reorderError, setReorderError] = useState<{ orderId: number; message: string } | null>(null);
@@ -438,7 +444,7 @@ export default function ProfileClient() {
     // same time as `token`.
     useEffect(() => {
         if (!token) return;
-        const shoppingListVerticals = verticals.filter((v) => v.enables_shopping_list);
+        const shoppingListVerticals = eligibleShoppingListVerticals;
         if (shoppingListVerticals.length === 0) return;
         // Sums item_count across all of the user's lists for each world — a world can now have
         // several named lists, so this total (not any single list's count) is what "how many
@@ -448,7 +454,7 @@ export default function ProfileClient() {
                 .then((lists) => [v.slug, lists.reduce((sum, l) => sum + l.item_count, 0)] as const)
                 .catch(() => [v.slug, 0] as const)
         )).then((entries) => setShoppingListCounts(Object.fromEntries(entries)));
-    }, [token, verticals]);
+    }, [token, eligibleShoppingListVerticals]);
 
     useEffect(() => {
         if (!user) return;
@@ -456,7 +462,7 @@ export default function ProfileClient() {
     }, [user]);
 
     useEffect(() => {
-        if (!user || user.role !== 'gabbai') return;
+        if (!user || !user.is_gabbai) return;
         Promise.resolve().then(() => setGabbaiForm({
             community_name: user.gabbai_community_name || '',
             synagogue_address: user.gabbai_synagogue_address || '',
@@ -897,11 +903,18 @@ export default function ProfileClient() {
                             <h1 className="text-2xl font-black text-[#f0e6d3]">
                                 {greeting}{user?.first_name ? `, ${user.first_name}` : ''}
                             </h1>
-                            <span className={`inline-block mt-1 px-3 py-0.5 rounded-full text-xs font-bold ${
-                                user?.role === 'admin' || user?.role === 'gabbai' ? 'bg-[#d4af37]/20 text-[#d4af37]' : 'bg-[#0e1628] text-[#f0e6d3]/50'
-                            }`}>
-                                {user?.role === 'admin' ? t.role_admin : user?.role === 'gabbai' ? t.role_gabbai : t.role_member}
-                            </span>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                <span className={`inline-block px-3 py-0.5 rounded-full text-xs font-bold ${
+                                    user?.role === 'admin' ? 'bg-[#d4af37]/20 text-[#d4af37]' : 'bg-[#0e1628] text-[#f0e6d3]/50'
+                                }`}>
+                                    {user?.role === 'admin' ? t.role_admin : t.role_member}
+                                </span>
+                                {user?.is_gabbai && (
+                                    <span className="inline-block px-3 py-0.5 rounded-full text-xs font-bold bg-[#d4af37]/20 text-[#d4af37]">
+                                        {t.role_gabbai}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -1153,7 +1166,7 @@ export default function ProfileClient() {
                         <Users size={14} className="text-[#d4af37]" />
                         {t.gabbai_section_title}
                     </h2>
-                    {user?.role === 'gabbai' && !showGabbaiForm ? (
+                    {user?.is_gabbai && !showGabbaiForm ? (
                         <div className="flex items-start gap-3 bg-[#111a2f] rounded-xl px-4 py-3">
                             <CheckCircle2 size={18} className="text-green-400 shrink-0 mt-0.5" />
                             <div className="min-w-0 flex-1">
@@ -1258,14 +1271,14 @@ export default function ProfileClient() {
                 </div>
 
                 {/* ── Shopping lists launcher — only for verticals with enables_shopping_list ── */}
-                {verticals.filter((v) => v.enables_shopping_list).length > 0 && (
+                {eligibleShoppingListVerticals.length > 0 && (
                     <div className="bg-[#0e1628] border border-[#d4af37]/20 rounded-2xl p-5">
                         <h2 className="font-black text-[#f0e6d3] text-sm mb-4 flex items-center gap-2">
                             <ListChecks size={14} className="text-[#d4af37]" />
                             {t.shopping_lists_title}
                         </h2>
                         <div className="space-y-3">
-                            {verticals.filter((v) => v.enables_shopping_list).map((v) => {
+                            {eligibleShoppingListVerticals.map((v) => {
                                 const localeKey = locale as 'he' | 'en' | 'fr' | 'yi';
                                 const label = v[`label_${localeKey}`] || v.label_he;
                                 const count = shoppingListCounts[v.slug] ?? 0;

@@ -36,12 +36,12 @@ def register_gabbai(
     db: Session = Depends(get_db),
 ):
     """Self-service gabbai registration — no admin approval needed, matching the codebase's other
-    instant self-service flows (e.g. card-order requests). Idempotent/upsert: the first call
-    promotes role "member" -> "gabbai"; later calls (editing community/synagogue details) just
-    update the fields in place without touching role again. An admin can also unset/reset a
-    user's role separately via PATCH /admin/users/{id}/role."""
-    if current_user.role == "member":
-        current_user.role = "gabbai"
+    instant self-service flows (e.g. card-order requests). Idempotent/upsert: sets is_gabbai=True
+    unconditionally (any role — member or admin — can self-register; is_gabbai is independent of
+    `role`, see models.User), then later calls (editing community/synagogue details) just update
+    the fields in place. An admin can also set/unset this separately via
+    PATCH /admin/users/{id}/gabbai."""
+    current_user.is_gabbai = True
     current_user.gabbai_community_name = payload.community_name
     current_user.gabbai_synagogue_address = payload.synagogue_address
     current_user.gabbai_contact_name = payload.contact_name
@@ -195,9 +195,22 @@ def admin_set_user_role(user_id: int, payload: schemas.UserRoleUpdate, db: Sessi
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if payload.role not in ("member", "admin", "gabbai"):
+    if payload.role not in ("member", "admin"):
         raise HTTPException(status_code=400, detail="Invalid role")
     user.role = payload.role
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.patch("/admin/users/{user_id}/gabbai", response_model=schemas.UserRead, dependencies=[Depends(get_current_admin)])
+def admin_set_user_gabbai_status(user_id: int, payload: schemas.UserGabbaiStatusUpdate, db: Session = Depends(get_db)):
+    """Sets gabbai status directly, independent of `role` — an admin account can be flagged
+    is_gabbai=True without losing admin access (see models.User)."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_gabbai = payload.is_gabbai
     db.commit()
     db.refresh(user)
     return user

@@ -28,7 +28,10 @@ def _make_product(db_session, vertical, title="מוצר בדיקה", price=100.0
     return product
 
 
-def test_register_gabbai_promotes_role_and_stores_fields(client, db_session, make_user):
+def test_register_gabbai_sets_flag_and_stores_fields_without_touching_role(client, db_session, make_user):
+    """is_gabbai is independent of role — registering as gabbai must never change a member's
+    role value (and, per test_admin_can_register_as_gabbai_too below, must work identically for
+    an admin without demoting them)."""
     make_user(email="gabbai1@example.com", password="testpass123")
     headers = _login(client, "gabbai1@example.com")
 
@@ -44,12 +47,13 @@ def test_register_gabbai_promotes_role_and_stores_fields(client, db_session, mak
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["role"] == "gabbai"
+    assert data["role"] == "member"
+    assert data["is_gabbai"] is True
     assert data["gabbai_community_name"] == "קהילת בדיקה"
     assert data["gabbai_synagogue_address"] == "רחוב הדוגמה 1, ירושלים"
 
-    # Calling again (editing details) updates the fields but keeps role == "gabbai" — an upsert,
-    # not a second promotion.
+    # Calling again (editing details) updates the fields but keeps is_gabbai == True and role
+    # unchanged — an upsert, not a second promotion.
     resp2 = client.post(
         "/users/me/register-gabbai",
         json={"community_name": "קהילה חדשה", "synagogue_address": "כתובת חדשה"},
@@ -57,9 +61,39 @@ def test_register_gabbai_promotes_role_and_stores_fields(client, db_session, mak
     )
     assert resp2.status_code == 200
     data2 = resp2.json()
-    assert data2["role"] == "gabbai"
+    assert data2["role"] == "member"
+    assert data2["is_gabbai"] is True
     assert data2["gabbai_community_name"] == "קהילה חדשה"
     assert data2["gabbai_contact_name"] is None  # not resent, so cleared per the upsert schema
+
+
+def test_admin_can_register_as_gabbai_too(client, db_session, make_user):
+    """Regression test for the reported bug: an admin self-registering as gabbai used to silently
+    no-op (role stayed "admin", is_gabbai never existed) because the old logic only promoted role
+    from exactly "member". is_gabbai is now fully independent of role, so an admin keeps admin
+    access AND becomes gabbai-eligible — including being able to actually check out from a
+    requires_gabbai vertical, which used to 400 even after "registering"."""
+    _make_vertical(db_session, "kiddush", requires_gabbai=True)
+    product = _make_product(db_session, "kiddush")
+    make_user(email="adminwhoisgabbai@example.com", password="testpass123", role="admin")
+    headers = _login(client, "adminwhoisgabbai@example.com")
+
+    resp = client.post(
+        "/users/me/register-gabbai",
+        json={"community_name": "קהילת המנהל", "synagogue_address": "כתובת המנהל"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["role"] == "admin"  # unchanged — did not lose admin access
+    assert data["is_gabbai"] is True
+
+    checkout = client.post(
+        "/leads/cart-checkout",
+        json={"items": [{"product_id": product.id, "quantity": 1}]},
+        headers=headers,
+    )
+    assert checkout.status_code == 200  # used to 400 even after "registering"
 
 
 def test_checkout_from_gabbai_vertical_requires_registration(client, db_session, make_user):
@@ -165,25 +199,50 @@ def test_mixed_gabbai_and_ordinary_vertical_checkout_blocked(client, db_session,
     assert resp.status_code == 400
 
 
-def test_admin_can_set_gabbai_role(client, db_session, make_user):
+def test_admin_can_set_gabbai_status(client, db_session, make_user):
     make_user(email="plainmember@example.com", password="testpass123")
-    admin = make_user(email="realadmin@example.com", password="testpass123", role="admin")
+    make_user(email="realadmin@example.com", password="testpass123", role="admin")
     admin_headers = _login(client, "realadmin@example.com")
 
     target = db_session.query(models.User).filter(models.User.email == "plainmember@example.com").first()
+    resp = client.patch(
+        f"/admin/users/{target.id}/gabbai",
+        json={"is_gabbai": True},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_gabbai"] is True
+    assert resp.json()["role"] == "member"  # unaffected
+
+    # Unsetting works the same way.
+    resp2 = client.patch(
+        f"/admin/users/{target.id}/gabbai",
+        json={"is_gabbai": False},
+        headers=admin_headers,
+    )
+    assert resp2.json()["is_gabbai"] is False
+
+
+def test_admin_role_endpoint_rejects_gabbai_as_a_role_value(client, db_session, make_user):
+    """"gabbai" is no longer a valid `role` — it's the independent is_gabbai flag now (see
+    PATCH /admin/users/{id}/gabbai)."""
+    make_user(email="plainmember2@example.com", password="testpass123")
+    make_user(email="realadmin2@example.com", password="testpass123", role="admin")
+    admin_headers = _login(client, "realadmin2@example.com")
+
+    target = db_session.query(models.User).filter(models.User.email == "plainmember2@example.com").first()
     resp = client.patch(
         f"/admin/users/{target.id}/role",
         json={"role": "gabbai"},
         headers=admin_headers,
     )
-    assert resp.status_code == 200
-    assert resp.json()["role"] == "gabbai"
+    assert resp.status_code == 400
 
 
 def test_admin_member_count_includes_gabbai_users(client, db_session, make_user):
     make_user(email="member2@example.com", password="testpass123")
-    make_user(email="gabbai2@example.com", password="testpass123", role="gabbai")
-    admin = make_user(email="admin2@example.com", password="testpass123", role="admin")
+    make_user(email="gabbai2@example.com", password="testpass123", is_gabbai=True)
+    make_user(email="admin2@example.com", password="testpass123", role="admin")
     admin_headers = _login(client, "admin2@example.com")
 
     resp = client.get("/admin/users/member-count", headers=admin_headers)

@@ -52,7 +52,7 @@ def _place_gabbai_order(client, headers, product_ids, days_ago, db_session):
 def test_cadence_nudge_sent_when_overdue_relative_to_own_rhythm(client, db_session, make_user):
     vertical = _make_gabbai_vertical(db_session)
     product = _make_product(db_session, vertical.slug)
-    make_user(email="regulargabbai@example.com", password="testpass123", role="gabbai")
+    make_user(email="regulargabbai@example.com", password="testpass123", is_gabbai=True)
     headers = _login(client, "regulargabbai@example.com")
     admin_headers = _make_admin_headers(client, make_user)
 
@@ -76,7 +76,7 @@ def test_cadence_nudge_sent_when_overdue_relative_to_own_rhythm(client, db_sessi
 def test_cadence_nudge_not_sent_when_not_yet_due(client, db_session, make_user):
     vertical = _make_gabbai_vertical(db_session)
     product = _make_product(db_session, vertical.slug)
-    make_user(email="ontimegabbai@example.com", password="testpass123", role="gabbai")
+    make_user(email="ontimegabbai@example.com", password="testpass123", is_gabbai=True)
     headers = _login(client, "ontimegabbai@example.com")
     admin_headers = _make_admin_headers(client, make_user, email="cadenceadmin2@example.com")
 
@@ -91,7 +91,7 @@ def test_cadence_nudge_not_sent_when_not_yet_due(client, db_session, make_user):
 def test_cadence_nudge_requires_at_least_two_past_orders(client, db_session, make_user):
     vertical = _make_gabbai_vertical(db_session)
     product = _make_product(db_session, vertical.slug)
-    make_user(email="firsttimegabbai@example.com", password="testpass123", role="gabbai")
+    make_user(email="firsttimegabbai@example.com", password="testpass123", is_gabbai=True)
     headers = _login(client, "firsttimegabbai@example.com")
     admin_headers = _make_admin_headers(client, make_user, email="cadenceadmin3@example.com")
 
@@ -104,7 +104,7 @@ def test_cadence_nudge_requires_at_least_two_past_orders(client, db_session, mak
 def test_cadence_nudge_not_resent_for_the_same_gap(client, db_session, make_user):
     vertical = _make_gabbai_vertical(db_session)
     product = _make_product(db_session, vertical.slug)
-    make_user(email="repeatnudge@example.com", password="testpass123", role="gabbai")
+    make_user(email="repeatnudge@example.com", password="testpass123", is_gabbai=True)
     headers = _login(client, "repeatnudge@example.com")
     admin_headers = _make_admin_headers(client, make_user, email="cadenceadmin4@example.com")
 
@@ -122,7 +122,7 @@ def test_cadence_nudge_not_resent_for_the_same_gap(client, db_session, make_user
 def test_cadence_nudge_uses_the_real_world_name_and_recipient_locale(client, db_session, make_user):
     vertical = _make_gabbai_vertical(db_session, slug="catering")
     product = _make_product(db_session, vertical.slug)
-    make_user(email="englishgabbai2@example.com", password="testpass123", role="gabbai", preferred_language="en")
+    make_user(email="englishgabbai2@example.com", password="testpass123", is_gabbai=True, preferred_language="en")
     headers = _login(client, "englishgabbai2@example.com")
     admin_headers = _make_admin_headers(client, make_user, email="cadenceadmin5@example.com")
 
@@ -167,7 +167,7 @@ def test_cadence_nudge_does_not_blend_across_different_gabbai_verticals(client, 
     flowers = _make_gabbai_vertical(db_session, slug="flowers")
     kiddush_product = _make_product(db_session, kiddush.slug, title="יין")
     flowers_product = _make_product(db_session, flowers.slug, title="פרחים")
-    make_user(email="multiworldgabbai@example.com", password="testpass123", role="gabbai")
+    make_user(email="multiworldgabbai@example.com", password="testpass123", is_gabbai=True)
     headers = _login(client, "multiworldgabbai@example.com")
     admin_headers = _make_admin_headers(client, make_user, email="cadenceadmin6@example.com")
 
@@ -194,7 +194,7 @@ def test_cadence_nudge_tracks_every_vertical_within_a_mixed_order(client, db_ses
     flowers = _make_gabbai_vertical(db_session, slug="flowers")
     kiddush_product = _make_product(db_session, kiddush.slug, title="יין")
     flowers_product = _make_product(db_session, flowers.slug, title="פרחים")
-    make_user(email="mixedordergabbai@example.com", password="testpass123", role="gabbai")
+    make_user(email="mixedordergabbai@example.com", password="testpass123", is_gabbai=True)
     headers = _login(client, "mixedordergabbai@example.com")
     admin_headers = _make_admin_headers(client, make_user, email="cadenceadmin7@example.com")
 
