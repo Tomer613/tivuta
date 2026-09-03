@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store, ShieldAlert, Globe, ShoppingCart, LineChart, ListFilter, PercentCircle } from 'lucide-react';
+import { Package, Users, BarChart3, Send, Tag, Inbox, ExternalLink, LayoutDashboard, Store, ShieldAlert, Globe, ShoppingCart, LineChart, ListFilter, PercentCircle, Building2 } from 'lucide-react';
 import AdminGuard from '@/components/AdminGuard';
 
 interface T {
@@ -20,13 +20,14 @@ interface T {
     leads: string;
     loyalty: string;
     analytics: string;
+    communities: string;
 }
 
 const translations: Record<string, T> = {
-    he: { dashboard: 'בקרה', products: 'מוצרים', verticals: 'עולמות', categories: 'קטגוריות', quantityDiscounts: 'מבצעי כמות', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', orders: 'הזמנות', leads: 'פניות', loyalty: 'נאמנות והונאות', analytics: 'תנועה' },
-    en: { dashboard: 'Dashboard', products: 'Products', verticals: 'Worlds', categories: 'Categories', quantityDiscounts: 'Quantity Discounts', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', orders: 'Orders', leads: 'Leads', loyalty: 'Loyalty & Fraud', analytics: 'Traffic' },
-    fr: { dashboard: 'Tableau', products: 'Produits', verticals: 'Univers', categories: 'Catégories', quantityDiscounts: 'Remises par quantité', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', orders: 'Commandes', leads: 'Contacts', loyalty: 'Fidélité', analytics: 'Trafic' },
-    yi: { dashboard: 'בקרה', products: 'פראדוקטן', verticals: 'וועלטן', categories: 'קאטעגאריעס', quantityDiscounts: 'מבצעי כמות', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', orders: 'הזמנות', leads: 'פנייות', loyalty: 'לויאלטי', analytics: 'פארקער' },
+    he: { dashboard: 'בקרה', products: 'מוצרים', verticals: 'עולמות', categories: 'קטגוריות', quantityDiscounts: 'מבצעי כמות', vendors: 'ספקים', users: 'משתמשים', surveys: 'סקרים', distribution: 'הפצה', promotions: 'מבצעים', orders: 'הזמנות', leads: 'פניות', loyalty: 'נאמנות והונאות', analytics: 'תנועה', communities: 'קהילות' },
+    en: { dashboard: 'Dashboard', products: 'Products', verticals: 'Worlds', categories: 'Categories', quantityDiscounts: 'Quantity Discounts', vendors: 'Vendors', users: 'Users', surveys: 'Surveys', distribution: 'Distribution', promotions: 'Promotions', orders: 'Orders', leads: 'Leads', loyalty: 'Loyalty & Fraud', analytics: 'Traffic', communities: 'Communities' },
+    fr: { dashboard: 'Tableau', products: 'Produits', verticals: 'Univers', categories: 'Catégories', quantityDiscounts: 'Remises par quantité', vendors: 'Fournisseurs', users: 'Utilisateurs', surveys: 'Sondages', distribution: 'Diffusion', promotions: 'Promotions', orders: 'Commandes', leads: 'Contacts', loyalty: 'Fidélité', analytics: 'Trafic', communities: 'Communautés' },
+    yi: { dashboard: 'בקרה', products: 'פראדוקטן', verticals: 'וועלטן', categories: 'קאטעגאריעס', quantityDiscounts: 'מבצעי כמות', vendors: 'ספקים', users: 'באניצער', surveys: 'סורווייס', distribution: 'פארשפרייטונג', promotions: 'מבצעים', orders: 'הזמנות', leads: 'פנייות', loyalty: 'לויאלטי', analytics: 'פארקער', communities: 'קהילות' },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: `/${locale}/admin/distribution`, label: t.distribution, icon: <Send size={18} /> },
         { href: `/${locale}/admin/promotions`, label: t.promotions, icon: <Tag size={18} /> },
         { href: `/${locale}/admin/orders`, label: t.orders, icon: <ShoppingCart size={18} /> },
+        { href: `/${locale}/admin/gabbai-communities`, label: t.communities, icon: <Building2 size={18} /> },
         { href: `/${locale}/admin/leads`, label: t.leads, icon: <Inbox size={18} /> },
         { href: `/${locale}/admin/loyalty`, label: t.loyalty, icon: <ShieldAlert size={18} /> },
         { href: `/${locale}/admin/analytics`, label: t.analytics, icon: <LineChart size={18} /> },
