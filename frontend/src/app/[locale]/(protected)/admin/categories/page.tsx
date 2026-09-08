@@ -12,6 +12,7 @@ import {
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { Plus, X, Loader2, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '@/lib/productCategoryIcons';
 
 const LANGS = [
     { key: 'he', label: 'עברית', dir: 'rtl' as const },
@@ -23,6 +24,7 @@ const LANGS = [
 const EMPTY_FORM = {
     vertical: '',
     label_he: '', label_en: '', label_fr: '', label_yi: '',
+    icon: 'Tag',
     display_order: 0,
     is_active: true,
 };
@@ -84,6 +86,7 @@ export default function AdminCategoriesPage() {
         setForm({
             vertical: c.vertical,
             label_he: c.label_he || '', label_en: c.label_en || '', label_fr: c.label_fr || '', label_yi: c.label_yi || '',
+            icon: c.icon || 'Tag',
             display_order: c.display_order,
             is_active: c.is_active,
         });
@@ -120,6 +123,7 @@ export default function AdminCategoriesPage() {
             if (editCategory) {
                 await adminUpdateProductCategory(token, editCategory.id, {
                     label_he: form.label_he, label_en: form.label_en || null, label_fr: form.label_fr || null, label_yi: form.label_yi || null,
+                    icon: form.icon,
                     display_order: form.display_order,
                     is_active: form.is_active,
                 });
@@ -128,6 +132,7 @@ export default function AdminCategoriesPage() {
                 await adminCreateProductCategory(token, {
                     vertical: form.vertical,
                     label_he: form.label_he, label_en: form.label_en || null, label_fr: form.label_fr || null, label_yi: form.label_yi || null,
+                    icon: form.icon,
                     display_order: form.display_order,
                     is_active: form.is_active,
                 });
@@ -183,6 +188,7 @@ export default function AdminCategoriesPage() {
                     <table className="w-full text-start">
                         <thead className="bg-[#111a2f] text-[#f0e6d3]/60 text-xs uppercase">
                             <tr>
+                                <th className="p-4 text-start"></th>
                                 <th className="p-4 text-start">שם</th>
                                 <th className="p-4 text-start">עולם</th>
                                 <th className="p-4 text-start">סדר</th>
@@ -192,10 +198,17 @@ export default function AdminCategoriesPage() {
                         </thead>
                         <tbody>
                             {filtered.length === 0 && (
-                                <tr><td colSpan={5} className="p-8 text-center text-[#f0e6d3]/40">אין קטגוריות עדיין</td></tr>
+                                <tr><td colSpan={6} className="p-8 text-center text-[#f0e6d3]/40">אין קטגוריות עדיין</td></tr>
                             )}
-                            {filtered.map((c) => (
+                            {filtered.map((c) => {
+                                const Icon = getCategoryIcon(c.icon);
+                                return (
                                 <tr key={c.id} className="border-t border-[#d4af37]/10 text-[#f0e6d3]">
+                                    <td className="p-4">
+                                        <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#111a2f] text-[#d4af37]">
+                                            <Icon size={15} />
+                                        </span>
+                                    </td>
                                     <td className="p-4 font-semibold">{c.label_he}</td>
                                     <td className="p-4 text-sm text-[#f0e6d3]/60">{verticalLabel(c.vertical)}</td>
                                     <td className="p-4 text-sm">{c.display_order}</td>
@@ -216,7 +229,8 @@ export default function AdminCategoriesPage() {
                                         </button>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -274,6 +288,26 @@ export default function AdminCategoriesPage() {
                                     onChange={(e) => setForm({ ...form, [`label_${langTab}`]: e.target.value })}
                                     className="w-full bg-[#111a2f] rounded-xl px-4 py-3 text-[#f0e6d3]"
                                 />
+                            </div>
+                        </div>
+
+                        {/* Icon picker */}
+                        <div>
+                            <label className="text-xs text-[#f0e6d3]/50 mb-2 block">אייקון</label>
+                            <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto">
+                                {CATEGORY_ICON_OPTIONS.map((iconKey) => {
+                                    const Icon = getCategoryIcon(iconKey);
+                                    return (
+                                        <button
+                                            key={iconKey}
+                                            type="button"
+                                            onClick={() => setForm({ ...form, icon: iconKey })}
+                                            className={`aspect-square rounded-xl flex items-center justify-center border transition-colors ${form.icon === iconKey ? 'bg-[#d4af37] border-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] border-[#d4af37]/10 text-[#d4af37]/60 hover:border-[#d4af37]/40'}`}
+                                        >
+                                            <Icon size={16} />
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 

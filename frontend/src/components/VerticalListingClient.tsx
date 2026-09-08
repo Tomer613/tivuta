@@ -11,6 +11,7 @@ import { useCart } from '@/context/CartContext';
 import FilterSortSidebar, { SortOption } from '@/components/FilterSortSidebar';
 import ProductTile, { Product } from '@/components/ProductTile';
 import ComparisonBar from '@/components/ComparisonBar';
+import CategoryBar from '@/components/CategoryBar';
 
 interface T {
     empty: string;
@@ -282,6 +283,14 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                 </div>
             </header>
 
+            {/* Prominent category row, above filters+grid — same gating as the sidebar below, so
+                it never briefly flashes the previous vertical's categories mid-switch. */}
+            {metaLoadedForVertical === vertical && (
+                <div className="max-w-7xl mx-auto px-4 pt-8 md:px-8">
+                    <CategoryBar locale={locale} categories={categories} value={category} onChange={setCategory} />
+                </div>
+            )}
+
             <div className="max-w-7xl mx-auto px-4 py-8 md:px-8 md:py-12 flex flex-col lg:flex-row gap-8 lg:gap-12">
                 {/* Only rendered once metadata for THIS vertical has resolved — otherwise the sort
                     control would briefly show the initial 'popularity' placeholder selected before
@@ -303,9 +312,6 @@ export default function VerticalListingClient({ vertical }: { vertical: string }
                     attributeFields={verticalMeta?.attribute_fields}
                     attrFilters={attrFilters}
                     onAttrFilterChange={(key, value) => setAttrFilters((prev) => ({ ...prev, [key]: value }))}
-                    categories={categories}
-                    category={category}
-                    onCategoryChange={setCategory}
                     hasPurchaseHistory={purchaseHistory.length > 0}
                 />}
 

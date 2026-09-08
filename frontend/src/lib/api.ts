@@ -666,6 +666,7 @@ export interface ProductCategory {
     label_en?: string | null;
     label_fr?: string | null;
     label_yi?: string | null;
+    icon?: string | null;
     display_order: number;
     is_active: boolean;
 }

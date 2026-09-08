@@ -205,6 +205,77 @@ def test_category_vertical_is_immutable_after_creation(client, db_session, make_
     assert same_vertical_resp.status_code == 200
 
 
+def test_category_icon_round_trips_through_create_and_update(client, db_session, make_user):
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
+    db_session.commit()
+    headers = _make_admin_headers(client, make_user)
+
+    resp = client.post(
+        "/admin/product-categories",
+        json={"vertical": "diamonds", "label_he": "טבעות", "icon": "Gem"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    category = resp.json()
+    assert category["icon"] == "Gem"
+
+    update_resp = client.patch(
+        f"/admin/product-categories/{category['id']}",
+        json={"icon": "Sparkles"},
+        headers=headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["icon"] == "Sparkles"
+
+
+def test_category_icon_defaults_to_null_and_is_accepted_explicitly(client, db_session, make_user):
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
+    db_session.commit()
+    headers = _make_admin_headers(client, make_user)
+
+    resp = client.post(
+        "/admin/product-categories",
+        json={"vertical": "diamonds", "label_he": "טבעות"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["icon"] is None
+
+    category_id = resp.json()["id"]
+    clear_resp = client.patch(
+        f"/admin/product-categories/{category_id}",
+        json={"icon": None},
+        headers=headers,
+    )
+    assert clear_resp.status_code == 200
+    assert clear_resp.json()["icon"] is None
+
+
+def test_invalid_category_icon_rejected(client, db_session, make_user):
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
+    db_session.commit()
+    headers = _make_admin_headers(client, make_user)
+
+    resp = client.post(
+        "/admin/product-categories",
+        json={"vertical": "diamonds", "label_he": "טבעות", "icon": "NotARealIcon"},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+    category = client.post(
+        "/admin/product-categories",
+        json={"vertical": "diamonds", "label_he": "טבעות", "icon": "Gem"},
+        headers=headers,
+    ).json()
+    update_resp = client.patch(
+        f"/admin/product-categories/{category['id']}",
+        json={"icon": "NotARealIcon"},
+        headers=headers,
+    )
+    assert update_resp.status_code == 422
+
+
 def test_bulk_assign_rejects_inactive_category(client, db_session, make_user):
     db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
     db_session.commit()

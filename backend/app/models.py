@@ -253,6 +253,7 @@ class ProductCategory(Base):
     label_en = Column(String(100), nullable=True)
     label_fr = Column(String(100), nullable=True)
     label_yi = Column(String(100), nullable=True)
+    icon = Column(String(50), nullable=True)
 
     display_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, default=True, nullable=False)

@@ -524,14 +524,35 @@ class VerticalRead(VerticalBase):
 # Product Category Schemas — sub-categories scoped to a single Vertical (e.g. "Rings" under
 # diamonds). Deliberately not named "Category"/exposed at "/categories" — those already belong to
 # the unrelated legacy benefits catalog (see models.Category / routers/catalog.py).
+# Must match frontend/src/lib/productCategoryIcons.ts's CATEGORY_ICON_MAP keys exactly — a
+# broader set than VALID_VERTICAL_ICONS above, since a category is finer-grained than a world
+# (e.g. "Rings" vs "Necklaces" within diamonds, not just "diamonds" vs "cars").
+VALID_CATEGORY_ICONS = (
+    "Gem", "Sparkles", "Crown", "Diamond", "Watch", "Heart",
+    "Car", "Truck", "Bike", "Fuel", "Wrench",
+    "Home", "Sofa", "Lamp", "Bed",
+    "UtensilsCrossed", "Cake", "Wine", "Coffee", "ChefHat", "Soup",
+    "Shield", "FileText", "Umbrella", "Landmark",
+    "Tag", "Star", "Package", "ShoppingBag", "Shirt", "Gift",
+)
+
+
 class ProductCategoryBase(BaseModel):
     vertical: str
     label_he: str
     label_en: Optional[str] = None
     label_fr: Optional[str] = None
     label_yi: Optional[str] = None
+    icon: Optional[str] = None
     display_order: int = 0
     is_active: bool = True
+
+    @field_validator("icon")
+    @classmethod
+    def _validate_icon(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_CATEGORY_ICONS:
+            raise ValueError(f"icon must be one of {VALID_CATEGORY_ICONS}")
+        return v
 
 
 class ProductCategoryCreate(ProductCategoryBase):
@@ -544,8 +565,16 @@ class ProductCategoryUpdate(BaseModel):
     label_en: Optional[str] = None
     label_fr: Optional[str] = None
     label_yi: Optional[str] = None
+    icon: Optional[str] = None
     display_order: Optional[int] = None
     is_active: Optional[bool] = None
+
+    @field_validator("icon")
+    @classmethod
+    def _validate_icon(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_CATEGORY_ICONS:
+            raise ValueError(f"icon must be one of {VALID_CATEGORY_ICONS}")
+        return v
 
 
 class ProductCategoryRead(ProductCategoryBase):

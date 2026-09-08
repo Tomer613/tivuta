@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Clock, Flame, Heart, Tag, Search, SlidersHorizontal, ListFilter } from 'lucide-react';
-import { VerticalAttributeField, ProductCategory } from '@/lib/api';
+import { VerticalAttributeField } from '@/lib/api';
 
 interface T {
     sort: string;
@@ -12,7 +12,6 @@ interface T {
     newest: string;
     my_taste: string;
     filter_promo: string;
-    filter_category: string;
     all: string;
     search: string;
     price_range: string;
@@ -22,10 +21,10 @@ interface T {
 }
 
 const translations: Record<string, T> = {
-    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', my_taste: 'הטעם שלי', filter_promo: 'סנן לפי מבצע', filter_category: 'קטגוריה', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'סינון ומיון' },
-    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', my_taste: 'My Taste', filter_promo: 'Filter by promotion', filter_category: 'Category', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Filter & Sort' },
-    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', my_taste: 'Mes goûts', filter_promo: 'Filtrer par promotion', filter_category: 'Catégorie', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Trier et filtrer' },
-    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', my_taste: 'מיין טעם', filter_promo: 'פילטרירן', filter_category: 'קאטעגאריע', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'פילטער און סארטירן' },
+    he: { sort: 'מיון', popularity: 'הכי פופולרי', price_asc: 'מחיר: מהזול ליקר', price_desc: 'מחיר: מהיקר לזול', newest: 'החדש ביותר', my_taste: 'הטעם שלי', filter_promo: 'סנן לפי מבצע', all: 'הכל', search: 'חיפוש...', price_range: 'טווח מחיר (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'סינון ומיון' },
+    en: { sort: 'Sort', popularity: 'Most Popular', price_asc: 'Price: Low to High', price_desc: 'Price: High to Low', newest: 'Newest', my_taste: 'My Taste', filter_promo: 'Filter by promotion', all: 'All', search: 'Search...', price_range: 'Price range (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Filter & Sort' },
+    fr: { sort: 'Trier', popularity: 'Les plus populaires', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', newest: 'Les plus récents', my_taste: 'Mes goûts', filter_promo: 'Filtrer par promotion', all: 'Tous', search: 'Rechercher...', price_range: 'Fourchette de prix (₪)', price_min: 'Min', price_max: 'Max', filter_sort: 'Trier et filtrer' },
+    yi: { sort: 'סארטירן', popularity: 'מערסטע פאפולער', price_asc: 'פרייז: ביליק צו טייער', price_desc: 'פרייז: טייער צו ביליק', newest: 'נייסטע', my_taste: 'מיין טעם', filter_promo: 'פילטרירן', all: 'אלץ', search: 'זוכן...', price_range: 'פרייז (₪)', price_min: 'מינימום', price_max: 'מקסימום', filter_sort: 'פילטער און סארטירן' },
 };
 
 export type SortOption = 'popularity' | 'newest' | 'price_asc' | 'price_desc' | 'my_history';
@@ -44,9 +43,8 @@ const pillClass = (active: boolean) => `px-4 py-2 rounded-xl text-xs font-bold t
         : 'bg-[#0e1628] text-[#f0e6d3] border-[#d4af37]/20 hover:border-[#d4af37]'
 }`;
 
-/** Shared "all + toggleable option chips" block — used for both the category filter and the
- *  per-vertical attribute (e.g. diamond shape) filters, which previously duplicated this exact
- *  header/pill markup. Clicking the already-active option clears it back to "all". */
+/** Shared "all + toggleable option chips" block, used for per-vertical attribute (e.g. diamond
+ *  shape) filters. Clicking the already-active option clears it back to "all". */
 function FilterPillGroup({ icon, label, allLabel, active, options, onChange }: {
     icon: React.ReactNode;
     label: string;
@@ -89,9 +87,6 @@ export default function FilterSortSidebar({
     attributeFields = [],
     attrFilters = {},
     onAttrFilterChange,
-    categories = [],
-    category = null,
-    onCategoryChange,
     hasPurchaseHistory = false,
 }: {
     locale: string;
@@ -108,11 +103,9 @@ export default function FilterSortSidebar({
     attributeFields?: VerticalAttributeField[];
     attrFilters?: Record<string, string>;
     onAttrFilterChange?: (key: string, value: string) => void;
-    categories?: ProductCategory[];
-    category?: number | null;
-    onCategoryChange?: (id: number | null) => void;
     // Only render the "my taste" sort chip once the caller confirms the user actually has
-    // purchase history to sort by — same "invisible until relevant" rule as the category filter.
+    // purchase history to sort by — same "invisible until relevant" rule the category row
+    // (rendered separately above the grid, see CategoryBar) follows too.
     hasPurchaseHistory?: boolean;
 }) {
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -188,18 +181,6 @@ export default function FilterSortSidebar({
                     </button>
                 )}
             </div>
-
-            {/* Category filter — only rendered once at least one category exists for this world */}
-            {categories.length > 0 && (
-                <FilterPillGroup
-                    icon={<ListFilter size={13} />}
-                    label={t.filter_category}
-                    allLabel={t.all}
-                    active={category != null ? String(category) : ''}
-                    options={categories.map((c) => ({ value: String(c.id), label: c[`label_${localeKey}`] || c.label_he }))}
-                    onChange={(v) => onCategoryChange?.(v === '' ? null : Number(v))}
-                />
-            )}
 
             {/* Dynamic per-vertical attribute filters (e.g. diamond shape) */}
             {selectFields.map((field) => (
