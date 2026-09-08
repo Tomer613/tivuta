@@ -1,7 +1,7 @@
-"""Seeds a fresh DB with exactly the data the Playwright E2E specs (frontend/e2e/) need — a
-vertical + a couple products, one member and one admin account with fixed credentials, and a
-lowered max_failed_login_attempts so the lockout spec stays safely under slowapi's 5/minute
-per-IP rate limit (see CLAUDE.md's "Per-Account Login Lockout" session for why 5+5 collides).
+"""Seeds a fresh DB with exactly the data the Playwright E2E specs (frontend/e2e/) need — verticals
++ products, one member and one admin account with fixed credentials, and a lowered
+max_failed_login_attempts so the lockout spec stays safely under slowapi's 5/minute per-IP rate
+limit (see CLAUDE.md's "Per-Account Login Lockout" session for why 5+5 collides).
 
 Idempotent by natural key (email / slug / setting key) so it's safe to re-run against the same DB.
 
@@ -38,6 +38,18 @@ E2E_DIST_TRACK_MEMBER_EMAIL = "e2e_dist_track@tivuta.test"
 E2E_DIST_TRACK_MEMBER_PASSWORD = "e2eDistTrackPass123"
 E2E_DIST_TRACK = "gold_track"
 E2E_VERTICAL_SLUG = "diamonds"
+# Dedicated to gabbai.spec.ts — kept separate from E2E_MEMBER_EMAIL so this spec's own
+# register/checkout/deactivate lifecycle can never affect any other spec's account state.
+E2E_GABBAI_EMAIL = "e2e_gabbai@tivuta.test"
+E2E_GABBAI_PASSWORD = "e2eGabbaiPass123"
+# Dedicated to shopping-list-multi.spec.ts — a plain member, no gabbai registration needed at all
+# (shopping-list CRUD isn't gated on is_gabbai, only checkout is — see
+# _validate_shopping_list_vertical in shopping_list.py).
+E2E_SHOPPING_LIST_EMAIL = "e2e_shopping_list@tivuta.test"
+E2E_SHOPPING_LIST_PASSWORD = "e2eShoppingListPass123"
+# Shared by both of the above — requires_gabbai + enables_shopping_list together, matching the
+# real Kiddush world's shape.
+E2E_GABBAI_VERTICAL_SLUG = "e2e_kiddush"
 
 ModelT = TypeVar("ModelT")
 
@@ -74,6 +86,8 @@ def seed_e2e():
             (E2E_LOCKOUT_EMAIL, E2E_LOCKOUT_PASSWORD, "member", {}),
             (E2E_DIST_CITY_MEMBER_EMAIL, E2E_DIST_CITY_MEMBER_PASSWORD, "member", {"city": E2E_DIST_CITY}),
             (E2E_DIST_TRACK_MEMBER_EMAIL, E2E_DIST_TRACK_MEMBER_PASSWORD, "member", {"membership_tracks": [E2E_DIST_TRACK]}),
+            (E2E_GABBAI_EMAIL, E2E_GABBAI_PASSWORD, "member", {}),
+            (E2E_SHOPPING_LIST_EMAIL, E2E_SHOPPING_LIST_PASSWORD, "member", {}),
         ]:
             user = get_or_create(
                 db,
@@ -145,6 +159,31 @@ def seed_e2e():
                 "description_he": "מוצר לבדיקות E2E עם מחיר מבצע",
                 "price": 2000.0,
                 "sale_price": 1500.0,
+                "is_active": True,
+            },
+        )
+
+        get_or_create(
+            db,
+            models.Vertical,
+            {"slug": E2E_GABBAI_VERTICAL_SLUG},
+            {
+                "label_he": "קידוש E2E",
+                "label_en": "Kiddush E2E",
+                "icon": "Gem",
+                "requires_gabbai": True,
+                "enables_shopping_list": True,
+                "is_active": True,
+            },
+        )
+        get_or_create(
+            db,
+            models.Product,
+            {"vertical": E2E_GABBAI_VERTICAL_SLUG, "title_he": "יין קידוש E2E"},
+            {
+                "title_en": "יין קידוש E2E",
+                "description_he": "מוצר לבדיקות E2E",
+                "price": 60.0,
                 "is_active": True,
             },
         )
