@@ -531,9 +531,10 @@ VALID_CATEGORY_ICONS = (
     "Gem", "Sparkles", "Crown", "Diamond", "Watch", "Heart",
     "Car", "Truck", "Bike", "Fuel", "Wrench",
     "Home", "Sofa", "Lamp", "Bed",
-    "UtensilsCrossed", "Cake", "Wine", "Coffee", "ChefHat", "Soup",
+    "UtensilsCrossed", "Utensils", "Cake", "Wine", "Coffee", "ChefHat", "Soup",
     "Shield", "FileText", "Umbrella", "Landmark",
     "Tag", "Star", "Package", "ShoppingBag", "Shirt", "Gift",
+    "Baby", "SprayCan", "Bath", "PartyPopper",
 )
 
 
