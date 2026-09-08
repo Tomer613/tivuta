@@ -42,10 +42,14 @@ export default function CategoryBar({
         if (!el) return;
         const check = () => setOverflowing(el.scrollWidth > el.clientWidth + 1);
         check();
+        // ResizeObserver only fires when the scroll container's own box changes (e.g. viewport
+        // resize) — it does NOT fire when only its overflowing content grows/shrinks in place, so
+        // a locale switch (same categories, differently-sized label text) needs `locale` as an
+        // explicit dependency too, not just `categories`.
         const observer = new ResizeObserver(check);
         observer.observe(el);
         return () => observer.disconnect();
-    }, [categories]);
+    }, [categories, locale]);
 
     if (categories.length === 0) return null;
 
