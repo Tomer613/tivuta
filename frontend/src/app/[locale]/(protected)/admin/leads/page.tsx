@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { adminListLeads, adminUpdateLeadStatus, adminUpdateLeadNotes, adminAssignLead, adminSendAppointmentReminder, adminGetAdminUsers, adminBulkLeadAction } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
-import { getVerticalIcon } from '@/lib/verticalIcons';
+import { getVerticalIcon } from '@/lib/iconLibrary';
 import { useBulkSelection } from '@/lib/useBulkSelection';
 import BulkActionToolbar from '@/components/admin/BulkActionToolbar';
 import CalendarView from '@/components/admin/CalendarView';

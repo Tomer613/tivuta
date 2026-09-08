@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import SavingsCalculator from '@/components/SavingsCalculator';
 import { useVerticals } from '@/lib/useVerticals';
-import { getVerticalIcon } from '@/lib/verticalIcons';
+import { getVerticalIcon } from '@/lib/iconLibrary';
 import { useOutsideClick } from '@/lib/useOutsideClick';
 import { swapLocaleInPath, markManualLocaleOverride } from '@/lib/localePreference';
 import { useCart } from '@/context/CartContext';

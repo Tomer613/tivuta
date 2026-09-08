@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { adminListVerticals, adminCreateVertical, adminUpdateVertical, Vertical } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
-import { VERTICAL_ICON_OPTIONS, getVerticalIcon } from '@/lib/verticalIcons';
+import { getVerticalIcon, suggestIconsFor } from '@/lib/iconLibrary';
+import { IconPicker } from '@/components/admin/IconPicker';
 import { Plus, X, Loader2, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff, Globe, PlusCircle, Trash2 } from 'lucide-react';
 
 const LANGS = [
@@ -71,6 +72,10 @@ export default function AdminVerticalsPage() {
     const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    // Whether the admin has manually picked an icon in the current form session — while false (on
+    // create only), the icon auto-live-updates to the best tag match for the typed Hebrew label.
+    // Always true on edit, so tweaking an existing world's label never silently swaps its icon.
+    const [iconTouched, setIconTouched] = useState(false);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -86,6 +91,7 @@ export default function AdminVerticalsPage() {
         setEditVertical(null);
         setForm(EMPTY_FORM);
         setLangTab('he');
+        setIconTouched(false);
         setShowForm(true);
     };
 
@@ -110,6 +116,7 @@ export default function AdminVerticalsPage() {
             })),
         });
         setLangTab('he');
+        setIconTouched(true);
         setShowForm(true);
     };
 
@@ -119,6 +126,14 @@ export default function AdminVerticalsPage() {
         setForm(EMPTY_FORM);
         setLangTab('he');
     };
+
+    // The icon actually shown/submitted — while the admin hasn't manually chosen one themselves,
+    // and only when creating a brand-new world (never on edit, where an already-assigned icon
+    // must not silently change just because the label text was tweaked), it live-derives to the
+    // best tag match for the typed Hebrew label. Computed at render time rather than written back
+    // into `form.icon` via a useEffect, which would call setState synchronously inside an effect
+    // (a real cascading-render anti-pattern flagged by eslint's react-hooks/set-state-in-effect).
+    const effectiveIcon = (!iconTouched && !editVertical && suggestIconsFor(form.label_he)[0]) || form.icon;
 
     const handleToggleActive = async (v: Vertical) => {
         if (!token) return;
@@ -164,7 +179,7 @@ export default function AdminVerticalsPage() {
                 await adminUpdateVertical(token, editVertical.id, {
                     label_he: form.label_he, label_en: form.label_en || null, label_fr: form.label_fr || null, label_yi: form.label_yi || null,
                     subtitle_he: form.subtitle_he || null, subtitle_en: form.subtitle_en || null, subtitle_fr: form.subtitle_fr || null, subtitle_yi: form.subtitle_yi || null,
-                    icon: form.icon,
+                    icon: effectiveIcon,
                     supports_appointments: form.supports_appointments,
                     requires_gabbai: form.requires_gabbai,
                     allows_custom_items_note: form.allows_custom_items_note,
@@ -181,7 +196,7 @@ export default function AdminVerticalsPage() {
                     slug: form.slug,
                     label_he: form.label_he, label_en: form.label_en || null, label_fr: form.label_fr || null, label_yi: form.label_yi || null,
                     subtitle_he: form.subtitle_he || null, subtitle_en: form.subtitle_en || null, subtitle_fr: form.subtitle_fr || null, subtitle_yi: form.subtitle_yi || null,
-                    icon: form.icon,
+                    icon: effectiveIcon,
                     supports_appointments: form.supports_appointments,
                     requires_gabbai: form.requires_gabbai,
                     allows_custom_items_note: form.allows_custom_items_note,
@@ -340,21 +355,11 @@ export default function AdminVerticalsPage() {
                         {/* Icon picker */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-2 block">אייקון</label>
-                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                                {VERTICAL_ICON_OPTIONS.map((iconKey) => {
-                                    const Icon = getVerticalIcon(iconKey);
-                                    return (
-                                        <button
-                                            key={iconKey}
-                                            type="button"
-                                            onClick={() => setForm({ ...form, icon: iconKey })}
-                                            className={`aspect-square rounded-xl flex items-center justify-center border transition-colors ${form.icon === iconKey ? 'bg-[#d4af37] border-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] border-[#d4af37]/10 text-[#d4af37]/60 hover:border-[#d4af37]/40'}`}
-                                        >
-                                            <Icon size={18} />
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <IconPicker
+                                value={effectiveIcon}
+                                onChange={(iconKey) => { setForm({ ...form, icon: iconKey }); setIconTouched(true); }}
+                                suggestFor={form.label_he}
+                            />
                         </div>
 
                         {/* Options row */}

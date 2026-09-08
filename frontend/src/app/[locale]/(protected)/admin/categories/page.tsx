@@ -12,7 +12,8 @@ import {
 } from '@/lib/api';
 import { getErrorMessage } from '@/lib/getErrorMessage';
 import { Plus, X, Loader2, Pencil, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '@/lib/productCategoryIcons';
+import { getCategoryIcon, suggestIconsFor } from '@/lib/iconLibrary';
+import { IconPicker } from '@/components/admin/IconPicker';
 
 const LANGS = [
     { key: 'he', label: 'עברית', dir: 'rtl' as const },
@@ -58,6 +59,10 @@ export default function AdminCategoriesPage() {
     const [langTab, setLangTab] = useState<'he' | 'en' | 'fr' | 'yi'>('he');
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    // Whether the admin has manually picked an icon in the current form session — while false (on
+    // create only), the icon auto-live-updates to the best tag match for the typed Hebrew label.
+    // Always true on edit, so tweaking an existing category's label never silently swaps its icon.
+    const [iconTouched, setIconTouched] = useState(false);
 
     const showToast = (message: string, type: 'success' | 'error' = 'success') => setToast({ message, type });
 
@@ -78,6 +83,7 @@ export default function AdminCategoriesPage() {
         setEditCategory(null);
         setForm({ ...EMPTY_FORM, vertical: filterVertical || (activeVerticals[0]?.slug ?? '') });
         setLangTab('he');
+        setIconTouched(false);
         setShowForm(true);
     };
 
@@ -91,6 +97,7 @@ export default function AdminCategoriesPage() {
             is_active: c.is_active,
         });
         setLangTab('he');
+        setIconTouched(true);
         setShowForm(true);
     };
 
@@ -100,6 +107,14 @@ export default function AdminCategoriesPage() {
         setForm(EMPTY_FORM);
         setLangTab('he');
     };
+
+    // The icon actually shown/submitted — while the admin hasn't manually chosen one themselves,
+    // and only when creating a brand-new category (never on edit, where an already-assigned icon
+    // must not silently change just because the label text was tweaked), it live-derives to the
+    // best tag match for the typed Hebrew label. Computed at render time rather than written back
+    // into `form.icon` via a useEffect, which would call setState synchronously inside an effect
+    // (a real cascading-render anti-pattern flagged by eslint's react-hooks/set-state-in-effect).
+    const effectiveIcon = (!iconTouched && !editCategory && suggestIconsFor(form.label_he)[0]) || form.icon;
 
     const handleToggleActive = async (c: ProductCategory) => {
         if (!token) return;
@@ -123,7 +138,7 @@ export default function AdminCategoriesPage() {
             if (editCategory) {
                 await adminUpdateProductCategory(token, editCategory.id, {
                     label_he: form.label_he, label_en: form.label_en || null, label_fr: form.label_fr || null, label_yi: form.label_yi || null,
-                    icon: form.icon,
+                    icon: effectiveIcon,
                     display_order: form.display_order,
                     is_active: form.is_active,
                 });
@@ -132,7 +147,7 @@ export default function AdminCategoriesPage() {
                 await adminCreateProductCategory(token, {
                     vertical: form.vertical,
                     label_he: form.label_he, label_en: form.label_en || null, label_fr: form.label_fr || null, label_yi: form.label_yi || null,
-                    icon: form.icon,
+                    icon: effectiveIcon,
                     display_order: form.display_order,
                     is_active: form.is_active,
                 });
@@ -294,21 +309,11 @@ export default function AdminCategoriesPage() {
                         {/* Icon picker */}
                         <div>
                             <label className="text-xs text-[#f0e6d3]/50 mb-2 block">אייקון</label>
-                            <div className="grid grid-cols-6 gap-2 max-h-40 overflow-y-auto">
-                                {CATEGORY_ICON_OPTIONS.map((iconKey) => {
-                                    const Icon = getCategoryIcon(iconKey);
-                                    return (
-                                        <button
-                                            key={iconKey}
-                                            type="button"
-                                            onClick={() => setForm({ ...form, icon: iconKey })}
-                                            className={`aspect-square rounded-xl flex items-center justify-center border transition-colors ${form.icon === iconKey ? 'bg-[#d4af37] border-[#d4af37] text-[#080d1f]' : 'bg-[#111a2f] border-[#d4af37]/10 text-[#d4af37]/60 hover:border-[#d4af37]/40'}`}
-                                        >
-                                            <Icon size={16} />
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <IconPicker
+                                value={effectiveIcon}
+                                onChange={(iconKey) => { setForm({ ...form, icon: iconKey }); setIconTouched(true); }}
+                                suggestFor={form.label_he}
+                            />
                         </div>
 
                         <div className="flex items-center gap-6">

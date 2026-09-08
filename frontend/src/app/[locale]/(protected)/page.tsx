@@ -6,7 +6,7 @@ import { BarChart3 } from 'lucide-react';
 import VerticalTile from '@/components/VerticalTile';
 import { useAuth } from '@/context/AuthContext';
 import { getSurveys, getVerticals, Vertical } from '@/lib/api';
-import { getVerticalIcon } from '@/lib/verticalIcons';
+import { getVerticalIcon } from '@/lib/iconLibrary';
 import SurveyCard, { Survey } from '@/components/SurveyCard';
 
 interface HomeTranslation {

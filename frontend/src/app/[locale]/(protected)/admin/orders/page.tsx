@@ -10,7 +10,7 @@ import {
     vendorCode, CustomerOrder, CustomerOrderLine, OrderStatus, OrderInquiry,
 } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
-import { getVerticalIcon } from '@/lib/verticalIcons';
+import { getVerticalIcon } from '@/lib/iconLibrary';
 import { useBulkSelection } from '@/lib/useBulkSelection';
 import BulkActionToolbar from '@/components/admin/BulkActionToolbar';
 import CalendarView from '@/components/admin/CalendarView';

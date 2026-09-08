@@ -7,7 +7,7 @@ import { Inbox, Package, Users, Tag, Send, Loader2, TrendingUp, Bell, CheckCircl
 import { useAuth } from '@/context/AuthContext';
 import { adminGetStats, adminGetLeadStats, adminGetConversionStats, adminSendFollowupReminders, adminSendShoppingListReminders, adminSendCadenceNudges } from '@/lib/api';
 import { useVerticals } from '@/lib/useVerticals';
-import { getVerticalIcon } from '@/lib/verticalIcons';
+import { getVerticalIcon } from '@/lib/iconLibrary';
 
 const STAT_CARDS = [
     { key: 'open_leads',         label: 'פניות פתוחות',     href: 'leads',        color: 'text-blue-400',   ring: 'ring-blue-500/20',   bg: 'bg-blue-500/10' },

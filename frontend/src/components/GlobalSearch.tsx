@@ -4,7 +4,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { createPortal } from 'react-dom';
 import { Search, X } from 'lucide-react';
 import { searchProducts, productImageUrl, getVerticals, Vertical } from '@/lib/api';
-import { getVerticalIcon } from '@/lib/verticalIcons';
+import { getVerticalIcon } from '@/lib/iconLibrary';
 import { Product } from '@/components/ProductTile';
 import Link from 'next/link';
 

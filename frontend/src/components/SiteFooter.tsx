@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Phone, Mail, MapPin, ShieldCheck } from 'lucide-react';
 import { getVerticals, Vertical } from '@/lib/api';
-import { getVerticalIcon } from '@/lib/verticalIcons';
+import { getVerticalIcon } from '@/lib/iconLibrary';
 
 const tr: Record<string, Record<string, string>> = {
     he: {

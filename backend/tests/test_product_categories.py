@@ -1,4 +1,4 @@
-from app import models
+from app import models, schemas
 
 
 def _make_admin_headers(client, make_user, email="catadmin@example.com"):
@@ -274,6 +274,43 @@ def test_invalid_category_icon_rejected(client, db_session, make_user):
         headers=headers,
     )
     assert update_resp.status_code == 422
+
+
+def test_category_icon_accepts_new_library_icon(client, db_session, make_user):
+    """Icons like Handshake/Wifi only exist since the icon library was unified/expanded — confirms
+    the shared VALID_ICON_NAMES tuple (not the old, narrower 36-name VALID_CATEGORY_ICONS) is what
+    ProductCategory.icon is actually validated against now."""
+    db_session.add(models.Vertical(slug="diamonds", label_he="יהלומים", is_active=True))
+    db_session.commit()
+    headers = _make_admin_headers(client, make_user)
+
+    resp = client.post(
+        "/admin/product-categories",
+        json={"vertical": "diamonds", "label_he": "טכנולוגיה", "icon": "Wifi"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["icon"] == "Wifi"
+
+
+def test_valid_icon_names_is_superset_of_old_vertical_and_category_lists():
+    """Regression guard: neither list of icon names ever assigned to a real production row (the
+    original 11 vertical icons, the original 36 category icons) may be silently dropped from the
+    unified library — that would make an existing row's icon fall back to Tag/Store."""
+    old_vertical_icons = {
+        "Gem", "Car", "ShieldCheck", "Home", "Watch", "Briefcase", "Store", "Sparkles", "Heart", "Building2", "UtensilsCrossed",
+    }
+    old_category_icons = {
+        "Gem", "Sparkles", "Crown", "Diamond", "Watch", "Heart",
+        "Car", "Truck", "Bike", "Fuel", "Wrench",
+        "Home", "Sofa", "Lamp", "Bed",
+        "UtensilsCrossed", "Utensils", "Cake", "Wine", "Coffee", "ChefHat", "Soup",
+        "Shield", "FileText", "Umbrella", "Landmark",
+        "Tag", "Star", "Package", "ShoppingBag", "Shirt", "Gift",
+        "Baby", "SprayCan", "Bath", "PartyPopper",
+    }
+    missing = (old_vertical_icons | old_category_icons) - set(schemas.VALID_ICON_NAMES)
+    assert not missing, f"icon(s) dropped from VALID_ICON_NAMES: {missing}"
 
 
 def test_bulk_assign_rejects_inactive_category(client, db_session, make_user):

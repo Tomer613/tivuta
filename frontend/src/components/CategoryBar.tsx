@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LayoutGrid } from 'lucide-react';
 import { ProductCategory } from '@/lib/api';
-import { getCategoryIcon } from '@/lib/productCategoryIcons';
+import { getCategoryIcon } from '@/lib/iconLibrary';
 
 interface T {
     all: string;

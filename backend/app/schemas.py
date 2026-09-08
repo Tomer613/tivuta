@@ -389,9 +389,31 @@ class ProductAnalyticsRead(BaseModel):
 
 
 # Vertical ("world") Schemas
-# Must match frontend/src/lib/verticalIcons.tsx's VERTICAL_ICON_MAP keys exactly — lucide-react
-# icons are statically imported there, so an icon value outside this list would render nothing.
-VALID_VERTICAL_ICONS = ("Gem", "Car", "ShieldCheck", "Home", "Watch", "Briefcase", "Store", "Sparkles", "Heart", "Building2", "UtensilsCrossed")
+# Shared by both Vertical.icon and ProductCategory.icon — one unified, hand-tagged icon library
+# backs both admin icon pickers (search + tag-based suggestions). Must match
+# frontend/src/lib/iconLibrary.ts's ICON_LIBRARY keys exactly — lucide-react icons are statically
+# imported there, so an icon value outside this list would render nothing.
+VALID_ICON_NAMES = (
+    "Gem", "Diamond", "Crown", "Sparkles", "Sparkle", "Watch",
+    "Car", "CarFront", "Truck", "Bike", "Bus", "Plane", "Ship", "TrainFront", "ParkingCircle", "Fuel", "Anchor", "Rocket",
+    "Home", "Sofa", "Lamp", "Bed", "Warehouse", "Building", "Building2", "Fan", "Thermometer", "Refrigerator", "WashingMachine", "DoorOpen", "DoorClosed",
+    "UtensilsCrossed", "Utensils", "Cake", "Wine", "Coffee", "ChefHat", "Soup", "CookingPot", "Salad", "Pizza", "IceCreamCone", "Cookie", "Sandwich", "Croissant", "Apple", "Carrot", "Egg", "Milk", "Popcorn", "Beer", "Martini", "Cherry", "Grape",
+    "SprayCan", "Bath", "Droplets", "Trash2", "Recycle",
+    "Baby", "PersonStanding", "GraduationCap", "School", "Users", "Backpack", "ToyBrick", "Gamepad2",
+    "PartyPopper", "Gift", "Star", "CalendarHeart", "Balloon", "Music", "Flame",
+    "Shirt", "Glasses",
+    "Laptop", "Smartphone", "Tv", "Headphones", "Camera", "Battery", "Wifi", "Router", "HardDrive", "Keyboard", "Mouse",
+    "Wrench", "Hammer", "Cog", "Ruler", "Drill",
+    "HeartPulse", "Stethoscope", "Pill", "Bandage", "Scissors", "Heart",
+    "Dumbbell", "Trophy", "Volleyball",
+    "Dog", "Cat", "Fish", "PawPrint", "Bird", "Rabbit", "Turtle", "Squirrel", "Snail",
+    "Book", "BookOpen", "Pencil", "Printer", "Calculator", "FolderOpen", "Mail", "Phone", "MessageCircle", "Briefcase",
+    "TreePine", "Flower2", "Leaf", "Sun", "Moon", "CloudSun", "CloudRain", "Snowflake", "Sprout", "Trees", "Palmtree", "Sunrise", "Sunset", "Feather", "Compass", "Globe", "Map",
+    "Tag", "Package", "ShoppingBag", "ShoppingCart", "Store", "Boxes", "Award", "ThumbsUp", "CheckCircle2", "Percent", "BadgePercent", "BadgeCheck",
+    "Shield", "ShieldCheck", "FileText", "Umbrella", "Landmark", "FileCheck", "Scale", "Gavel", "Handshake", "ClipboardCheck", "Receipt", "CreditCard", "Banknote", "PiggyBank", "Lock", "Cctv", "Siren", "AlertTriangle",
+    "Key", "KeyRound", "MapPin",
+    "Palette", "Paintbrush", "Guitar", "Film", "Clapperboard", "Bell", "BellRing",
+)
 
 # Must match frontend/src/components/FilterSortSidebar.tsx's SortOption union exactly — this is
 # the value GET /products falls back to for this vertical until the customer picks a different one.
@@ -465,8 +487,8 @@ class VerticalCreate(VerticalBase):
     @field_validator("icon")
     @classmethod
     def _validate_icon(cls, v: str) -> str:
-        if v not in VALID_VERTICAL_ICONS:
-            raise ValueError(f"icon must be one of {VALID_VERTICAL_ICONS}")
+        if v not in VALID_ICON_NAMES:
+            raise ValueError(f"icon must be one of {VALID_ICON_NAMES}")
         return v
 
 
@@ -493,8 +515,8 @@ class VerticalUpdate(BaseModel):
     @field_validator("icon")
     @classmethod
     def _validate_icon(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in VALID_VERTICAL_ICONS:
-            raise ValueError(f"icon must be one of {VALID_VERTICAL_ICONS}")
+        if v is not None and v not in VALID_ICON_NAMES:
+            raise ValueError(f"icon must be one of {VALID_ICON_NAMES}")
         return v
 
     @field_validator("default_sort")
@@ -524,18 +546,8 @@ class VerticalRead(VerticalBase):
 # Product Category Schemas — sub-categories scoped to a single Vertical (e.g. "Rings" under
 # diamonds). Deliberately not named "Category"/exposed at "/categories" — those already belong to
 # the unrelated legacy benefits catalog (see models.Category / routers/catalog.py).
-# Must match frontend/src/lib/productCategoryIcons.ts's CATEGORY_ICON_MAP keys exactly — a
-# broader set than VALID_VERTICAL_ICONS above, since a category is finer-grained than a world
-# (e.g. "Rings" vs "Necklaces" within diamonds, not just "diamonds" vs "cars").
-VALID_CATEGORY_ICONS = (
-    "Gem", "Sparkles", "Crown", "Diamond", "Watch", "Heart",
-    "Car", "Truck", "Bike", "Fuel", "Wrench",
-    "Home", "Sofa", "Lamp", "Bed",
-    "UtensilsCrossed", "Utensils", "Cake", "Wine", "Coffee", "ChefHat", "Soup",
-    "Shield", "FileText", "Umbrella", "Landmark",
-    "Tag", "Star", "Package", "ShoppingBag", "Shirt", "Gift",
-    "Baby", "SprayCan", "Bath", "PartyPopper",
-)
+# Icon validation shares VALID_ICON_NAMES (defined above, near VerticalBase) with Vertical.icon —
+# one unified icon library backs both admin pickers.
 
 
 class ProductCategoryBase(BaseModel):
@@ -551,8 +563,8 @@ class ProductCategoryBase(BaseModel):
     @field_validator("icon")
     @classmethod
     def _validate_icon(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in VALID_CATEGORY_ICONS:
-            raise ValueError(f"icon must be one of {VALID_CATEGORY_ICONS}")
+        if v is not None and v not in VALID_ICON_NAMES:
+            raise ValueError(f"icon must be one of {VALID_ICON_NAMES}")
         return v
 
 
@@ -573,8 +585,8 @@ class ProductCategoryUpdate(BaseModel):
     @field_validator("icon")
     @classmethod
     def _validate_icon(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None and v not in VALID_CATEGORY_ICONS:
-            raise ValueError(f"icon must be one of {VALID_CATEGORY_ICONS}")
+        if v is not None and v not in VALID_ICON_NAMES:
+            raise ValueError(f"icon must be one of {VALID_ICON_NAMES}")
         return v
 
 
