@@ -79,3 +79,8 @@ BEGIN
             WITH CHECK (true);
     END IF;
 END $$;
+
+-- 5. Explicit Data API grants (required by Supabase from October 30 onwards)
+GRANT INSERT ON public.leads TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.leads TO authenticated;
+GRANT ALL ON public.leads TO service_role;
